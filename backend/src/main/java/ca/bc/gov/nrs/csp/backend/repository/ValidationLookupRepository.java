@@ -94,6 +94,15 @@ public class ValidationLookupRepository {
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
+    public boolean existsSubmissionStatusCode(String code) {
+        if (code == null || code.isBlank()) return false;
+        String sql = "SELECT COUNT(*) FROM THE.csp_submission_status_code" +
+                " WHERE csp_submission_status_code = :code";
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("code", code);
+        Integer count = jdbc.queryForObject(sql, params, Integer.class);
+        return count != null && count > 0;
+    }
+
     public boolean existsDuplicateFlatPriceConversion(
             String modellingCode, String sortCode, Long speciesGradeXrefId,
             String maturity, LocalDate effectiveDate, Long excludeId) {

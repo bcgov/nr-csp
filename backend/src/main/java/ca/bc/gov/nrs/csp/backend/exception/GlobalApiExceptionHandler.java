@@ -18,6 +18,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 import java.util.Locale;
@@ -129,6 +130,18 @@ public class GlobalApiExceptionHandler {
         log.error("Report generation failed.", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiError("REPORT_ERROR", ex.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        clearProducibleMediaTypes(request);
+        String message = "Invalid value for parameter '" + ex.getName() + "': '" + ex.getValue() + "'.";
+        if (ex.getRequiredType() != null
+                && java.time.LocalDate.class.isAssignableFrom(ex.getRequiredType())) {
+            message += " Expected format: yyyy-MM-dd.";
+        }
+        log.warn("Type mismatch: {}", message);
+        return ResponseEntity.badRequest().body(new ApiError("BAD_REQUEST", message));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
