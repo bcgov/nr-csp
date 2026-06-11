@@ -1,0 +1,8 @@
+// The red asterisk shown alongside any required-field label.
+// Consumed by RequiredLabel — import this component rather than
+// copying the asterisk pattern into individual page files.
+
+.required-label__star {
+  color: var(--cds-support-error);
+  margin-right: 0.25rem;
+}

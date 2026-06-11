@@ -1,0 +1,38 @@
+# VSCODE, Intellij and Eclipse ignore
+**/*.vscode
+.idea/
+**/local.*
+**/.classpath
+**/.project
+**/.settings/
+.smarttomcat/
+apt2-war.iml
+
+# Local java stuff to ignore
+**/target/
+**/lib*
+**pom-build.xml**
+**build.xml**
+**ivy.xml**
+**/context.xml
+jasper-staging/
+
+# Polaris pipeline stuff to ginore
+playbooks/collections/
+.yo-rc.json
+.DS_Store
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+/backend/sonar-project.properties
+/frontend/sonar-project.properties
+/backend/sonar-scanner.properties
+/frontend/sonar-scanner.properties
+/frontend/.scannerwork/**
+/backend/.scannerwork/**
+
+**/application.properties

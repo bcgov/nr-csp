@@ -1,0 +1,67 @@
+@use '@carbon/react/scss/spacing' as *;
+
+/// Shared form-field styling for report pages.
+///
+/// @param {Length} $input-height [3rem] — The block-size applied to all
+///   text/date/select/list-box inputs.  Pass 2.5rem (= Carbon "md") for pages
+///   that target 40px inputs instead of the default 48px.
+///
+/// @example scss — default (48px)
+///   @include report-form-size;
+///
+/// @example scss — compact (40px)
+///   @include report-form-size(2.5rem);
+@mixin report-form-size($input-height: 3rem) {
+  .cds--label {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .cds--text-input,
+  .cds--date-picker__input,
+  .cds--select-input {
+    height: $input-height !important;
+    background-color: var(--cds-field-01) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--cds-text-primary) !important;
+    border-radius: 0 !important;
+
+    &:hover {
+      background-color: var(--cds-field-01) !important;
+    }
+
+    &:focus {
+      outline: none !important;
+      box-shadow: none !important;
+      border-bottom: 2px solid var(--cds-focus) !important;
+    }
+  }
+
+  .cds--dropdown.cds--list-box,
+  .cds--combo-box.cds--list-box,
+  .cds--multi-select.cds--list-box,
+  .cds--list-box:not(.cds--list-box__menu) {
+    height: $input-height !important;
+    background-color: var(--cds-field-01) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--cds-text-primary) !important;
+    border-radius: 0 !important;
+  }
+
+  .cds--list-box__wrapper {
+    border-bottom: none !important;
+  }
+
+  .cds--list-box__field {
+    height: 100% !important;
+    border-bottom: none !important;
+  }
+
+  .cds--list-box .cds--text-input {
+    border-bottom: none !important;
+  }
+
+  .cds--list-box:not(.cds--list-box__menu):focus-within {
+    border-bottom: 2px solid var(--cds-focus) !important;
+  }
+}

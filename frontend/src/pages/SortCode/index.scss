@@ -1,0 +1,65 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+
+.table-maintenance-page {
+  padding: $spacing-05 0;
+
+  // Kill Carbon's grid side padding so the table column is flush with page edges.
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  &__title-col {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+    padding-bottom: $spacing-06;
+  }
+
+  &__title {
+    @include type.type-style('productive-heading-06', true);
+    margin-bottom: 0;
+  }
+
+  &__actions-header {
+    width: 7rem;
+  }
+
+  &__row-actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  .cds--table-toolbar {
+    background-color: var(--cds-layer) !important;
+  }
+
+  :root[data-carbon-theme='g10'] & {
+    .cds--table-toolbar {
+      background-color: #f4f4f4 !important;
+    }
+  }
+
+  .cds--table-header-label {
+    font-weight: 700;
+  }
+
+  // Prevent isSortable sorted-column highlight from tinting body cell text
+  .cds--data-table tbody tr td,
+  .cds--data-table tbody tr td * {
+    color: var(--cds-text-primary) !important;
+  }
+
+  // The rule above overrides the tooltip text colour. Re-apply Carbon's own
+  // popover text token so the high-contrast tooltip (dark bg, white text) works.
+  .cds--data-table tbody tr td .cds--popover-content {
+    color: var(--cds-popover-text-color) !important;
+    background-color: var(--cds-popover-background-color) !important;
+  }
+
+  &__row-actions .cds--btn--ghost svg,
+  &__row-actions .cds--btn--ghost svg * {
+    fill: var(--cds-link-primary) !important;
+  }
+}

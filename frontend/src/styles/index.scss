@@ -1,0 +1,24 @@
+@use './variables' as *;
+@use './mixins' as *;
+@use './overrides';
+
+// Light theme overrides only — white page background with grey input fields.
+// Scoped to data-carbon-theme='g10' so the g100 dark theme keeps Carbon's
+// proper dark backgrounds and avoids dark text on a forced-white background.
+:root[data-carbon-theme='g10'] {
+  background-color: #ffffff !important;
+
+  body,
+  .cds--content,
+  .cds--side-nav {
+    background-color: #ffffff !important;
+  }
+
+  .cds--text-input,
+  .cds--date-picker__input,
+  .cds--list-box,
+  .cds--list-box__field,
+  .cds--search-input {
+    background-color: #f4f4f4 !important;
+  }
+}

@@ -1,0 +1,68 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+@use '@carbon/type';
+@use '../../styles/mixins' as mixins;
+
+.r06-page {
+  padding: $spacing-06;
+
+  &__title {
+    @include type.type-style('heading-05');
+    margin-bottom: $spacing-07;
+  }
+
+  &__section-heading {
+    @include type.type-style('heading-02');
+    font-weight: 600;
+    margin-bottom: $spacing-06;
+
+    &--spaced {
+      margin-top: $spacing-06;
+    }
+  }
+
+  // Bug #1: --cds-grid-gutter is set to 0 globally in _overrides.scss.
+  // Add explicit right padding to every form column to restore visible gaps.
+  &__form-col {
+    margin-bottom: $spacing-08;
+
+    &--left {
+      padding-right: $spacing-05;
+    }
+  }
+
+  // Row-break spacer: forces a new row at lg viewports.
+  // Hidden at md and below where columns fill rows naturally.
+  &__row-break {
+    @include breakpoint-down(lg) {
+      display: none;
+    }
+  }
+
+  &__add-range-col {
+    padding-right: $spacing-05;
+    padding-bottom: $spacing-03;
+
+    .cds--btn {
+      width: 100%;
+      max-width: 100%;
+      justify-content: flex-start;
+      gap: $spacing-03;
+    }
+  }
+
+  &__export-btn-col {
+    padding-top: $spacing-05;
+
+    .cds--btn {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    &--left {
+      padding-right: $spacing-05;
+    }
+  }
+
+  @include mixins.report-form-size;
+}

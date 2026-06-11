@@ -1,0 +1,73 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.search-page {
+  padding-top: $spacing-07;
+  padding-bottom: $spacing-07;
+
+  // Kill Carbon's grid side padding so columns are flush with .search-page edges.
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Apply horizontal padding only to the filter-side content so it keeps its
+  // inset look. The table column has no padding and therefore stretches edge to edge.
+  .page-title-col,
+  &__filter-row,
+  &__clear-col,
+  &__error-col {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  &__title {
+    font-size: 1.75rem;
+    font-weight: 400;
+    line-height: 1.29;
+    letter-spacing: 0;
+    margin-bottom: $spacing-06;
+  }
+
+  .page-title-col {
+    margin-bottom: $spacing-07;
+  }
+
+  &__filter-row {
+    display: flex;
+    gap: $spacing-02;
+    margin-bottom: $spacing-05;
+
+    &--with-btn {
+      align-items: flex-end;
+    }
+  }
+
+  &__filter-item {
+    flex: 1;
+    min-width: 0;
+
+    &--double {
+      flex: 2;
+    }
+
+    .cds--btn {
+      width: 100%;
+      max-width: 100%;
+    }
+  }
+
+  &__clear-col {
+    margin-top: $spacing-03;
+    margin-bottom: $spacing-03;
+  }
+
+  &__table-col {
+    margin-top: $spacing-05;
+  }
+
+  // Spacing for filter form fields rendered inside the FormModal
+  &__modal-col {
+    padding-right: $spacing-03;
+    margin-bottom: $spacing-05;
+  }
+}

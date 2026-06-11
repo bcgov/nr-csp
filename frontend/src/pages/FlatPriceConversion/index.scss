@@ -1,0 +1,125 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+
+.flat-price-conversion-page {
+  padding: $spacing-06 0;
+
+  // Kill Carbon's grid side padding so the table column is flush with page edges.
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  &__title-col {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+    padding-bottom: $spacing-09;
+  }
+
+  &__title {
+    @include type.type-style('productive-heading-06', true);
+    margin-bottom: 0;
+  }
+
+  // Bug fix: --cds-grid-gutter is 0 globally, add manual gaps between filter columns
+  &__filter-col {
+    padding-right: $spacing-03;
+    padding-bottom: $spacing-05;
+
+    &--first {
+      padding-left: $spacing-07;
+    }
+  }
+
+  &__search-col {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: $spacing-05;
+    padding-right: $spacing-07;
+
+    .cds--btn {
+      width: 75%;
+      max-width: 75%;
+    }
+  }
+
+  // Invisible spacer whose rendered height exactly matches Carbon's form label
+  // (same type-style + same margin-block-end), so the Search button bottom-aligns
+  // with the adjacent filter dropdowns without any pixel guesswork.
+  &__search-label-spacer {
+    @include type.type-style('label-01');
+    line-height: 1rem;
+    display: block;
+    margin-block-end: $spacing-03;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  &__clear-col {
+    padding-left: $spacing-07;
+    padding-top: $spacing-04;
+    padding-bottom: $spacing-08;
+  }
+
+  &__results-count {
+    @include type.type-style('body-short-01');
+    flex: 1;
+    align-self: center;
+    padding-left: $spacing-05;
+    color: var(--cds-text-primary);
+  }
+
+  // Prevent the ComboBox field from adding its own bottom border on top of the
+  // underline that SearchableSelect component SCSS applies at the outer level.
+  .cds--list-box__field {
+    border-bottom: none !important;
+  }
+
+  .cds--table-toolbar {
+    background-color: var(--cds-layer) !important;
+  }
+
+  :root[data-carbon-theme='g10'] & {
+    .cds--table-toolbar {
+      background-color: #f4f4f4 !important;
+    }
+  }
+
+  &__actions-header {
+    width: 7rem;
+  }
+
+  &__row-actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  .cds--table-header-label {
+    font-weight: 700;
+  }
+
+  // Prevent isSortable sorted-column highlight from tinting body cell text
+  .cds--data-table tbody tr td,
+  .cds--data-table tbody tr td * {
+    color: var(--cds-text-primary) !important;
+  }
+
+  // The rule above overrides the tooltip text colour. Re-apply Carbon's own
+  // popover text token so the high-contrast tooltip (dark bg, white text) works.
+  .cds--data-table tbody tr td .cds--popover-content {
+    color: var(--cds-popover-text-color) !important;
+    background-color: var(--cds-popover-background-color) !important;
+  }
+
+  &__row-actions .cds--btn--ghost svg,
+  &__row-actions .cds--btn--ghost svg * {
+    fill: var(--cds-link-primary) !important;
+  }
+
+  &__empty-state {
+    padding: $spacing-05;
+    color: var(--cds-text-secondary);
+  }
+}

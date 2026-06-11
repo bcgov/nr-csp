@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  log4j2-spring.xml
+  Spring Boot-aware name; loaded after the Spring context so SpringProfile lookups work.
+
+  Rolling file appender is opt-in via environment variables:
+    APP_LOG_FILE_ENABLED=true           enables file output (default: false)
+    APP_LOG_FILE_PATH=./logs/app.log    overrides the file path (default shown)
+
+  Per-package log levels are driven by application.yml logging.level.* at runtime.
+-->
+<Configuration status="WARN">
+
+    <Properties>
+        <Property name="LOG_PATTERN">%d{ISO8601} [%t] %-5p %c{1} - %m%n</Property>
+        <Property name="FILE_ENABLED">${env:APP_LOG_FILE_ENABLED:-false}</Property>
+        <Property name="FILE_PATH">${env:APP_LOG_FILE_PATH:-./logs/app.log}</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <!-- Null appender used when file logging is disabled -->
+        <Null name="Null"/>
+
+        <RollingFile name="RollingFile"
+                     fileName="${FILE_PATH}"
+                     filePattern="${FILE_PATH}.%d{yyyy-MM-dd}.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!--
+          Routes to RollingFile when APP_LOG_FILE_ENABLED=true, otherwise discards.
+          The ${FILE_ENABLED} property is evaluated once at startup.
+        -->
+        <Routing name="FileRouter">
+            <Routes pattern="${FILE_ENABLED}">
+                <Route key="true" ref="RollingFile"/>
+                <Route key="false" ref="Null"/>
+            </Routes>
+        </Routing>
+    </Appenders>
+
+    <Loggers>
+        <!-- Application packages -->
+        <Logger name="ca.bc.gov.nrs.csp" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileRouter"/>
+        </Logger>
+
+        <!-- Spring Framework -->
+        <Logger name="org.springframework" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileRouter"/>
+        </Logger>
+
+        <!-- Spring Security — WARN by default; set DEBUG in local profile via application.yml -->
+        <Logger name="org.springframework.security" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileRouter"/>
+        </Logger>
+
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileRouter"/>
+        </Root>
+    </Loggers>
+
+</Configuration>

@@ -1,0 +1,3 @@
+-- Test schema bootstrap
+-- Add DDL / DML seeds for integration tests here.
+-- This file is intentionally empty until the first feature IT is added.

@@ -1,0 +1,211 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.results-table {
+  // Paint the underlying table element grey so any gap Carbon leaves at the
+  // row edges (visible as white slivers around the empty-state row) reads as
+  // the layer color instead of bleeding through to the page background.
+  .cds--data-table {
+    background-color: var(--cds-layer);
+  }
+
+  // Zebra striping using Carbon layer tokens so cell backgrounds automatically
+  // track the active theme. Hardcoded hex values with theme-scoped !important
+  // can become stale when the theme attribute flips after rows are already in
+  // the DOM, leaving some cells with their old (light) background.
+  .cds--data-table tbody tr:nth-child(odd) td {
+    background-color: var(--cds-layer) !important;
+  }
+
+  .cds--data-table tbody tr:nth-child(even) td {
+    background-color: var(--cds-background) !important;
+  }
+
+  // In dark mode Carbon's table header and body rows can look very similar.
+  // Give headers a stronger background and bold text so they read clearly
+  // against data rows in both light and dark themes.
+  .cds--data-table thead th {
+    background-color: var(--cds-layer-accent);
+    font-weight: 700 !important;
+
+    // Sortable headers wrap text in a button — explicitly carry bold through.
+    .cds--table-sort,
+    .cds--table-header-label {
+      font-weight: 700 !important;
+    }
+  }
+
+  // Carbon's row hover paints the cell background on hover, which bleeds
+  // around the empty-state container as left/right strips. Pin the empty
+  // row's cell to the layer color (grey in light theme) and zero its padding
+  // so the inner empty-state div fills the cell edge-to-edge.
+  &__empty-row,
+  &__empty-row:hover {
+    td,
+    &:hover td {
+      background-color: var(--cds-layer) !important;
+      padding: 0 !important;
+      border: 0;
+    }
+  }
+
+  &__empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: $spacing-12 0;
+    background-color: var(--cds-layer);
+  }
+
+  // Pin the empty-state grey in light theme only so dark mode shows its own layer color.
+  :root[data-carbon-theme='g10'] & {
+    &__empty-row td,
+    &__empty-row:hover td,
+    &__empty-state {
+      background-color: #f4f4f4 !important;
+    }
+  }
+
+  &__empty-pictogram {
+    width: 5rem;
+    height: 5rem;
+    margin-bottom: $spacing-05;
+  }
+
+  &__empty-title {
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: $spacing-03;
+    color: var(--cds-text-primary);
+  }
+
+  &__empty-description {
+    font-size: 0.875rem;
+    line-height: 1.43;
+    color: var(--cds-text-secondary);
+    margin: 0;
+  }
+
+  // Light theme: match the pagination bar to the table header grey so the table,
+  // its header, and the pagination bar all share one visual surface.
+  :root[data-carbon-theme='g10'] & {
+    .cds--pagination,
+    .cds--pagination__left,
+    .cds--pagination__right,
+    .cds--pagination .cds--select__item-count,
+    .cds--pagination .cds--select__page-number {
+      background-color: var(--cds-layer-accent) !important;
+    }
+  }
+
+  // Dark theme: match the pagination bar to the keyword search bar so they read
+  // as the same surface above and below the table.
+  :root[data-carbon-theme='g100'] & {
+    .cds--pagination,
+    .cds--pagination__left,
+    .cds--pagination__right,
+    .cds--pagination .cds--select__item-count,
+    .cds--pagination .cds--select__page-number {
+      background-color: var(--cds-field) !important;
+    }
+  }
+
+  // ============================================================
+  // Tooltip + nested-content overflow fixes (apply to all tables)
+  // ============================================================
+  // Without these, IconButton tooltips inside a data table cell are clipped
+  // by the data table's horizontal scroll container, child-row inner
+  // container, or even the surrounding td/tr/tbody. Letting overflow be
+  // visible on all of these chains makes portal-aligned tooltips
+  // (IconButton autoAlign) float freely above the table.
+  .cds--data-table-container {
+    overflow: visible;
+  }
+
+  .cds--data-table td,
+  .cds--data-table tr,
+  .cds--data-table tbody {
+    overflow: visible;
+  }
+
+  .cds--child-row-inner-container {
+    overflow: visible;
+  }
+
+  // Lift the icon tooltips above the table content, but keep them on Carbon's
+  // `floating` layer (6000) — below modals (9000) and dropdowns (9100) — so
+  // they no longer paint over other popups when one is open.
+  .cds--tooltip,
+  .cds--icon-tooltip,
+  .cds--tooltip-content {
+    z-index: 6000 !important;
+  }
+}
+
+// ============================================================
+// Expandable variant
+// ============================================================
+// When ResultsTable is rendered with `expandable={true}` the wrapper picks
+// up the `results-table--expandable` modifier. The rules below replace the
+// standard odd/even zebra with a paired-zebra (each parent row + its
+// expanded child share one stripe colour) and expose a CSS custom property
+// `--row-bg` that consumers can read inside `renderExpandedContent` to
+// match the parent row's background.
+.results-table--expandable {
+  // The darker paired-zebra stripe. Lightened from the raw `--cds-layer-accent-01`
+  // token by mixing it back toward the lighter `--cds-layer` stripe, so the grey
+  // reads softer while still flipping correctly between light and dark themes.
+  --rt-zebra-grey: color-mix(in srgb, var(--cds-layer-accent-01) 75%, var(--cds-layer));
+
+  // Paired zebra — uses Carbon layer tokens so it flips correctly between
+  // light and dark themes. Specificity is (0,3,3)+!important to beat the
+  // generic odd/even zebra defined above.
+  .cds--data-table tbody tr:nth-child(4n + 1) td,
+  .cds--data-table tbody tr:nth-child(4n + 2) td {
+    background-color: var(--cds-layer) !important;
+  }
+
+  .cds--data-table tbody tr:nth-child(4n + 3) td,
+  .cds--data-table tbody tr:nth-child(4n + 4) td {
+    background-color: var(--rt-zebra-grey) !important;
+  }
+
+  // Stamp `--row-bg` ONLY on the outer expanded-row tds. `[data-child-row]`
+  // is only present on outer expanded trs — inner table rows never have it,
+  // so they safely inherit this value rather than having it set on them.
+  .cds--data-table tbody tr[data-child-row]:nth-child(4n + 2) > td {
+    --row-bg: var(--cds-layer);
+  }
+
+  .cds--data-table tbody tr[data-child-row]:nth-child(4n + 4) > td {
+    --row-bg: var(--rt-zebra-grey);
+  }
+
+  // Default styling for the inner Carbon container that wraps expanded
+  // content — paint it with the parent row's colour via `--row-bg` so
+  // nested tables and other content blend in cleanly.
+  .cds--child-row-inner-container {
+    background-color: var(--row-bg, var(--cds-layer));
+  }
+
+  // Nested data tables inside expanded rows should be visually flat — let
+  // them inherit `--row-bg` rather than painting their own background.
+  .cds--child-row-inner-container .cds--data-table,
+  .cds--child-row-inner-container .cds--data-table thead,
+  .cds--child-row-inner-container .cds--data-table thead tr {
+    background-color: transparent !important;
+  }
+
+  // ...except the nested column headers, which match the top-level table's
+  // header surface (the same accent grey) so the expanded sub-table reads as
+  // a proper headed table rather than blending into the row.
+  .cds--child-row-inner-container .cds--data-table thead th,
+  .cds--child-row-inner-container .cds--data-table thead th:hover {
+    background-color: var(--cds-layer-accent) !important;
+  }
+
+  .cds--child-row-inner-container .results-table .cds--data-table tbody tr:nth-child(odd) td,
+  .cds--child-row-inner-container .results-table .cds--data-table tbody tr:nth-child(even) td {
+    background-color: var(--row-bg, var(--cds-layer)) !important;
+  }
+}

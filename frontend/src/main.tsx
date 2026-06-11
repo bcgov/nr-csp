@@ -1,26 +1,20 @@
-import '@bcgov/bc-sans/css/BC_Sans.css'
-import { StrictMode } from 'react'
-import * as ReactDOM from 'react-dom/client'
-import { RouterProvider, createRouter } from '@tanstack/react-router'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 
-// Import bootstrap styles
-import '@/scss/styles.scss'
+import { Amplify } from 'aws-amplify';
 
-// Import the generated route tree
-import { routeTree } from './routeTree.gen'
+import { getAmplifyConfig } from './amplify-initializer';
+import { env } from './env';
+import App from './App';
+import './styles/index.scss';
 
-// Create a new router instance
-const router = createRouter({ routeTree })
-
-// Register the router instance for type safety
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: typeof router
-  }
+// Skip Amplify configuration in mock mode — window.amplifyConfig may not be set.
+if (!env.mockUser) {
+  Amplify.configure(getAmplifyConfig());
 }
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <StrictMode>
-    <RouterProvider router={router} />
-  </StrictMode>,
-)
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

@@ -1,0 +1,44 @@
+.invoice-status-tag {
+  &.cds--tag--red {
+    color: #750e13;
+  }
+  &.cds--tag--magenta {
+    color: #740937;
+  }
+  &.cds--tag--purple {
+    color: #491d8b;
+  }
+  &.cds--tag--blue {
+    color: #002d9c;
+  }
+  &.cds--tag--cyan {
+    color: #003a6d;
+  }
+  &.cds--tag--teal {
+    color: #005d5d;
+  }
+  &.cds--tag--green {
+    color: #005500;
+  }
+  &.cds--tag--gray {
+    color: #393939;
+  }
+  &.cds--tag--cool-gray {
+    color: #21272a;
+  }
+  &.cds--tag--warm-gray {
+    color: #272525;
+  }
+}
+
+.invoice-status-tag--approved {
+  background-color: #cce5cc;
+  color: #005500;
+}
+
+:root[data-carbon-theme='g100'] {
+  .invoice-status-tag,
+  .invoice-status-tag--approved {
+    color: #ffffff;
+  }
+}

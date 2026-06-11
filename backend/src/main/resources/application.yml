@@ -1,0 +1,85 @@
+server:
+  servlet:
+    context-path: /
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+# ===================================================================
+# JasperReports Server Configuration
+# ===================================================================
+jasper:
+  server:
+    login-url: ${JASPER_SERVER_LOGIN_URL:https://snow.nrs.bcgov/ext/jcrs/rest/login}
+    fetch-url: ${JASPER_SERVER_FETCH_URL:https://snow.nrs.bcgov/ext/jcrs/rest/report/}
+    put-url: ${JASPER_SERVER_PUT_URL:https://snow.nrs.bcgov/ext/jcrs/rest/report/JCRS/CSP/Reports/}
+    report-uri-base: ${JASPER_SERVER_REPORT_URI_BASE:/JCRS/CSP/Reports/}
+    username: ${JASPER_SERVER_USERNAME:}
+    password: ${JASPER_SERVER_PASSWORD:}
+    ssl-verify: ${JASPER_SERVER_SSL_VERIFY:true}
+
+# ===================================================================
+# JWT / JWKS Configuration
+# ===================================================================
+security:
+  jwt:
+    jwks-uri: ${JWT_JWKS_URI:https://cognito-idp.ca-central-1.amazonaws.com/REPLACE_WITH_YOUR_COGNITO_USER_POOL_ID/.well-known/jwks.json}
+    issuer: ${JWT_ISSUER:}
+    audience: ${JWT_AUDIENCE:}
+
+# ===================================================================
+# Logging — per-package levels (override via env or logging.level.*)
+# ===================================================================
+logging:
+  level:
+    root: INFO
+    ca.bc.gov.nrs.csp: INFO
+    org.springframework: INFO
+    org.springframework.security: WARN
+
+---
+# Local development profile
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: oracle.jdbc.OracleDriver
+
+security:
+  jwt:
+    jwks-uri: ${JWT_JWKS_URI:https://cognito-idp.ca-central-1.amazonaws.com/REPLACE_WITH_YOUR_COGNITO_USER_POOL_ID/.well-known/jwks.json}
+
+auth:
+  mock:
+    enabled: ${AUTH_MOCK_ENABLED:true}
+    username: local-dev-user
+    roles: ${AUTH_MOCK_ROLES:ADMIN}
+
+logging:
+  level:
+    ca.bc.gov.nrs.csp: DEBUG
+    org.springframework.security: DEBUG
+
+---
+# Production profile (all credentials injected by OpenShift env vars)
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+
+auth:
+  mock:
+    enabled: false

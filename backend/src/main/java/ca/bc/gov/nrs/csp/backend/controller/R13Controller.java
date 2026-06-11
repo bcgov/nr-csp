@@ -1,0 +1,40 @@
+package ca.bc.gov.nrs.csp.backend.controller;
+
+import ca.bc.gov.nrs.csp.backend.controller.api.R13Api;
+import ca.bc.gov.nrs.csp.backend.controller.dto.report.R13ReportRequest;
+import ca.bc.gov.nrs.csp.backend.service.R13Service;
+import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class R13Controller implements R13Api {
+
+    private static final Logger log = LoggerFactory.getLogger(R13Controller.class);
+
+    private final R13Service r13Service;
+
+    public R13Controller(R13Service r13Service) {
+        this.r13Service = r13Service;
+    }
+
+    @Override
+    public ResponseEntity<Resource> generateR13Report(R13ReportRequest request) {
+        ReportResult result = r13Service.generateReport(request);
+        String format = request.getReportFormat().getValue();
+        log.info("POST   /api/R13 → 200 OK\n       body: {}", request);
+        MediaType mediaType = "CSV".equalsIgnoreCase(format)
+                ? MediaType.parseMediaType("text/csv") : MediaType.APPLICATION_PDF;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.filename() + "\"")
+                .contentType(mediaType)
+                .contentLength(result.data().length)
+                .body(new ByteArrayResource(result.data()));
+    }
+}

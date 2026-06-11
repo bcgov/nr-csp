@@ -1,0 +1,55 @@
+@use '@carbon/react/scss/spacing' as *;
+
+// Full-width 50/50 split buttons in the footer with compact height,
+// vertically centered text, and a right-anchored icon.
+.form-modal {
+  // Allow dropdown menus to visually overflow the modal rather than being
+  // clipped by the container's default overflow behaviour.
+  .cds--modal-container {
+    overflow: visible;
+  }
+
+  .cds--modal-content {
+    overflow: visible;
+  }
+
+  .cds--modal-footer {
+    padding: $spacing-05;
+    gap: $spacing-03;
+    block-size: auto;
+
+    // Carbon's `.cds--modal-footer .cds--btn` has the same specificity as
+    // ours, so longhand `padding-block-*` overrides don't always win in the
+    // cascade. Use the `padding` shorthand + !important to guarantee reset.
+    .cds--btn {
+      flex: 1;
+      max-width: none;
+      block-size: 3rem !important;
+      min-block-size: 3rem !important;
+      max-block-size: 3rem !important;
+      padding: 0 $spacing-07 0 $spacing-05 !important;
+      align-items: center;
+
+      // Carbon's modal-footer absolutely positions the icon at the
+      // top-right — re-anchor it to the vertical center.
+      .cds--btn__icon {
+        position: absolute;
+        inset-block-start: 50% !important;
+        inset-inline-end: $spacing-05 !important;
+        margin-block-start: 0 !important;
+        transform: translateY(-50%);
+      }
+    }
+  }
+
+  // Inline spinner shown alongside the submit label (pushed to the right edge,
+  // where the icon normally sits) while the action runs. Kept in normal flow —
+  // the footer button's `align-items: center` centres it vertically. We can't
+  // use absolute + `transform: translateY(-50%)` here because Carbon's spin
+  // animation drives `transform` on this same element and would override it.
+  &__submit-spinner.cds--loading {
+    width: 1rem;
+    height: 1rem;
+    margin-inline-start: auto;
+  }
+}

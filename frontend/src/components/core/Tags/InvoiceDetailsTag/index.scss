@@ -1,0 +1,10 @@
+.invoice-details-tag {
+  background-color: #cce5cc;
+  color: #005500;
+}
+
+:root[data-carbon-theme='g100'] {
+  .invoice-details-tag {
+    color: #ffffff;
+  }
+}

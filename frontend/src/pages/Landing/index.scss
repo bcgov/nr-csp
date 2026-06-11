@@ -1,0 +1,87 @@
+@use '../../styles/variables' as vars;
+@use '@carbon/react/scss/breakpoint' as *;
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/type';
+
+.landing-page {
+  &__banner {
+    padding: $spacing-07 $spacing-07 $spacing-06;
+    background: var(--cds-layer);
+    border-bottom: 1px solid var(--cds-border-subtle);
+
+    @include breakpoint-down(md) {
+      padding: $spacing-06 $spacing-05 $spacing-05;
+    }
+  }
+
+  &__heading {
+    @include type.type-style('productive-heading-06', true);
+    margin-top: $spacing-04;
+    margin-bottom: $spacing-04;
+    color: var(--cds-text-primary);
+  }
+
+  &__subheading {
+    @include type.type-style('body-long-02', true);
+    color: var(--cds-text-secondary);
+    max-width: 48rem;
+    margin-bottom: $spacing-06;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-04;
+    flex-wrap: wrap;
+  }
+
+  &__section {
+    padding: $spacing-07;
+
+    @include breakpoint-down(md) {
+      padding: $spacing-06 $spacing-05;
+    }
+  }
+
+  &__section-heading {
+    @include type.type-style('productive-heading-04', true);
+    margin-bottom: $spacing-03;
+    color: var(--cds-text-primary);
+  }
+
+  &__section-description {
+    @include type.type-style('body-long-01', true);
+    color: var(--cds-text-secondary);
+    margin-bottom: $spacing-06;
+  }
+
+  &__tile {
+    height: 100%;
+    min-height: 12rem;
+
+    @include breakpoint-down(md) {
+      margin-bottom: $spacing-05;
+    }
+  }
+
+  &__tile-icon {
+    color: var(--cds-interactive);
+    margin-bottom: $spacing-04;
+  }
+
+  &__tile-heading {
+    @include type.type-style('productive-heading-02', true);
+    margin-bottom: $spacing-03;
+  }
+
+  &__tile-body {
+    @include type.type-style('body-long-01', true);
+    color: var(--cds-text-secondary);
+
+    code {
+      font-family: monospace;
+      background: var(--cds-layer-accent);
+      padding: 0.1rem 0.3rem;
+      border-radius: 2px;
+    }
+  }
+}

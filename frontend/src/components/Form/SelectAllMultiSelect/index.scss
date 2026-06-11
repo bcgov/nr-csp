@@ -1,0 +1,42 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/type';
+
+// SelectAllMultiSelect extends the tagged-multi-select layout (field + tags
+// rendered below) and adds two behaviours:
+//   1. A "Clear all" link after the tag chips.
+//   2. A separator line between the "Select all" sentinel and the real items.
+//
+// The tagged-multi-select CSS (field pinning, tags flex layout) is loaded
+// globally via TaggedMultiSelect's own import and is therefore available here.
+
+.select-all-multiselect {
+  // ── "Clear all" link ────────────────────────────────────────────────────
+  &__clear-btn {
+    background: none;
+    border: none;
+    padding: $spacing-01 $spacing-02;
+    cursor: pointer;
+    @include type.type-style('body-compact-01');
+    color: var(--cds-link-primary);
+    text-decoration: underline;
+    align-self: center;
+
+    &:hover {
+      color: var(--cds-link-primary-hover);
+      text-decoration: none;
+    }
+  }
+
+  // ── Select-all separator ────────────────────────────────────────────────
+  // Carbon's default per-item divider is border-block-start on the inner
+  // .cds--list-box__menu-item__option div (not border-bottom on the <li>).
+  // Strip it from every item then restore a bottom border on the sentinel
+  // (first child = the "Select all" row) to separate it from the real items.
+  .cds--list-box__menu-item__option {
+    border-block-start-color: transparent;
+  }
+
+  .cds--list-box__menu-item:first-child .cds--list-box__menu-item__option {
+    border-block-end-color: var(--cds-border-subtle-01);
+  }
+}

@@ -1,0 +1,50 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+@use '@carbon/type';
+@use '../../styles/mixins' as mixins;
+
+.r12-page {
+  padding: $spacing-06;
+
+  &__title {
+    @include type.type-style('heading-05');
+    margin-bottom: $spacing-07;
+  }
+
+  &__form-col {
+    margin-bottom: $spacing-08;
+
+    &--left {
+      padding-right: $spacing-05;
+    }
+  }
+
+  &__export-btn-col {
+    padding-top: $spacing-05;
+
+    .cds--btn {
+      width: 100%;
+      max-width: 100%;
+      justify-content: space-between;
+    }
+
+    &--left {
+      padding-right: $spacing-05;
+    }
+  }
+
+  &__row-break {
+    @include breakpoint-down(lg) {
+      display: none;
+    }
+  }
+
+  .date-input .cds--date-picker__input {
+    background-color: var(--cds-field-01) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--cds-text-primary) !important;
+    border-radius: 0 !important;
+  }
+
+  @include mixins.report-form-size;
+}

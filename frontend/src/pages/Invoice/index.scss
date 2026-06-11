@@ -1,0 +1,387 @@
+@use 'sass:color';
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/colors' as *;
+
+.invoice-page {
+  padding-top: $spacing-07;
+  padding-bottom: $spacing-07;
+  padding-left: $spacing-07;
+  padding-right: $spacing-07;
+
+  // Kill Carbon's grid side padding so columns are flush with .invoice-page edges.
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // `.title-container` (from PageTitle) is a flex row, so vertically centre the
+  // tag against the h1's line box. The container already supplies a column-gap,
+  // so no extra margin is needed. Carbon's Tag ships with intrinsic margins that
+  // need to be reset for true centring.
+  .page-title-col {
+    padding-bottom: $spacing-06;
+  }
+
+  &__status-tag {
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    line-height: 1;
+    margin-left: $spacing-05;
+    // Nudge down so the tag centres on the x-height of "Invoice" (the body of
+    // the "n") instead of the cap-height (the top of the "I").
+    transform: translateY(0.25rem);
+
+    .cds--tag {
+      margin: 0;
+    }
+  }
+
+  &__accordion {
+    margin-bottom: $spacing-07;
+
+    .cds--accordion__title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    // Roomier header — more vertical breathing room around the title text
+    // and more left padding so the title pulls away from the box edge.
+    .cds--accordion__heading {
+      padding-top: $spacing-06;
+      padding-bottom: $spacing-06;
+      padding-left: $spacing-01;
+      padding-right: $spacing-06;
+    }
+
+    // Wrap each section in a definable box rather than relying on Carbon's
+    // default single top-border-per-item look.
+    .cds--accordion__item {
+      border: 1px solid var(--cds-border-subtle);
+      border-radius: 4px;
+      background-color: var(--cds-layer);
+      margin-bottom: $spacing-05;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  &__section-grid {
+    row-gap: $spacing-05;
+  }
+
+  &__meta-col {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: $spacing-05;
+  }
+
+  &__meta-label {
+    display: block;
+    font-size: 0.75rem;
+    margin-bottom: $spacing-04;
+  }
+
+  &__meta-value {
+    display: block;
+    font-size: 0.875rem;
+  }
+
+  // Stack the page-level warning / error notifications with breathing room
+  // so consecutive ones don't read as a single block of text.
+  &__notification {
+    margin-bottom: $spacing-05;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  // Push the next section (the accordion) away from the notification stack
+  // so the warnings/errors aren't visually glued to the form below.
+  &__notification-col {
+    margin-bottom: $spacing-06;
+  }
+
+  &__field-col {
+    padding-right: $spacing-05;
+    padding-bottom: $spacing-05;
+
+    &--left {
+      padding-right: $spacing-05;
+    }
+  }
+
+  &__subsection-heading-col {
+    padding-bottom: $spacing-04;
+  }
+
+  &__subsection-heading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  // Date pickers / inputs must respect their column width — Carbon's defaults
+  // hard-code widths that bleed into adjacent columns.
+  .cds--date-picker-container,
+  .cds--date-picker--single,
+  .cds--date-picker-input__wrapper {
+    width: 100%;
+    min-width: unset !important;
+  }
+
+  .cds--date-picker__input {
+    width: 100% !important;
+  }
+
+  &__group-actions {
+    display: inline-flex;
+    gap: $spacing-02;
+
+    .cds--btn--ghost,
+    .cds--icon-button {
+      color: var(--cds-link-primary) !important;
+
+      svg {
+        fill: var(--cds-link-primary) !important;
+      }
+
+      &:hover {
+        color: var(--cds-link-primary-hover) !important;
+
+        svg {
+          fill: var(--cds-link-primary-hover) !important;
+        }
+      }
+    }
+  }
+
+  // Trim the accordion's default content padding for the Invoice group summary
+  // so the toolbar + table stretch wider — keep a small inset on each side to
+  // separate them from the accordion border. (Paired-zebra + --row-bg cascade
+  // are now built into ResultsTable's `expandable` variant.)
+  &__group-summary-section {
+    .cds--accordion__content {
+      padding-inline-start: $spacing-04;
+      padding-inline-end: $spacing-04;
+    }
+  }
+
+  // Carbon TableToolbar bar that sits above the line-items table. Carbon makes
+  // every action inside .cds--toolbar-content fill the toolbar's full height
+  // (so the Export hover + Add button stretch edge-to-edge). We only re-skin
+  // it: grey surface, rounded top corners, the "Details" heading on the left.
+  // `overflow: hidden` clips the Add button's corners to the toolbar radius.
+  // NB: TableToolbar discards any className passed to it, so we scope from the
+  // wrapping element down to the generated .cds--table-toolbar.
+  &__group-summary-toolbar .cds--table-toolbar {
+    align-items: center;
+    min-block-size: $spacing-09;
+    background-color: #f4f4f4;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    overflow: hidden;
+  }
+
+  // Vertical divider separating the "Details" heading from the action cluster,
+  // matching the old layout. Lives on the Export menu's container (the first
+  // action). MenuButton forwards `className` to its container, so we hook it
+  // directly and force it to stretch the full toolbar height for the divider.
+  &__export-btn.cds--menu-button__container {
+    display: flex;
+    align-self: stretch;
+    border-left: 1px solid var(--cds-border-subtle);
+  }
+
+  &__group-summary-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    align-self: center;
+    padding-left: $spacing-07;
+  }
+
+  // Edge-to-edge "Add new item" trigger. It already fills the toolbar height
+  // and hugs the right edge by virtue of living in .cds--toolbar-content; we
+  // just square off the left/bottom corners (the toolbar's overflow clip
+  // rounds the top-right to match) and centre the label + icon as a group.
+  // Carbon absolutely-positions the icon on primary buttons with a big right
+  // pad, so pull it back into the inline flow and equalise the padding.
+  &__add-line-item-btn.cds--btn {
+    border-radius: 0;
+    justify-content: center;
+    align-items: center;
+    padding-inline: $spacing-05;
+
+    .cds--btn__icon {
+      position: static;
+      inset-inline-end: auto;
+      margin-block-start: 0;
+      margin-inline-start: $spacing-03;
+    }
+  }
+
+  // Nested line-items ResultsTable styling now lives with the
+  // EditableLineItemsTable component in `components/Form/EditableLineItemsTable`.
+
+  // The totals row sits in the expandable table's tbody, where the paired-zebra
+  // rules (high specificity + !important) would otherwise tint it grey whatever
+  // its position in the stripe cycle. Qualify the selector with the full table
+  // ancestry so it outranks the zebra and the totals row stays white.
+  .results-table .cds--data-table tbody tr.invoice-page__line-items-totals-row td {
+    // Theme-aware: pure white in the light theme, and the correct dark surface
+    // in g90/g100 — never a hard-coded white that breaks dark mode.
+    background-color: var(--cds-background) !important;
+    font-weight: 700 !important;
+    color: var(--cds-text-primary) !important;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--cds-border-subtle) !important;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: $spacing-05;
+    padding-top: $spacing-05;
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+    width: 100%;
+  }
+
+  // Inline loading spinner shown on the right of an action button (alongside
+  // its label) while its mutation is in flight. `margin-inline-start: auto`
+  // pushes it to the right edge — the same spot as the button's icon.
+  &__btn-spinner.cds--loading {
+    width: 1rem;
+    height: 1rem;
+    margin-inline-start: auto;
+  }
+
+  &__action-btn {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    justify-content: flex-start !important;
+    padding-left: $spacing-05 !important;
+    padding-right: $spacing-05 !important;
+
+    &--submit {
+      color: #005cb8 !important;
+      border-color: #005cb8 !important;
+      background-color: transparent !important;
+
+      &:hover {
+        background-color: rgba(0, 92, 184, 0.1) !important;
+        color: #005cb8 !important;
+      }
+    }
+
+    &--approve {
+      color: #0073e6 !important;
+      border-color: #0073e6 !important;
+      background-color: transparent !important;
+
+      &:hover {
+        background-color: rgba(0, 115, 230, 0.1) !important;
+        color: #0073e6 !important;
+      }
+    }
+
+    &--cancel {
+      color: #b32001 !important;
+      border-color: #b32001 !important;
+      background-color: transparent !important;
+
+      &:hover {
+        background-color: rgba(179, 32, 1, 0.1) !important;
+      }
+    }
+
+    &--reject {
+      color: #fa5300 !important;
+      border-color: #fa5300 !important;
+      background-color: transparent !important;
+
+      &:hover {
+        background-color: rgba(250, 83, 0, 0.1) !important;
+      }
+    }
+
+    &--success {
+      &.cds--btn {
+        background-color: #007b00 !important;
+        border-color: #007b00 !important;
+        color: $white !important;
+
+        &:hover {
+          background-color: color.adjust(#007b00, $lightness: -8%) !important;
+          border-color: color.adjust(#007b00, $lightness: -8%) !important;
+        }
+      }
+    }
+
+    &--delete {
+      background-color: #e72000 !important;
+      border-color: #e72000 !important;
+      color: $white !important;
+
+      &:hover {
+        background-color: color.adjust(#e72000, $lightness: -8%) !important;
+        border-color: color.adjust(#e72000, $lightness: -8%) !important;
+      }
+    }
+
+    // Greyed-out state — applied to every branded modifier when the button
+    // is disabled. The branded `!important` colours above otherwise win
+    // over Carbon's default disabled styling, so we re-apply the disabled
+    // look here with higher specificity (compound class selector).
+    &.cds--btn:disabled,
+    &.cds--btn[disabled],
+    &.cds--btn:disabled:hover,
+    &.cds--btn[disabled]:hover {
+      background-color: var(--cds-button-disabled) !important;
+      border-color: var(--cds-button-disabled) !important;
+      color: var(--cds-text-on-color-disabled) !important;
+      cursor: not-allowed !important;
+
+      svg {
+        fill: var(--cds-text-on-color-disabled) !important;
+      }
+    }
+  }
+
+  // Accordion clips its children's overflow by default — opt out so the
+  // ResultsTable's portal tooltips can float out of the accordion content.
+  // (Data-table-level overflow + tooltip z-index now live in ResultsTable.)
+  .cds--accordion__item--active .cds--accordion__content,
+  .cds--accordion__item[open] .cds--accordion__content {
+    overflow: visible;
+  }
+}
+
+// Dark-theme overrides — use a *lighter* grey than the accordion surface so the
+// toolbar/header bars read as elevated chrome rather than blending in. The
+// accordion sections themselves match the page background so the cards blend
+// into the page rather than floating as separate tiles.
+:root[data-carbon-theme='g90'] .invoice-page {
+  .invoice-page__accordion .cds--accordion__item {
+    background-color: var(--cds-background);
+  }
+
+  .invoice-page__group-summary-toolbar .cds--table-toolbar {
+    background-color: #6f6f6f;
+  }
+}
+
+:root[data-carbon-theme='g100'] .invoice-page {
+  .invoice-page__accordion .cds--accordion__item {
+    background-color: var(--cds-background);
+  }
+
+  .invoice-page__group-summary-toolbar .cds--table-toolbar {
+    background-color: #525252;
+  }
+}
