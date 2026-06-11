@@ -7,6 +7,7 @@ type R07FormValues = {
   sellerNumber: string;
   buyerNumber: string;
   submissionNumber: string;
+  timeFrame: string;
 };
 
 export function validateR07(values: R07FormValues): ValidationResult {
@@ -24,6 +25,10 @@ export function validateR07(values: R07FormValues): ValidationResult {
 
   if (values.submissionNumber.trim() && !/^\d+$/.test(values.submissionNumber.trim())) {
     messages.addError('report.submissionnumber.numeric.error');
+  }
+
+  if (values.timeFrame.trim() && !/^\d+$/.test(values.timeFrame.trim())) {
+    messages.addError('report.timeframe.numeric.error');
   }
 
   if (values.dateFrom && values.dateTo && values.dateFrom > values.dateTo) {

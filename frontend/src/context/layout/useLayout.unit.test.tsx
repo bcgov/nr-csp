@@ -5,8 +5,8 @@ import { LayoutContext } from './LayoutContext';
 import { useLayout } from './useLayout';
 
 function HookConsumer() {
-  const { isLargeViewport } = useLayout();
-  return <div data-testid="result">{String(isLargeViewport)}</div>;
+  const { isSideNavExpanded } = useLayout();
+  return <div data-testid="result">{String(isSideNavExpanded)}</div>;
 }
 
 describe('useLayout', () => {
@@ -19,8 +19,7 @@ describe('useLayout', () => {
 
   it('returns context value when inside provider', () => {
     const value = {
-      isLargeViewport: true,
-      isSideNavExpanded: false,
+      isSideNavExpanded: true,
       toggleSideNav: vi.fn(),
       isHeaderPanelOpen: false,
       toggleHeaderPanel: vi.fn(),

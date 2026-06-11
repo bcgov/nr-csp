@@ -4,6 +4,7 @@
 export const DATE_MESSAGES: Record<string, string> = {
   'report.daterange.order.error': 'Start date must not be after end date.',
   'report.startdate.required.error': 'Start date is required.',
+  'report.timeframe.numeric.error': 'Time frame must be numeric.',
 };
 
 export const NUMBER_MESSAGES: Record<string, string> = {
@@ -15,6 +16,7 @@ export const CLIENT_MESSAGES: Record<string, string> = {
   'report.client.number.notfound.error': 'No client found for {0} number: {1}',
   'report.client.name.notfound.error': 'No client found for {0} name: {1}',
   'report.client.name.nomatch.error': 'The Client Name ({0}) cannot be found for {1}.',
+  'report.client.noselection.error': 'Select a valid {0} client from the suggestion list.',
 };
 
 // Page-specific messages that only apply to a single report.

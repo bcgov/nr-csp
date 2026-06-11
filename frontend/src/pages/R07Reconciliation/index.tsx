@@ -107,6 +107,7 @@ export function R07ReconciliationPage() {
       sellerNumber,
       buyerNumber,
       submissionNumber,
+      timeFrame,
     });
     const clientSplit = splitMessages(clientResult.messages, MESSAGE_KEY_TO_FIELD);
     setFieldErrors(clientSplit.fieldErrors);

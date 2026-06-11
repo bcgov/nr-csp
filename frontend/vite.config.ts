@@ -69,7 +69,15 @@ export default defineConfig(({ mode }) => {
             browser: {
               enabled: true,
               provider: 'playwright',
-              instances: [{ browser: 'chromium' }],
+              // PLAYWRIGHT_CHANNEL lets environments without a bundled Chromium
+              // (e.g. WSL/Ubuntu releases Playwright doesn't support yet) fall back
+              // to a system-installed browser, e.g. `PLAYWRIGHT_CHANNEL=chrome`.
+              instances: [
+                {
+                  browser: 'chromium',
+                  launch: { channel: process.env.PLAYWRIGHT_CHANNEL || undefined },
+                },
+              ],
             },
             include: ['src/**/*.browser.test.{ts,tsx}'],
             setupFiles: ['src/config/tests/setup-browser.ts'],

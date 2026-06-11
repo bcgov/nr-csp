@@ -32,7 +32,7 @@ public class R08ReportRequest {
     private String invoiceStatus;
     private String submissionStatus;
 
-    @Pattern(regexp = "^\\d+$", message = "submissionNumber must be numeric")
+    @Pattern(regexp = "^\\d{1,10}$", message = "submissionNumber must be numeric with at most 10 digits")
     private String submissionNumber;
 
     @Pattern(regexp = "^\\d{6}$", message = "submissionYearMonth must be in format yyyyMM")

@@ -25,9 +25,11 @@ public class R10Service {
     private static final Logger log = LoggerFactory.getLogger(R10Service.class);
 
     private final JasperServerService jasperServerService;
+    private final SearchService searchService;
 
-    public R10Service(JasperServerService jasperServerService) {
+    public R10Service(JasperServerService jasperServerService, SearchService searchService) {
         this.jasperServerService = jasperServerService;
+        this.searchService = searchService;
     }
 
     public ReportResult generateReport(R10ReportRequest request) {
@@ -50,7 +52,7 @@ public class R10Service {
     }
 
     private void validate(R10ReportRequest r) {
-        ValidationResult result = new R10Validator().validate(r);
+        ValidationResult result = new R10Validator(searchService).validate(r);
         if (result.hasErrors()) {
             throw new ValidationException("R10 report failed validation.", result);
         }
@@ -59,8 +61,8 @@ public class R10Service {
     private Map<String, Object> buildParams(R10ReportRequest r) {
         Map<String, Object> p = new HashMap<>();
         String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
-        if (r.getDateFrom() != null)           p.put("INVOICE_DATE_FROM", r.getDateFrom());
-        if (effectiveDateTo != null)           p.put("INVOICE_DATE_TO", effectiveDateTo);
+        if (r.getDateFrom() != null)           p.put("INVOICE_DATE_FROM", firstDayOfMonth(r.getDateFrom()));
+        if (effectiveDateTo != null)           p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
         if (r.getTimeFrame() != null)          p.put("TIME_FRAME", r.getTimeFrame());
         if (r.getSellerClientNumber() != null) p.put("SELLER_CLIENT_NUMBER", r.getSellerClientNumber());
         if (r.getSellerLocnCode() != null)     p.put("SELLER_LOCN_CODE", r.getSellerLocnCode());
@@ -79,7 +81,7 @@ public class R10Service {
         LocalDate end;
         if (timeFrame != null && !timeFrame.isBlank()) {
             try {
-                end = from.plusMonths(Integer.parseInt(timeFrame));
+                end = from.plusMonths(Math.max(Integer.parseInt(timeFrame) - 1, 0));
             } catch (NumberFormatException e) {
                 throw new BadRequestException("timeFrame must be a numeric value");
             }
@@ -87,5 +89,15 @@ public class R10Service {
             end = from;
         }
         return YearMonth.from(end).atEndOfMonth().format(fmt);
+    }
+
+    private static String firstDayOfMonth(String date) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd");
+        return YearMonth.from(LocalDate.parse(date, fmt)).atDay(1).format(fmt);
+    }
+
+    private static String lastDayOfMonth(String date) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd");
+        return YearMonth.from(LocalDate.parse(date, fmt)).atEndOfMonth().format(fmt);
     }
 }

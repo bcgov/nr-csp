@@ -63,8 +63,8 @@ public class R12Service {
             if (r.getMonth() != null) p.put("MONTH", String.format("%02d", r.getMonth()));
         } else {
             String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
-            if (r.getDateFrom() != null) p.put("INVOICE_DATE_FROM", r.getDateFrom());
-            if (effectiveDateTo != null) p.put("INVOICE_DATE_TO", effectiveDateTo);
+            if (r.getDateFrom() != null) p.put("INVOICE_DATE_FROM", firstDayOfMonth(r.getDateFrom()));
+            if (effectiveDateTo != null) p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
             if (r.getTimeFrame() != null) p.put("TIME_FRAME", r.getTimeFrame());
         }
         if (r.getLogSaleTypeCode() != null) p.put("LOG_SALE_TYPE_CODE", r.getLogSaleTypeCode());
@@ -79,7 +79,7 @@ public class R12Service {
         LocalDate end;
         if (timeFrame != null && !timeFrame.isBlank()) {
             try {
-                end = from.plusMonths(Integer.parseInt(timeFrame));
+                end = from.plusMonths(Math.max(Integer.parseInt(timeFrame) - 1, 0));
             } catch (NumberFormatException e) {
                 throw new BadRequestException("timeFrame must be a numeric value");
             }
@@ -87,5 +87,15 @@ public class R12Service {
             end = from;
         }
         return YearMonth.from(end).atEndOfMonth().format(fmt);
+    }
+
+    private static String firstDayOfMonth(String date) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd");
+        return YearMonth.from(LocalDate.parse(date, fmt)).atDay(1).format(fmt);
+    }
+
+    private static String lastDayOfMonth(String date) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd");
+        return YearMonth.from(LocalDate.parse(date, fmt)).atEndOfMonth().format(fmt);
     }
 }

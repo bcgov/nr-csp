@@ -39,6 +39,13 @@ type AutoCompleteProps<T> = {
    */
   onSelect: (data: T | null | undefined) => void;
   /**
+   * Optional callback fired as the user types in the input. Lets consumers
+   * track free text that has not (yet) been resolved to a selection, e.g. to
+   * validate that a typed client name was actually picked from the list.
+   * @param value The current raw input text
+   */
+  onTypedChange?: (value: string) => void;
+  /**
    * Optional renderer for each suggestion in the dropdown list. Use this to
    * show a richer description in the menu (e.g. number + name) while keeping
    * `itemToString` plain so the filled input shows only the selected value.
@@ -69,6 +76,7 @@ const AutoCompleteInput = <T,>({
   onAutoCompleteChange,
   extractItems = (raw) => raw as T[],
   onSelect,
+  onTypedChange,
   itemToString: consumerItemToString,
   renderItem,
   ...props
@@ -160,7 +168,10 @@ const AutoCompleteInput = <T,>({
       {...props}
       items={items}
       onChange={({ selectedItem }) => onSelect(selectedItem as T | null | undefined)}
-      onInputChange={setTypedValue}
+      onInputChange={(value: string) => {
+        setTypedValue(value);
+        onTypedChange?.(value);
+      }}
     />
   );
 };
