@@ -1,0 +1,49 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.editable-line-items-table {
+  padding: $spacing-04 $spacing-05;
+
+  &__heading {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 $spacing-04;
+    color: var(--cds-text-primary);
+    text-align: center;
+  }
+
+  .cds--data-table thead th {
+    border-bottom: 1px solid var(--cds-border-subtle);
+    color: var(--cds-text-primary) !important;
+  }
+
+  .cds--table-header-label {
+    color: var(--cds-text-primary) !important;
+  }
+
+  .cds--data-table tbody td {
+    text-align: center !important;
+    padding-left: $spacing-05 !important;
+  }
+
+  .cds--btn--ghost,
+  .cds--icon-button {
+    color: var(--cds-link-primary) !important;
+
+    svg {
+      fill: var(--cds-link-primary) !important;
+    }
+
+    &:hover {
+      color: var(--cds-link-primary-hover) !important;
+
+      svg {
+        fill: var(--cds-link-primary-hover) !important;
+      }
+    }
+  }
+
+  &__actions {
+    display: inline-flex;
+    gap: $spacing-02;
+  }
+}

@@ -1,0 +1,27 @@
+@use '../../../styles/variables' as vars;
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+@use '@bcgov-nr/nr-theme/design-tokens/colors.scss' as colors;
+
+.cds--side-nav__link-text {
+  svg {
+    margin-inline-end: 1rem;
+    fill: var(--#{vars.$bcgov-prefix}-link-primary);
+  }
+}
+
+.cds--side-nav__link--current .cds--side-nav__link-text {
+  font-weight: 400;
+}
+
+.side-nav-group {
+  margin-top: $spacing-05;
+
+  &__title {
+    padding: 0 $spacing-05 $spacing-02;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--cds-text-secondary);
+    margin: 0;
+  }
+}

@@ -1,0 +1,21 @@
+@use '@carbon/type';
+@use '@carbon/react/scss/spacing' as *;
+
+.header-panel-profile-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+  padding: $spacing-05 $spacing-06;
+
+  .header-panel-profile-content {
+    .header-panel-profile-name {
+      @include type.type-style('heading-compact-01');
+    }
+
+    .header-panel-profile-email {
+      @include type.type-style('body-compact-01');
+      color: var(--cds-text-secondary);
+    }
+  }
+}

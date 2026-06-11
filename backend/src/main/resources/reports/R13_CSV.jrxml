@@ -1,0 +1,904 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="HFTemplate" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="c0e850eb-0c21-42bf-8d78-367dabb09950" ignorePagination="true">
+	<property name="ireport.zoom" value="2.1961500000000007"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.jasperserver.reportUnit" value="/reports/CSP/R13"/>
+	<property name="ireport.jasperserver.url" value="http://d-yyj0132.vic.cgi.com:8080/jasperserver/services/repository"/>
+	<property name="com.jaspersoft.jrs.export.csv.paginated" value="false"/>
+	<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+	<parameter name="USER_NAME" forPrompting="false" class="java.lang.String"/>
+	<parameter name="USER_ID" forPrompting="false" class="java.lang.String"/>
+	<parameter name="INVOICE_DATE_FROM" class="java.lang.String"/>
+	<parameter name="INVOICE_DATE_TO" class="java.lang.String"/>
+	<parameter name="INVOICE_NUMBER" forPrompting="false" class="java.util.List"/>
+	<parameter name="INVOICE_NUMBER_FROM" class="java.lang.String"/>
+	<parameter name="INVOICE_NUMBER_TO" class="java.lang.String"/>
+	<parameter name="INVOICE_NUMBER_DESC" class="java.lang.String"/>
+	<parameter name="INVOICE_STATUS" forPrompting="false" class="java.util.List"/>
+	<parameter name="INVOICE_REPLACES_ADJUSTS" forPrompting="false" class="java.util.List"/>
+	<parameter name="INVOICE_REPLACES_ADJUSTS_FROM" class="java.lang.String"/>
+	<parameter name="INVOICE_REPLACES_ADJUSTS_TO" class="java.lang.String"/>
+	<parameter name="INVOICE_REPLACES_ADJUSTS_DESC" class="java.lang.String"/>
+	<parameter name="INVOICE_REPLACES_ADJUSTS_SQL" class="java.lang.String"/>
+	<parameter name="INVOICE_BOOM_NUMBER" forPrompting="false" class="java.util.List"/>
+	<parameter name="INVOICE_BOOM_NUMBER_DESC" class="java.lang.String"/>
+	<parameter name="INVOICE_BOOM_NUMBER_SQL" class="java.lang.String"/>
+	<parameter name="INVOICE_TIMBER_MARK" forPrompting="false" class="java.util.List"/>
+	<parameter name="INVOICE_TIMBER_MARK_DESC" class="java.lang.String"/>
+	<parameter name="INVOICE_TIMBER_MARK_SQL" class="java.lang.String"/>
+	<parameter name="INVOICE_WEIGH_SLIP" forPrompting="false" class="java.util.List"/>
+	<parameter name="INVOICE_WEIGH_SLIP_DESC" class="java.lang.String"/>
+	<parameter name="INVOICE_WEIGH_SLIP_SQL" class="java.lang.String"/>
+	<parameter name="INVOICE_TYPE" forPrompting="false" class="java.util.List"/>
+	<parameter name="FOB_POINT" forPrompting="false" class="java.util.List"/>
+	<parameter name="MATURITY" forPrompting="false" class="java.util.List"/>
+	<parameter name="SPECIES" forPrompting="false" class="java.util.List"/>
+	<parameter name="SORT_CODE" forPrompting="false" class="java.util.List"/>
+	<parameter name="GRADE" forPrompting="false" class="java.util.List"/>
+	<parameter name="SUBMISSION_MONTH_YEAR" forPrompting="false" class="java.lang.String"/>
+	<parameter name="SUBMISSION_STATUS" forPrompting="false" class="java.util.List"/>
+	<parameter name="SUBMISSION_NUMBER" forPrompting="false" class="java.lang.String"/>
+	<parameter name="ENTRY_USERID" forPrompting="false" class="java.lang.String"/>
+	<parameter name="SUBMISSION_TYPE" forPrompting="false" class="java.util.List"/>
+	<parameter name="APPROVAL_MONTH_YEAR" forPrompting="false" class="java.lang.String"/>
+	<parameter name="APPROVED_BY" forPrompting="false" class="java.util.List"/>
+	<parameter name="SELLER_NAME" forPrompting="false" class="java.lang.String"/>
+	<parameter name="BUYER_NAME" forPrompting="false" class="java.lang.String"/>
+	<parameter name="SELLER_NUMBER" forPrompting="false" class="java.util.List"/>
+	<parameter name="BUYER_NUMBER" forPrompting="false" class="java.util.List"/>
+	<parameter name="SELLER_CLIENT_LOCN_CODE" forPrompting="false" class="java.util.List"/>
+	<parameter name="BUYER_CLIENT_LOCN_CODE" forPrompting="false" class="java.util.List"/>
+	<parameter name="REPORT_NAME" forPrompting="false" class="java.lang.String"/>
+	<query language="sql"><![CDATA[select (to_char(sub.entry_timestamp, 'yyyy-mm')) Submission_YYYYMM,
+       (to_char(i.approved_date, 'yyyy-mm')) Approval_YYYYMM,
+       (i.seller_client_number) seller_client_number,
+       (i.seller_client_locn_code) seller_location_code,
+       (i.buyer_client_number) buyer_client_number,
+       (i.buyer_client_locn_code) buyer_location_code,
+       (i.client_invoice_no) client_invoice_no,
+       (i.client_invoice_date) client_invoice_date,
+       (i.log_sale_entry_status_code) log_sale_entry_status_code,
+       (invs.description) log_sale_entry_status_desc,
+       (sub.submission_id) submission_id,
+       (sub.csp_submission_status_code) csp_submission_status_code,
+       (ss.description) Submission_Status_Desc,
+       sub_type.submission_type submission_type_desc,
+       (i.csp_invoice_type_code) csp_invoice_type_code,
+       (it.description) invoice_Type_Desc,
+       (i.client_primary_sort_code) primary_sort_code,
+       (id.log_sale_sort_code) log_sale_sort_code,
+       (sc.description) sort_Code_Desc,
+       (i.log_sale_type_code) log_sale_type_code,
+       (m.description) Maturity,
+       case when ((i.buyer_client_number) is null) then '' else (bfc.client_name) END Buyer_Name,
+       case when ((i.seller_client_number) is null) then '' else (sfc.client_name) END Seller_Name,
+       case when ((i.buyer_client_number) is null) then '' else (bcl.client_locn_name) END Buyer_Loc_Name,
+       case when ((i.seller_client_number) is null) then '' else (scl.client_locn_name) END Seller_Loc_Name,
+       (i.approved_userid) approved_userid,
+       (i.log_sale_fob_location) log_sale_fob_location,
+       (sg.log_sale_species_code) log_sale_species_code,
+       (s.description) Species_Desc,
+       (sg.log_sale_grade_code) log_sale_grade_code,
+       (g.description) grade_Desc,
+       (id.pieces) pieces,
+       (id.volume) volume,
+       case
+         when i.csp_invoice_type_code = 'ADJ' and id.price < 0 then
+           (abs(id.price * id.volume) * -1)
+         else
+           (id.price * id.volume)
+       end as amount,
+       (totals.total_pieces) total_pieces,
+       (totals.total_volume) total_volume,
+       (case when i.log_sale_type_code = 'O' then 1 else 0 end) number_O_invoices,
+       (case when i.log_sale_type_code = 'S' then 1 else 0 end) number_S_invoices,
+       (case when i.log_sale_type_code = 'M' then 1 else 0 end) number_M_invoices,
+       (totals.total_amount) total_amount,
+       case when ((id.converted_price) is null or (id.converted_price) = 0.0) Then (id.price) else 0 END Flat_Price,
+       case when ((id.converted_price) is null or (id.converted_price) = 0.0) then 0 else (id.price) end Spread_Price,
+       (id.converted_price) price,
+       case when ((id.converted_price) is null or (id.converted_price) = 0.0) then 0 else (id.price / id.converted_price) end conversion_factor,
+       rep_adj.rep_adj_inv_id replaces_adjusts,
+       boom_nums.boom_num_src boom_numbers,
+       tmbr_mks.tmbr_mks_src timber_marks,
+       weigh_sl.weigh_slips_src weigh_slips,
+       (i.reviewer_notes) reviewer_notes,
+       (i.submitter_notes) submitter_notes,
+       (i.entry_userid) entry_userid
+  from coastal_log_sale i,
+       csp_submission sub,
+       coastal_log_sale_detail id,
+       csp_submission_status_code ss,
+       log_sale_entry_status_code invs,
+       csp_invoice_type_code it,
+       log_sale_sort_code sc,
+       log_sale_type_code m,
+       client_location scl,
+       forest_client sfc,
+       client_location bcl,
+       forest_client bfc,
+       csp_species_grade_xref sg,
+       LOG_SALE_GRADE_CODE g,
+       LOG_SALE_SPECIES_CODE s,
+       (select (i.coastal_log_sale_id) coastal_log_sale_id,
+               sum(id.volume) total_volume,
+               sum(id.pieces) total_pieces,
+               sum(
+                 case
+                   when i.csp_invoice_type_code = 'ADJ' and id.price < 0 then
+                     (abs(id.price * id.volume) * -1)
+                   else
+                     (id.price * id.volume)
+                 end
+               ) as total_amount
+        from coastal_log_sale i,
+             csp_submission sub,
+             coastal_log_sale_detail id,
+             csp_species_grade_xref sg
+        where i.csp_submission_id = sub.csp_submission_id(+)
+              and i.coastal_log_sale_id = id.coastal_log_sale_id(+)
+              and id.csp_species_grade_xref_id = sg.csp_species_grade_xref_id(+)
+              and ((TO_CHAR(i.client_invoice_date, 'yyyyMMdd') >= $P{INVOICE_DATE_FROM}) or ($P{INVOICE_DATE_FROM} is null))
+              and ((TO_CHAR(i.client_invoice_date, 'yyyyMMdd') <= $P{INVOICE_DATE_TO}) or ($P{INVOICE_DATE_TO} is null))
+              and $X{IN, i.client_invoice_no, INVOICE_NUMBER}
+              and ((i.client_invoice_no >= $P{INVOICE_NUMBER_FROM}) or ($P{INVOICE_NUMBER_FROM} is null))
+              and ((i.client_invoice_no <= $P{INVOICE_NUMBER_TO}) or ($P{INVOICE_NUMBER_TO} is null))
+              and $X{IN, i.seller_client_number, SELLER_NUMBER}
+              and $X{IN, i.seller_client_locn_code, SELLER_CLIENT_LOCN_CODE}
+              and $X{IN, i.buyer_client_number, BUYER_NUMBER}
+              and $X{IN, i.buyer_client_locn_code, BUYER_CLIENT_LOCN_CODE}
+              and $X{IN, i.log_sale_entry_status_code, INVOICE_STATUS}
+              and $X{IN, i.log_sale_type_code, MATURITY}
+              and ((TO_CHAR(i.approved_date, 'yyyyMM') = $P{APPROVAL_MONTH_YEAR}) or ($P{APPROVAL_MONTH_YEAR} is null))
+              and ((TO_CHAR(sub.entry_timestamp, 'yyyyMM') = $P{SUBMISSION_MONTH_YEAR}) or ($P{SUBMISSION_MONTH_YEAR} is null))
+              and $X{IN, i.approved_userid, APPROVED_BY}
+              and $X{IN, sub.csp_submission_status_code, SUBMISSION_STATUS}
+              and ((sub.submission_id = $P{SUBMISSION_NUMBER}) or ($P{SUBMISSION_NUMBER} is null))
+              and ($X{IN, id.log_sale_sort_code, SORT_CODE} or id.log_sale_sort_code is null)
+              and ($X{IN, sg.log_sale_species_code, SPECIES} or sg.log_sale_species_code is null)
+              and ($X{IN, sg.log_sale_grade_code, GRADE} or sg.log_sale_grade_code is null)
+              and $X{IN, i.log_sale_fob_location, FOB_POINT}
+        group by i.coastal_log_sale_id) totals,
+       (select listagg(rltd.client_invoice_no, ',') within group(order by client_invoice_no) rep_adj_inv_id, rltd.coastal_log_sale_id
+         from (select rls.client_invoice_no, rl.coastal_log_sale_id from coastal_log_sale_rltd_invc rl
+               left join coastal_log_sale rls on rl.related_coastal_log_sale_id = rls.coastal_log_sale_id) rltd
+         group by rltd.coastal_log_sale_id) rep_adj,
+       (select listagg(src_doc_ref.source_document_reference, ',') within group(order by source_document_reference) boom_num_src, src_doc_ref.coastal_log_sale_id
+         from (select src.source_document_reference, src.coastal_log_sale_id from coastal_log_sale_log_source src 
+               where src.log_source_code = 'BOOM') src_doc_ref
+         group by src_doc_ref.coastal_log_sale_id) boom_nums,
+       (select listagg(src_doc_ref.source_document_reference, ',') within group(order by source_document_reference) tmbr_mks_src, src_doc_ref.coastal_log_sale_id
+         from (select src.source_document_reference, src.coastal_log_sale_id from coastal_log_sale_log_source src 
+               where src.log_source_code = 'MARK') src_doc_ref
+         group by src_doc_ref.coastal_log_sale_id) tmbr_mks,
+       (select listagg(src_doc_ref.source_document_reference, ',') within group(order by source_document_reference) weigh_slips_src, src_doc_ref.coastal_log_sale_id
+         from (select src.source_document_reference, src.coastal_log_sale_id from coastal_log_sale_log_source src 
+               where src.log_source_code = 'WEIGH') src_doc_ref
+         group by src_doc_ref.coastal_log_sale_id) weigh_sl,
+       (select sub1.csp_submission_id,
+         case 
+           when sub1.submission_id is null then 'Manual'
+           else 'Electronic'
+          end submission_type
+        from csp_submission sub1) sub_type
+ where i.csp_submission_id = sub.csp_submission_id(+)
+   and i.coastal_log_sale_id = id.coastal_log_sale_id(+)
+   and i.csp_invoice_type_code = it.csp_invoice_type_code(+)
+   and i.log_sale_type_code = m.log_sale_type_code(+)
+   and id.log_sale_sort_code = sc.log_sale_sort_code(+)
+   and sub.csp_submission_status_code = ss.csp_submission_status_code(+)
+   and id.csp_species_grade_xref_id = sg.csp_species_grade_xref_id(+)
+   and sg.log_sale_species_code = s.log_sale_species_code(+)
+   and sg.log_sale_grade_code = g.log_sale_grade_code(+)
+   and i.log_sale_entry_status_code = invs.log_sale_entry_status_code(+)
+   and i.seller_client_number = scl.client_number(+)
+   and i.seller_client_locn_code = scl.client_locn_code(+)
+   and i.buyer_client_number = bcl.client_number(+)
+   and i.buyer_client_locn_code = bcl.client_locn_code(+)
+   and scl.client_number = sfc.client_number(+)
+   and bcl.client_number = bfc.client_number(+)
+   and i.coastal_log_sale_id = totals.coastal_log_sale_id(+)
+   and i.coastal_log_sale_id = rep_adj.coastal_log_sale_id(+)
+   and i.coastal_log_sale_id = boom_nums.coastal_log_sale_id(+)
+   and i.coastal_log_sale_id = tmbr_mks.coastal_log_sale_id(+)
+   and i.coastal_log_sale_id = weigh_sl.coastal_log_sale_id(+)
+   and i.csp_submission_id = sub_type.csp_submission_id(+)
+   and ((TO_CHAR(i.client_invoice_date, 'yyyyMMdd') >= $P{INVOICE_DATE_FROM}) or ($P{INVOICE_DATE_FROM} is null))
+   and ((TO_CHAR(i.client_invoice_date, 'yyyyMMdd') <= $P{INVOICE_DATE_TO}) or ($P{INVOICE_DATE_TO} is null))
+   and $X{IN, i.client_invoice_no, INVOICE_NUMBER}
+   and ((i.client_invoice_no >= $P{INVOICE_NUMBER_FROM}) or ($P{INVOICE_NUMBER_FROM} is null))
+   and ((i.client_invoice_no <= $P{INVOICE_NUMBER_TO}) or ($P{INVOICE_NUMBER_TO} is null))
+   and ($P!{INVOICE_REPLACES_ADJUSTS_SQL})
+   and ($P!{INVOICE_BOOM_NUMBER_SQL})
+   and ($P!{INVOICE_TIMBER_MARK_SQL})
+   and ($P!{INVOICE_WEIGH_SLIP_SQL})
+   and $X{IN, i.csp_invoice_type_code, INVOICE_TYPE}
+   and $X{IN, i.seller_client_number, SELLER_NUMBER}
+   and $X{IN, i.seller_client_locn_code, SELLER_CLIENT_LOCN_CODE}
+   and $X{IN, i.buyer_client_number, BUYER_NUMBER}
+   and $X{IN, i.buyer_client_locn_code, BUYER_CLIENT_LOCN_CODE}
+   and $X{IN, i.log_sale_entry_status_code, INVOICE_STATUS}
+   and $X{IN, i.log_sale_type_code, MATURITY}
+   and ((TO_CHAR(i.approved_date, 'yyyyMM') = $P{APPROVAL_MONTH_YEAR}) or ($P{APPROVAL_MONTH_YEAR} is null))
+   and ((TO_CHAR(sub.entry_timestamp, 'yyyyMM') = $P{SUBMISSION_MONTH_YEAR}) or ($P{SUBMISSION_MONTH_YEAR} is null))
+   and $X{IN, i.approved_userid, APPROVED_BY}
+   and ($X{IN, sub.csp_submission_status_code, SUBMISSION_STATUS} or sub.csp_submission_status_code is null)
+   and ((sub.submission_id = $P{SUBMISSION_NUMBER}) or ($P{SUBMISSION_NUMBER} is null))
+   and ($X{IN, sub_type.submission_type, SUBMISSION_TYPE} or sub_type.submission_type is null)
+   and ($X{IN, id.log_sale_sort_code, SORT_CODE} or id.log_sale_sort_code is null)
+   and ($X{IN, sg.log_sale_species_code, SPECIES} or sg.log_sale_species_code is null)
+   and ($X{IN, sg.log_sale_grade_code, GRADE} or sg.log_sale_grade_code is null)
+   and $X{IN, i.log_sale_fob_location, FOB_POINT}
+   and ((i.ENTRY_USERID = $P{ENTRY_USERID}) or ($P{ENTRY_USERID} is null))
+ order by id.csp_species_grade_xref_id,
+          id.log_sale_sort_code,
+          i.log_sale_type_code]]></query>
+	<field name="SUBMISSION_YYYYMM" class="java.lang.String"/>
+	<field name="APPROVAL_YYYYMM" class="java.lang.String"/>
+	<field name="SELLER_CLIENT_NUMBER" class="java.lang.String"/>
+	<field name="BUYER_CLIENT_NUMBER" class="java.lang.String"/>
+	<field name="CLIENT_INVOICE_NO" class="java.lang.String"/>
+	<field name="CLIENT_INVOICE_DATE" class="java.sql.Timestamp"/>
+	<field name="LOG_SALE_ENTRY_STATUS_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_ENTRY_STATUS_DESC" class="java.lang.String"/>
+	<field name="SUBMISSION_ID" class="java.lang.String"/>
+	<field name="CSP_SUBMISSION_STATUS_CODE" class="java.lang.String"/>
+	<field name="SUBMISSION_STATUS_DESC" class="java.lang.String"/>
+	<field name="SUBMISSION_TYPE_DESC" class="java.lang.String"/>
+	<field name="CSP_INVOICE_TYPE_CODE" class="java.lang.String"/>
+	<field name="INVOICE_TYPE_DESC" class="java.lang.String"/>
+	<field name="PRIMARY_SORT_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_TYPE_CODE" class="java.lang.String"/>
+	<field name="SORT_CODE_DESC" class="java.lang.String"/>
+	<field name="MATURITY" class="java.lang.String"/>
+	<field name="BUYER_NAME" class="java.lang.String"/>
+	<field name="SELLER_NAME" class="java.lang.String"/>
+	<field name="BUYER_LOC_NAME" class="java.lang.String"/>
+	<field name="SELLER_LOC_NAME" class="java.lang.String"/>
+	<field name="APPROVED_USERID" class="java.lang.String"/>
+	<field name="LOG_SALE_FOB_LOCATION" class="java.lang.String"/>
+	<field name="LOG_SALE_SPECIES_CODE" class="java.lang.String"/>
+	<field name="SPECIES_DESC" class="java.lang.String"/>
+	<field name="LOG_SALE_GRADE_CODE" class="java.lang.String"/>
+	<field name="GRADE_DESC" class="java.lang.String"/>
+	<field name="PIECES" class="java.math.BigDecimal"/>
+	<field name="VOLUME" class="java.math.BigDecimal"/>
+	<field name="AMOUNT" class="java.math.BigDecimal"/>
+	<field name="TOTAL_PIECES" class="java.math.BigDecimal"/>
+	<field name="TOTAL_VOLUME" class="java.math.BigDecimal"/>
+	<field name="NUMBER_O_INVOICES" class="java.math.BigDecimal"/>
+	<field name="NUMBER_S_INVOICES" class="java.math.BigDecimal"/>
+	<field name="NUMBER_M_INVOICES" class="java.math.BigDecimal"/>
+	<field name="TOTAL_AMOUNT" class="java.math.BigDecimal"/>
+	<field name="SPREAD_PRICE" class="java.math.BigDecimal"/>
+	<field name="FLAT_PRICE" class="java.math.BigDecimal"/>
+	<field name="PRICE" class="java.math.BigDecimal"/>
+	<field name="SELLER_LOCATION_CODE" class="java.lang.String"/>
+	<field name="BUYER_LOCATION_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_SORT_CODE" class="java.lang.String"/>
+	<field name="REPLACES_ADJUSTS" class="java.lang.String"/>
+	<field name="BOOM_NUMBERS" class="java.lang.String"/>
+	<field name="TIMBER_MARKS" class="java.lang.String"/>
+	<field name="WEIGH_SLIPS" class="java.lang.String"/>
+	<field name="REVIEWER_NOTES" class="java.lang.String"/>
+	<field name="SUBMITTER_NOTES" class="java.lang.String"/>
+	<field name="ENTRY_USERID" class="java.lang.String"/>
+	<field name="CONVERSION_FACTOR" class="java.math.BigDecimal"/>
+	<sortField name="CLIENT_INVOICE_DATE"/>
+	<sortField name="CLIENT_INVOICE_NO"/>
+	<variable name="CLIENT_INVOICE_DATE_1" resetType="Column" calculation="Count" class="java.lang.Integer">
+		<expression><![CDATA[$F{CLIENT_INVOICE_DATE}]]></expression>
+	</variable>
+	<variable name="SUM_VOLUME" calculation="Sum" class="java.lang.Double">
+		<expression><![CDATA[$F{VOLUME}]]></expression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="SUM_PIECES" calculation="Sum" class="java.lang.Double">
+		<expression><![CDATA[$F{PIECES}]]></expression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="SUM_AMOUNT" calculation="Sum" class="java.lang.Double">
+		<expression><![CDATA[$F{AMOUNT}]]></expression>
+	</variable>
+	<variable name="SUM_TOTAL_VOLUME" calculation="Sum" class="java.lang.Double">
+		<expression><![CDATA[$F{TOTAL_VOLUME}]]></expression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="SUM_TOTAL_PIECES" calculation="Sum" class="java.lang.Double">
+		<expression><![CDATA[$F{TOTAL_PIECES}]]></expression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="SUM_TOTAL_AMOUNT" calculation="Sum" class="java.lang.Double">
+		<expression><![CDATA[$F{TOTAL_AMOUNT}]]></expression>
+	</variable>
+	<variable name="SUM_NUMBER_O_INVOICES" calculation="Sum" class="java.lang.Integer">
+		<expression><![CDATA[$F{NUMBER_O_INVOICES}]]></expression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="SUM_NUMBER_S_INVOICES" calculation="Sum" class="java.lang.Integer">
+		<expression><![CDATA[$F{NUMBER_S_INVOICES}]]></expression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="SUM_NUMBER_M_INVOICES" calculation="Sum" class="java.lang.Integer">
+		<expression><![CDATA[$F{NUMBER_M_INVOICES}]]></expression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<background splitType="Stretch"/>
+	<pageHeader height="172" splitType="Stretch">
+		<element kind="staticText" uuid="82c7d299-dd8b-4ad7-9d99-eaeb0d333515" x="289" y="6" width="224" height="20" markup="none" fontSize="14.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[Government of British Columbia]]></text>
+		</element>
+		<element kind="textField" uuid="131b74c6-31c5-447a-a90a-0787fb20fda6" x="687" y="0" width="79" height="20" fontSize="8.0" blankWhenNull="true" hTextAlign="Right">
+			<expression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></expression>
+		</element>
+		<element kind="textField" uuid="5a0729ef-be12-455d-a9a8-721fc3b8bb17" x="766" y="0" width="36" height="20" fontSize="8.0" evaluationTime="Report" blankWhenNull="true">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+		<element kind="staticText" uuid="be90c17d-2f1e-4bb7-b965-79b74e5fff11" x="0" y="0" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Report ID:]]></text>
+		</element>
+		<element kind="staticText" uuid="9822627e-d5a2-4f31-9a7c-f1b531651424" x="0" y="13" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Run Date:]]></text>
+		</element>
+		<element kind="staticText" uuid="837a8502-e90a-4a79-ad6e-1feab599ba52" x="0" y="26" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[User ID:]]></text>
+		</element>
+		<element kind="staticText" uuid="03b71a52-d27f-4453-b6b7-4b00f4879129" x="0" y="39" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Run Time:]]></text>
+		</element>
+		<element kind="staticText" uuid="3e7e2939-64f9-45e1-9b72-662b1cfa752c" x="0" y="52" width="81" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[R13 - Ad Hoc Report:]]></text>
+		</element>
+		<element kind="staticText" uuid="542763a1-1ffc-4484-aa38-1875e8641f0e" x="75" y="0" width="45" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[CSP - R13]]></text>
+		</element>
+		<element kind="textField" uuid="5946c073-a7d9-4324-b0d7-870b5c0e6bb8" x="75" y="13" width="100" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="yyyy/MM/dd" blankWhenNull="true">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date())]]></expression>
+		</element>
+		<element kind="textField" uuid="f68887b5-aae0-437b-ae1e-ce76d538b162" x="75" y="26" width="57" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{USER_ID}]]></expression>
+		</element>
+		<element kind="textField" uuid="8c9c140c-ddfa-4427-a7aa-6fd2336f2b08" x="75" y="39" width="100" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="h.mm a" blankWhenNull="true">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="textField" uuid="204ba7c1-6239-4013-9bcb-5fa5ed535fd2" x="81" y="52" width="100" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{REPORT_NAME}]]></expression>
+		</element>
+		<element kind="line" uuid="3ecfc7cc-b3cd-4719-811f-c807d74ce29c" x="0" y="65" width="802" height="1"/>
+		<element kind="elementGroup"/>
+		<element kind="elementGroup"/>
+		<element kind="staticText" uuid="affdfcc5-9bb5-4124-acf9-638b1d78580a" key="INVOICE_DATE_FROM" x="0" y="66" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Invoice Date From:]]></text>
+		</element>
+		<element kind="staticText" uuid="8ef958db-b214-4f3a-b014-5b2b605808d3" key="INVOICE_DATE_TO" x="0" y="79" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Invoice Date To:]]></text>
+		</element>
+		<element kind="staticText" uuid="7a574091-2708-4e7a-b1e5-1f7e18d2cdc9" key="INVOICE_STATUS" x="0" y="92" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Invoice Status:]]></text>
+		</element>
+		<element kind="staticText" uuid="06d3642c-c3c6-44fd-ae93-bd5bba438f3c" key="INVOICE_TYPE" x="0" y="105" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Invoice Type:]]></text>
+		</element>
+		<element kind="staticText" uuid="76d15a90-c354-4093-b65d-d24c121738d4" key="INVOICE_NUMBER" x="0" y="118" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Invoice #:]]></text>
+		</element>
+		<element kind="staticText" uuid="5d670b3a-4fa2-4441-b867-6fb9386041d6" key="REPLACES_ADJUSTS" x="0" y="131" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Replaces / Adjusts:]]></text>
+		</element>
+		<element kind="staticText" uuid="59db6a61-cac5-4f1c-a54c-e6b5116f8f45" key="SELLER_NUMBER" x="0" y="144" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Seller ID:]]></text>
+		</element>
+		<element kind="staticText" uuid="90663272-cfd9-4d37-84c7-a976e3c76057" key="SELLER_NAME" x="0" y="157" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Seller Name:]]></text>
+		</element>
+		<element kind="textField" uuid="55160f5b-804a-41be-b752-852572dab4c1" key="INVOICE_DATE_FROM" x="75" y="66" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_FROM}))]]></expression>
+		</element>
+		<element kind="textField" uuid="c2e72ced-e341-4af8-8598-e4dc21687721" key="INVOICE_DATE_TO" x="75" y="79" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_TO}))]]></expression>
+		</element>
+		<element kind="textField" uuid="267099ab-13cd-47ac-8315-e35719bbe135" key="INVOICE_STATUS" x="75" y="92" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_STATUS}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="cc397254-7f20-479b-8eed-9ae5f4b4c330" key="INVOICE_TYPE" x="75" y="105" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_TYPE}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="9528721d-5833-4166-aa68-102c938b7696" key="INVOICE_NUMBER" x="75" y="118" width="192" height="13" fontSize="7.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_NUMBER_DESC}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+			<property name="net.sf.jasperreports.text.truncate.at.char" value="true"/>
+			<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+		</element>
+		<element kind="textField" uuid="54331065-923c-44a4-ac59-f64d6e9ea231" key="REPLACES_ADJUSTS" x="75" y="131" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_REPLACES_ADJUSTS_DESC}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="9f5aaab4-cfe4-4c05-9f59-4da09440ee10" key="SELLER_NUMBER" x="75" y="144" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="" blankWhenNull="true">
+			<paragraph leftIndent="2"/>
+			<expression><![CDATA[$P{SELLER_NUMBER}.toString().replace('[',' ').replace(']', ' ').trim() + " " + $P{SELLER_CLIENT_LOCN_CODE}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="a9ae7dd1-11d7-4967-95b1-1ea1a9996a62" key="SELLER_NAME" x="75" y="157" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{SELLER_NAME}]]></expression>
+		</element>
+		<element kind="staticText" uuid="7fb91b94-3a8e-4488-a2a3-b30e5cb3f7af" key="SUBMISSION_NUMBER" x="267" y="66" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Submission ID:]]></text>
+		</element>
+		<element kind="staticText" uuid="3ac44cd9-c027-4670-925d-6277e1942a73" key="SUBMISSION_MONTH_YEAR" x="267" y="79" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Submission Date:]]></text>
+		</element>
+		<element kind="staticText" uuid="ac243519-72e9-46c2-a017-2302f8df629b" key="SUBMISSION_STATUS" x="267" y="92" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Submission Status:]]></text>
+		</element>
+		<element kind="staticText" uuid="dc3a0249-f076-4d1d-9c08-f5797e664b58" key="SUBMISSION_TYPE" x="267" y="105" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Submission Type:]]></text>
+		</element>
+		<element kind="staticText" uuid="8b6d2b4c-56b6-4f51-a1ad-b1776bf74768" key="APPROVED_BY" x="267" y="118" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Approval By:]]></text>
+		</element>
+		<element kind="staticText" uuid="2d5b373e-0179-4c2a-a274-30a8231021e3" key="APPROVAL_MONTH_YEAR" x="267" y="131" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Approval Date:]]></text>
+		</element>
+		<element kind="staticText" uuid="ff6afc23-9819-45fb-90e2-2861087e4b87" key="BUYER_NUMBER" x="267" y="144" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Buyer ID:]]></text>
+		</element>
+		<element kind="staticText" uuid="2fd010ab-7ed5-4416-bce4-3daa7b43c483" key="BUYER_NAME" x="267" y="157" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Buyer Name:]]></text>
+		</element>
+		<element kind="textField" uuid="10ba2551-98a7-4eca-8caa-1dec62678f5d" key="SUBMISSION_NUMBER" x="342" y="66" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{SUBMISSION_NUMBER}]]></expression>
+		</element>
+		<element kind="textField" uuid="0d2f6457-267f-4d99-a982-37f7919b5967" key="SUBMISSION_MONTH_YEAR" x="342" y="79" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{SUBMISSION_MONTH_YEAR}))]]></expression>
+		</element>
+		<element kind="textField" uuid="11b3d792-43b2-480f-9750-711cea83b4ad" key="SUBMISSION_STATUS" x="342" y="92" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{SUBMISSION_STATUS}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="1b4447fe-554d-48c0-b5fd-1c7ddcedac25" key="SUBMISSION_TYPE" x="342" y="105" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{SUBMISSION_TYPE}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="418e085c-8b27-4511-a0d9-fba098d2d1d7" key="APPROVED_BY" x="342" y="118" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{APPROVED_BY}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="e243aa7c-0242-4bb4-8905-15222f6cf6b1" key="APPROVAL_MONTH_YEAR" x="342" y="131" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="" blankWhenNull="true">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{APPROVAL_MONTH_YEAR}))]]></expression>
+		</element>
+		<element kind="textField" uuid="5a93a2be-8d65-4e0a-9688-8320345f3c65" key="BUYER_NUMBER" x="342" y="144" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="" blankWhenNull="true">
+			<expression><![CDATA[$P{BUYER_NUMBER}.toString().replace('[',' ').replace(']', ' ').trim() + " " + $P{BUYER_CLIENT_LOCN_CODE}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="65ef9025-6d76-4dec-a379-57763aee096e" key="BUYER_NAME" x="342" y="157" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="" blankWhenNull="true">
+			<expression><![CDATA[$P{BUYER_NAME}]]></expression>
+		</element>
+		<element kind="staticText" uuid="f11212cf-0bb6-448a-bd7b-3bbc74f1d5af" key="MATURITY" x="534" y="66" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Maturity:]]></text>
+		</element>
+		<element kind="staticText" uuid="8212f353-696c-4558-95ca-ffc237a0ce98" key="SPECIES" x="534" y="79" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Species:]]></text>
+		</element>
+		<element kind="staticText" uuid="c93eed7e-acff-41ab-a88a-eec562ae3b98" key="SORT_CODE_SECONDARY" x="534" y="92" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Sort Code:]]></text>
+		</element>
+		<element kind="staticText" uuid="4eefa137-006d-4186-b125-494533be6426" key="GRADE" x="534" y="105" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Grade:]]></text>
+		</element>
+		<element kind="staticText" uuid="29e5c2a8-56db-4b2d-b6a6-2f5738e01735" key="BOOM_NUMBER" x="534" y="118" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Boom Number:]]></text>
+		</element>
+		<element kind="staticText" uuid="4cb2f460-23da-4dae-9e4e-dc066626077a" key="TIMBER_MARK" x="534" y="131" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Timber Mark:]]></text>
+		</element>
+		<element kind="staticText" uuid="5b3ce975-001d-44fd-96c6-908408336416" key="WEIGH_SLIP" x="534" y="144" width="75" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[Weigh Slip:]]></text>
+		</element>
+		<element kind="textField" uuid="8b8cccfe-c2b0-4917-ac67-bd9cdbb81042" key="MATURITY" x="609" y="66" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{MATURITY}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="f5094e3b-516b-4a8f-a837-a164a7203cb1" key="SPECIES" x="609" y="79" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{SPECIES}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="32fb4336-3672-4b90-8b0c-e1ed6e3c8c23" key="SORT_CODE_SECONDARY" x="609" y="92" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{SORT_CODE}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="fdba3051-66f2-4a3b-977f-6954d4282210" key="GRADE" x="609" y="105" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{GRADE}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="59fef97b-96bf-4e3d-bcd6-52cb4f5df967" key="BOOM" x="609" y="118" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_BOOM_NUMBER_DESC}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="104f0fcd-faab-4700-b4ca-dcb1887535af" key="TIMBER_MARK" x="609" y="131" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_TIMBER_MARK_DESC}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+		<element kind="textField" uuid="28d8ada0-fc3e-4635-8aa7-d3763ff68de0" key="WEIGH_SLIP" x="609" y="144" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_WEIGH_SLIP_DESC}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="53">
+		<element kind="line" uuid="0a40ca7d-1214-487b-be24-33bc5fb9e1f2" x="0" y="2" width="802" height="1">
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="staticText" uuid="4b072980-d958-4bdc-aca6-d37b6f81bf3f" key="CLIENT_INVOICE_DATE" x="0" y="2" width="50" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Invoice Date]]></text>
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="local_mesure_unitheight" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="f0ff4786-70b8-4f3a-b233-2aa1cea466d6" key="INVOICE_NUMBER" x="23" y="2" width="40" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Invoice #]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="baff0c0c-820c-4d9a-812f-05b3bb6879fe" key="INVOICE_TYPE" x="46" y="2" width="50" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Invoice Type]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="d218f871-f6dc-4caf-ba7f-72cd79bcca05" key="SELLER_NUMBER" x="69" y="2" width="35" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Seller ID]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="0498b434-e21b-4db9-bcb4-6b4757d286e3" key="SELLER_NAME" x="92" y="2" width="50" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Seller Name]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="5bd2ff68-f18f-45c3-b017-8f61e741c9e8" key="BUYER_NUMBER" x="115" y="2" width="35" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Buyer ID]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="5f12f979-cffe-4cc1-9794-ecb9592d816e" key="BUYER_NAME" x="138" y="2" width="50" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Buyer Name]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="3e42e8c3-6b67-4e3d-954d-e69c924bcf5d" key="ENTRY_USERID" x="759" y="2" width="42" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Invoice Submitter]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="93d1f696-ba73-460d-972a-d222a4facf54" key="FOB_POINT" x="161" y="2" width="45" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[FOB Point]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="42d6a828-6ef5-4815-943b-c4f97e03f0d4" key="MATURITY" x="184" y="2" width="35" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Maturity]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="95f62e6e-09d1-45bd-afbc-92bf67dbb5a3" key="SPECIES" x="207" y="2" width="35" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Species]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="2c4c011e-6a3a-4cfa-922e-b7b5b322b4a2" key="SORT_CODE_PRIMARY" x="230" y="2" width="80" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Sort Codes Primary]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="2c4c011e-6a3a-4cfa-922e-b7b5b322b4a2" key="SORT_CODE_SECONDARY" x="253" y="2" width="90" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Sort Codes Secondary]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="88696b6d-138e-4052-bc09-8137c53af95d" key="GRADE" x="276" y="2" width="25" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Grade]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="54082861-59bb-4281-b04b-44f6fa70fa00" key="FLAT_PRICE" x="299" y="2" width="70" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Original Flat Price]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="1a2a91db-3a69-4e9c-9bb9-9fc4c11f2049" key="SPREAD_PRICE" x="322" y="2" width="85" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Original Spread Price]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="9f04da32-d04d-4f75-a353-f61a73a3a665" key="VOLUME" x="345" y="2" width="30" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Volume]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="2bed81cd-ebad-4ecf-8d92-49ed883b6eb4" key="PRICE" x="368" y="2" width="55" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Relative Price]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="2b83d967-62b3-483d-81cc-4c57e2959bc0" key="CONVERSION_FACTOR" x="368" y="2" width="55" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Relative Price Conversion Factor]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="e30b0510-e27f-4a93-a6f6-1506962673c6" key="PIECES" x="391" y="2" width="35" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[# Pieces]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="4940a209-52f4-469e-8c73-2dc0f190e0ee" key="AMOUNT" x="414" y="2" width="35" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Amount]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="674cf4ee-883d-42c4-99a9-c5af3238b7f9" key="SUBMISSION_NUMBER" x="437" y="2" width="60" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Submission ID]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="3280b4c4-f2c6-4564-ba39-761c74dfb58a" key="SUBMISSION_MONTH_YEAR" x="460" y="2" width="75" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Submission Month]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="5dd2848a-ab23-46fc-9220-c82718db140d" key="SUBMISSION_STATUS" x="483" y="2" width="75" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Submission Status]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="fa3300f4-1908-486f-9187-7510139aa674" key="SUBMISSION_TYPE" x="506" y="2" width="70" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Left">
+			<text><![CDATA[Submission Type]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="5dce0193-bc66-4c5c-b537-a4626b70e82e" key="APPROVAL_MONTH_YEAR" x="529" y="2" width="65" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Approval Month]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="afcd4787-f058-47dd-9854-098dc196bff3" key="APPROVED_BY" x="552" y="2" width="50" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Approved By]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="a0beab16-4e4d-4080-8808-155ae5c05804" key="INVOICE_STATUS" x="575" y="2" width="55" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Invoice Status]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="f2ce9af0-9f84-416d-9899-3969dd788b84" key="TOTAL_VOLUME" x="598" y="2" width="85" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Total Invoice Volume]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="afb91db9-16d1-4cfb-af0b-2b2d20555678" key="TOTAL_PIECES" x="621" y="2" width="85" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Total Invoice # Pieces]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="cf68bc0e-3f0e-412c-8c2a-8d0f2cf8fef9" key="TOTAL_AMOUNT" x="644" y="2" width="85" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Total Invoice Amount]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="8b072450-012e-4042-9604-7a3eca82784f" key="INVOICE_BOOM_NUMBER" x="667" y="2" width="30" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Boom #]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="a8ca7714-1bdd-44d3-8346-93c319a90f4d" key="INVOICE_TIMBER_MARK" x="690" y="2" width="50" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Timber Mark]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="320db46b-2775-4240-b1ee-857828c36561" key="INVOICE_WEIGH_SLIP" x="713" y="2" width="50" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Weigh Slip #]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="1faf8ace-9e53-49f6-827c-3a9082a6e957" key="INVOICE_REPLACES_ADJUSTS" x="736" y="2" width="65" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Rpl/Adj Invoice #]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="bd7278b9-b6c5-4301-aad7-b0a6bc177e55" key="COMMENTS" x="759" y="2" width="85" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Comments Submitted]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="b8273c18-0f85-4ca7-92cf-753078339149" key="REVIEWER" x="782" y="2" width="40" height="24" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Reviewer]]></text>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="20">
+			<element kind="textField" uuid="fafa4bf2-4a52-4182-ad8b-c1734ec324ac" key="CLIENT_INVOICE_DATE" x="0" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format($F{CLIENT_INVOICE_DATE})]]></expression>
+			</element>
+			<element kind="textField" uuid="034aae27-8b6e-4f88-9691-6e6c76ec5853" key="INVOICE_NUMBER" x="23" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{CLIENT_INVOICE_NO}]]></expression>
+				<property name="local_mesure_unitheight" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				<property name="net.sf.jasperreports.text.truncate.at.char" value="true"/>
+				<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+			</element>
+			<element kind="textField" uuid="00416ec2-f423-41a8-a1a8-e98efda18643" key="INVOICE_TYPE" x="46" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{INVOICE_TYPE_DESC}]]></expression>
+				<property name="local_mesure_unitheight" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				<property name="net.sf.jasperreports.text.truncate.at.char" value="true"/>
+				<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+			</element>
+			<element kind="textField" uuid="9554095c-f4f1-4f51-af4f-118aee99661f" key="SELLER_NUMBER" x="69" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{SELLER_CLIENT_NUMBER} + " " + $F{SELLER_LOCATION_CODE}]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="local_mesure_unitwidth" value="pixel"/>
+			</element>
+			<element kind="textField" uuid="9554095c-f4f1-4f51-af4f-118aee99661f" key="SELLER_NAME" x="92" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{SELLER_NAME}]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="local_mesure_unitwidth" value="pixel"/>
+			</element>
+			<element kind="textField" uuid="98d68279-fc68-4f1f-b969-6c2029a377f8" key="BUYER_NUMBER" x="115" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{BUYER_CLIENT_NUMBER} + " " + $F{BUYER_LOCATION_CODE}]]></expression>
+				<property name="local_mesure_unitwidth" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+			</element>
+			<element kind="textField" uuid="9554095c-f4f1-4f51-af4f-118aee99661f" key="BUYER_NAME" x="138" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{BUYER_NAME}]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="local_mesure_unitwidth" value="pixel"/>
+			</element>
+			<element kind="textField" uuid="4974ddfc-0ed4-4d50-a6eb-cb8f17913dfc" key="ENTRY_USERID" x="759" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{ENTRY_USERID}]]></expression>
+			</element>
+			<element kind="textField" uuid="f2ad9938-33ae-47d8-9830-2ddd2a868d93" key="FOB_POINT" x="161" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{LOG_SALE_FOB_LOCATION}]]></expression>
+			</element>
+			<element kind="textField" uuid="4c055071-a005-4767-b154-df76dce300dd" key="MATURITY" x="184" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_TYPE_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="fa175271-9538-40aa-9e37-1cdba1e6b597" key="SPECIES" x="207" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_SPECIES_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="59f49f9d-2dd9-49f4-92a9-c4042304073a" key="SORT_CODE_PRIMARY" x="230" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true" hTextAlign="Center">
+				<expression><![CDATA[$F{PRIMARY_SORT_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="59f49f9d-2dd9-49f4-92a9-c4042304073a" key="SORT_CODE_SECONDARY" x="253" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_SORT_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="d7e00e3b-d33c-48f8-b1c4-5223d6aeb3d7" key="GRADE" x="276" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_GRADE_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="be76366f-708e-49c4-a9de-934480bd4822" key="FLAT_PRICE" x="299" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="$###,###,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{FLAT_PRICE}]]></expression>
+			</element>
+			<element kind="textField" uuid="586187c8-ba4e-4696-878e-491ad985ac7d" key="SPREAD_PRICE" x="322" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="$###,###,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{SPREAD_PRICE}]]></expression>
+			</element>
+			<element kind="textField" uuid="79264b31-26d5-411f-8189-2eb00fa61d28" key="VOLUME" x="345" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="###,###,###,##0.000;-###,###,###,##0.000" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{VOLUME}]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<property name="local_mesure_unitheight" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="a92ae57e-bfd3-4e1b-8f01-9d42fc7745a4" key="PRICE" x="368" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="$###,###,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{PRICE}]]></expression>
+			</element>
+			<element kind="textField" uuid="a92ae57e-bfd3-4e1b-8f01-9d42fc7745a4" key="CONVERSION_FACTOR" x="368" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="###,###,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{CONVERSION_FACTOR}]]></expression>
+			</element>
+			<element kind="textField" uuid="03f75893-a1c9-4225-ab40-5d5cd8f220f9" key="PIECES" x="391" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="###,###,###,##0;-###,###,###,##0" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{PIECES}]]></expression>
+			</element>
+			<element kind="textField" uuid="883c7da8-9205-4b4e-a5e5-6ce07fbaf46a" key="AMOUNT" x="414" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="$###,###,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{AMOUNT}]]></expression>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="b3272571-0232-4605-a8bf-50232f790c47" key="SUBMISSION_NUMBER" x="437" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{SUBMISSION_ID}]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="c06e8c02-c348-4af4-9e9b-b391317b6f6d" key="SUBMISSION_MONTH_YEAR" x="460" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{SUBMISSION_YYYYMM}]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="b55c20a5-47f6-4dfd-90de-015150f34c22" key="SUBMISSION_STATUS" x="483" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{CSP_SUBMISSION_STATUS_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="e375ee83-9872-4d83-8f3b-7240621a293a" key="SUBMISSION_TYPE" x="506" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{SUBMISSION_TYPE_DESC}]]></expression>
+			</element>
+			<element kind="textField" uuid="014d59d8-ba9d-4ab1-a37f-0b747753567b" key="APPROVAL_MONTH_YEAR" x="529" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{APPROVAL_YYYYMM}]]></expression>
+			</element>
+			<element kind="textField" uuid="a9c3f442-5183-42e2-ac7b-202d3f4b6001" key="APPROVED_BY" x="552" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{APPROVED_USERID}]]></expression>
+				<property name="local_mesure_unitheight" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="bb5662fa-6f68-4ccf-b337-3e356cc6b04c" key="INVOICE_STATUS" x="575" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{LOG_SALE_ENTRY_STATUS_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="fefd2c3c-6449-4c9d-8d01-87d08918ed33" key="TOTAL_VOLUME" x="598" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="###,###,###,##0.000;-###,###,###,##0.000" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{TOTAL_VOLUME}]]></expression>
+			</element>
+			<element kind="textField" uuid="66ef40a6-addb-48b1-9a98-643155acf4be" key="TOTAL_PIECES" x="621" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="###,###,###,##0;-###,###,###,##0" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{TOTAL_PIECES}]]></expression>
+			</element>
+			<element kind="textField" uuid="2b17ccbe-1adc-4cbf-9d2c-4045f01cee98" key="TOTAL_AMOUNT" x="644" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" pattern="$###,###,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{TOTAL_AMOUNT}]]></expression>
+			</element>
+			<element kind="textField" uuid="7c61e4cb-9700-44e5-b28c-9b461d45b608" key="INVOICE_BOOM_NUMBER" x="667" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{BOOM_NUMBERS}]]></expression>
+			</element>
+			<element kind="textField" uuid="6c19bf2d-d14a-42d0-85e9-249ed25905c0" key="INVOICE_TIMBER_MARK" x="690" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{TIMBER_MARKS}]]></expression>
+			</element>
+			<element kind="textField" uuid="88cb4ea3-6ae6-49a5-9fca-1b07d3dad46a" key="INVOICE_WEIGH_SLIP" x="713" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{WEIGH_SLIPS}]]></expression>
+			</element>
+			<element kind="textField" uuid="dbe35880-a2e2-4374-9c8b-bef57eb8ea59" key="INVOICE_REPLACES_ADJUSTS" x="736" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{REPLACES_ADJUSTS}]]></expression>
+			</element>
+			<element kind="textField" uuid="19f87dd6-d3cf-4d47-a5b0-c4d65c6ab941" key="COMMENTS" x="759" y="0" width="23" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{SUBMITTER_NOTES}]]></expression>
+			</element>
+			<element kind="textField" uuid="45218621-0370-44f3-a60a-86293c3ee7ee" key="REVIEWER" x="782" y="0" width="20" height="20" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<expression><![CDATA[$F{REVIEWER_NOTES}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="39" splitType="Stretch">
+		<element kind="elementGroup"/>
+		<element kind="line" uuid="a7e9c2cc-f600-465f-84ce-222bbeb76da8" x="0" y="0" width="802" height="1"/>
+		<element kind="textField" uuid="6782ef63-4a67-486c-bbf9-b0de428faf31" x="687" y="4" width="79" height="20" fontSize="8.0" hTextAlign="Right">
+			<expression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></expression>
+		</element>
+		<element kind="textField" uuid="65453d31-63bf-4f46-901e-475fc73537dd" x="766" y="4" width="36" height="20" fontSize="8.0" evaluationTime="Report">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+		<element kind="staticText" uuid="e8fa5da7-b962-4788-8794-5a080f2250e0" key="" x="0" y="4" width="80" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[R13 - Ad Hoc Report:]]></text>
+		</element>
+		<element kind="textField" uuid="5b2393b9-cfab-43e5-a22b-1401d3dc32a7" x="94" y="4" width="100" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+			<expression><![CDATA[$P{REPORT_NAME}]]></expression>
+		</element>
+	</pageFooter>
+	<summary height="90">
+		<element kind="line" uuid="0792e8a2-aad7-44b1-86f7-b9fc695e766f" x="0" y="0" width="802" height="1"/>
+		<element kind="textField" uuid="86ef94ba-a300-4ede-aa6a-e177d2e2e30e" x="0" y="1" width="100" height="20" fontSize="8.0" pattern="">
+			<expression><![CDATA[$V{REPORT_COUNT} + " Records"]]></expression>
+		</element>
+		<element kind="textField" uuid="e07eb596-16a6-41f6-b503-532882facd8a" key="VOLUME" x="345" y="1" width="60" height="20" fontSize="8.0" pattern="###,###,###,##0.000;-###,###,###,##0.000" hTextAlign="Right">
+			<expression><![CDATA[$V{SUM_VOLUME}]]></expression>
+		</element>
+		<element kind="textField" uuid="5f1e299c-aa11-4151-bd91-4c03c6c37ad7" key="PIECES" x="391" y="1" width="53" height="20" markup="none" fontSize="8.0" pattern="###,###,###,##0;-###,###,###,##0" hTextAlign="Right">
+			<expression><![CDATA[$V{SUM_PIECES}]]></expression>
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="textField" uuid="ecd9ddb4-ed15-45c6-a41e-7550a0fcd577" key="AMOUNT" x="414" y="1" width="62" height="20" fontSize="8.0" pattern="$###,###,###,##0.00" hTextAlign="Right">
+			<expression><![CDATA[$V{SUM_AMOUNT}]]></expression>
+		</element>
+		<element kind="staticText" uuid="79af836c-50fd-4ff6-b8b6-41e527aed19c" x="0" y="21" width="115" height="19">
+			<text><![CDATA[Number Of Invoices:]]></text>
+		</element>
+		<element kind="textField" uuid="43c4e42b-3351-4ae1-bb17-fea96756a6cd" x="230" y="21" width="115" height="19">
+			<expression><![CDATA[$V{SUM_NUMBER_O_INVOICES}]]></expression>
+		</element>
+		<element kind="textField" uuid="082c6c0e-b387-4baf-95c5-e9f4cc4e1655" x="230" y="40" width="115" height="17">
+			<expression><![CDATA[$V{SUM_NUMBER_S_INVOICES}]]></expression>
+		</element>
+		<element kind="textField" uuid="8ba04f18-9d4a-4eb3-b657-02ac5a83a719" x="230" y="57" width="115" height="20">
+			<expression><![CDATA[$V{SUM_NUMBER_M_INVOICES}]]></expression>
+		</element>
+		<element kind="staticText" uuid="7cb4fc39-aa78-44e4-9ff2-cf4f94355332" x="115" y="21" width="115" height="19">
+			<text><![CDATA[Old Growth]]></text>
+		</element>
+		<element kind="staticText" uuid="a7997a25-0b8f-4aa4-b5ef-441679919b3f" x="115" y="40" width="115" height="17">
+			<text><![CDATA[Second Growth]]></text>
+		</element>
+		<element kind="staticText" uuid="77d0e22c-e8e0-40dd-b35e-bc0757ab4f42" x="115" y="57" width="115" height="20">
+			<text><![CDATA[Mixed Growth]]></text>
+		</element>
+	</summary>
+</jasperReport>

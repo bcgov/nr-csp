@@ -1,0 +1,17 @@
+.single-select {
+  .cds--list-box__field {
+    border-bottom: 1px solid var(--cds-border-strong-01);
+  }
+
+  .cds--list-box__menu {
+    min-width: 100%;
+    width: max-content;
+    max-width: none;
+  }
+
+  .cds--list-box__menu-item__option {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: unset;
+  }
+}

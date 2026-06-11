@@ -1,0 +1,15 @@
+// Match the project's input-field background (TextInput / DatePicker / Dropdown
+// / Search all use #f4f4f4 in g10 via a theme-scoped override). Same colour
+// value keeps the TextArea visually identical to the inputs across all states.
+:root[data-carbon-theme='g10'] {
+  .form-text-area {
+    .cds--text-area,
+    .cds--text-area:hover,
+    .cds--text-area:focus,
+    .cds--text-area:active,
+    .cds--text-area[disabled],
+    .cds--text-area__wrapper textarea {
+      background-color: #f4f4f4 !important;
+    }
+  }
+}

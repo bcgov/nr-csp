@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: nr-csp-frontend
+  description: NR CSP frontend
+  annotations:
+    github.com/project-slug: bcgov-nr/nr-csp
+spec:
+  type: website
+  lifecycle: experimental
+  owner: nr-csp-team

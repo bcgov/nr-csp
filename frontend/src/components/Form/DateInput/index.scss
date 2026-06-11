@@ -1,0 +1,25 @@
+.date-input,
+.date-input.cds--form-item {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.date-input .cds--date-picker,
+.date-input .cds--date-picker--single,
+.date-input .cds--date-picker-container,
+.date-input .cds--date-picker-input__wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: unset !important;
+}
+
+.date-input .cds--date-picker-input__wrapper > span {
+  display: flex !important;
+  width: 100% !important;
+}
+
+.date-input .cds--date-picker__input {
+  flex: 1 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}

@@ -1,0 +1,50 @@
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+
+.mock-role-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 3rem;
+  padding: 0 $spacing-05;
+  padding-right: 0;
+
+  select {
+    @include type-style('body-compact-01');
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: $text-on-color;
+    cursor: pointer;
+    outline: none;
+    padding-left: $spacing-03;
+    // extend select over the icon so clicking the caret opens the dropdown
+    padding-right: $spacing-07;
+    position: relative;
+    z-index: 1;
+
+    option {
+      background: $layer-01;
+      color: $text-primary;
+    }
+
+    &:hover {
+      color: $text-on-color-disabled;
+    }
+
+    &:focus {
+      outline: 2px solid $focus;
+      outline-offset: -2px;
+    }
+  }
+
+  .mock-role-selector__caret {
+    color: $text-on-color;
+    pointer-events: none;
+    position: absolute;
+    right: $spacing-05;
+    display: flex;
+    align-items: center;
+  }
+}

@@ -1,0 +1,27 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.searchable-select {
+  // Underline-only border — mirrors SingleSelect and FPC page dropdown styling.
+  // Must sit on the .cds--combo-box.cds--list-box element (same element gets this class).
+  border: none !important;
+  border-bottom: 1px solid var(--cds-border-strong-01) !important;
+  border-radius: 0 !important;
+
+  .cds--list-box__field {
+    border-bottom: none !important;
+  }
+
+  // Widen the dropdown menu so long items aren't truncated
+  .cds--list-box__menu {
+    min-inline-size: 100%;
+    inline-size: max-content;
+    max-inline-size: none;
+  }
+
+  // Bold the portion of each item that matches the typed query
+  &__match {
+    font-weight: 600;
+    background: transparent;
+    color: inherit;
+  }
+}

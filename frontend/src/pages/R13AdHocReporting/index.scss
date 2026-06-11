@@ -1,0 +1,231 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+@use '@carbon/type';
+@use '../../styles/mixins' as mixins;
+
+// ── Page-level SCSS variables ──────────────────────────────────────────────────
+
+// Fixed field widths (derived from the 8-col / 4-col Carbon grid columns at
+// the 880px content width defined in this page's container).
+$field-width-wide: 472px;
+$field-width-narrow: 224px;
+
+// Column widths for the filter tables.
+$filter-col-label: 180px;
+$filter-col-show: 120px;
+
+// Letter-spacing for uppercase section-group labels (matches the overline-label
+// style in the BCGov design tokens; Carbon's type scale has no equivalent).
+$label-letter-spacing: 0.08em;
+
+// ── Shared sub-mixins used within this page ────────────────────────────────────
+
+// Consistent heading style for every filter-section h2.
+@mixin section-heading {
+  @include type.type-style('heading-03');
+  margin-bottom: $spacing-02;
+  padding-bottom: $spacing-03;
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+}
+
+// ── Page container ─────────────────────────────────────────────────────────────
+
+.r13-page {
+  padding: $spacing-06;
+  max-width: 880px;
+  width: 100%;
+
+  // ── Page description & info banner ────────────────────────────────────
+  &__description {
+    @include type.type-style('body-01');
+    margin-top: $spacing-03;
+    margin-bottom: $spacing-05;
+  }
+
+  &__info-banner {
+    display: flex;
+    align-items: center;
+    gap: $spacing-03;
+    background-color: var(--cds-layer-01);
+    border-left: 3px solid var(--cds-interactive);
+    padding: $spacing-04 $spacing-05;
+    margin-bottom: $spacing-07;
+    @include type.type-style('body-01');
+    color: var(--cds-text-secondary);
+  }
+
+  // ── Fixed-width field rows ─────────────────────────────────────────────
+  &__field-row {
+    display: flex;
+    gap: $spacing-05;
+    flex-wrap: wrap;
+    margin-bottom: $spacing-06;
+  }
+
+  &__field--wide {
+    flex: 0 0 $field-width-wide;
+  }
+
+  &__field--narrow {
+    flex: 0 0 $field-width-narrow;
+  }
+
+  // ── Report information ────────────────────────────────────────────────
+  &__report-info {
+    margin-bottom: $spacing-05;
+
+    h2 {
+      @include type.type-style('heading-03');
+      margin-bottom: $spacing-02;
+    }
+
+    p {
+      @include type.type-style('body-01');
+      color: var(--cds-text-secondary);
+    }
+  }
+
+  // ── Filter sections ───────────────────────────────────────────────────
+  &__section {
+    margin-bottom: $spacing-07;
+
+    h2 {
+      @include section-heading;
+    }
+
+    &-hint {
+      @include type.type-style('body-01');
+      color: var(--cds-text-secondary);
+      margin-bottom: $spacing-05;
+    }
+  }
+
+  // ── Filter table ──────────────────────────────────────────────────────
+  &__filter-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 1px solid var(--cds-border-subtle-01);
+
+    th {
+      @include type.type-style('label-01');
+      color: var(--cds-text-secondary);
+      // --cds-background = #f4f4f4 in Carbon g10; --cds-field-01 resolves to
+      // white in g10 so we use the page-background token instead.
+      background-color: var(--cds-background) !important;
+      padding: $spacing-03 $spacing-05;
+      text-align: left;
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: $spacing-04 $spacing-05;
+      vertical-align: middle;
+      border-bottom: 1px solid var(--cds-border-subtle-01);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    &--col-label {
+      width: $filter-col-label;
+      @include type.type-style('body-01');
+      color: var(--cds-text-primary);
+    }
+
+    &--col-show {
+      width: $filter-col-show;
+      min-width: $filter-col-show;
+      text-align: center;
+    }
+
+    // Carbon's default checkbox uses --cds-interactive for the checked
+    // background. In some theme contexts the token resolves to a dark colour;
+    // these rules lock it to the correct blue regardless of context.
+    .cds--checkbox:checked + .cds--checkbox-label::before {
+      background-color: var(--cds-interactive) !important;
+      border-color: var(--cds-interactive) !important;
+    }
+
+    .cds--checkbox:checked + .cds--checkbox-label::after {
+      border-color: var(--cds-icon-inverse) !important;
+    }
+  }
+
+  // ── Show-checkbox centering wrapper ───────────────────────────────────
+  // Carbon's .cds--form-item has flex:1 (fills the parent), which defeats
+  // justify-content:center. Setting flex:none lets flexbox actually centre it.
+  &__show-wrapper {
+    display: flex;
+    justify-content: center;
+
+    .cds--form-item {
+      flex: none;
+    }
+  }
+
+  // ── Additional columns ────────────────────────────────────────────────
+  &__additional-columns {
+    margin-bottom: $spacing-07;
+
+    h2 {
+      @include section-heading;
+    }
+
+    p {
+      @include type.type-style('body-01');
+      color: var(--cds-text-secondary);
+      margin-bottom: $spacing-05;
+    }
+  }
+
+  &__col-card {
+    background-color: var(--cds-background);
+    padding: $spacing-06;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-06 $spacing-07;
+  }
+
+  &__col-group {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-03;
+
+    &-label {
+      @include type.type-style('label-01');
+      color: var(--cds-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: $label-letter-spacing;
+      margin-bottom: $spacing-02;
+    }
+  }
+
+  // ── Show-options error ────────────────────────────────────────────────
+  &__show-error {
+    color: var(--cds-support-error);
+    @include type.type-style('label-01');
+    margin-top: $spacing-03;
+  }
+
+  // ── Action buttons ────────────────────────────────────────────────────
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-05;
+    padding-top: $spacing-05;
+    border-top: 1px solid var(--cds-border-subtle-01);
+
+    .cds--btn {
+      min-width: 160px;
+      justify-content: space-between;
+    }
+  }
+
+  // Apply the shared report-form styling (backgrounds, borders, label spacing).
+  // Passing 2.5rem targets Carbon's "md" size (40px) instead of the mixin's
+  // default "lg" (3rem / 48px).  No post-mixin override block needed.
+  @include mixins.report-form-size(2.5rem);
+}

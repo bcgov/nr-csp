@@ -1,0 +1,29 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.tagged-multi-select {
+  &__field.active-multi-select {
+    // Pin the menu to the trigger width so short codes don't collapse it, and
+    // let long labels wrap instead of truncating.
+    .cds--list-box__menu {
+      width: 100%;
+      min-width: 100%;
+    }
+
+    .cds--list-box__menu-item__option {
+      white-space: normal;
+    }
+
+    // Selections are surfaced as dismissible tags below the field, so hide the
+    // built-in selection count badge / clear-all control inside the trigger.
+    .cds--list-box__selection {
+      display: none;
+    }
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-03;
+    margin-top: $spacing-03;
+  }
+}

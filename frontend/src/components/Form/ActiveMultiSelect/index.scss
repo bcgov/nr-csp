@@ -1,0 +1,17 @@
+.active-multi-select {
+  // Expand the dropdown menu to fit the longest item rather than being
+  // clamped to the trigger width. min-width: 100% ensures it is never
+  // narrower than the input box itself.
+  .cds--list-box__menu {
+    min-width: 100%;
+    width: max-content;
+    max-width: none;
+  }
+
+  // Prevent item text from wrapping or truncating inside the menu.
+  .cds--list-box__menu-item__option {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: unset;
+  }
+}
