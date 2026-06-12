@@ -89,4 +89,59 @@ describe('ResultsTable', () => {
     );
     expect(screen.getByText('Totals')).toBeInTheDocument();
   });
+
+  it('manages row expansion internally when uncontrolled', async () => {
+    render(
+      <ResultsTable
+        rows={rows}
+        columns={columns}
+        expandable
+        renderExpandedContent={(r) => <div>Detail for {r.name}</div>}
+      />,
+    );
+    // Carbon keeps the toggle's label static ("Expand current row") and flips
+    // aria-expanded. With no controlled props, clicking toggles the row's own state.
+    const [first] = screen.getAllByLabelText(/expand current row/i);
+    expect(first).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(first);
+    expect(first).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('controlled expansion reports the toggled id set and never falls back to internal state', async () => {
+    const onExpandedRowIdsChange = vi.fn();
+    const { rerender } = render(
+      <ResultsTable
+        rows={rows}
+        columns={columns}
+        expandable
+        expandedRowIds={new Set<string>()}
+        onExpandedRowIdsChange={onExpandedRowIdsChange}
+        renderExpandedContent={(r) => <div>Detail for {r.name}</div>}
+      />,
+    );
+
+    const [first] = screen.getAllByLabelText(/expand current row/i);
+    expect(first).toHaveAttribute('aria-expanded', 'false');
+
+    // Clicking a row's toggle reports the NEXT set to the parent...
+    await userEvent.click(first);
+    expect(onExpandedRowIdsChange).toHaveBeenCalledWith(new Set(['1']));
+
+    // ...but because the parent owns the set (and the prop hasn't changed), the row
+    // stays collapsed — proving controlled mode does NOT fall back to internal state.
+    expect(screen.getAllByLabelText(/expand current row/i)[0]).toHaveAttribute('aria-expanded', 'false');
+
+    // Once the parent feeds the new set back in, the controlled state is reflected.
+    rerender(
+      <ResultsTable
+        rows={rows}
+        columns={columns}
+        expandable
+        expandedRowIds={new Set(['1'])}
+        onExpandedRowIdsChange={onExpandedRowIdsChange}
+        renderExpandedContent={(r) => <div>Detail for {r.name}</div>}
+      />,
+    );
+    expect(screen.getAllByLabelText(/expand current row/i)[0]).toHaveAttribute('aria-expanded', 'true');
+  });
 });

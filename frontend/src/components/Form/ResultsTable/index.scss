@@ -157,6 +157,10 @@
   // reads softer while still flipping correctly between light and dark themes.
   --rt-zebra-grey: color-mix(in srgb, var(--cds-layer-accent-01) 75%, var(--cds-layer));
 
+  .cds--data-table-content {
+    overflow: visible;
+  }
+
   // Paired zebra — uses Carbon layer tokens so it flips correctly between
   // light and dark themes. Specificity is (0,3,3)+!important to beat the
   // generic odd/even zebra defined above.

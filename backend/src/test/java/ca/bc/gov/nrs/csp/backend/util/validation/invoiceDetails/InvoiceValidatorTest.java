@@ -187,7 +187,7 @@ class InvoiceValidatorTest {
 
         ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
 
-        assertHasError(result, "innoice.both.replace.adjust.invoicenum.error");
+        assertHasError(result, "invoice.both.replace.adjust.invoicenum.error");
     }
 
     // ---------------------------------------------------------------
@@ -325,10 +325,24 @@ class InvoiceValidatorTest {
     }
 
     @Test
-    void validate_esfDoesNotRunManualSubmitterCheck() {
-        // For ESF the submitter is validated as buyer/seller, not via the manual
-        // submitter check, so the manual-only key is never raised.
-        given(commonValidation.isValidClientLocation("00001234", "01")).willReturn(false);
+    void validate_esfChecksSellerAndBuyerLocationExistence() {
+        // ESF validates BOTH the seller and buyer client+location
+        // existence (both are DB foreign keys), so an invalid one is caught with a
+        // clear message instead of failing at the database.
+        given(commonValidation.isValidClientLocation(any(), any())).willReturn(false);
+
+        ValidationResult result = validator.validate(validInvoice(), List.of(), false, ActionType.OTHER);
+
+        assertHasError(result, "invoice.seller.client.location.invalid.error");
+        assertHasError(result, "invoice.buyer.client.location.invalid.error");
+    }
+
+    @Test
+    void validate_esfDoesNotRaiseManualSubmitterKey() {
+        // ESF does not run the manual submitter check (line 105 is manual-only),
+        // so the manual-only key is never raised — seller/buyer existence is validated
+        // instead (see above).
+        given(commonValidation.isValidClientLocation(any(), any())).willReturn(false);
 
         ValidationResult result = validator.validate(validInvoice(), List.of(), false, ActionType.OTHER);
 

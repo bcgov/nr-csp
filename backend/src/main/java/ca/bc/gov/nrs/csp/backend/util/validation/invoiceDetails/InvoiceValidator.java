@@ -80,7 +80,7 @@ public class InvoiceValidator {
         String replaces = details.replaceInvNum();
         String adjusts = details.adjustInvNum();
         if (!isBlank(replaces) && !isBlank(adjusts)) {
-            addError("innoice.both.replace.adjust.invoicenum.error", null);
+            addError("invoice.both.replace.adjust.invoicenum.error", null);
         }
 
         replaceAdjustInvoiceCheck(replaces, details.submitterClientNum(), details.submitterLocation(),
@@ -184,6 +184,10 @@ public class InvoiceValidator {
 
     private boolean checkForInvoiceNumDuplicate(InvoiceDetails details) {
         if (!manual) return true;
+        // Duplicate detection applies to Sale invoices only: warn when another
+        // (non-rejected) Sale invoice with the same number exists for the same
+        // submitter client number + location.
+        if (!ConstantsCode.INVTYPE_SALE.equals(details.invType())) return true;
         String newSubmitterNum = details.submitterClientNum();
         String newSubmitterLoc = details.submitterLocation();
         try {
@@ -192,54 +196,10 @@ public class InvoiceValidator {
                 if (Objects.equals(m.coastalLogSaleId(), details.invID())) continue;
                 if (ConstantsCode.INVENTRYSTATUS_REJECTED.equals(m.invoiceStatusCode())) continue;
 
-                boolean duplicate = false;
-                String otherClientNumber;
-                String otherClientLocationCode;
-                String otherPartyName;
-                String otherPartyCity;
-                String otherPartyProvince;
-                if (ConstantsCode.INVOICE_SUBMITTEDBY_SELLER.equals(details.submittedBy())) {
-                    otherClientNumber = m.buyerClientNumber();
-                    otherClientLocationCode = m.buyerClientLocnCode();
-                    otherPartyName = m.buyerParticipantName();
-                    otherPartyCity = m.buyerParticipantCity();
-                    otherPartyProvince = m.buyerParticipantProvince();
-                } else {
-                    otherClientNumber = m.sellerClientNumber();
-                    otherClientLocationCode = m.sellerClientLocnCode();
-                    otherPartyName = m.sellerParticipantName();
-                    otherPartyCity = m.sellerParticipantCity();
-                    otherPartyProvince = m.sellerParticipantProvince();
-                }
-
-                if (ConstantsCode.INVTYPE_SALE.equals(details.invType())
-                        && Objects.equals(newSubmitterNum, m.submitterClientNumber())
+                if (Objects.equals(newSubmitterNum, m.submitterClientNumber())
                         && Objects.equals(newSubmitterLoc, m.submitterClientLocnCode())
                         && Objects.equals(details.invType(), m.invoiceTypeCode())) {
-                    duplicate = true;
                     log.debug("InvoiceValidator: duplicate seller invoice detected");
-                } else if (ConstantsCode.INVTYPE_PURCHASE.equals(details.invType())
-                        && Objects.equals(newSubmitterNum, m.submitterClientNumber())
-                        && Objects.equals(newSubmitterLoc, m.submitterClientLocnCode())
-                        && Objects.equals(details.invType(), m.invoiceTypeCode())) {
-                    if (!isBlank(details.otherClientNum())
-                            && Objects.equals(details.otherClientNum(), otherClientNumber)
-                            && Objects.equals(details.otherClientLocation(), otherClientLocationCode)) {
-                        duplicate = true;
-                        log.debug("InvoiceValidator: buyer duplicate invoice (from seller) detected");
-                    } else if (!isBlank(details.otherClientName())
-                            && otherPartyName != null
-                            && otherPartyCity != null
-                            && otherPartyProvince != null
-                            && Objects.equals(details.otherClientName(), otherPartyName)
-                            && Objects.equals(details.otherClientCity(), otherPartyCity)
-                            && Objects.equals(details.otherClientProvState(), otherPartyProvince)) {
-                        duplicate = true;
-                        log.debug("InvoiceValidator: buyer duplicate invoice (from other party) detected");
-                    }
-                }
-
-                if (duplicate) {
                     addWarning("invoice.number.duplicate.same.type.warning",
                             new Object[]{details.invNumber(), m.invoiceTypeCode()});
                     break;
@@ -591,26 +551,38 @@ public class InvoiceValidator {
             return false;
         }
 
+        // Validate BOTH the seller and buyer client number + location exist in CSP
+        // (C-03 / C-04). Both are foreign keys on coastal_log_sale, so an invalid
+        // value must be caught here with a clear message instead of failing at the
+        // database. When the seller submits, the seller IS the submitter, so the
+        // submitter's location is effectively validated too — C-02's "no error"
+        // therefore holds only for valid data, which is the normal ESF case.
         boolean ok = true;
-        if (!isBlank(buyerClientNum) && !isBlank(buyerClientLoc)) {
-            if (!checkSubmiterClient(buyerClientNum, buyerClientLoc, "invoice.buyer.client.location.invalid.error")) {
-                ok = false;
-            }
-        }
         if (!isBlank(sellerClientNum) && !isBlank(sellerClientLoc)) {
             if (!checkSubmiterClient(sellerClientNum, sellerClientLoc, "invoice.seller.client.location.invalid.error")) {
                 ok = false;
             }
         }
-        if (!Objects.equals(details.clientNumber(), details.submitterClientNum())) {
-            addError("invoice.submitter.not.equal.seller.client.number.error",
-                    new Object[]{details.clientNumber(), details.submitterClientNum()});
-            ok = false;
+        if (!isBlank(buyerClientNum) && !isBlank(buyerClientLoc)) {
+            if (!checkSubmiterClient(buyerClientNum, buyerClientLoc, "invoice.buyer.client.location.invalid.error")) {
+                ok = false;
+            }
         }
-        if (!Objects.equals(details.clientLocation(), details.submitterLocation())) {
-            addError("invoice.submitter.not.equal.seller.client.location.error",
-                    new Object[]{details.clientLocation(), details.submitterLocation()});
-            ok = false;
+        // C-07 / C-08: only when the seller submits (sellerSubmission = 'Y') must
+        // the submitter's (submission's) client number + location match the
+        // seller's. The message reads "submission... must match seller...", so the
+        // args are {submitter, seller}.
+        if (ConstantsCode.INVOICE_SUBMITTEDBY_SELLER.equals(details.submittedBy())) {
+            if (!Objects.equals(details.submitterClientNum(), details.clientNumber())) {
+                addError("invoice.submitter.not.equal.seller.client.number.error",
+                        new Object[]{details.submitterClientNum(), details.clientNumber()});
+                ok = false;
+            }
+            if (!Objects.equals(details.submitterLocation(), details.clientLocation())) {
+                addError("invoice.submitter.not.equal.seller.client.location.error",
+                        new Object[]{details.submitterLocation(), details.clientLocation()});
+                ok = false;
+            }
         }
         return ok;
     }
@@ -619,13 +591,13 @@ public class InvoiceValidator {
         if (ConstantsCode.INVOICE_SUBMITTEDBY_SELLER.equals(details.submittedBy())
                 && ConstantsCode.INVTYPE_PURCHASE.equals(details.invType())) {
             addError("invoice.type.invalid.submitter",
-                    new Object[]{manual ? ConstantsCode.INVOICE_SUBMITTEDBY_SELLER : "Y", details.invType()});
+                    new Object[]{details.submittedBy(), details.invType()});
             return false;
         }
         if (ConstantsCode.INVOICE_SUBMITTEDBY_BUYER.equals(details.submittedBy())
                 && ConstantsCode.INVTYPE_SALE.equals(details.invType())) {
             addError("invoice.type.invalid.submitter",
-                    new Object[]{manual ? ConstantsCode.INVOICE_SUBMITTEDBY_BUYER : "N", details.invType()});
+                    new Object[]{details.submittedBy(), details.invType()});
             return false;
         }
         return true;

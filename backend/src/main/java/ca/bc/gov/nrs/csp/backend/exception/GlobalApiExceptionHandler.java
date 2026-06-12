@@ -172,6 +172,20 @@ public class GlobalApiExceptionHandler {
         return ResponseEntity.badRequest().body(new ApiError("VALIDATION_ERROR", message));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        clearProducibleMediaTypes(request);
+        // Surface DB constraint violations (e.g. an Oracle FK such as a client
+        // number/location that doesn't exist) as a clean 400 instead of a raw 500
+        // stack trace. The specific cause is logged for diagnostics only.
+        log.warn("Data integrity violation: {}",
+                ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.badRequest().body(new ApiError("DATA_INTEGRITY_ERROR",
+                "The request references data that does not exist or violates a database constraint. "
+                        + "Please verify the client numbers, locations, and codes."));
+    }
+
     @ExceptionHandler({AuthorizationDeniedException.class})
     public ResponseEntity<ApiError> handleAccessDenied(Exception ex, HttpServletRequest request) {
         clearProducibleMediaTypes(request);
