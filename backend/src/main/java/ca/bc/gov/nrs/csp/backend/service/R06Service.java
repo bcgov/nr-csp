@@ -22,9 +22,11 @@ public class R06Service {
     private static final Logger log = LoggerFactory.getLogger(R06Service.class);
 
     private final JasperServerService jasperServerService;
+    private final SearchService searchService;
 
-    public R06Service(JasperServerService jasperServerService) {
+    public R06Service(JasperServerService jasperServerService, SearchService searchService) {
         this.jasperServerService = jasperServerService;
+        this.searchService = searchService;
     }
 
     public ReportResult generateReport(R06ReportRequest request) {
@@ -47,7 +49,7 @@ public class R06Service {
     }
 
     private void validate(R06ReportRequest r) {
-        ValidationResult result = new R06Validator().validate(r);
+        ValidationResult result = new R06Validator(searchService).validate(r);
         if (result.hasErrors()) {
             throw new ValidationException("R06 report failed validation.", result);
         }
@@ -62,7 +64,7 @@ public class R06Service {
         if (r.getBuyerClientNumber() != null)      p.put("BUYER_CLIENT_NUMBER", r.getBuyerClientNumber());
         if (r.getBuyerLocCode() != null)           p.put("BUYER_CLIENT_LOC_CODE", r.getBuyerLocCode());
         if (r.getSubmissionId() != null)           p.put("SUBMISSION_ID", r.getSubmissionId());
-        if (r.getInvoiceNumbers() != null)         p.put("CLIENT_INVOICE_NO", r.getInvoiceNumbers());
+        if (r.getInvoiceNumbers() != null)         p.put("CLIENT_INVOICE_NO", r.getInvoiceNumbers().toUpperCase());
         if (r.getMaturityCodes() != null)          p.put("LOG_SALE_TYPE_CODE_MATURITY", r.getMaturityCodes());
         if (r.getLogSaleEntryStatusCode() != null) p.put("LOG_SALE_ENTRY_STATUS_CODE", r.getLogSaleEntryStatusCode());
         if (r.getCspInvoiceTypeCode() != null)     p.put("CSP_INVOICE_TYPE_CODE", r.getCspInvoiceTypeCode());

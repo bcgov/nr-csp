@@ -18,6 +18,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 import java.util.Locale;
@@ -131,6 +132,18 @@ public class GlobalApiExceptionHandler {
                 .body(new ApiError("REPORT_ERROR", ex.getMessage()));
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        clearProducibleMediaTypes(request);
+        String message = "Invalid value for parameter '" + ex.getName() + "': '" + ex.getValue() + "'.";
+        if (ex.getRequiredType() != null
+                && java.time.LocalDate.class.isAssignableFrom(ex.getRequiredType())) {
+            message += " Expected format: yyyy-MM-dd.";
+        }
+        log.warn("Type mismatch: {}", message);
+        return ResponseEntity.badRequest().body(new ApiError("BAD_REQUEST", message));
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiError> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
         clearProducibleMediaTypes(request);
@@ -157,6 +170,20 @@ public class GlobalApiExceptionHandler {
                 .collect(Collectors.joining("; "));
         log.warn("Constraint violation: {}", message);
         return ResponseEntity.badRequest().body(new ApiError("VALIDATION_ERROR", message));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        clearProducibleMediaTypes(request);
+        // Surface DB constraint violations (e.g. an Oracle FK such as a client
+        // number/location that doesn't exist) as a clean 400 instead of a raw 500
+        // stack trace. The specific cause is logged for diagnostics only.
+        log.warn("Data integrity violation: {}",
+                ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.badRequest().body(new ApiError("DATA_INTEGRITY_ERROR",
+                "The request references data that does not exist or violates a database constraint. "
+                        + "Please verify the client numbers, locations, and codes."));
     }
 
     @ExceptionHandler({AuthorizationDeniedException.class})

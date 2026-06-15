@@ -191,7 +191,12 @@ public class InvoiceRepository {
             InvoiceDetails details,
             Long submissionId,
             Long buyerParticipantId,
-            Long sellerParticipantId
+            Long sellerParticipantId,
+            // The business submission number (csp_submission.submission_id), shown
+            // to the user as "Submission ID". Distinct from `submissionId`, which is
+            // the surrogate PK (csp_submission_id) used as the join/update key.
+            // Null for manually-entered submissions (insertSubmission doesn't set it).
+            Long submissionNumber
     ) {}
 
     public Optional<LoadedInvoice> findById(Long id) {
@@ -213,6 +218,7 @@ public class InvoiceRepository {
                        cls.submitter_notes AS submit_comments,
                        cls.entry_userid AS entry_userid,
                        cls.csp_submission_id AS submission_id,
+                       sub.submission_id AS submission_number,
                        cls.buyer_log_sale_participant_id AS buyer_participant_id,
                        cls.seller_log_sale_participant_id AS seller_participant_id,
                        sub.client_number AS submitter_client_num,
@@ -241,6 +247,7 @@ public class InvoiceRepository {
 
     private LoadedInvoice mapLoadedInvoice(ResultSet rs, Long id) throws SQLException {
         Long submissionId = rs.getObject("submission_id", Long.class);
+        Long submissionNumber = rs.getObject("submission_number", Long.class);
         Long buyerParticipantId = rs.getObject("buyer_participant_id", Long.class);
         Long sellerParticipantId = rs.getObject("seller_participant_id", Long.class);
         // submittedBy is derived from whether the submitter == the seller side or the buyer side
@@ -304,7 +311,7 @@ public class InvoiceRepository {
                 rs.getString("submit_comments"),
                 rs.getString("entry_userid")
         );
-        return new LoadedInvoice(details, submissionId, buyerParticipantId, sellerParticipantId);
+        return new LoadedInvoice(details, submissionId, buyerParticipantId, sellerParticipantId, submissionNumber);
     }
 
     /**

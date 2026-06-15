@@ -24,7 +24,7 @@ type NavItem = NavLink | NavGroup;
 const isNavGroup = (item: NavItem): item is NavGroup => 'children' in item;
 
 export const LayoutSideNav: FC = () => {
-  const { isSideNavExpanded, isLargeViewport } = useLayout();
+  const { isSideNavExpanded } = useLayout();
   const location = useLocation();
 
   const renderNavLink = (item: NavLink) => (
@@ -47,7 +47,7 @@ export const LayoutSideNav: FC = () => {
   );
 
   return (
-    <SideNav expanded={isLargeViewport || isSideNavExpanded} isPersistent={isLargeViewport} isChildOfHeader>
+    <SideNav expanded={isSideNavExpanded} isPersistent={isSideNavExpanded} isChildOfHeader>
       <SideNavItems>
         {(NAVIGATION_ITEMS as NavItem[]).map((item) => (isNavGroup(item) ? renderGroup(item) : renderNavLink(item)))}
       </SideNavItems>

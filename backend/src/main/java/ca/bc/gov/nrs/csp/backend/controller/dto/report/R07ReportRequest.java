@@ -29,7 +29,7 @@ public class R07ReportRequest {
     private Boolean showReplacesAdjusts;
     private String maturityCodes;
 
-    @Pattern(regexp = "^\\d+$", message = "submissionNumber must be numeric")
+    @Pattern(regexp = "^\\d{1,10}$", message = "submissionNumber must be numeric with at most 10 digits")
     private String submissionNumber;
 
     @Pattern(regexp = "^\\d{6}$", message = "submissionYearMonth must be in format yyyyMM")

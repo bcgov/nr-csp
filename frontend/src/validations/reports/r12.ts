@@ -17,6 +17,10 @@ export function validateR12(
     }
   }
 
+  if (timeFrame.trim() && !/^\d+$/.test(timeFrame.trim())) {
+    messages.addError('report.timeframe.numeric.error');
+  }
+
   if (dateFrom && dateTo && dateFrom > dateTo) {
     messages.addError('report.daterange.order.error');
   }

@@ -72,12 +72,5 @@
     }
   }
 
-  .date-input .cds--date-picker__input {
-    background-color: var(--cds-field-01) !important;
-    border: none !important;
-    border-bottom: 1px solid var(--cds-text-primary) !important;
-    border-radius: 0 !important;
-  }
-
   @include mixins.report-form-size;
 }

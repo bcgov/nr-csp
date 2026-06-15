@@ -22,6 +22,8 @@ export interface TagInputProps {
   invalidText?: string;
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
+  /** Hard cap on the number of committed values. Extra entries are ignored. */
+  maxTags?: number;
 }
 
 const TagInput = ({
@@ -34,8 +36,10 @@ const TagInput = ({
   invalidText,
   size = 'md',
   disabled = false,
+  maxTags,
 }: TagInputProps) => {
   const [draft, setDraft] = useState('');
+  const atMax = maxTags !== undefined && values.length >= maxTags;
 
   const commit = (raw: string) => {
     const next = raw.trim();
@@ -45,7 +49,15 @@ const TagInput = ({
       .map((p) => p.trim())
       .filter(Boolean);
     if (pieces.length === 0) return;
-    onChange([...values, ...pieces.filter((p) => !values.includes(p))]);
+    // Dedupe each piece against the existing values AND against pieces already
+    // accepted earlier in this same commit.
+    const merged = [...values];
+    pieces.forEach((p) => {
+      // Hard-block beyond maxTags: stop accepting once the cap is reached.
+      if (maxTags !== undefined && merged.length >= maxTags) return;
+      if (!merged.includes(p)) merged.push(p);
+    });
+    onChange(merged);
     setDraft('');
   };
 
@@ -75,6 +87,7 @@ const TagInput = ({
         onBlur={() => commit(draft)}
         invalid={invalid}
         invalidText={invalidText}
+        helperText={maxTags !== undefined ? (atMax ? `Maximum ${maxTags} reached` : `Up to ${maxTags}`) : undefined}
         size={size}
         disabled={disabled}
       />

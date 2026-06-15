@@ -133,6 +133,7 @@ const makeInvoice = (overrides: Record<string, any> = {}) => ({
   invoiceDate: '2026-01-15',
   invStatus: 'DFT',
   submissionId: 10,
+  submissionNumber: 67890,
   replaceInvNum: '',
   adjustInvNum: '',
   submittedBy: 'Seller',

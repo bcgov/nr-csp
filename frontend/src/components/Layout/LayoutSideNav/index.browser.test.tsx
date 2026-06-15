@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { LayoutSideNav } from './index';
 
 vi.mock('@/context/layout/useLayout', () => ({
-  useLayout: () => ({ isSideNavExpanded: true, isLargeViewport: true }),
+  useLayout: () => ({ isSideNavExpanded: true }),
 }));
 
 // Controlled navigation tree so the test isn't coupled to the real routes.

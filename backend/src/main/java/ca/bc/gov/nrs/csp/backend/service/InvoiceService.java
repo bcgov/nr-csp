@@ -99,7 +99,7 @@ public class InvoiceService {
         // that don't (or no longer) block save. ActionType.OTHER runs the
         // full rule set minus the action-gated nudges (`isSubmitProcessRequiered`
         // and `isReviewerCommentUpdate`), which don't apply to a passive read.
-        boolean manual = loaded.submissionId() == null;
+        boolean manual = loaded.submissionNumber() == null;
         ValidationResult validation = newValidator()
                 .validate(loaded.details(), lines, manual, ActionType.OTHER);
 
@@ -119,7 +119,7 @@ public class InvoiceService {
             validation = new ValidationResult(messages);
         }
 
-        return mapper.toResponse(loaded.details(), loaded.submissionId(), lines, validation);
+        return mapper.toResponse(loaded.details(), loaded.submissionId(), loaded.submissionNumber(), lines, validation);
     }
 
     // ---------------------------------------------------------------
@@ -173,7 +173,9 @@ public class InvoiceService {
                 details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
 
         InvoiceDetails saved = withId(details, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        return mapper.toResponse(saved, submissionId, lineItemRepo.findByInvoiceId(newInvoiceId), result);
+        // A freshly-created submission has no business submission number yet
+        // (insertSubmission only sets the surrogate csp_submission_id).
+        return mapper.toResponse(saved, submissionId, null, lineItemRepo.findByInvoiceId(newInvoiceId), result);
     }
 
     // ---------------------------------------------------------------
@@ -235,7 +237,7 @@ public class InvoiceService {
         }
 
         InvoiceDetails saved = withId(details, id, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        return mapper.toResponse(saved, existing.submissionId(), conversion.lines(),
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
                 withConversionWarnings(result, conversion));
     }
 
@@ -303,7 +305,7 @@ public class InvoiceService {
         log.info("Submitted invoice id={} submissionId={}", id, existing.submissionId());
 
         InvoiceDetails saved = withId(existing.details(), id, ConstantsCode.INVENTRYSTATUS_PROCESSING);
-        return mapper.toResponse(saved, existing.submissionId(), lines, responseResult);
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lines, responseResult);
     }
 
     // ---------------------------------------------------------------
@@ -356,7 +358,7 @@ public class InvoiceService {
         log.info("Duplicated invoice id={} newId={}", id, newInvoiceId);
 
         InvoiceDetails saved = withId(cloned, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        return mapper.toResponse(saved, submissionId, lineItemRepo.findByInvoiceId(newInvoiceId), null);
+        return mapper.toResponse(saved, submissionId, existing.submissionNumber(), lineItemRepo.findByInvoiceId(newInvoiceId), null);
     }
 
     // ---------------------------------------------------------------
@@ -390,7 +392,7 @@ public class InvoiceService {
         applySubmissionStatusOnStatusChange(existing.submissionId(), request.status(), user);
 
         InvoiceDetails saved = withReviewCommentsAndStatus(existing.details(), request.reviewComments(), request.status());
-        return mapper.toResponse(saved, existing.submissionId(), lineItemRepo.findByInvoiceId(id), result);
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lineItemRepo.findByInvoiceId(id), result);
     }
 
     /**
@@ -439,7 +441,7 @@ public class InvoiceService {
         List<LineItem> candidate = new ArrayList<>(existingLines);
         candidate.add(newLine);
 
-        boolean manual = existing.submissionId() == null;
+        boolean manual = existing.submissionNumber() == null;
         ValidationResult saveResult = newValidator().validate(existing.details(), candidate, manual, ActionType.SAVE);
         throwIfErrors(saveResult, "Line item failed validation.");
 
@@ -465,7 +467,7 @@ public class InvoiceService {
                 .map(line -> line.lineItemID() != null && line.lineItemID().equals(lineId) ? updatedLine : line)
                 .toList();
 
-        boolean manual = existing.submissionId() == null;
+        boolean manual = existing.submissionNumber() == null;
         ValidationResult saveResult = newValidator().validate(existing.details(), candidate, manual, ActionType.SAVE);
         throwIfErrors(saveResult, "Line item failed validation.");
 
@@ -503,10 +505,10 @@ public class InvoiceService {
             log.info("Line-item change reverted invoice id={} to DRAFT submissionId={}", invoiceId, existing.submissionId());
         }
         InvoiceDetails draftDetails = withId(existing.details(), invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        boolean manual = existing.submissionId() == null;
+        boolean manual = existing.submissionNumber() == null;
         List<LineItem> currentLines = lineItemRepo.findByInvoiceId(invoiceId);
         ValidationResult result = newValidator().validate(draftDetails, currentLines, manual, ActionType.OTHER);
-        return mapper.toResponse(draftDetails, existing.submissionId(), currentLines, result);
+        return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), currentLines, result);
     }
 
     private LoadedInvoice loadInvoiceOrThrow(Long invoiceId) {

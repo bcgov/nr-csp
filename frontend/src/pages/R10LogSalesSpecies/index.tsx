@@ -15,7 +15,6 @@ import {
 } from '@/services/lookup.service';
 import { useR10ReportMutation } from '@/services/r10.service';
 import {
-  type SelectItem,
   TIME_FRAME_ITEMS,
   formatDate,
   downloadBlob,
@@ -43,6 +42,8 @@ export function R10LogSalesSpeciesPage() {
   const [selectedMaturities, setSelectedMaturities] = React.useState<LookupItemResponse[]>([]);
   const [sellerClient, setSellerClient] = React.useState<ClientLocationResponse | null>(null);
   const [buyerClient, setBuyerClient] = React.useState<ClientLocationResponse | null>(null);
+  const [sellerTypedName, setSellerTypedName] = React.useState('');
+  const [buyerTypedName, setBuyerTypedName] = React.useState('');
   const [selectedInvoiceType, setSelectedInvoiceType] = React.useState<LookupItemResponse | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [formErrors, setFormErrors] = React.useState<string[]>([]);
@@ -59,8 +60,26 @@ export function R10LogSalesSpeciesPage() {
     ...(selectedInvoiceType && { invoiceTypeCode: selectedInvoiceType.code }),
   });
 
+  const handleSellerSelect = (client: ClientLocationResponse | null) => {
+    setSellerClient(client);
+    if (client) setSellerTypedName(client.clientName ?? '');
+  };
+
+  const handleBuyerSelect = (client: ClientLocationResponse | null) => {
+    setBuyerClient(client);
+    if (client) setBuyerTypedName(client.clientName ?? '');
+  };
+
   const handleExport = (reportFormat: 'PDF' | 'CSV') => {
-    const clientResult = validateR10(dateFrom, dateTo, timeFrame);
+    const clientResult = validateR10({
+      dateFrom,
+      dateTo,
+      timeFrame,
+      sellerName: sellerTypedName,
+      sellerNumber: sellerClient?.clientNumber ?? '',
+      buyerName: buyerTypedName,
+      buyerNumber: buyerClient?.clientNumber ?? '',
+    });
     const clientSplit = splitMessages(clientResult.messages, MESSAGE_KEY_TO_FIELD);
     setFieldErrors(clientSplit.fieldErrors);
     setFormErrors(clientSplit.formErrors);
@@ -177,7 +196,8 @@ export function R10LogSalesSpeciesPage() {
             id="seller-client"
             titleText="Seller name"
             selectedClient={sellerClient}
-            onSelect={setSellerClient}
+            onSelect={handleSellerSelect}
+            onTypedChange={setSellerTypedName}
           />
         </Column>
         <Column lg={3} md={4} sm={4} className="r10-page__form-col">
@@ -185,7 +205,8 @@ export function R10LogSalesSpeciesPage() {
             id="buyer-client"
             titleText="Buyer name"
             selectedClient={buyerClient}
-            onSelect={setBuyerClient}
+            onSelect={handleBuyerSelect}
+            onTypedChange={setBuyerTypedName}
           />
         </Column>
         <Column lg={10} md={8} sm={4} className="r10-page__row-break" />
