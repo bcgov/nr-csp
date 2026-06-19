@@ -17,6 +17,7 @@ export interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isSigningOut: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
 }

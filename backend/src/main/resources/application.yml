@@ -21,6 +21,7 @@ jasper:
     username: ${JASPER_SERVER_USERNAME:}
     password: ${JASPER_SERVER_PASSWORD:}
     ssl-verify: ${JASPER_SERVER_SSL_VERIFY:true}
+    read-timeout-seconds: ${JASPER_SERVER_READ_TIMEOUT_SECONDS:300}
 
 # ===================================================================
 # JWT / JWKS Configuration

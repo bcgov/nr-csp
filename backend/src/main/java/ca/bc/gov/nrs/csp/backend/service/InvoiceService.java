@@ -31,6 +31,7 @@ import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository.LoadedInvoice;
 import ca.bc.gov.nrs.csp.backend.repository.LineItemRepository;
 import ca.bc.gov.nrs.csp.backend.repository.LogSaleParticipantRepository;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.mapper.InvoiceMapper;
 import ca.bc.gov.nrs.csp.backend.util.constants.ActionType;
 import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
@@ -57,9 +58,6 @@ import java.util.Set;
 public class InvoiceService {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
-
-    // TODO: replace with SecurityContextUtils.requireUsername() once authentication is wired up.
-    private static final String PLACEHOLDER_USER = "system";
 
     private final InvoiceRepository invoiceRepo;
     private final LineItemRepository lineItemRepo;
@@ -107,7 +105,7 @@ public class InvoiceService {
         // the invoice is PROCESSING. For every other status the stored converted
         // prices are displayed as-is and no conversion warnings are added.
         if (ConstantsCode.INVENTRYSTATUS_PROCESSING.equals(loaded.details().invStatus())) {
-            String user = currentUser();
+            String user = SecurityContextUtils.requireUsername();
             PriceConversionService.Result conversion = priceConversionService
                     .apply(lines, loaded.details().maturity(), loaded.details().invoiceDate());
             for (LineItem line : conversion.lines()) {
@@ -128,7 +126,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse create(CreateInvoiceRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         InvoiceDetails details = mapper.toDetails(request, user);
         List<LineItem> lines = mapper.toLineItems(request.lineItems(), null);
 
@@ -184,7 +182,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse update(Long id, UpdateInvoiceRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String existingStatus = existing.details().invStatus();
@@ -274,7 +272,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse submit(Long id) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String status = existing.details().invStatus();
@@ -314,7 +312,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse duplicate(Long id) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(id);
@@ -370,7 +368,7 @@ public class InvoiceService {
         if (request == null || request.status() == null) {
             throw new BadRequestException("Status is required.");
         }
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
 
@@ -430,7 +428,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse addLineItem(Long invoiceId, LineItemRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         requireAddLineItemAllowed(existing);
         // Build the candidate set: every existing line plus the new one. Run
@@ -452,7 +450,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse updateLineItem(Long invoiceId, Long lineId, LineItemRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -478,7 +476,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse deleteLineItem(Long invoiceId, Long lineId) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -561,11 +559,6 @@ public class InvoiceService {
         List<ValidationMessage> combined = new ArrayList<>(result.messages());
         combined.addAll(conversion.warnings());
         return new ValidationResult(combined);
-    }
-
-    private String currentUser() {
-        // TODO: replace with SecurityContextUtils.requireUsername() once auth is integrated.
-        return PLACEHOLDER_USER;
     }
 
     /**

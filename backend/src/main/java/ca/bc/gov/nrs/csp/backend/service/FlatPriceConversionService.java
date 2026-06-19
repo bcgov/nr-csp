@@ -10,6 +10,7 @@ import ca.bc.gov.nrs.csp.backend.exception.ConflictException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.UnprocessableEntityException;
 import ca.bc.gov.nrs.csp.backend.repository.FlatPriceConversionRepository;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.FlatPriceConversion;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import org.slf4j.Logger;
@@ -23,9 +24,6 @@ import java.util.List;
 public class FlatPriceConversionService {
 
     private static final Logger log = LoggerFactory.getLogger(FlatPriceConversionService.class);
-
-    // TODO: replace with SecurityContextUtils.requireUsername() once authentication is wired up.
-    private static final String PLACEHOLDER_USER = "system";
 
     private final FlatPriceConversionRepository repository;
     private final CommonValidation commonValidation;
@@ -130,7 +128,7 @@ public class FlatPriceConversionService {
         );
 
         log.debug("Inserting flat price conversion for modellingCode={}", modellingCode);
-        repository.insert(record, speciesGradeXrefId, PLACEHOLDER_USER);
+        repository.insert(record, speciesGradeXrefId, SecurityContextUtils.requireUsername());
 
         // The duplicate check above guarantees uniqueness on (modellingCode, sortCode, xrefId, maturity, effectiveDate).
         // The search + effectiveDate filter will find exactly the row just inserted.
@@ -223,7 +221,7 @@ public class FlatPriceConversionService {
                 null
         );
 
-        repository.update(id, record, speciesGradeXrefId, PLACEHOLDER_USER);
+        repository.update(id, record, speciesGradeXrefId, SecurityContextUtils.requireUsername());
 
         FlatPriceConversionResponse response = repository.findById(id)
                 .map(this::toResponse)
@@ -246,7 +244,7 @@ public class FlatPriceConversionService {
         repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Record not found: " + id));
 
-        repository.auditDelete(id, PLACEHOLDER_USER);
+        repository.auditDelete(id, SecurityContextUtils.requireUsername());
         repository.deleteById(id);
 
         log.debug("Flat price conversion deleted successfully id={}", id);
@@ -279,7 +277,7 @@ public class FlatPriceConversionService {
             throw new ConflictException("Target modelling code already has flat price conversions: " + target);
         }
 
-        repository.copy(source, target, PLACEHOLDER_USER);
+        repository.copy(source, target, SecurityContextUtils.requireUsername());
 
         log.debug("Flat price conversions copied successfully from {} to {}", source, target);
     }

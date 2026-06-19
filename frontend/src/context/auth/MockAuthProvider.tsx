@@ -25,6 +25,7 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     },
     isAuthenticated: true,
     isLoading: false,
+    isSigningOut: false,
     signIn: async () => {},
     signOut: async () => {},
   };

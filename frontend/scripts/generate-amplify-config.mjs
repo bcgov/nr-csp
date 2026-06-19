@@ -5,6 +5,7 @@ const outputPath = path.join(import.meta.dirname, '..', 'public', 'amplify-confi
 
 const config = {
   appEnv: process.env.APP_ENV ?? 'development',
+  idpName: process.env.COGNITO_IDP_NAME ?? 'DEV-IDIR',
   region: process.env.COGNITO_REGION ?? 'ca-central-1',
   userPoolId: process.env.COGNITO_USER_POOL_ID ?? 'ca-central-1_REPLACE_WITH_YOUR_COGNITO_USER_POOL_ID',
   // Each application must provide its own client ID — replace this placeholder
