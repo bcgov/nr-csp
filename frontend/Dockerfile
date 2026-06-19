@@ -38,6 +38,13 @@ FROM caddy:2-alpine
 COPY --from=builder /app/build /usr/share/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
 
+# caddy:2-alpine ships with a built-in 'caddy' user (UID 1000).
+# Port 3000 > 1024 so no root privileges are needed to bind.
+USER caddy
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -q --spider http://localhost:3000/ || exit 1
+
 EXPOSE 3000
 
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
