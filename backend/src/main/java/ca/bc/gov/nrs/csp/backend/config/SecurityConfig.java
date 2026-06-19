@@ -40,11 +40,9 @@ public class SecurityConfig {
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         http
-                // CSRF protection is intentionally disabled: this API is stateless (no session
-                // cookie) and authenticates solely via the Authorization: Bearer header, which
-                // browsers do not auto-attach — so CSRF is not exploitable here.
-                // codeql[java/spring-disabled-csrf-protection]
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers(API_PATH)
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
