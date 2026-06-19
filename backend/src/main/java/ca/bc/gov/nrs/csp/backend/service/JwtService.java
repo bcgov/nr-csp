@@ -35,11 +35,13 @@ public class JwtService {
     }
 
     public String extractUsername(String token) {
-        return extractAllClaims(token).getSubject();
+        Claims claims = extractAllClaims(token);
+        String idpUsername = claims.get("custom:idp_username", String.class);
+        return (idpUsername != null && !idpUsername.isBlank()) ? idpUsername : claims.getSubject();
     }
 
     public Claims extractAllClaims(String token) {
-        return Jwts.parser()
+        var parser = Jwts.parser()
                 .keyLocator(header -> {
                     try {
                         String kid = (String) header.get("kid");
@@ -48,8 +50,19 @@ public class JwtService {
                     } catch (Exception e) {
                         throw new JwtSigningKeyException("Failed to resolve signing key", e);
                     }
-                })
-                .build()
+                });
+
+        String issuer = jwtProperties.issuer();
+        if (issuer != null && !issuer.isBlank()) {
+            parser.requireIssuer(issuer);
+        }
+
+        String audience = jwtProperties.audience();
+        if (audience != null && !audience.isBlank()) {
+            parser.requireAudience(audience);
+        }
+
+        return parser.build()
                 .parseSignedClaims(token)
                 .getPayload();
     }

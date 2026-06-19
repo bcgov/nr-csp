@@ -14,5 +14,6 @@ public record JasperServerProperties(
         String reportUriBase,
         String username,
         String password,
-        boolean sslVerify
+        boolean sslVerify,
+        int readTimeoutSeconds
 ) {}

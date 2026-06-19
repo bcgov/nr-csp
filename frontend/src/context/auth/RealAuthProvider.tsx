@@ -33,6 +33,7 @@ function extractPrivileges(groups: string[]): Role[] {
 export function RealAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function loadUser() {
     try {
@@ -74,8 +75,13 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     user,
     isAuthenticated: user !== null,
     isLoading,
-    signIn: () => signInWithRedirect(),
+    isSigningOut,
+    signIn: () => {
+      const idpName = window.amplifyConfig?.idpName ?? 'DEV-IDIR';
+      return signInWithRedirect({ provider: { custom: idpName } });
+    },
     signOut: async () => {
+      setIsSigningOut(true);
       await signOut();
       setUser(null);
     },

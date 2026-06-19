@@ -1364,36 +1364,7 @@ export function InvoicePage() {
     if (!invoiceId) return;
     deleteMutation.mutate(invoiceId, {
       onSuccess: () => {
-        // Clear the form and stay on the page.
-        setInvNumber('');
-        setInvTypeCode('');
-        setInvDate('');
-        setReplaceInvNum('');
-        setAdjustInvNum('');
-        setSubmittedByCode('');
-        setSubmittingClientNumber('');
-        setSubmittingClientLocation('');
-        setOtherClientNumber('');
-        setOtherClientLocation('');
-        setOtherClientName('');
-        setSubmittingClientCity('');
-        setSubmittingClientProvState('');
-        setOtherClientCity('');
-        setOtherClientProvState('');
-        setSubmittingClient(null);
-        setOtherClient(null);
-        setMaturityCode('');
-        setFobCodeValue('');
-        setPrimarySortCodeValue('');
-        setBoomNumbers([]);
-        setTimberMarks([]);
-        setWeighSlips([]);
-        setClientPrimarySortCode('');
-        setReviewerComment('');
-        setSubmitterComment('');
-        setLineItems([]);
-        setWarnings([]);
-        clearErrors();
+        // Navigate to the base "new invoice" screen.
         setDeleteConfirm(null);
         addNotification({ kind: 'success', title: 'Invoice deleted.' });
         navigate('/invoice', { replace: true });

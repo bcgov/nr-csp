@@ -22,6 +22,7 @@ describe('useAuth', () => {
       user: { username: 'u', email: 'u@x.com', roles: [] },
       isAuthenticated: true,
       isLoading: false,
+      isSigningOut: false,
       signIn: async () => {},
       signOut: async () => {},
     };

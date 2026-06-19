@@ -27,12 +27,15 @@ import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.invoiceDetails.InvoiceValidator;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -93,6 +96,9 @@ class InvoiceServiceTest {
 
     @BeforeEach
     void setUp() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(USER, null, List.of()));
+
         service = spy(new InvoiceService(invoiceRepo, lineItemRepo, submissionRepo,
                 participantRepo, commonValidation, priceConversionService, mapper));
         validator = mock(InvoiceValidator.class);
@@ -105,6 +111,11 @@ class InvoiceServiceTest {
         lenient().when(mapper.toResponse(any(), any(), any(), any(), any())).thenReturn(SENTINEL);
         lenient().when(lineItemRepo.findByInvoiceId(anyLong())).thenReturn(List.of());
         lenient().when(lineItemRepo.findIdsByInvoiceId(anyLong())).thenReturn(List.of());
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     // ---------------- helpers ----------------

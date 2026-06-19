@@ -36,3 +36,6 @@ playbooks/collections/
 /backend/.scannerwork/**
 
 **/application.properties
+
+# Corporate CA certs (machine-specific, not committed)
+/certs/*.pem

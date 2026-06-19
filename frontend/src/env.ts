@@ -2,11 +2,12 @@ declare global {
   interface Window {
     amplifyConfig?: {
       appEnv: string;
+      idpName: string;
       region: string;
       userPoolId: string;
       userPoolClientId: string;
       cognitoDomain: string;
-      oauthScopes: string[];
+      oauthScopes?: string[];
       redirectSignIn: string;
       redirectSignOut: string;
     };

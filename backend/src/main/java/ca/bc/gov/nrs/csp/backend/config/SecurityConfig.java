@@ -25,22 +25,26 @@ public class SecurityConfig {
     private static final String API_PATH = "/api/**";
 
     @Bean
-    public JwtRequestFilter jwtRequestFilter(JwtService jwtService) {
-        return new JwtRequestFilter(jwtService);
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtRequestFilter jwtRequestFilter,
+            JwtService jwtService,
             Optional<MockRequestFilter> mockRequestFilter) throws Exception {
+
+        // Not a @Bean — keeps it out of the servlet container's filter registry so it
+        // only runs inside the Spring Security filter chain (where SecurityContextHolder
+        // is properly managed for stateless sessions).
+        JwtRequestFilter jwtRequestFilter = new JwtRequestFilter(jwtService);
 
         mockRequestFilter.ifPresent(f ->
                 http.addFilterBefore(f, UsernamePasswordAuthenticationFilter.class));
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         http
-                .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                // CSRF protection is intentionally disabled: this API is stateless (no session
+                // cookie) and authenticates solely via the Authorization: Bearer header, which
+                // browsers do not auto-attach — so CSRF is not exploitable here.
+                // codeql[java/spring-disabled-csrf-protection]
+                .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(

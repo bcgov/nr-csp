@@ -12,11 +12,15 @@ import ca.bc.gov.nrs.csp.backend.exception.UnprocessableEntityException;
 import ca.bc.gov.nrs.csp.backend.repository.FlatPriceConversionRepository;
 import ca.bc.gov.nrs.csp.backend.service.model.FlatPriceConversion;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -44,6 +48,17 @@ class FlatPriceConversionServiceTest {
 
     @InjectMocks
     FlatPriceConversionService service;
+
+    @BeforeEach
+    void setUpSecurityContext() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("TESTUSER", null, List.of()));
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     // ---------------------------------------------------------------
     // Test data helpers
@@ -111,7 +126,7 @@ class FlatPriceConversionServiceTest {
 
         FlatPriceConversionResponse response = service.create(request);
 
-        verify(repository).insert(any(FlatPriceConversion.class), eq(42L), anyString());
+        verify(repository).insert(any(FlatPriceConversion.class), eq(42L), eq("TESTUSER"));
         assertThat(response).isNotNull();
         assertThat(response.modellingCode()).isEqualTo("P");
         assertThat(response.effectiveDate()).isEqualTo(DATE);
@@ -210,7 +225,7 @@ class FlatPriceConversionServiceTest {
         FlatPriceConversionDetails details = sampleDetails();
         UpdateFlatPriceConversionRequest request = new UpdateFlatPriceConversionRequest(1, details);
         FlatPriceConversion existing = sampleDomain();
-        FlatPriceConversion afterUpdate = new FlatPriceConversion(1L, "P", "S", "FD", "U", "A", 100, DATE, null, 2, "JSMITH", DATE, "system", DATE);
+        FlatPriceConversion afterUpdate = new FlatPriceConversion(1L, "P", "S", "FD", "U", "A", 100, DATE, null, 2, "JSMITH", DATE, "TESTUSER", DATE);
 
         given(repository.findById(1L))
                 .willReturn(Optional.of(existing))
@@ -224,7 +239,7 @@ class FlatPriceConversionServiceTest {
 
         FlatPriceConversionResponse response = service.update(1L, request);
 
-        verify(repository).update(eq(1L), any(FlatPriceConversion.class), eq(42L), anyString());
+        verify(repository).update(eq(1L), any(FlatPriceConversion.class), eq(42L), eq("TESTUSER"));
         assertThat(response).isNotNull();
         assertThat(response.id()).isEqualTo(1L);
     }
@@ -375,7 +390,7 @@ class FlatPriceConversionServiceTest {
 
         service.delete(1L);
 
-        verify(repository).auditDelete(eq(1L), anyString());
+        verify(repository).auditDelete(eq(1L), eq("TESTUSER"));
         verify(repository).deleteById(1L);
     }
 
@@ -421,7 +436,7 @@ class FlatPriceConversionServiceTest {
 
         service.copy(request);
 
-        verify(repository).copy(eq("P"), eq("M1"), anyString());
+        verify(repository).copy(eq("P"), eq("M1"), eq("TESTUSER"));
     }
 
     @Test

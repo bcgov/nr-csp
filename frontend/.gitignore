@@ -27,3 +27,6 @@ yarn-error.log*
 
 # Build output
 /dist
+
+# Corporate CA certs (machine-specific, not committed)
+backend/certs/*.pem

@@ -9,12 +9,12 @@ import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import { ThemeProvider } from '@/context/theme/ThemeProvider';
 import Layout from '@/components/Layout';
 import { LoadingScreen } from '@/components/core/LoadingScreen';
+import { LogoutPage } from '@/pages/Logout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { ROUTES } from '@/routes/routePaths';
 
 // Route-level code splitting: each page becomes its own chunk, loaded on
 // first navigation instead of shipping in the initial bundle.
-const LoginPage = lazy(() => import('@/pages/Login').then((m) => ({ default: m.LoginPage })));
 const FlatPriceConversionPage = lazy(() =>
   import('@/pages/FlatPriceConversion').then((m) => ({ default: m.FlatPriceConversionPage })),
 );
@@ -62,8 +62,8 @@ export default function App() {
               <BrowserRouter>
                 <Suspense fallback={<LoadingScreen />}>
                   <Routes>
-                    {/* Login — accessible without authentication */}
-                    <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+                    {/* Logout — accessible without authentication */}
+                    <Route path={ROUTES.LOGOUT} element={<LogoutPage />} />
 
                     {/* All other routes share the shell layout and require authentication */}
                     <Route element={<Layout />}>
