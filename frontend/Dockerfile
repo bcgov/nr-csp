@@ -35,11 +35,15 @@ RUN npm run build
 
 # Stage 2: Serve static files with Caddy
 FROM caddy:2-alpine
-COPY --from=builder /app/build /usr/share/caddy
-COPY Caddyfile /etc/caddy/Caddyfile
 
-# caddy:2-alpine ships with a built-in 'caddy' user (UID 1000).
-# Port 3000 > 1024 so no root privileges are needed to bind.
+# caddy:2-alpine runs as root by default — create a non-root user and
+# grant it ownership of Caddy's runtime dirs before switching to it.
+RUN addgroup -S caddy && adduser -S -G caddy caddy && \
+    chown caddy:caddy /data /config
+
+COPY --from=builder --chown=caddy:caddy /app/build /usr/share/caddy
+COPY --chown=caddy:caddy Caddyfile /etc/caddy/Caddyfile
+
 USER caddy
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

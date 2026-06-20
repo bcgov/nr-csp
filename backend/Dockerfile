@@ -1,15 +1,6 @@
 # Stage 1: Build the application using Maven and Java 21
 FROM maven:3.9-eclipse-temurin-21-alpine AS build
 WORKDIR /app
-COPY certs/ /tmp/certs/
-RUN apk add --no-cache ca-certificates && \
-    for cert in /tmp/certs/*.pem; do \
-      [ -f "$cert" ] && [ -s "$cert" ] && \
-        cp "$cert" /usr/local/share/ca-certificates/$(basename "$cert" .pem).crt && \
-        keytool -import -noprompt -trustcacerts \
-          -alias "$(basename $cert .pem)" -file "$cert" \
-          -keystore "$JAVA_HOME/lib/security/cacerts" -storepass changeit || true; \
-    done && update-ca-certificates
 COPY pom.xml .
 RUN mvn dependency:go-offline -q
 COPY src ./src
@@ -19,27 +10,30 @@ RUN mvn package -DskipTests -q
 FROM eclipse-temurin:21-jre-jammy AS jre-with-cert
 WORKDIR /app
 
-ARG IMPORT_ZSCALER_CERT=false
-
-# Wildcard prevents a build failure when the cert file is absent (production)
-COPY zscaler.ce[r] /tmp/zscaler.cer
-
-RUN if [ "$IMPORT_ZSCALER_CERT" = "true" ] && [ -f /tmp/zscaler.cer ]; then \
-      echo ">>> Importing Zscaler certificate for local development..."; \
-      keytool -importcert -file /tmp/zscaler.cer -alias zscaler-root -keystore $JAVA_HOME/lib/security/cacerts -storepass changeit -noprompt; \
-    else \
-      echo ">>> Skipping Zscaler certificate import for production build..."; \
-    fi
+# Imports every *.cer / *.pem / *.crt found in certs/ — silently skips missing or empty files.
+# Keep the certs/ directory committed (even if empty) so the bind mount never fails.
+RUN --mount=type=bind,source=certs,target=/certs \
+    for cert in /certs/*.cer /certs/*.pem /certs/*.crt; do \
+      [ -s "$cert" ] || continue; \
+      alias=$(basename "${cert%.*}"); \
+      echo ">>> Importing certificate: $(basename "$cert") (alias: $alias)"; \
+      keytool -importcert \
+        -file "$cert" \
+        -alias "$alias" \
+        -cacerts \
+        -storepass changeit \
+        -noprompt; \
+    done
 
 # Stage 3: Final runtime image
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# curl is used by the HEALTHCHECK; install before switching to non-root user
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-
-# Run as a non-root user
-RUN groupadd --system appgroup && useradd --system --gid appgroup --no-create-home appuser
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --system appgroup && \
+    useradd --system --gid appgroup --no-create-home appuser
 
 COPY --from=build --chown=appuser:appgroup /app/target/*.jar app.jar
 COPY --from=jre-with-cert $JAVA_HOME/lib/security/cacerts $JAVA_HOME/lib/security/cacerts
