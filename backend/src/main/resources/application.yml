@@ -4,9 +4,11 @@ server:
 
 springdoc:
   api-docs:
-    path: /v3/api-docs
+    path: /api/v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    path: /api/swagger-ui.html
+    url: /api/v3/api-docs
+    disable-swagger-default-url: true
     enabled: true
 
 # ===================================================================
