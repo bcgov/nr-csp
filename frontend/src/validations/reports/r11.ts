@@ -1,6 +1,11 @@
 import { MessageCollector, type ValidationResult } from '@/validations/validationResult';
 
-export function validateR11(dateFrom: Date | null, dateTo: Date | null, modelingCode: string): ValidationResult {
+export function validateR11(
+  dateFrom: Date | null,
+  dateTo: Date | null,
+  modelingCode: string,
+  timeFrame: string,
+): ValidationResult {
   const messages = new MessageCollector();
 
   if (!dateFrom) {
@@ -9,6 +14,10 @@ export function validateR11(dateFrom: Date | null, dateTo: Date | null, modeling
 
   if (!modelingCode) {
     messages.addError('report.r11.reporttype.required.error');
+  }
+
+  if (timeFrame.trim() && !/^\d+$/.test(timeFrame.trim())) {
+    messages.addError('report.timeframe.numeric.error');
   }
 
   if (dateFrom && dateTo && dateFrom > dateTo) {

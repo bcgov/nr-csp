@@ -1,6 +1,6 @@
 export const ROUTES = {
   LANDING: '/',
-  LOGIN: '/login',
+  LOGOUT: '/logout',
   SEARCH: '/search',
   INVOICE: '/invoice',
   SORT_CODE: '/sort-code',

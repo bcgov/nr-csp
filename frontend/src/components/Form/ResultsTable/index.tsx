@@ -81,6 +81,9 @@ interface ResultsTableProps<T extends { id: string }> {
   // is rendered in a TableExpandedRow beneath it when the row is open.
   expandable?: boolean;
   renderExpandedContent?: (row: T) => ReactNode;
+  // Optional controlled expansion.
+  expandedRowIds?: Set<string>;
+  onExpandedRowIdsChange?: (next: Set<string>) => void;
   // Optional table size — defaults to 'lg' to preserve existing usages.
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   // Optional footer row(s) rendered inside the table body after the data rows. The parent
@@ -128,6 +131,8 @@ const ResultsTable = <T extends { id: string }>({
   paginationPageRangeText = (_current, total) => `of ${Math.max(total, 1)} pages`,
   expandable = false,
   renderExpandedContent,
+  expandedRowIds,
+  onExpandedRowIdsChange,
   size,
   footerRow,
   withZebraStyles = true,
@@ -142,6 +147,21 @@ const ResultsTable = <T extends { id: string }>({
   // Sort state drives both the column-header icons and (when client-side) row ordering.
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'ASC' | 'DESC' | 'NONE'>('NONE');
+
+  // Expansion is tracked by row id (rather than left to Carbon's internal
+  // DataTable state) so a row stays open across `rows` prop changes.
+  const [internalExpandedIds, setInternalExpandedIds] = useState<Set<string>>(new Set());
+  const expandedIds = expandedRowIds ?? internalExpandedIds;
+  const commitExpanded = (next: Set<string>) => {
+    onExpandedRowIdsChange?.(next);
+    if (expandedRowIds === undefined) setInternalExpandedIds(next);
+  };
+  const toggleExpanded = (id: string) => {
+    const next = new Set(expandedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    commitExpanded(next);
+  };
 
   // In server-side mode the parent has already sorted; skip internal sort.
   const sortedRows = useMemo(() => {
@@ -160,6 +180,9 @@ const ResultsTable = <T extends { id: string }>({
     !serverSide && page !== undefined && pageSize
       ? sortedRows.slice((page - 1) * pageSize, page * pageSize)
       : sortedRows;
+
+  // Drives the header "expand all" chevron and toggle.
+  const allExpanded = expandable && pageRows.length > 0 && pageRows.every((r) => expandedIds.has(r.id));
 
   const handleHeaderClick = (headerKey: string) => {
     const currentDir = sortKey === headerKey ? sortDir : 'NONE';
@@ -242,7 +265,13 @@ const ResultsTable = <T extends { id: string }>({
           <Table {...getTableProps()} size={size} useZebraStyles={withZebraStyles}>
             <TableHead>
               <TableRow>
-                {expandable ? <TableExpandHeader {...(getExpandHeaderProps ? getExpandHeaderProps() : {})} /> : null}
+                {expandable ? (
+                  <TableExpandHeader
+                    {...(getExpandHeaderProps ? getExpandHeaderProps() : {})}
+                    isExpanded={allExpanded}
+                    onExpand={() => commitExpanded(allExpanded ? new Set() : new Set(pageRows.map((r) => r.id)))}
+                  />
+                ) : null}
                 {tableHeaders.map((header) => {
                   const colDef = columns.find((c) => c.key === header.key);
                   return (
@@ -297,7 +326,13 @@ const ResultsTable = <T extends { id: string }>({
                   if (expandable) {
                     return (
                       <React.Fragment key={tableRow.id}>
-                        <TableExpandRow {...getRowProps({ row: tableRow })}>{cells}</TableExpandRow>
+                        <TableExpandRow
+                          {...getRowProps({ row: tableRow })}
+                          isExpanded={expandedIds.has(tableRow.id)}
+                          onExpand={() => toggleExpanded(tableRow.id)}
+                        >
+                          {cells}
+                        </TableExpandRow>
                         {renderExpandedContent ? (
                           <TableExpandedRow colSpan={tableHeaders.length + 1}>
                             {renderExpandedContent(dataRow)}

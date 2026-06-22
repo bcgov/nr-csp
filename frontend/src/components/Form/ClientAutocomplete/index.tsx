@@ -20,11 +20,21 @@ type Props = {
    */
   selectedClient?: ClientLocationResponse | null;
   onSelect: (client: ClientLocationResponse | null) => void;
+  onTypedChange?: (value: string) => void;
 };
 
 const itemToString = (item: ClientLocationResponse | null | undefined): string => item?.clientName ?? '';
 
-const ClientAutocomplete = ({ id, titleText, disabled, size = 'lg', hideLabel, selectedClient, onSelect }: Props) => {
+const ClientAutocomplete = ({
+  id,
+  titleText,
+  disabled,
+  size = 'lg',
+  hideLabel,
+  selectedClient,
+  onSelect,
+  onTypedChange,
+}: Props) => {
   return (
     <AutoCompleteInput<ClientLocationResponse>
       // Remount when the controlled selection changes so Carbon's ComboBox
@@ -40,6 +50,7 @@ const ClientAutocomplete = ({ id, titleText, disabled, size = 'lg', hideLabel, s
       onAutoCompleteChange={getClientsByName}
       itemToString={itemToString}
       onSelect={(item) => onSelect(item ?? null)}
+      onTypedChange={onTypedChange}
       initialSelectedItem={selectedClient ?? undefined}
     />
   );

@@ -86,7 +86,7 @@ export function R08InvoiceAuditPage() {
   });
 
   const handleExport = (reportFormat: 'PDF' | 'CSV') => {
-    const clientResult = validateR08({ dateFrom, dateTo, submissionNumber, submissionYearMonth });
+    const clientResult = validateR08({ dateFrom, dateTo, submissionNumber, submissionYearMonth, timeFrame });
     const clientSplit = splitMessages(clientResult.messages, MESSAGE_KEY_TO_FIELD);
     setFieldErrors(clientSplit.fieldErrors);
     setFormErrors(clientSplit.formErrors);

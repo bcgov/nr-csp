@@ -17,8 +17,9 @@ describe('ProtectedRoute', () => {
     vi.clearAllMocks();
   });
 
-  it('redirects to landing when not authenticated', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false });
+  it('calls signIn and shows loading screen when not authenticated', () => {
+    const signIn = vi.fn();
+    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
 
     const { container } = render(
       <MemoryRouter initialEntries={['/private']}>
@@ -27,11 +28,13 @@ describe('ProtectedRoute', () => {
         </ProtectedRoute>
       </MemoryRouter>,
     );
+
+    expect(signIn).toHaveBeenCalledOnce();
     expect(container.textContent).not.toContain('Private Content');
   });
 
   it('renders children when authenticated', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, isLoading: false });
+    mockUseAuth.mockReturnValue({ isAuthenticated: true, isLoading: false, signIn: vi.fn() });
 
     const { getByText } = render(
       <MemoryRouter initialEntries={['/private']}>
@@ -43,8 +46,8 @@ describe('ProtectedRoute', () => {
     expect(getByText('Private Content')).toBeTruthy();
   });
 
-  it('renders nothing while loading', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: true });
+  it('shows loading screen while loading', () => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: true, signIn: vi.fn() });
 
     const { container } = render(
       <MemoryRouter>
@@ -53,6 +56,6 @@ describe('ProtectedRoute', () => {
         </ProtectedRoute>
       </MemoryRouter>,
     );
-    expect(container.textContent).toBe('');
+    expect(container.textContent).not.toContain('Content');
   });
 });

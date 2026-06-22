@@ -13,8 +13,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,6 +25,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class R12ServiceTest {
@@ -133,6 +137,55 @@ class R12ServiceTest {
             assertThatThrownBy(() -> service.generateReport(r))
                     .isInstanceOf(BadRequestException.class)
                     .hasMessageContaining("timeFrame must be a numeric value");
+        }
+    }
+
+    @Nested
+    @DisplayName("buildParams() date handling")
+    class DateHandling {
+
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> capturedParams(R12ReportRequest r) {
+            given(jasperServerService.generateReport(eq("R12"), any())).willReturn(new byte[]{1});
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R12"), captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        void shouldRoundDatesToMonthBoundaries() {
+            R12ReportRequest r = baseRequest();
+            r.setDateFrom("20200115");
+            r.setDateTo("20200320");
+
+            Map<String, Object> params = capturedParams(r);
+
+            assertThat(params).containsEntry("INVOICE_DATE_FROM", "20200101");
+            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200331");
+        }
+
+        @Test
+        void shouldComputeDateToInclusivelyFromTimeFrame() {
+            R12ReportRequest r = baseRequest();
+            r.setDateFrom("20200115");
+            r.setTimeFrame("3");
+
+            Map<String, Object> params = capturedParams(r);
+
+            assertThat(params).containsEntry("INVOICE_DATE_FROM", "20200101");
+            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200331");
+        }
+
+        @Test
+        void shouldUseEndOfStartMonth_whenTimeFrameIsOne() {
+            R12ReportRequest r = baseRequest();
+            r.setDateFrom("20200115");
+            r.setTimeFrame("1");
+
+            Map<String, Object> params = capturedParams(r);
+
+            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200131");
         }
     }
 

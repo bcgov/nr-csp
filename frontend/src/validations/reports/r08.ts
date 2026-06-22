@@ -5,6 +5,7 @@ type R08FormValues = {
   dateTo: Date | null;
   submissionNumber: string;
   submissionYearMonth: Date | null;
+  timeFrame: string;
 };
 
 export function validateR08(values: R08FormValues): ValidationResult {
@@ -18,6 +19,10 @@ export function validateR08(values: R08FormValues): ValidationResult {
 
   if (values.submissionNumber.trim() && !/^\d+$/.test(values.submissionNumber.trim())) {
     messages.addError('report.submissionnumber.numeric.error');
+  }
+
+  if (values.timeFrame.trim() && !/^\d+$/.test(values.timeFrame.trim())) {
+    messages.addError('report.timeframe.numeric.error');
   }
 
   if (values.dateFrom && values.dateTo && values.dateFrom > values.dateTo) {

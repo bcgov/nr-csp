@@ -26,6 +26,7 @@ function makeWrapper(privileges: string[]) {
     },
     isAuthenticated: true,
     isLoading: false,
+    isSigningOut: false,
     signIn: async () => {},
     signOut: async () => {},
   };
@@ -37,6 +38,7 @@ function makeNullUserWrapper() {
     user: null,
     isAuthenticated: false,
     isLoading: false,
+    isSigningOut: false,
     signIn: async () => {},
     signOut: async () => {},
   };

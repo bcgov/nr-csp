@@ -62,7 +62,7 @@ class InvoiceControllerTest {
 
     private InvoiceResponse sampleResponse() {
         return new InvoiceResponse(
-                1L, 10L, "INV-001", LocalDate.of(2026, 1, 15), "DFT", "SAL", "M", "FOB01", "SORT01",
+                1L, 10L, 67890L, "INV-001", LocalDate.of(2026, 1, 15), "DFT", "SAL", "M", "FOB01", "SORT01",
                 new BigDecimal("100.00"), 10, new BigDecimal("5.0"),
                 "1234", "00", "Seller", "1234", "00",
                 "5678", "00", "ABC Logging", "Nanaimo", "BC",

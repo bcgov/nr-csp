@@ -1,5 +1,5 @@
 import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { LayoutProvider } from './LayoutProvider';
 import { useLayout } from './useLayout';
@@ -18,15 +18,6 @@ function Consumer() {
 }
 
 describe('LayoutProvider', () => {
-  beforeEach(() => {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: false,
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
-  });
-
   it('renders children', () => {
     render(
       <LayoutProvider>
@@ -36,12 +27,23 @@ describe('LayoutProvider', () => {
     expect(screen.getByTestId('child')).toBeInTheDocument();
   });
 
+  it('expands the side nav by default', () => {
+    render(
+      <LayoutProvider>
+        <Consumer />
+      </LayoutProvider>,
+    );
+    expect(screen.getByTestId('sidenav').textContent).toBe('true');
+  });
+
   it('toggles side nav', () => {
     render(
       <LayoutProvider>
         <Consumer />
       </LayoutProvider>,
     );
+    act(() => screen.getByText('toggleNav').click());
+    expect(screen.getByTestId('sidenav').textContent).toBe('false');
     act(() => screen.getByText('toggleNav').click());
     expect(screen.getByTestId('sidenav').textContent).toBe('true');
   });

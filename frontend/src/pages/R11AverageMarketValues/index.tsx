@@ -53,7 +53,7 @@ export function R11AverageMarketValuesPage() {
   });
 
   const handleExport = (reportFormat: 'PDF' | 'CSV') => {
-    const clientResult = validateR11(dateFrom, dateTo, selectedModellingCode?.code ?? '');
+    const clientResult = validateR11(dateFrom, dateTo, selectedModellingCode?.code ?? '', timeFrame);
     const clientSplit = splitMessages(clientResult.messages, MESSAGE_KEY_TO_FIELD);
     setFieldErrors(clientSplit.fieldErrors);
     setFormErrors(clientSplit.formErrors);

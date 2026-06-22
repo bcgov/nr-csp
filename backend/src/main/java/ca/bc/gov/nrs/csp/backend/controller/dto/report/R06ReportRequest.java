@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.controller.dto.report;
 
 import ca.bc.gov.nrs.csp.backend.util.ToStringUtils;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
@@ -19,6 +20,8 @@ public class R06ReportRequest {
     private String buyerClientNumber;
     private String buyerLocCode;
     private String maturityCodes;
+
+    @Digits(integer = 10, fraction = 0, message = "submissionId must be at most 10 digits")
     private Long submissionId;
     private String invoiceNumbers;
     private String logSaleEntryStatusCode;

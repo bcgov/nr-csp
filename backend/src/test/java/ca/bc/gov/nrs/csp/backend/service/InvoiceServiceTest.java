@@ -27,12 +27,15 @@ import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.invoiceDetails.InvoiceValidator;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +81,7 @@ class InvoiceServiceTest {
     InvoiceValidator validator;
 
     private static final InvoiceResponse SENTINEL = new InvoiceResponse(
-            1L, 10L, "INV-001", LocalDate.of(2026, 1, 15), "DFT", "SAL", "M", null, null,
+            1L, 10L, 67890L, "INV-001", LocalDate.of(2026, 1, 15), "DFT", "SAL", "M", null, null,
             null, null, null, "1234", "00", "Seller", null, null, null, null, null, null, null,
             List.of(), List.of(), List.of(), null, null, null, null, "system",
             List.of(), List.of(), List.of());
@@ -93,6 +96,9 @@ class InvoiceServiceTest {
 
     @BeforeEach
     void setUp() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(USER, null, List.of()));
+
         service = spy(new InvoiceService(invoiceRepo, lineItemRepo, submissionRepo,
                 participantRepo, commonValidation, priceConversionService, mapper));
         validator = mock(InvoiceValidator.class);
@@ -102,9 +108,14 @@ class InvoiceServiceTest {
         lenient().when(validator.validateForChangeStatus(any(), any(), any())).thenReturn(VALID);
         lenient().when(priceConversionService.apply(any(), any(), any()))
                 .thenReturn(new PriceConversionService.Result(List.of(), List.of()));
-        lenient().when(mapper.toResponse(any(), any(), any(), any())).thenReturn(SENTINEL);
+        lenient().when(mapper.toResponse(any(), any(), any(), any(), any())).thenReturn(SENTINEL);
         lenient().when(lineItemRepo.findByInvoiceId(anyLong())).thenReturn(List.of());
         lenient().when(lineItemRepo.findIdsByInvoiceId(anyLong())).thenReturn(List.of());
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     // ---------------- helpers ----------------
@@ -125,7 +136,7 @@ class InvoiceServiceTest {
     }
 
     private LoadedInvoice loaded(InvoiceDetails d, Long submissionId, Long buyerPid, Long sellerPid) {
-        return new LoadedInvoice(d, submissionId, buyerPid, sellerPid);
+        return new LoadedInvoice(d, submissionId, buyerPid, sellerPid, submissionId);
     }
 
     private LineItem line(Long id, BigDecimal converted) {
@@ -159,7 +170,7 @@ class InvoiceServiceTest {
         service.getById(1L);
 
         ArgumentCaptor<ValidationResult> captor = ArgumentCaptor.forClass(ValidationResult.class);
-        verify(mapper).toResponse(any(), eq(10L), any(), captor.capture());
+        verify(mapper).toResponse(any(), eq(10L), any(), any(), captor.capture());
         // Both the validator warning and the conversion warning must appear.
         assertThat(captor.getValue().warnings()).hasSize(2);
     }
@@ -190,7 +201,7 @@ class InvoiceServiceTest {
         service.getById(1L);
 
         ArgumentCaptor<ValidationResult> captor = ArgumentCaptor.forClass(ValidationResult.class);
-        verify(mapper).toResponse(any(), any(), any(), captor.capture());
+        verify(mapper).toResponse(any(), any(), any(), any(), captor.capture());
         // Only the validator warning — no conversion warnings injected.
         assertThat(captor.getValue().warnings()).containsExactly(A_WARNING);
     }
@@ -348,7 +359,7 @@ class InvoiceServiceTest {
 
         verify(lineItemRepo).updateConvertedPrice(1L, new BigDecimal("12.34"), USER);
         ArgumentCaptor<ValidationResult> captor = ArgumentCaptor.forClass(ValidationResult.class);
-        verify(mapper).toResponse(any(), eq(10L), any(), captor.capture());
+        verify(mapper).toResponse(any(), eq(10L), any(), any(), captor.capture());
         assertThat(captor.getValue().warnings()).contains(A_WARNING);
     }
 
@@ -512,7 +523,7 @@ class InvoiceServiceTest {
         verify(submissionRepo).updateSubmissionStatus(10L, "INB", USER);
 
         ArgumentCaptor<ValidationResult> captor = ArgumentCaptor.forClass(ValidationResult.class);
-        verify(mapper).toResponse(any(), eq(10L), any(), captor.capture());
+        verify(mapper).toResponse(any(), eq(10L), any(), any(), captor.capture());
         assertThat(captor.getValue().warnings()).contains(A_WARNING);
     }
 
@@ -548,7 +559,7 @@ class InvoiceServiceTest {
         // Both source lines re-inserted on the new invoice.
         verify(lineItemRepo, times(2)).insertLineItem(eq(600L), any(), eq(USER));
         // Response carries no validation result on a duplicate.
-        verify(mapper).toResponse(any(), eq(10L), any(), isNull());
+        verify(mapper).toResponse(any(), eq(10L), any(), any(), isNull());
         verify(submissionRepo, never()).insertSubmission(any(), any(), any(), any());
     }
 

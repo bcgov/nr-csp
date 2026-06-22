@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.sortcode.CreateSortCodeRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.sortcode.UpdateSortCodeRequest;
+import ca.bc.gov.nrs.csp.backend.config.CacheConfig;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.ConflictException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
@@ -10,6 +11,7 @@ import ca.bc.gov.nrs.csp.backend.service.model.SortCode;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -47,6 +49,7 @@ public class SortCodeService {
         return results;
     }
 
+    @CacheEvict(value = CacheConfig.SORT_CODES, allEntries = true)
     public SortCode create(CreateSortCodeRequest request) {
         log.debug("Sort code create requested");
         String code = request.sortCode().toUpperCase();
@@ -64,6 +67,7 @@ public class SortCodeService {
         return sortCodeRepository.findByCode(code).orElseThrow();
     }
 
+    @CacheEvict(value = CacheConfig.SORT_CODES, allEntries = true)
     public SortCode update(String code, UpdateSortCodeRequest request) {
         log.debug("Sort code update requested");
         String upperCode = code.toUpperCase();
@@ -81,6 +85,7 @@ public class SortCodeService {
         return sortCodeRepository.findByCode(upperCode).orElseThrow();
     }
 
+    @CacheEvict(value = CacheConfig.SORT_CODES, allEntries = true)
     public void delete(String code) {
         log.debug("Sort code delete requested");
         String upperCode = code.toUpperCase();

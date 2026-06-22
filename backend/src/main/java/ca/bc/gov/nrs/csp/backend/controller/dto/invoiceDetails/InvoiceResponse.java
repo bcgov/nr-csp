@@ -11,8 +11,10 @@ import java.util.List;
 public record InvoiceResponse(
         @Schema(description = "Invoice id", example = "12345")
         Long invID,
-        @Schema(description = "Parent submission id", example = "67890")
+        @Schema(description = "Surrogate parent submission key (csp_submission_id) — the internal join key, not shown to users", example = "67890")
         Long submissionId,
+        @Schema(description = "Business submission number (csp_submission.submission_id) shown to users as \"Submission ID\". Null for manually-entered invoices.", example = "67890")
+        Long submissionNumber,
         @Schema(description = "Invoice number", example = "INV-2026-001")
         String invNumber,
         @Schema(description = "Invoice date", example = "2026-05-19")

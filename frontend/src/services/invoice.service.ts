@@ -86,7 +86,12 @@ export interface ValidationErrorResponse {
 
 export interface InvoiceResponse {
   invID: number;
+  // Surrogate parent submission key (csp_submission_id) — internal join key, used
+  // here only to derive the `manual` flag. NOT the value shown to the user.
   submissionId: number | null;
+  // Business submission number (csp_submission.submission_id) shown as "Submission ID".
+  // Null for manually-entered invoices.
+  submissionNumber: number | null;
   invNumber: string;
   invoiceDate: string;
   invStatus: string;

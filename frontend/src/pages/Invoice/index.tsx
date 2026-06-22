@@ -515,6 +515,12 @@ export function InvoicePage() {
   const [editGroupFieldErrors, setEditGroupFieldErrors] = useState<Record<string, string>>({});
   const [fobValidationError, setFobValidationError] = useState('');
 
+  // Which group rows are expanded, keyed by GroupRow.id.
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
+  // Tracks whether we've already auto-expanded every group for the currently
+  // loaded invoice.
+  const hasAutoExpandedGroupsRef = useRef(false);
+
   // Pending delete-confirmation modal. Each delete action opens this with a
   // title/message and the callback to run on confirm; the shared FormModal at
   // the bottom of the render drives it.
@@ -614,6 +620,8 @@ export function InvoicePage() {
     setEditLineFieldErrors({});
     setEditGroupDraft(null);
     setEditGroupFieldErrors({});
+    setExpandedGroupIds(new Set());
+    hasAutoExpandedGroupsRef.current = false;
     setInitialLoadComplete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
@@ -660,7 +668,16 @@ export function InvoicePage() {
     setWeighSlips(loadedInvoice.weightSlips ?? []);
     setReviewerComment(loadedInvoice.reviewComments ?? '');
     setSubmitterComment(loadedInvoice.submitComments ?? '');
-    setLineItems(loadedInvoice.lineItems ?? []);
+    const loadedLines = loadedInvoice.lineItems ?? [];
+    setLineItems(loadedLines);
+    // On first load of this invoice, expand every line-item group. Guarded by a
+    // ref so a later refetch (e.g. after a mutation) doesn't re-expand groups the
+    // user has since collapsed. Group ids are independent of the sort-code
+    // lookup, so this lines up with `groupRows` even before that lookup resolves.
+    if (!hasAutoExpandedGroupsRef.current) {
+      setExpandedGroupIds(new Set(groupLineItems(loadedLines, sortCodeItems).map((g) => g.id)));
+      hasAutoExpandedGroupsRef.current = true;
+    }
     setWarnings(loadedInvoice.warnings ?? []);
     // The GET response also carries any `ERROR`-type messages from running
     // the validator on the loaded record. Route them through the same
@@ -708,7 +725,10 @@ export function InvoicePage() {
 
   // Convenience flags
   const currentStatus = loadedInvoice?.invStatus ?? (isExisting ? '' : 'DFT');
+  // `submissionId` is the surrogate join key — used only to drive the `manual`
+  // flag below. The business submission number is what we show the user.
   const submissionId = loadedInvoice?.submissionId;
+  const submissionNumber = loadedInvoice?.submissionNumber;
 
   // Permission flags
   const canSavePerm = usePermission(INVOICE_DETAILS_SAVE);
@@ -779,8 +799,10 @@ export function InvoicePage() {
   const totalVolume = lineItems.reduce((s, l) => s + Number(l.volume ?? 0), 0);
   const totalAmount = lineItems.reduce((s, l) => s + Number(l.amount ?? 0), 0);
 
-  // Existing read-only meta values (not yet returned from any endpoint)
-  const dateInvoiceReceived = loadedInvoice ? (loadedInvoice.invoiceDate ?? '—') : '—';
+  // Read-only meta values (not yet returned from any endpoint). For a brand-new
+  // invoice created from scratch there's no stored received date, so default the
+  // "Date entered/received" to today (local yyyy-MM-dd).
+  const dateInvoiceReceived = isExisting ? (loadedInvoice?.invoiceDate ?? '—') : formatIsoDate(new Date());
   const enteredSubmittedBy = loadedInvoice?.entryUserID ?? '—';
 
   // ------ Add New Line Item validity ------
@@ -814,7 +836,13 @@ export function InvoicePage() {
         onSuccess: (data) => {
           // Hydrate from the server response so the table + totals reflect
           // the freshly-validated server state.
-          setLineItems(data.lineItems ?? []);
+          const nextLines = data.lineItems ?? [];
+          // Expand the group the newly-added line lands in (often a brand-new
+          // group). The added line(s) are whichever ids weren't present before.
+          const prevIds = new Set(lineItems.map((l) => l.lineItemID));
+          const addedIds = nextLines.map((l) => l.lineItemID).filter((id) => !prevIds.has(id));
+          setLineItems(nextLines);
+          keepGroupsExpandedForLines(nextLines, addedIds);
           setWarnings(data.warnings ?? []);
           applyServerErrors(data.errors ?? []);
           setNewLineFieldErrors({});
@@ -1053,12 +1081,32 @@ export function InvoicePage() {
       adjustInvNum: adjustInvNum.length ? adjustInvNum.join(',') : null,
       reviewComments: reviewerComment || null,
       submitComments: submitterComment || null,
-      manual: submissionId == null,
+      // A manual invoice has no business submission number; an ESF invoice does.
+      // (submissionId is the surrogate join key and is always present once saved.)
+      manual: submissionNumber == null,
       lineItems: lineItemPayload,
     };
   };
 
   const groupRows = useMemo(() => groupLineItems(lineItems, sortCodeItems), [lineItems, sortCodeItems]);
+
+  // After an edit that replaces the line items, re-map group expansion onto the
+  // new group ids.
+  const keepGroupsExpandedForLines = (nextLines: LineItemResponse[], affectedLineIds: number[]) => {
+    const nextGroups = groupLineItems(nextLines, sortCodeItems);
+    const validIds = new Set(nextGroups.map((g) => g.id));
+    const affected = new Set(affectedLineIds);
+    setExpandedGroupIds((prev) => {
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validIds.has(id)) next.add(id);
+      });
+      nextGroups.forEach((g) => {
+        if (g.lineItems.some((l) => affected.has(l.lineItemID))) next.add(g.id);
+      });
+      return next;
+    });
+  };
 
   // Group-row action handlers. Wrapped in useCallback and declared above
   // `groupColumns` so the memo can list them as dependencies: the memoised
@@ -1316,36 +1364,7 @@ export function InvoicePage() {
     if (!invoiceId) return;
     deleteMutation.mutate(invoiceId, {
       onSuccess: () => {
-        // Clear the form and stay on the page.
-        setInvNumber('');
-        setInvTypeCode('');
-        setInvDate('');
-        setReplaceInvNum('');
-        setAdjustInvNum('');
-        setSubmittedByCode('');
-        setSubmittingClientNumber('');
-        setSubmittingClientLocation('');
-        setOtherClientNumber('');
-        setOtherClientLocation('');
-        setOtherClientName('');
-        setSubmittingClientCity('');
-        setSubmittingClientProvState('');
-        setOtherClientCity('');
-        setOtherClientProvState('');
-        setSubmittingClient(null);
-        setOtherClient(null);
-        setMaturityCode('');
-        setFobCodeValue('');
-        setPrimarySortCodeValue('');
-        setBoomNumbers([]);
-        setTimberMarks([]);
-        setWeighSlips([]);
-        setClientPrimarySortCode('');
-        setReviewerComment('');
-        setSubmitterComment('');
-        setLineItems([]);
-        setWarnings([]);
-        clearErrors();
+        // Navigate to the base "new invoice" screen.
         setDeleteConfirm(null);
         addNotification({ kind: 'success', title: 'Invoice deleted.' });
         navigate('/invoice', { replace: true });
@@ -1437,7 +1456,9 @@ export function InvoicePage() {
       { invoiceId, lineId: lineItemID, body },
       {
         onSuccess: (data) => {
-          setLineItems(data.lineItems ?? []);
+          const nextLines = data.lineItems ?? [];
+          setLineItems(nextLines);
+          keepGroupsExpandedForLines(nextLines, [lineItemID]);
           setWarnings(data.warnings ?? []);
           applyServerErrors(data.errors ?? []);
           setEditLineDraft(null);
@@ -1487,6 +1508,7 @@ export function InvoicePage() {
       const body: LineItemRequest = {
         lineItemID: lineId,
         secondSort,
+        clientSecondarySort: existing.clientSecondarySort ?? null,
         species,
         grade: existing.grade,
         numOfPieces: existing.numOfPieces,
@@ -1522,7 +1544,10 @@ export function InvoicePage() {
       }
     }
     if (lastResponse) {
-      setLineItems(lastResponse.lineItems ?? []);
+      const nextLines = lastResponse.lineItems ?? [];
+      setLineItems(nextLines);
+      // Keep the edited group open under its new (sort/species-derived) id.
+      keepGroupsExpandedForLines(nextLines, lineItemIds);
       setWarnings(lastResponse.warnings ?? []);
       applyServerErrors(lastResponse.errors ?? []);
     }
@@ -1636,7 +1661,7 @@ export function InvoicePage() {
                   </Column>
                   <Column sm={4} md={2} lg={5} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Submission ID</span>
-                    <span className="invoice-page__meta-value">{submissionId || '—'}</span>
+                    <span className="invoice-page__meta-value">{submissionNumber ?? '—'}</span>
                   </Column>
 
                   <Column sm={4} md={8} lg={16} className="invoice-page__field-col">
@@ -1683,23 +1708,25 @@ export function InvoicePage() {
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col invoice-page__field-col--left">
                     <TagInput
                       id="replace-inv-num"
-                      labelText="Replaces invoice number(s)"
+                      labelText="Replaces Invoice#(s)"
                       values={replaceInvNum}
                       onChange={setReplaceInvNum}
                       invalid={!!displayFieldErrors.replaceInvNum}
                       invalidText={displayFieldErrors.replaceInvNum}
                       disabled={!canEdit}
+                      maxTags={5}
                     />
                   </Column>
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col">
                     <TagInput
                       id="adjust-inv-num"
-                      labelText="Adjust invoice number(s)"
+                      labelText="Adjusts Invoice#(s)"
                       values={adjustInvNum}
                       onChange={setAdjustInvNum}
                       invalid={!!displayFieldErrors.adjustInvNum}
                       invalidText={displayFieldErrors.adjustInvNum}
                       disabled={!canEdit}
+                      maxTags={5}
                     />
                   </Column>
                 </Grid>
@@ -1899,6 +1926,7 @@ export function InvoicePage() {
                       invalid={!!displayFieldErrors.boomNumbers}
                       invalidText={displayFieldErrors.boomNumbers}
                       disabled={!canEdit}
+                      maxTags={5}
                     />
                   </Column>
                   <Column sm={4} md={3} lg={5} className="invoice-page__field-col">
@@ -1910,6 +1938,7 @@ export function InvoicePage() {
                       invalid={!!displayFieldErrors.timberMarks}
                       invalidText={displayFieldErrors.timberMarks}
                       disabled={!canEdit}
+                      maxTags={5}
                     />
                   </Column>
                   <Column sm={4} md={2} lg={6} className="invoice-page__field-col">
@@ -1921,6 +1950,7 @@ export function InvoicePage() {
                       invalid={!!displayFieldErrors.weighSlips}
                       invalidText={displayFieldErrors.weighSlips}
                       disabled={!canEdit}
+                      maxTags={5}
                     />
                   </Column>
 
@@ -2001,6 +2031,8 @@ export function InvoicePage() {
                     columns={groupColumns}
                     size="md"
                     expandable
+                    expandedRowIds={expandedGroupIds}
+                    onExpandedRowIdsChange={setExpandedGroupIds}
                     withZebraStyles={false}
                     footerRow={lineItems.length > 0 ? groupTotalsRow : undefined}
                     emptyTitle="No line items"

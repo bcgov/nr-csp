@@ -31,6 +31,7 @@ import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository.LoadedInvoice;
 import ca.bc.gov.nrs.csp.backend.repository.LineItemRepository;
 import ca.bc.gov.nrs.csp.backend.repository.LogSaleParticipantRepository;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.mapper.InvoiceMapper;
 import ca.bc.gov.nrs.csp.backend.util.constants.ActionType;
 import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
@@ -57,9 +58,6 @@ import java.util.Set;
 public class InvoiceService {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
-
-    // TODO: replace with SecurityContextUtils.requireUsername() once authentication is wired up.
-    private static final String PLACEHOLDER_USER = "system";
 
     private final InvoiceRepository invoiceRepo;
     private final LineItemRepository lineItemRepo;
@@ -99,7 +97,7 @@ public class InvoiceService {
         // that don't (or no longer) block save. ActionType.OTHER runs the
         // full rule set minus the action-gated nudges (`isSubmitProcessRequiered`
         // and `isReviewerCommentUpdate`), which don't apply to a passive read.
-        boolean manual = loaded.submissionId() == null;
+        boolean manual = loaded.submissionNumber() == null;
         ValidationResult validation = newValidator()
                 .validate(loaded.details(), lines, manual, ActionType.OTHER);
 
@@ -107,7 +105,7 @@ public class InvoiceService {
         // the invoice is PROCESSING. For every other status the stored converted
         // prices are displayed as-is and no conversion warnings are added.
         if (ConstantsCode.INVENTRYSTATUS_PROCESSING.equals(loaded.details().invStatus())) {
-            String user = currentUser();
+            String user = SecurityContextUtils.requireUsername();
             PriceConversionService.Result conversion = priceConversionService
                     .apply(lines, loaded.details().maturity(), loaded.details().invoiceDate());
             for (LineItem line : conversion.lines()) {
@@ -119,7 +117,7 @@ public class InvoiceService {
             validation = new ValidationResult(messages);
         }
 
-        return mapper.toResponse(loaded.details(), loaded.submissionId(), lines, validation);
+        return mapper.toResponse(loaded.details(), loaded.submissionId(), loaded.submissionNumber(), lines, validation);
     }
 
     // ---------------------------------------------------------------
@@ -128,7 +126,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse create(CreateInvoiceRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         InvoiceDetails details = mapper.toDetails(request, user);
         List<LineItem> lines = mapper.toLineItems(request.lineItems(), null);
 
@@ -173,7 +171,9 @@ public class InvoiceService {
                 details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
 
         InvoiceDetails saved = withId(details, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        return mapper.toResponse(saved, submissionId, lineItemRepo.findByInvoiceId(newInvoiceId), result);
+        // A freshly-created submission has no business submission number yet
+        // (insertSubmission only sets the surrogate csp_submission_id).
+        return mapper.toResponse(saved, submissionId, null, lineItemRepo.findByInvoiceId(newInvoiceId), result);
     }
 
     // ---------------------------------------------------------------
@@ -182,7 +182,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse update(Long id, UpdateInvoiceRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String existingStatus = existing.details().invStatus();
@@ -235,7 +235,7 @@ public class InvoiceService {
         }
 
         InvoiceDetails saved = withId(details, id, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        return mapper.toResponse(saved, existing.submissionId(), conversion.lines(),
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
                 withConversionWarnings(result, conversion));
     }
 
@@ -272,7 +272,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse submit(Long id) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String status = existing.details().invStatus();
@@ -303,7 +303,7 @@ public class InvoiceService {
         log.info("Submitted invoice id={} submissionId={}", id, existing.submissionId());
 
         InvoiceDetails saved = withId(existing.details(), id, ConstantsCode.INVENTRYSTATUS_PROCESSING);
-        return mapper.toResponse(saved, existing.submissionId(), lines, responseResult);
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lines, responseResult);
     }
 
     // ---------------------------------------------------------------
@@ -312,7 +312,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse duplicate(Long id) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(id);
@@ -356,7 +356,7 @@ public class InvoiceService {
         log.info("Duplicated invoice id={} newId={}", id, newInvoiceId);
 
         InvoiceDetails saved = withId(cloned, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        return mapper.toResponse(saved, submissionId, lineItemRepo.findByInvoiceId(newInvoiceId), null);
+        return mapper.toResponse(saved, submissionId, existing.submissionNumber(), lineItemRepo.findByInvoiceId(newInvoiceId), null);
     }
 
     // ---------------------------------------------------------------
@@ -368,7 +368,7 @@ public class InvoiceService {
         if (request == null || request.status() == null) {
             throw new BadRequestException("Status is required.");
         }
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
 
@@ -390,7 +390,7 @@ public class InvoiceService {
         applySubmissionStatusOnStatusChange(existing.submissionId(), request.status(), user);
 
         InvoiceDetails saved = withReviewCommentsAndStatus(existing.details(), request.reviewComments(), request.status());
-        return mapper.toResponse(saved, existing.submissionId(), lineItemRepo.findByInvoiceId(id), result);
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lineItemRepo.findByInvoiceId(id), result);
     }
 
     /**
@@ -428,7 +428,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse addLineItem(Long invoiceId, LineItemRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         requireAddLineItemAllowed(existing);
         // Build the candidate set: every existing line plus the new one. Run
@@ -439,7 +439,7 @@ public class InvoiceService {
         List<LineItem> candidate = new ArrayList<>(existingLines);
         candidate.add(newLine);
 
-        boolean manual = existing.submissionId() == null;
+        boolean manual = existing.submissionNumber() == null;
         ValidationResult saveResult = newValidator().validate(existing.details(), candidate, manual, ActionType.SAVE);
         throwIfErrors(saveResult, "Line item failed validation.");
 
@@ -450,7 +450,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse updateLineItem(Long invoiceId, Long lineId, LineItemRequest request) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -465,7 +465,7 @@ public class InvoiceService {
                 .map(line -> line.lineItemID() != null && line.lineItemID().equals(lineId) ? updatedLine : line)
                 .toList();
 
-        boolean manual = existing.submissionId() == null;
+        boolean manual = existing.submissionNumber() == null;
         ValidationResult saveResult = newValidator().validate(existing.details(), candidate, manual, ActionType.SAVE);
         throwIfErrors(saveResult, "Line item failed validation.");
 
@@ -476,7 +476,7 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse deleteLineItem(Long invoiceId, Long lineId) {
-        String user = currentUser();
+        String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -503,10 +503,10 @@ public class InvoiceService {
             log.info("Line-item change reverted invoice id={} to DRAFT submissionId={}", invoiceId, existing.submissionId());
         }
         InvoiceDetails draftDetails = withId(existing.details(), invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        boolean manual = existing.submissionId() == null;
+        boolean manual = existing.submissionNumber() == null;
         List<LineItem> currentLines = lineItemRepo.findByInvoiceId(invoiceId);
         ValidationResult result = newValidator().validate(draftDetails, currentLines, manual, ActionType.OTHER);
-        return mapper.toResponse(draftDetails, existing.submissionId(), currentLines, result);
+        return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), currentLines, result);
     }
 
     private LoadedInvoice loadInvoiceOrThrow(Long invoiceId) {
@@ -559,11 +559,6 @@ public class InvoiceService {
         List<ValidationMessage> combined = new ArrayList<>(result.messages());
         combined.addAll(conversion.warnings());
         return new ValidationResult(combined);
-    }
-
-    private String currentUser() {
-        // TODO: replace with SecurityContextUtils.requireUsername() once auth is integrated.
-        return PLACEHOLDER_USER;
     }
 
     /**

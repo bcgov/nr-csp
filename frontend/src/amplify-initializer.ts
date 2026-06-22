@@ -6,19 +6,25 @@ export function getAmplifyConfig() {
     );
   }
 
-  const config = JSON.parse(JSON.stringify(c)) as NonNullable<typeof window.amplifyConfig>;
+  const origin = window.location.origin;
+
+  // amplify-config.js uses a flat structure; map it to the Amplify v6 nested format.
+  const redirectSignIn = import.meta.env.DEV ? [`${origin}/`] : [String(c.redirectSignIn)];
+  const redirectSignOut = [String(c.redirectSignOut)];
 
   return {
+    appEnv: c.appEnv,
     Auth: {
       Cognito: {
-        userPoolId: config.userPoolId,
-        userPoolClientId: config.userPoolClientId,
+        region: c.region,
+        userPoolId: c.userPoolId,
+        userPoolClientId: c.userPoolClientId,
         loginWith: {
           oauth: {
-            domain: config.cognitoDomain,
-            scopes: config.oauthScopes as ('openid' | 'profile' | 'email')[],
-            redirectSignIn: [config.redirectSignIn],
-            redirectSignOut: [config.redirectSignOut],
+            domain: c.cognitoDomain,
+            scopes: c.oauthScopes ?? ['openid', 'profile', 'email'],
+            redirectSignIn,
+            redirectSignOut,
             responseType: 'code' as const,
           },
         },

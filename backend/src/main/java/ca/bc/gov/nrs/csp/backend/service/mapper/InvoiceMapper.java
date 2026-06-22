@@ -179,10 +179,11 @@ public class InvoiceMapper {
         return result.errors().stream().map(this::toMessageResponse).toList();
     }
 
-    public InvoiceResponse toResponse(InvoiceDetails details, Long submissionId, List<LineItem> lineItems, ValidationResult validationSource) {
+    public InvoiceResponse toResponse(InvoiceDetails details, Long submissionId, Long submissionNumber, List<LineItem> lineItems, ValidationResult validationSource) {
         return new InvoiceResponse(
                 details.invID(),
                 submissionId,
+                submissionNumber,
                 details.invNumber(),
                 details.invoiceDate(),
                 details.invStatus(),

@@ -25,6 +25,12 @@
     padding-left: $spacing-05 !important;
   }
 
+  .cds--text-input,
+  .cds--list-box__label,
+  .cds--list-box__menu-item__option {
+    text-align: left;
+  }
+
   .cds--btn--ghost,
   .cds--icon-button {
     color: var(--cds-link-primary) !important;

@@ -195,8 +195,8 @@ public class JasperServerService {
     private HttpURLConnection openConnection(String urlStr) throws IOException {
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setConnectTimeout(10_000);   // 10s to establish the connection
-        conn.setReadTimeout(120_000);     // 2min to read the response (PDFs can be large)
+        conn.setConnectTimeout(10_000);
+        conn.setReadTimeout(props.readTimeoutSeconds() * 1_000);
         if (conn instanceof HttpsURLConnection https) {
             https.setSSLSocketFactory(sslContext.getSocketFactory());
             https.setHostnameVerifier(hostnameVerifier);

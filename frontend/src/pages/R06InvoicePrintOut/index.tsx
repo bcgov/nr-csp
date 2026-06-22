@@ -55,6 +55,8 @@ export function R06InvoicePrintOutPage() {
   const [buyerClient, setBuyerClient] = useState<ClientLocationResponse | null>(null);
   const [sellerNumber, setSellerNumber] = useState('');
   const [buyerNumber, setBuyerNumber] = useState('');
+  const [sellerTypedName, setSellerTypedName] = useState('');
+  const [buyerTypedName, setBuyerTypedName] = useState('');
   const [submissionId, setSubmissionId] = useState('');
   const [selectedInvoiceStatus, setSelectedInvoiceStatus] = useState<LookupItemResponse | null>(null);
   const [selectedInvoiceType, setSelectedInvoiceType] = useState<LookupItemResponse | null>(null);
@@ -66,11 +68,13 @@ export function R06InvoicePrintOutPage() {
   const handleSellerSelect = (client: ClientLocationResponse | null) => {
     setSellerClient(client);
     setSellerNumber(client?.clientNumber ?? '');
+    if (client) setSellerTypedName(client.clientName ?? '');
   };
 
   const handleBuyerSelect = (client: ClientLocationResponse | null) => {
     setBuyerClient(client);
     setBuyerNumber(client?.clientNumber ?? '');
+    if (client) setBuyerTypedName(client.clientName ?? '');
   };
 
   const handleAddRange = () => {
@@ -78,7 +82,8 @@ export function R06InvoicePrintOutPage() {
   };
 
   const handleRangeChange = (id: string, field: 'from' | 'to', value: string) => {
-    setInvoiceRanges((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    const upper = value.toUpperCase();
+    setInvoiceRanges((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: upper } : r)));
   };
 
   const buildRequest = (reportFormat: 'PDF' | 'CSV') => {
@@ -101,7 +106,16 @@ export function R06InvoicePrintOutPage() {
 
   const handleExport = (reportFormat: 'PDF' | 'CSV') => {
     const hasInvoiceNumbers = invoiceRanges.some((r) => r.from.trim() || r.to.trim());
-    const clientResult = validateR06(dateFrom, dateTo, hasInvoiceNumbers, submissionId);
+    const clientResult = validateR06({
+      dateFrom,
+      dateTo,
+      hasInvoiceNumbers,
+      submissionId,
+      sellerName: sellerTypedName,
+      sellerNumber,
+      buyerName: buyerTypedName,
+      buyerNumber,
+    });
     const clientSplit = splitMessages(clientResult.messages, MESSAGE_KEY_TO_FIELD);
     setFieldErrors(clientSplit.fieldErrors);
     setFormErrors(clientSplit.formErrors);
@@ -214,6 +228,7 @@ export function R06InvoicePrintOutPage() {
             titleText="Seller name"
             selectedClient={sellerClient}
             onSelect={handleSellerSelect}
+            onTypedChange={setSellerTypedName}
           />
         </Column>
         <Column lg={10} md={8} sm={4} className="r06-page__row-break" />
@@ -234,6 +249,7 @@ export function R06InvoicePrintOutPage() {
             titleText="Buyer name"
             selectedClient={buyerClient}
             onSelect={handleBuyerSelect}
+            onTypedChange={setBuyerTypedName}
           />
         </Column>
         <Column lg={10} md={8} sm={4} className="r06-page__row-break" />
