@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
+import { Grid, Column, TextInput, Button } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
 
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
@@ -219,15 +219,9 @@ export function InboxPage() {
 
         {/* Clear filters — always visible */}
         <Column lg={16} md={8} sm={4} className="inbox-page__clear-col">
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              handleClearFilters();
-            }}
-            href="#"
-          >
+          <Button kind="ghost" size="sm" onClick={handleClearFilters}>
             Clear filters
-          </Link>
+          </Button>
         </Column>
 
         {isError && (
