@@ -1,0 +1,28 @@
+# Local development override — automatically merged by `docker compose up`.
+#
+# Runs the frontend as a Vite dev server (hot-module reloading) instead of the
+# production Caddy build defined in docker-compose.yml. The source tree is
+# bind-mounted into the container so edits on the host reload live.
+#
+# To run the PRODUCTION image locally instead, rename/remove this file or use:
+#   docker compose -f docker-compose.yml up --build frontend
+services:
+  frontend:
+    build:
+      # Build the Vite dev-server stage rather than the Caddy static stage.
+      target: dev
+    env_file:
+      # Supplies VITE_MOCK_USER, COGNITO_*, etc. to the dev server and to the
+      # prestart amplify-config generation.
+      - ./.env
+    environment:
+      # Poll the filesystem so host edits are detected inside the container
+      # (native FS events don't cross the Docker/WSL boundary reliably).
+      VITE_USE_POLLING: "true"
+      # Vite proxies /api to the backend service over the compose network.
+      REACT_APP_API_TARGET: "http://backend:8080"
+    volumes:
+      # Live source mount for HMR.
+      - ./frontend:/app
+      # Keep the image's node_modules — don't let the host mount shadow it.
+      - /app/node_modules

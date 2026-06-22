@@ -19,6 +19,7 @@ ARG COGNITO_OAUTH_SCOPES
 ARG COGNITO_REDIRECT_SIGN_IN
 ARG COGNITO_REDIRECT_SIGN_OUT
 ARG VITE_API_BASE_URL
+ARG VITE_MOCK_USER
 
 ENV APP_ENV=${APP_ENV} \
     COGNITO_REGION=${COGNITO_REGION} \
@@ -28,10 +29,23 @@ ENV APP_ENV=${APP_ENV} \
     COGNITO_OAUTH_SCOPES=${COGNITO_OAUTH_SCOPES} \
     COGNITO_REDIRECT_SIGN_IN=${COGNITO_REDIRECT_SIGN_IN} \
     COGNITO_REDIRECT_SIGN_OUT=${COGNITO_REDIRECT_SIGN_OUT} \
-    VITE_API_BASE_URL=${VITE_API_BASE_URL}
+    VITE_API_BASE_URL=${VITE_API_BASE_URL} \
+    VITE_MOCK_USER=${VITE_MOCK_USER}
 
 COPY . .
 RUN npm run build
+
+# Stage 1b: Vite dev server with hot-module reloading. Used only by
+# docker-compose.override.yml for local development. At runtime the host source
+# tree is bind-mounted over /app and an anonymous volume preserves this image's
+# node_modules; file watching uses polling (VITE_USE_POLLING=true) so edits made
+# on the host are detected inside the container across the Docker boundary.
+FROM node:24-alpine AS dev
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
+EXPOSE 3000
+CMD ["npm", "run", "start"]
 
 # Stage 2: Serve static files with Caddy
 FROM caddy:2-alpine
