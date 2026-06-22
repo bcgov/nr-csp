@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
 
-import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
+import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import PageTitle from '@/components/core/PageTitle';
 import ClientAutocomplete, { type ClientLocationResponse } from '@/components/Form/ClientAutocomplete';
 import DateInput from '@/components/Form/DateInput';
 import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
+import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
+import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
 
 import './index.scss';
 
@@ -24,33 +26,38 @@ type InboxRow = {
   cancelled: number;
 };
 
-// Static, placeholder option lists. These are template values for the styling
-// pass only — they are not yet wired to lookup endpoints.
 type SelectItem = { id: string; label: string };
 
 const submittedByItems: SelectItem[] = [
-  { id: 'wfp', label: 'WFP' },
-  { id: 'tla', label: 'TLA' },
-  { id: 'bcts', label: 'BCTS' },
+  { id: 'Buyer', label: 'Buyer' },
+  { id: 'Seller', label: 'Seller' },
 ];
 
 const typeItems: SelectItem[] = [
-  { id: 'sales', label: 'Sales' },
-  { id: 'purchase', label: 'Purchase' },
+  { id: 'Electronic', label: 'Electronic' },
+  { id: 'Manual', label: 'Manual' },
 ];
 
-const statusItems: SelectItem[] = [
-  { id: 'approved', label: 'Approved' },
-  { id: 'rejected', label: 'Rejected' },
-  { id: 'processing', label: 'Processing' },
-  { id: 'cancelled', label: 'Cancelled' },
-  { id: 'draft', label: 'Draft' },
-];
+function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
+  return {
+    id: r.submissionId?.toString() ?? `manual-${index}`,
+    submissionId: r.submissionId?.toString() ?? '—',
+    submissionDate: r.submissionDate,
+    status: r.submissionStatus,
+    type: r.submissionType,
+    total: r.invTotal,
+    approved: r.invApproved,
+    rejected: r.invRejected,
+    processing: r.invProcessing,
+    cancelled: r.invCancelled,
+  };
+}
 
 export function InboxPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortParam, setSortParam] = useState<string | undefined>(undefined);
 
   // Filter inputs
   const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
@@ -59,11 +66,25 @@ export function InboxPage() {
   const [endDateInput, setEndDateInput] = useState('');
   const [submittedBy, setSubmittedBy] = useState<SelectItem | null>(null);
   const [selectedType, setSelectedType] = useState<SelectItem | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<SelectItem | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<LookupItemResponse | null>(null);
   const [dateKey, setDateKey] = useState(0);
 
-  // No data wiring yet — the table renders its empty state during this styling pass.
-  const rows: InboxRow[] = [];
+  // Snapshot of filter criteria at the moment Search is clicked.
+  const [appliedFilters, setAppliedFilters] = useState<InboxSearchParams>({});
+
+  const { data: statusItems = [], isLoading: statusLoading } = useSubmissionStatusesQuery();
+
+  const queryParams: InboxSearchParams = {
+    ...appliedFilters,
+    page: currentPage - 1, // Spring is 0-indexed; Carbon pagination is 1-indexed.
+    size: pageSize,
+    sort: sortParam,
+  };
+
+  const { data, isLoading, isError } = useInboxSearchQuery(queryParams, hasSearched);
+
+  const rows: InboxRow[] = (data?.content ?? []).map(toInboxRow);
+  const totalElements = data?.totalElements ?? 0;
 
   const inboxColumns: ResultsTableColumn<InboxRow>[] = [
     { key: 'submissionId', header: 'Submission ID' },
@@ -71,7 +92,7 @@ export function InboxPage() {
     {
       key: 'status',
       header: 'Status',
-      renderCell: (row) => <InvoiceStatusTag status={row.status} />,
+      renderCell: (row) => <SubmissionStatusTag status={row.status} />,
     },
     { key: 'type', header: 'Type' },
     { key: 'total', header: 'Total' },
@@ -81,7 +102,19 @@ export function InboxPage() {
     { key: 'cancelled', header: 'Cancelled' },
   ];
 
+  const buildSearchParams = (): InboxSearchParams => ({
+    invoiceNum: invoiceNumberInput.trim() || undefined,
+    submitterClientNum: submitterClient?.clientNumber || undefined,
+    submitterLocNum: submitterClient?.clientLocnCode || undefined,
+    submissionDateFrom: startDateInput || undefined,
+    submissionDateTo: endDateInput || undefined,
+    submittedBy: submittedBy?.id || undefined,
+    submissionType: selectedType?.id || undefined,
+    submissionStatus: selectedStatus?.code || undefined,
+  });
+
   const executeSearch = () => {
+    setAppliedFilters(buildSearchParams());
     setHasSearched(true);
     setCurrentPage(1);
   };
@@ -171,7 +204,8 @@ export function InboxPage() {
                 titleText="Status"
                 items={statusItems}
                 selectedItem={selectedStatus}
-                itemToString={(item) => (item ? item.label : '')}
+                disabled={statusLoading}
+                itemToString={(item) => (item ? item.description : '')}
                 onChange={({ selectedItem }) => setSelectedStatus(selectedItem ?? null)}
               />
             </div>
@@ -196,6 +230,12 @@ export function InboxPage() {
           </Link>
         </Column>
 
+        {isError && (
+          <Column lg={16} md={8} sm={4} className="inbox-page__error-col">
+            <p className="inbox-page__error">Failed to load results. Please try again.</p>
+          </Column>
+        )}
+
         <Column lg={16} md={8} sm={4} className="inbox-page__table-col">
           <ResultsTable
             rows={rows}
@@ -203,12 +243,17 @@ export function InboxPage() {
             isSortable
             serverSide
             hasSearched={hasSearched}
+            isLoading={isLoading}
             page={currentPage}
             pageSize={pageSize}
-            totalItems={rows.length}
+            totalItems={totalElements}
             pageSizes={[10, 20, 30, 40, 50]}
             paginationItemsPerPageText="Invoice per page:"
             paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} invoices`}
+            onSortChange={(sortKey, sortDir) => {
+              setSortParam(sortKey && sortDir !== 'NONE' ? `${sortKey},${sortDir.toLowerCase()}` : undefined);
+              setCurrentPage(1);
+            }}
             onPaginationChange={({ page, pageSize: newPageSize }) => {
               setCurrentPage(page);
               setPageSize(newPageSize);
