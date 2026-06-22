@@ -17,13 +17,13 @@ type InboxRow = {
   id: string;
   submissionId: string;
   submissionDate: string;
-  status: string;
-  type: string;
-  total: number;
-  approved: number;
-  rejected: number;
-  processing: number;
-  cancelled: number;
+  submissionStatus: string;
+  submissionType: string;
+  invTotal: number;
+  invApproved: number;
+  invRejected: number;
+  invProcessing: number;
+  invCancelled: number;
 };
 
 type SelectItem = { id: string; label: string };
@@ -43,13 +43,13 @@ function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
     id: r.submissionId?.toString() ?? `manual-${index}`,
     submissionId: r.submissionId?.toString() ?? '—',
     submissionDate: r.submissionDate,
-    status: r.submissionStatus,
-    type: r.submissionType,
-    total: r.invTotal,
-    approved: r.invApproved,
-    rejected: r.invRejected,
-    processing: r.invProcessing,
-    cancelled: r.invCancelled,
+    submissionStatus: r.submissionStatus,
+    submissionType: r.submissionType,
+    invTotal: r.invTotal,
+    invApproved: r.invApproved,
+    invRejected: r.invRejected,
+    invProcessing: r.invProcessing,
+    invCancelled: r.invCancelled,
   };
 }
 
@@ -90,16 +90,16 @@ export function InboxPage() {
     { key: 'submissionId', header: 'Submission ID' },
     { key: 'submissionDate', header: 'Submission date' },
     {
-      key: 'status',
+      key: 'submissionStatus',
       header: 'Status',
-      renderCell: (row) => <SubmissionStatusTag status={row.status} />,
+      renderCell: (row) => <SubmissionStatusTag status={row.submissionStatus} />,
     },
-    { key: 'type', header: 'Type' },
-    { key: 'total', header: 'Total' },
-    { key: 'approved', header: 'Approved' },
-    { key: 'rejected', header: 'Rejected' },
-    { key: 'processing', header: 'Processing' },
-    { key: 'cancelled', header: 'Cancelled' },
+    { key: 'submissionType', header: 'Type' },
+    { key: 'invTotal', header: 'Total' },
+    { key: 'invApproved', header: 'Approved' },
+    { key: 'invRejected', header: 'Rejected' },
+    { key: 'invProcessing', header: 'Processing' },
+    { key: 'invCancelled', header: 'Cancelled' },
   ];
 
   const buildSearchParams = (): InboxSearchParams => ({
