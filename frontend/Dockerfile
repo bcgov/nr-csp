@@ -35,6 +35,18 @@ ENV APP_ENV=${APP_ENV} \
 COPY . .
 RUN npm run build
 
+# Stage 1b: Vite dev server with hot-module reloading. Used only by
+# docker-compose.override.yml for local development. At runtime the host source
+# tree is bind-mounted over /app and an anonymous volume preserves this image's
+# node_modules; file watching uses polling (VITE_USE_POLLING=true) so edits made
+# on the host are detected inside the container across the Docker boundary.
+FROM node:24-alpine AS dev
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
+EXPOSE 3000
+CMD ["npm", "run", "start"]
+
 # Stage 2: Serve static files with Caddy
 FROM caddy:2-alpine
 
