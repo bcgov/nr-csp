@@ -217,6 +217,7 @@ export function SearchPage() {
                 id="invoice-number"
                 labelText="Invoice number"
                 placeholder="Invoice number"
+                helperText="Use * or % (any) and ? (single) as wildcards"
                 value={invoiceNumberInput}
                 onChange={(e) => setInvoiceNumberInput(e.target.value)}
               />
