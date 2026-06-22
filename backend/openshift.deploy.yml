@@ -1,0 +1,348 @@
+# Backend deploy template — consumed by `oc process` in reusable-deploy.yml.
+#
+# Oracle connectivity requires a wallet/keystore fetched by the init container
+# (ghcr.io/bcgov/nr-forest-client/common:prod) before the app starts.
+# The wallet is stored in a per-ZONE PVC so it persists across pod restarts.
+# A firewall rule in the OpenShift namespace allows egress to the Oracle host
+# on port 1543 (TCPS); this init container is what triggers that rule.
+#
+# Sensitive values (DB credentials, Jasper credentials, keystore secret) are
+# written into a per-ZONE Secret and mounted as environment variables so they
+# never appear in pod specs or logs.
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: nr-csp-backend-deploy
+parameters:
+  - name: NAME
+    description: App name prefix
+    value: nr-csp
+  - name: ZONE
+    description: PR number, 'test', or 'prod'
+    required: true
+  - name: IMAGE_TAG
+    description: Container image tag (PR number, 'test', or 'prod')
+    value: latest
+  - name: REGISTRY
+    description: Image registry path (no tag)
+    value: ghcr.io/bcgov/nr-csp/backend
+  - name: MIN_REPLICAS
+    value: "1"
+  - name: MAX_REPLICAS
+    value: "2"
+  - name: MIN_CPU
+    value: "200m"
+  - name: MIN_MEM
+    value: "512Mi"
+  - name: APP_LOG_LEVEL
+    value: INFO
+  # Database — host/service used by the init container to fetch the wallet;
+  # the full JDBC URL is passed to Spring Boot separately.
+  - name: DATABASE_HOST
+    description: Oracle DB hostname (used by the init container)
+    required: true
+  - name: DATABASE_SERVICE_NAME
+    description: Oracle service name
+    required: true
+  - name: SPRING_DATASOURCE_URL
+    description: "Full Oracle JDBC URL, e.g. jdbc:oracle:thin:@//host:1543/SERVICE"
+    required: true
+  - name: SPRING_DATASOURCE_USERNAME
+    required: true
+  - name: SPRING_DATASOURCE_PASSWORD
+    required: true
+  - name: KEYSTORE_SECRET
+    description: Secret used by the init container to authenticate against the Oracle keystore
+    required: true
+  # JWT / Cognito
+  - name: JWT_JWKS_URI
+    required: true
+  - name: JWT_ISSUER
+    value: ""
+  - name: JWT_AUDIENCE
+    value: ""
+  # Jasper server
+  - name: JASPER_SERVER_LOGIN_URL
+    value: ""
+  - name: JASPER_SERVER_FETCH_URL
+    value: ""
+  - name: JASPER_SERVER_PUT_URL
+    value: ""
+  - name: JASPER_SERVER_REPORT_URI_BASE
+    value: ""
+  - name: JASPER_SERVER_USERNAME
+    value: ""
+  - name: JASPER_SERVER_PASSWORD
+    value: ""
+
+objects:
+  # ── Deployment ────────────────────────────────────────────
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ${NAME}-backend-${ZONE}
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/name: ${NAME}-backend
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      replicas: ${{MIN_REPLICAS}}
+      selector:
+        matchLabels:
+          app: ${NAME}-backend-${ZONE}
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            app: ${NAME}-backend-${ZONE}
+            app.kubernetes.io/instance: ${ZONE}
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+          initContainers:
+            - name: ${NAME}-backend-init
+              image: ghcr.io/bcgov/nr-forest-client/common:prod
+              imagePullPolicy: Always
+              env:
+                - name: ORACLEDB_HOST
+                  value: ${DATABASE_HOST}
+                - name: ORACLEDB_PORT
+                  value: "1543"
+                - name: ORACLEDB_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-backend-secret-${ZONE}
+                      key: KEYSTORE_SECRET
+              volumeMounts:
+                - name: api-cert
+                  mountPath: /cert
+                - name: init-tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: "200m"
+                  memory: "300Mi"
+                  ephemeral-storage: "50Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "500Mi"
+                  ephemeral-storage: "100Mi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+          containers:
+            - name: ${NAME}-backend
+              image: ${REGISTRY}:${IMAGE_TAG}
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 8080
+                  protocol: TCP
+              env:
+                - name: SPRING_PROFILES_ACTIVE
+                  value: prod
+                - name: SERVER_PORT
+                  value: "8080"
+                # Database — pulled from Secret
+                - name: SPRING_DATASOURCE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-backend-secret-${ZONE}
+                      key: SPRING_DATASOURCE_URL
+                - name: SPRING_DATASOURCE_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-backend-secret-${ZONE}
+                      key: SPRING_DATASOURCE_USERNAME
+                - name: SPRING_DATASOURCE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-backend-secret-${ZONE}
+                      key: SPRING_DATASOURCE_PASSWORD
+                # JWT / Cognito
+                - name: JWT_JWKS_URI
+                  value: ${JWT_JWKS_URI}
+                - name: JWT_ISSUER
+                  value: ${JWT_ISSUER}
+                - name: JWT_AUDIENCE
+                  value: ${JWT_AUDIENCE}
+                # Jasper — URLs are non-secret; credentials from Secret
+                - name: JASPER_SERVER_LOGIN_URL
+                  value: ${JASPER_SERVER_LOGIN_URL}
+                - name: JASPER_SERVER_FETCH_URL
+                  value: ${JASPER_SERVER_FETCH_URL}
+                - name: JASPER_SERVER_PUT_URL
+                  value: ${JASPER_SERVER_PUT_URL}
+                - name: JASPER_SERVER_REPORT_URI_BASE
+                  value: ${JASPER_SERVER_REPORT_URI_BASE}
+                - name: JASPER_SERVER_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-backend-secret-${ZONE}
+                      key: JASPER_SERVER_USERNAME
+                - name: JASPER_SERVER_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-backend-secret-${ZONE}
+                      key: JASPER_SERVER_PASSWORD
+                # Logging
+                - name: LOGGING_LEVEL_CA_BC_GOV_NRS_CSP
+                  value: ${APP_LOG_LEVEL}
+              volumeMounts:
+                - name: api-cert
+                  mountPath: /cert
+                - name: tls-certs
+                  mountPath: /etc/tls-certs
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+                - name: app-tmp
+                  mountPath: /temp
+              resources:
+                requests:
+                  cpu: ${MIN_CPU}
+                  memory: ${MIN_MEM}
+                  ephemeral-storage: "200Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "1Gi"
+                  ephemeral-storage: "500Mi"
+              livenessProbe:
+                httpGet:
+                  path: /api/health
+                  port: 8080
+                initialDelaySeconds: 60
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 5
+              readinessProbe:
+                tcpSocket:
+                  port: 8080
+                initialDelaySeconds: 20
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 10
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+          volumes:
+            # Oracle wallet written by the init container, read by the app
+            - name: api-cert
+              persistentVolumeClaim:
+                claimName: ${NAME}-backend-api-cert-${ZONE}
+            # TLS serving cert auto-generated by OpenShift via the Service annotation
+            - name: tls-certs
+              secret:
+                secretName: ${NAME}-backend-cert-${ZONE}
+            - name: tmp
+              emptyDir: {}
+            - name: app-tmp
+              emptyDir: {}
+            - name: init-tmp
+              emptyDir: {}
+
+  # ── Service ───────────────────────────────────────────────
+  # The serving-cert annotation tells OpenShift to auto-generate a TLS keypair
+  # in the named Secret, which is then mounted into the pod as tls-certs.
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${NAME}-backend-${ZONE}
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+      annotations:
+        service.alpha.openshift.io/serving-cert-secret-name: ${NAME}-backend-cert-${ZONE}
+    spec:
+      selector:
+        app: ${NAME}-backend-${ZONE}
+      ports:
+        - name: 8080-tcp
+          port: 8080
+          protocol: TCP
+
+  # ── HorizontalPodAutoscaler ───────────────────────────────
+  - apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    metadata:
+      name: ${NAME}-backend-${ZONE}-cpu
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ${NAME}-backend-${ZONE}
+      minReplicas: ${{MIN_REPLICAS}}
+      maxReplicas: ${{MAX_REPLICAS}}
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 200
+
+  # ── PVC for Oracle wallet (per-ZONE so PR previews are isolated) ──────────
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: ${NAME}-backend-api-cert-${ZONE}
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      accessModes:
+        - ReadWriteMany
+      resources:
+        requests:
+          storage: 50Mi
+      storageClassName: netapp-file-standard
+
+  # ── Secret ────────────────────────────────────────────────
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: ${NAME}-backend-secret-${ZONE}
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    type: Opaque
+    stringData:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      KEYSTORE_SECRET: ${KEYSTORE_SECRET}
+      JASPER_SERVER_USERNAME: ${JASPER_SERVER_USERNAME}
+      JASPER_SERVER_PASSWORD: ${JASPER_SERVER_PASSWORD}
+
+  # ── NetworkPolicy: ingress from same-zone frontend + cluster monitoring ──
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: ${NAME}-backend-${ZONE}-ingress
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      podSelector:
+        matchLabels:
+          app: ${NAME}-backend-${ZONE}
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app: ${NAME}-frontend-${ZONE}
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: monitoring
+      policyTypes:
+        - Ingress

@@ -28,6 +28,8 @@ services:
         COGNITO_REDIRECT_SIGN_OUT: ${COGNITO_REDIRECT_SIGN_OUT:-http://localhost:3000/logout}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: csp-frontend
+    environment:
+      BACKEND_URL: backend:8080
     ports:
       - "3000:3000"
     depends_on:

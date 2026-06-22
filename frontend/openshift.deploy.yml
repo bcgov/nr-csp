@@ -1,0 +1,162 @@
+# Frontend deploy template — consumed by `oc process` in reusable-deploy.yml.
+#
+# Cognito / Vite config is baked into the image at build time (Docker ARGs),
+# so no VITE_* runtime parameters are needed here.  The only runtime wiring
+# is BACKEND_URL, which tells Caddy where to proxy /api/* traffic.
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: nr-csp-frontend-deploy
+parameters:
+  - name: NAME
+    description: App name prefix
+    value: nr-csp
+  - name: ZONE
+    description: PR number, 'test', or 'prod'
+    required: true
+  - name: IMAGE_TAG
+    description: Container image tag (PR number, 'test', or 'prod')
+    value: latest
+  - name: REGISTRY
+    description: Image registry path (no tag)
+    value: ghcr.io/bcgov/nr-csp/frontend
+  - name: DOMAIN
+    description: Cluster apps domain (no leading dot)
+    value: apps.gold.devops.gov.bc.ca
+
+objects:
+  # ── Deployment ────────────────────────────────────────────
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ${NAME}-frontend-${ZONE}
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/name: ${NAME}-frontend
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          app: ${NAME}-frontend-${ZONE}
+      template:
+        metadata:
+          labels:
+            app: ${NAME}-frontend-${ZONE}
+            app.kubernetes.io/instance: ${ZONE}
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+          containers:
+            - name: ${NAME}-frontend
+              image: ${REGISTRY}:${IMAGE_TAG}
+              imagePullPolicy: Always
+              ports:
+                - name: http
+                  containerPort: 3000
+              env:
+                # Caddy reverse-proxies /api/* to the same-zone backend Service.
+                - name: BACKEND_URL
+                  value: ${NAME}-backend-${ZONE}:8080
+              volumeMounts:
+                - name: caddy-data
+                  mountPath: /data
+                - name: caddy-config
+                  mountPath: /config
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                  ephemeral-storage: "100Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "128Mi"
+                  ephemeral-storage: "200Mi"
+              livenessProbe:
+                httpGet:
+                  path: /health
+                  port: 3000
+                initialDelaySeconds: 10
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 3
+              readinessProbe:
+                httpGet:
+                  path: /health
+                  port: 3000
+                initialDelaySeconds: 5
+                periodSeconds: 10
+                timeoutSeconds: 3
+                failureThreshold: 5
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+          volumes:
+            - name: caddy-data
+              emptyDir: {}
+            - name: caddy-config
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+
+  # ── Service ───────────────────────────────────────────────
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${NAME}-frontend-${ZONE}
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      selector:
+        app: ${NAME}-frontend-${ZONE}
+      ports:
+        - name: http
+          protocol: TCP
+          port: 3000
+          targetPort: 3000
+
+  # ── Route ─────────────────────────────────────────────────
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: ${NAME}-frontend-${ZONE}
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      host: ${NAME}-${ZONE}.${DOMAIN}
+      to:
+        kind: Service
+        name: ${NAME}-frontend-${ZONE}
+      port:
+        targetPort: http
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+
+  # ── NetworkPolicy: ingress from OpenShift router ──────────
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: ${NAME}-frontend-${ZONE}-ingress
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      podSelector:
+        matchLabels:
+          app: ${NAME}-frontend-${ZONE}
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: ingress
+      policyTypes:
+        - Ingress
