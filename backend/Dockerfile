@@ -1,6 +1,15 @@
 # Stage 1: Build the application using Maven and Java 21
 FROM maven:3.9-eclipse-temurin-21-alpine AS build
 WORKDIR /app
+COPY certs/ /tmp/certs/
+RUN apk add --no-cache ca-certificates && \
+    for cert in /tmp/certs/*.pem; do \
+      [ -f "$cert" ] && [ -s "$cert" ] && \
+        cp "$cert" /usr/local/share/ca-certificates/$(basename "$cert" .pem).crt && \
+        keytool -import -noprompt -trustcacerts \
+          -alias "$(basename $cert .pem)" -file "$cert" \
+          -keystore "$JAVA_HOME/lib/security/cacerts" -storepass changeit || true; \
+    done && update-ca-certificates
 COPY pom.xml .
 RUN mvn dependency:go-offline -q
 COPY src ./src
