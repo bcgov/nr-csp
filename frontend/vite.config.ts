@@ -14,7 +14,13 @@ export default defineConfig(({ mode }) => {
       tsconfigPaths(),
       VitePWA({
         registerType: 'autoUpdate',
-        workbox: { maximumFileSizeToCacheInBytes: 6 * 1024 * 1024 },
+        workbox: {
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+          // Prevent the service worker from intercepting /api/* navigation
+          // requests (e.g. Swagger UI). Without this, Workbox applies the
+          // navigation fallback and serves the React shell on first load.
+          navigateFallbackDenylist: [/^\/api\//],
+        },
         manifest: {
           name: 'NR CSP',
           short_name: 'NR CSP',

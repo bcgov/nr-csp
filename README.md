@@ -96,17 +96,40 @@ Deployments to OpenShift are fully automated through GitHub Actions — no manua
 | Merged to `main` | Images deployed to **test**, integration tests run, then deployed to **prod** |
 | After prod deploy | Sysdig monitoring alerts synced; images tagged `prod` in GHCR |
 
+**Oracle init container**
 
-**Required secrets** (configured in the GitHub repository settings)
+The backend pod uses an init container (`ghcr.io/bcgov/nr-forest-client/common:prod`) that runs before the app starts. It connects to the Oracle host on port 1543 (TCPS) using the `KEYSTORE_SECRET` to fetch and write an Oracle wallet into a per-zone PVC (`/cert`). The main container then mounts this PVC to authenticate with the database. A firewall rule in the OpenShift namespace allows egress to the Oracle host on port 1543 — the init container is what triggers that rule.
+
+**Required GitHub secrets** (configured in repository Settings → Secrets)
 
 | Secret | Description |
 |---|---|
 | `oc_namespace` | OpenShift namespace to deploy into |
 | `oc_token` | OpenShift service account token |
-| `db_password` | Database password injected at deploy time |
 | `SYSDIG_API_TOKEN` | Sysdig monitoring token (optional — skipped if unset) |
 
 The OpenShift server URL is stored as a repository variable (`oc_server`).
+
+**Required template parameters** (passed to `oc process` in `reusable-deploy.yml`)
+
+These must be added as GitHub secrets and wired into the `parameters:` block of the backend deploy step in `.github/workflows/reusable-deploy.yml`.
+
+| Parameter | Description |
+|---|---|
+| `DATABASE_HOST` | Oracle DB hostname (used by the init container) |
+| `DATABASE_SERVICE_NAME` | Oracle service name |
+| `SPRING_DATASOURCE_URL` | Full JDBC URL, e.g. `jdbc:oracle:thin:@//host:1543/SERVICE` |
+| `SPRING_DATASOURCE_USERNAME` | Oracle username |
+| `SPRING_DATASOURCE_PASSWORD` | Oracle password |
+| `KEYSTORE_SECRET` | Secret used by the init container to authenticate against the Oracle keystore |
+| `JWT_JWKS_URI` | Cognito JWKS endpoint URL |
+| `JWT_ISSUER` | JWT issuer claim (optional) |
+| `JWT_AUDIENCE` | JWT audience claim (optional) |
+| `JASPER_SERVER_LOGIN_URL` | Jasper server login URL (optional) |
+| `JASPER_SERVER_FETCH_URL` | Jasper server fetch URL (optional) |
+| `JASPER_SERVER_PUT_URL` | Jasper server put URL (optional) |
+| `JASPER_SERVER_USERNAME` | Jasper server username (optional) |
+| `JASPER_SERVER_PASSWORD` | Jasper server password (optional) |
 
 ## Authentication
 

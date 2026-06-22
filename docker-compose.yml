@@ -29,6 +29,8 @@ services:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_MOCK_USER: ${VITE_MOCK_USER:-false}
     container_name: csp-frontend
+    environment:
+      BACKEND_URL: backend:8080
     ports:
       - "3000:3000"
     depends_on:
