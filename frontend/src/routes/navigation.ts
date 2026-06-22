@@ -1,4 +1,4 @@
-import { Search, TableOfContents, Currency, Types, Receipt, TextLinkAnalysis } from '@carbon/icons-react';
+import { Search, TableOfContents, Currency, Types, Receipt, TextLinkAnalysis, Email } from '@carbon/icons-react';
 
 import { ROUTES } from './routePaths';
 
@@ -7,6 +7,11 @@ export const NAVIGATION_ITEMS = [
     name: 'Search',
     path: ROUTES.SEARCH,
     icon: Search,
+  },
+  {
+    name: 'Inbox',
+    path: ROUTES.INBOX,
+    icon: Email,
   },
   {
     name: 'Invoice',
