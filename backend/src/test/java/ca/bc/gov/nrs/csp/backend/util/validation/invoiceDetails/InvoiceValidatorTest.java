@@ -591,7 +591,7 @@ class InvoiceValidatorTest {
 
     @Test
     void validate_invoiceDateInFuture_addsError() {
-        InvoiceDetails details = invWith(i -> i.invoiceDate = LocalDate.of(2024, Month.JULY, 22));
+        InvoiceDetails details = invWith(i -> i.invoiceDate = LocalDate.now().plusDays(1));
 
         ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
 
