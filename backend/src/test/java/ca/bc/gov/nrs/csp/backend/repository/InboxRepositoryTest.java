@@ -223,7 +223,7 @@ class InboxRepositoryTest {
     }
 
     // ---------------------------------------------------------------
-    // invoiceNum (Q6: null-safe, trimmed, uppercased, prefix LIKE)
+    // invoiceNum (null-safe, trimmed, uppercased, contains LIKE when no wildcards)
     // ---------------------------------------------------------------
 
     @Test
@@ -235,10 +235,11 @@ class InboxRepositoryTest {
     }
 
     @Test
-    void search_nonBlankInvoiceNum_appendsLikeWithPrefixSuffix() {
+    void search_nonBlankInvoiceNum_appendsLikeContainsPattern() {
         stubJdbc();
         // InboxCriteria always receives a value already normalised by InboxService
-        // (trimmed + uppercased); the repository only appends the wildcard suffix.
+        // (trimmed + uppercased). Without user wildcards, falls back to a %contains% match
+        // (mirrors SearchRepository.toInvoiceNumberPattern).
         InboxCriteria criteria = new InboxCriteria(
                 null, null, null, null, null, "ABC", null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
@@ -247,7 +248,7 @@ class InboxRepositoryTest {
         assertThat(sql).contains("inv.CLIENT_INVOICE_NO LIKE :invoiceNum");
 
         MapSqlParameterSource params = captureParams();
-        assertThat(params.getValue("invoiceNum")).isEqualTo("ABC%");
+        assertThat(params.getValue("invoiceNum")).isEqualTo("%ABC%");
     }
 
     // ---------------------------------------------------------------
