@@ -109,7 +109,7 @@ export function InboxPage() {
       key: 'submissionId',
       header: 'Submission ID',
       renderCell: (row) =>
-        row.coastalLogSaleId != null ? (
+        row.coastalLogSaleId != null && row.submissionId !== '—' ? (
           <Link
             href="#"
             onClick={(e) => {
