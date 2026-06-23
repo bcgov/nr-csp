@@ -92,14 +92,17 @@ public class InboxRepository {
         String innerQuery = BASE_QUERY + whereFragments + "\n" + GROUP_BY;
         String outerAlias = "inbox_results";
 
+        String keywordClause = buildKeywordClause(criteria, params);
+
         String dataSql = "SELECT * FROM (" + innerQuery + ") " + outerAlias
+                + keywordClause
                 + " ORDER BY " + orderBy
                 + " OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY";
         params.addValue("offset", pageable.getOffset());
         params.addValue("limit", pageable.getPageSize());
 
         // COUNT wraps only the grouped inner query (counts distinct submission rows, not raw invoice rows).
-        String countSql = "SELECT count(*) FROM (" + innerQuery + ") cnt";
+        String countSql = "SELECT count(*) FROM (" + innerQuery + ") cnt" + keywordClause;
 
         List<InboxRow> content = jdbc.query(dataSql, params, (rs, rowNum) -> new InboxRow(
                 RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
@@ -119,8 +122,23 @@ public class InboxRepository {
     }
 
     /**
+     * Builds a WHERE clause for keyword search applied to the outer subquery.
+     * Returns an empty string when no keyword is present.
+     * The pattern is a case-insensitive contains match (%keyword%) across
+     * submission_id, submission_status, submission_type, and the formatted date.
+     */
+    private String buildKeywordClause(InboxCriteria criteria, MapSqlParameterSource params) {
+        if (criteria.keyword() == null || criteria.keyword().isBlank()) return "";
+        params.addValue("keyword", "%" + criteria.keyword() + "%");
+        return " WHERE (UPPER(submission_id) LIKE UPPER(:keyword)"
+                + " OR UPPER(submission_status) LIKE UPPER(:keyword)"
+                + " OR UPPER(submission_type) LIKE UPPER(:keyword)"
+                + " OR TO_CHAR(entry_timestamp, 'YYYY-MM-DD') LIKE :keyword)";
+    }
+
+    /**
      * Builds the dynamic WHERE fragments from the criteria, mirroring the legacy
-     * InboxCriteriaDTOHelper.createNativeQueryCriteria() logic 
+     * InboxCriteriaDTOHelper.createNativeQueryCriteria() logic
      */
     private void appendCriteriaFilters(StringBuilder sql, MapSqlParameterSource params, InboxCriteria criteria) {
 
