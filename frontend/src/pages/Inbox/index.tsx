@@ -58,6 +58,7 @@ export function InboxPage() {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortParam, setSortParam] = useState<string | undefined>(undefined);
+  const [keyword, setKeyword] = useState('');
 
   // Filter inputs
   const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
@@ -79,9 +80,20 @@ export function InboxPage() {
     page: currentPage - 1, // Spring is 0-indexed; Carbon pagination is 1-indexed.
     size: pageSize,
     sort: sortParam,
+    keyword: keyword || undefined,
   };
 
-  const { data, isLoading, isError } = useInboxSearchQuery(queryParams, hasSearched);
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
+
+  const { data, isLoading, isError, error } = useInboxSearchQuery(queryParams, hasSearched);
+
+  // Extract the most specific message from a backend 400 validation response.
+  const apiErrorMessage = (() => {
+    if (!isError) return null;
+    const axiosError = error as { response?: { data?: { errors?: { message?: string }[]; message?: string } } };
+    const firstError = axiosError?.response?.data?.errors?.[0]?.message;
+    return firstError ?? axiosError?.response?.data?.message ?? 'Failed to load results. Please try again.';
+  })();
 
   const rows: InboxRow[] = (data?.content ?? []).map(toInboxRow);
   const totalElements = data?.totalElements ?? 0;
@@ -113,7 +125,16 @@ export function InboxPage() {
     submissionStatus: selectedStatus?.code || undefined,
   });
 
+  const validateDateRange = (start: string, end: string) => {
+    if (start && end && start > end) {
+      setDateRangeError('Submission Date Start must be before or equal to Submission Date End.');
+    } else {
+      setDateRangeError(null);
+    }
+  };
+
   const executeSearch = () => {
+    if (dateRangeError) return;
     setAppliedFilters(buildSearchParams());
     setHasSearched(true);
     setCurrentPage(1);
@@ -127,6 +148,7 @@ export function InboxPage() {
     setSubmittedBy(null);
     setSelectedType(null);
     setSelectedStatus(null);
+    setDateRangeError(null);
     setDateKey((k) => k + 1);
   };
 
@@ -144,6 +166,7 @@ export function InboxPage() {
                 labelText="Invoice number"
                 placeholder="Invoice number"
                 value={invoiceNumberInput}
+                maxLength={15}
                 onChange={(e) => setInvoiceNumberInput(e.target.value)}
               />
             </div>
@@ -167,7 +190,11 @@ export function InboxPage() {
                 key={`start-date-${dateKey}`}
                 id="date-start"
                 labelText="Date start"
-                onChange={(dates) => setStartDateInput(dates[0] ? dates[0].toISOString().slice(0, 10) : '')}
+                onChange={(dates) => {
+                  const val = dates[0] ? dates[0].toISOString().slice(0, 10) : '';
+                  setStartDateInput(val);
+                  validateDateRange(val, endDateInput);
+                }}
               />
             </div>
             <div className="inbox-page__filter-item">
@@ -175,7 +202,13 @@ export function InboxPage() {
                 key={`end-date-${dateKey}`}
                 id="date-end"
                 labelText="Date end"
-                onChange={(dates) => setEndDateInput(dates[0] ? dates[0].toISOString().slice(0, 10) : '')}
+                invalid={!!dateRangeError}
+                invalidText={dateRangeError ?? undefined}
+                onChange={(dates) => {
+                  const val = dates[0] ? dates[0].toISOString().slice(0, 10) : '';
+                  setEndDateInput(val);
+                  validateDateRange(startDateInput, val);
+                }}
               />
             </div>
             <div className="inbox-page__filter-item">
@@ -210,6 +243,7 @@ export function InboxPage() {
               />
             </div>
             <div className="inbox-page__filter-item">
+              <span className="inbox-page__search-btn-spacer" aria-hidden="true">&nbsp;</span>
               <Button kind="primary" size="md" renderIcon={SearchIcon} iconDescription="Search" onClick={executeSearch}>
                 Search
               </Button>
@@ -226,7 +260,7 @@ export function InboxPage() {
 
         {isError && (
           <Column lg={16} md={8} sm={4} className="inbox-page__error-col">
-            <p className="inbox-page__error">Failed to load results. Please try again.</p>
+            <p className="inbox-page__error">{apiErrorMessage}</p>
           </Column>
         )}
 
@@ -244,6 +278,15 @@ export function InboxPage() {
             pageSizes={[10, 20, 30, 40, 50]}
             paginationItemsPerPageText="Invoice per page:"
             paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} invoices`}
+            searchKeyword={keyword}
+            onSearchKeywordChange={
+              hasSearched || rows.length > 0
+                ? (kw) => {
+                    setKeyword(kw);
+                    setCurrentPage(1);
+                  }
+                : undefined
+            }
             onSortChange={(sortKey, sortDir) => {
               setSortParam(sortKey && sortDir !== 'NONE' ? `${sortKey},${sortDir.toLowerCase()}` : undefined);
               setCurrentPage(1);

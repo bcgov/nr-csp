@@ -24,6 +24,7 @@ export interface InboxSearchParams {
   invoiceNum?: string;
   submitterClientNum?: string;
   submitterLocNum?: string;
+  keyword?: string;
   page?: number;
   size?: number;
   sort?: string;

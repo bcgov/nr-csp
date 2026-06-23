@@ -1,4 +1,5 @@
 @use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
 
 .inbox-page {
   padding-top: $spacing-07;
@@ -29,7 +30,7 @@
     margin-bottom: $spacing-05;
 
     &--with-btn {
-      align-items: flex-end;
+      align-items: flex-start;
     }
   }
 
@@ -41,6 +42,18 @@
       width: 100%;
       max-width: 100%;
     }
+  }
+
+  // Invisible spacer matching Carbon's label-01 height so the Search button
+  // bottom-aligns with the adjacent inputs when the row uses align-items: flex-start.
+  &__search-btn-spacer {
+    @include type.type-style('label-01');
+    line-height: 1rem;
+    display: block;
+    margin-block-end: $spacing-03;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
   }
 
   &__clear-col {
