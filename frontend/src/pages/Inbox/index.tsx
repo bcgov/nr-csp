@@ -11,6 +11,7 @@ import ClientAutocomplete, { type ClientLocationResponse } from '@/components/Fo
 import DateInput from '@/components/Form/DateInput';
 import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
+import { formatDisplayDate } from '@/utils/format';
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
 
@@ -47,7 +48,7 @@ function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
     id: r.coastalLogSaleId?.toString() ?? `manual-${index}`,
     coastalLogSaleId: r.coastalLogSaleId,
     submissionId: r.submissionId ?? '—',
-    submissionDate: r.submissionDate,
+    submissionDate: formatDisplayDate(r.submissionDate),
     submissionStatus: r.submissionStatus,
     submissionType: r.submissionType,
     invTotal: r.invTotal,
