@@ -188,6 +188,7 @@ export function InboxPage() {
                 id="invoice-number"
                 labelText="Invoice number"
                 placeholder="Invoice number"
+                helperText="Use * or % (any) and ? (single) as wildcards"
                 value={invoiceNumberInput}
                 maxLength={15}
                 onChange={(e) => setInvoiceNumberInput(e.target.value)}
