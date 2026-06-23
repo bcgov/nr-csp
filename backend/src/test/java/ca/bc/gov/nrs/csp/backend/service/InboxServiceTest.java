@@ -226,7 +226,7 @@ class InboxServiceTest {
             String invoiceNum, String clientNum, String locNum) {
         return inboxService.search(
                 dateFrom, dateTo, submittedBy, submissionType, submissionStatus,
-                invoiceNum, clientNum, locNum, PAGE);
+                invoiceNum, clientNum, locNum, null, PAGE);
     }
 
     private Page<InboxRow> emptyPage() {

@@ -77,7 +77,7 @@ class InboxRepositoryTest {
     }
 
     private InboxCriteria emptyCriteria() {
-        return new InboxCriteria(null, null, null, null, null, null, null, null);
+        return new InboxCriteria(null, null, null, null, null, null, null, null, null);
     }
 
     // ---------------------------------------------------------------
@@ -106,7 +106,7 @@ class InboxRepositoryTest {
     void search_submissionDateFrom_appendsStartDateFragment() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                LocalDate.of(2024, 1, 1), null, null, null, null, null, null, null);
+                LocalDate.of(2024, 1, 1), null, null, null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -126,7 +126,7 @@ class InboxRepositoryTest {
     void search_submissionDateTo_appendsEndDateFragmentWithEndOfDayTime() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, LocalDate.of(2024, 3, 15), null, null, null, null, null, null);
+                null, LocalDate.of(2024, 3, 15), null, null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -152,7 +152,7 @@ class InboxRepositoryTest {
     void search_submittedByBuyer_appendsBuyerJoinCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, "Buyer", null, null, null, null, null);
+                null, null, "Buyer", null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -165,7 +165,7 @@ class InboxRepositoryTest {
     void search_submittedBySeller_appendsSellerJoinCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, "Seller", null, null, null, null, null);
+                null, null, "Seller", null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -182,7 +182,7 @@ class InboxRepositoryTest {
     void search_submitterClientNum_usesNamedParams_notStringConcatenation() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, null, null, "00012345", "00");
+                null, null, null, null, null, null, "00012345", "00", null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -206,7 +206,7 @@ class InboxRepositoryTest {
     void search_submissionTypeElectronic_appendsIsNotNullCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, "Electronic", null, null, null, null);
+                null, null, null, "Electronic", null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         assertThat(captureDataSql()).contains("sub.submission_id IS NOT NULL");
@@ -216,7 +216,7 @@ class InboxRepositoryTest {
     void search_submissionTypeManual_appendsIsNullCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, "Manual", null, null, null, null);
+                null, null, null, "Manual", null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         assertThat(captureDataSql()).contains("sub.submission_id IS NULL");
@@ -240,7 +240,7 @@ class InboxRepositoryTest {
         // InboxCriteria always receives a value already normalised by InboxService
         // (trimmed + uppercased); the repository only appends the wildcard suffix.
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, null, "ABC", null, null);
+                null, null, null, null, null, "ABC", null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -258,7 +258,7 @@ class InboxRepositoryTest {
     void search_submissionStatus_appendsCodeEqualityCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, "INB", null, null, null);
+                null, null, null, null, "INB", null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -332,7 +332,7 @@ class InboxRepositoryTest {
     void search_countQueryIncludesSameCriteriaAsDataQuery() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, "COM", null, null, null);
+                null, null, null, null, "COM", null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         // Capture both the data SQL and count SQL
