@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,7 +23,7 @@ import static org.mockito.Mockito.lenient;
 @ExtendWith(MockitoExtension.class)
 class InvoiceLineValidatorTest {
 
-    private static final LocalDate INV_DATE = LocalDate.of(2024, 6, 15);
+    private static final LocalDate INV_DATE = LocalDate.of(2024, Month.JUNE, 15);
 
     @Mock CommonValidation commonValidation;
 

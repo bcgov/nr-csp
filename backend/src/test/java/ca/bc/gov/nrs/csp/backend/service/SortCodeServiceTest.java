@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,7 +44,7 @@ class SortCodeServiceTest {
     }
 
     private SortCode sampleSortCode(String code) {
-        return new SortCode(code, "Lumber - Cedar", LocalDate.of(1990, 1, 1), LocalDate.of(9999, 12, 31), LocalDate.now());
+        return new SortCode(code, "Lumber - Cedar", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now());
     }
 
     // ---------------------------------------------------------------
@@ -79,7 +80,7 @@ class SortCodeServiceTest {
     @Test
     void create_uppercasesSortCode() {
         CreateSortCodeRequest request = new CreateSortCodeRequest(
-                "a", "Lumber", LocalDate.of(1990, 1, 1), LocalDate.of(9999, 12, 31));
+                "a", "Lumber", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31));
         given(sortCodeRepository.existsByCode("A")).willReturn(false);
         given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode("A")));
 
@@ -92,7 +93,7 @@ class SortCodeServiceTest {
     @Test
     void create_duplicateSortCode_throwsConflict() {
         CreateSortCodeRequest request = new CreateSortCodeRequest(
-                "A", "Lumber", LocalDate.of(1990, 1, 1), LocalDate.of(9999, 12, 31));
+                "A", "Lumber", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31));
         given(sortCodeRepository.existsByCode("A")).willReturn(true);
 
         assertThatThrownBy(() -> sortCodeService.create(request))
@@ -103,7 +104,7 @@ class SortCodeServiceTest {
     @Test
     void create_effectiveDateAfterExpiryDate_throwsBadRequest() {
         CreateSortCodeRequest request = new CreateSortCodeRequest(
-                "A", "Lumber", LocalDate.of(2025, 1, 1), LocalDate.of(2024, 1, 1));
+                "A", "Lumber", LocalDate.of(2025, Month.JANUARY, 1), LocalDate.of(2024, Month.JANUARY, 1));
         given(sortCodeRepository.existsByCode("A")).willReturn(false);
 
         assertThatThrownBy(() -> sortCodeService.create(request))
@@ -113,7 +114,7 @@ class SortCodeServiceTest {
 
     @Test
     void create_sameEffectiveAndExpiryDate_succeeds() {
-        LocalDate same = LocalDate.of(2024, 6, 1);
+        LocalDate same = LocalDate.of(2024, Month.JUNE, 1);
         CreateSortCodeRequest request = new CreateSortCodeRequest("A", "Lumber", same, same);
         given(sortCodeRepository.existsByCode("A")).willReturn(false);
         given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode("A")));
@@ -132,7 +133,7 @@ class SortCodeServiceTest {
         given(sortCodeRepository.existsByCode("Z")).willReturn(false);
 
         assertThatThrownBy(() -> sortCodeService.update("Z",
-                new UpdateSortCodeRequest("desc", LocalDate.of(2020, 1, 1), LocalDate.of(2030, 1, 1))))
+                new UpdateSortCodeRequest("desc", LocalDate.of(2020, Month.JANUARY, 1), LocalDate.of(2030, Month.JANUARY, 1))))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("'Z' not found");
     }
@@ -142,7 +143,7 @@ class SortCodeServiceTest {
         given(sortCodeRepository.existsByCode("A")).willReturn(true);
 
         assertThatThrownBy(() -> sortCodeService.update("A",
-                new UpdateSortCodeRequest("desc", LocalDate.of(2030, 1, 1), LocalDate.of(2020, 1, 1))))
+                new UpdateSortCodeRequest("desc", LocalDate.of(2030, Month.JANUARY, 1), LocalDate.of(2020, Month.JANUARY, 1))))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Effective date must not be after expiry date");
     }
@@ -152,19 +153,19 @@ class SortCodeServiceTest {
         given(sortCodeRepository.existsByCode("A")).willReturn(true);
         given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode("A")));
 
-        sortCodeService.update("a", new UpdateSortCodeRequest("New desc", LocalDate.of(1990, 1, 1), LocalDate.of(9999, 12, 31)));
+        sortCodeService.update("a", new UpdateSortCodeRequest("New desc", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31)));
 
         verify(sortCodeRepository).update(eq("A"), any(SortCode.class));
     }
 
     @Test
     void update_validRequest_returnsUpdatedRecord() {
-        SortCode updated = new SortCode("A", "Updated", LocalDate.of(2000, 1, 1), LocalDate.of(9999, 12, 31), LocalDate.now());
+        SortCode updated = new SortCode("A", "Updated", LocalDate.of(2000, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now());
         given(sortCodeRepository.existsByCode("A")).willReturn(true);
         given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(updated));
 
         SortCode result = sortCodeService.update("A",
-                new UpdateSortCodeRequest("Updated", LocalDate.of(2000, 1, 1), LocalDate.of(9999, 12, 31)));
+                new UpdateSortCodeRequest("Updated", LocalDate.of(2000, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31)));
 
         assertThat(result.description()).isEqualTo("Updated");
     }

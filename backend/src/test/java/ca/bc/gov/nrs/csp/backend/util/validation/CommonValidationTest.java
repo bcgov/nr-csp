@@ -8,6 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,7 +21,7 @@ class CommonValidationTest {
 
     @InjectMocks CommonValidation validation;
 
-    private static final LocalDate DATE = LocalDate.of(2024, 6, 1);
+    private static final LocalDate DATE = LocalDate.of(2024, Month.JUNE, 1);
 
     @Test
     void isValidSortCode_delegatesToRepo_true() {
@@ -108,22 +109,22 @@ class CommonValidationTest {
 
     @Test
     void isValidDateRange_effectiveDateBeforeExpiry_returnsTrue() {
-        assertThat(validation.isValidDateRange(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31))).isTrue();
+        assertThat(validation.isValidDateRange(LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31))).isTrue();
     }
 
     @Test
     void isValidDateRange_effectiveDateEqualsExpiry_returnsTrue() {
-        LocalDate date = LocalDate.of(2024, 6, 1);
+        LocalDate date = LocalDate.of(2024, Month.JUNE, 1);
         assertThat(validation.isValidDateRange(date, date)).isTrue();
     }
 
     @Test
     void isValidDateRange_effectiveDateAfterExpiry_returnsFalse() {
-        assertThat(validation.isValidDateRange(LocalDate.of(2024, 12, 31), LocalDate.of(2024, 1, 1))).isFalse();
+        assertThat(validation.isValidDateRange(LocalDate.of(2024, Month.DECEMBER, 31), LocalDate.of(2024, Month.JANUARY, 1))).isFalse();
     }
 
     @Test
     void isValidDateRange_nullExpiry_returnsTrue() {
-        assertThat(validation.isValidDateRange(LocalDate.of(2024, 1, 1), null)).isTrue();
+        assertThat(validation.isValidDateRange(LocalDate.of(2024, Month.JANUARY, 1), null)).isTrue();
     }
 }
