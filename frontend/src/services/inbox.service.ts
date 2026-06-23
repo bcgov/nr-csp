@@ -4,7 +4,8 @@ import { apiClient } from '@/config/api/request';
 import { type PageResponse } from '@/services/search.service';
 
 export interface InboxRowResponse {
-  submissionId: number | null;
+  coastalLogSaleId: number | null;
+  submissionId: string | null;
   submissionDate: string;
   submissionStatus: string;
   submissionType: string;

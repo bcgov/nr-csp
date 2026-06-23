@@ -253,7 +253,9 @@ export function InvoicePage() {
   const location = useLocation();
   const { addNotification } = useNotification();
 
-  const fromSearch = (location.state as { fromSearch?: boolean } | null)?.fromSearch === true;
+  const locationState = location.state as { fromSearch?: boolean; fromInbox?: boolean } | null;
+  const fromSearch = locationState?.fromSearch === true;
+  const fromInbox = locationState?.fromInbox === true;
 
   // -----------------------------------------------------------------
   // Lookup data
@@ -297,7 +299,8 @@ export function InvoicePage() {
   const [adjustInvNum, setAdjustInvNum] = useState<string[]>([]);
 
   const breadCrumbs = [
-    ...(fromSearch ? [{ name: 'Search Results', path: ROUTES.SEARCH }] : []),
+    ...(fromSearch ? [{ name: 'Invoice search', path: ROUTES.SEARCH }] : []),
+    ...(fromInbox ? [{ name: 'Inbox search', path: ROUTES.INBOX }] : []),
     { name: 'Invoice', path: '#' },
     ...(invNumber ? [{ name: invNumber, path: '#' }] : []),
   ];

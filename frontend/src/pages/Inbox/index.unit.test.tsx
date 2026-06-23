@@ -47,9 +47,9 @@ describe('InboxPage', () => {
     expect(screen.getByRole('button', { name: 'Search', exact: true })).toBeInTheDocument();
   });
 
-  it('renders the Clear filters link', () => {
+  it('renders the Clear filters button', () => {
     renderInboxPage();
-    expect(screen.getByRole('link', { name: /clear filters/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear filters/i })).toBeInTheDocument();
   });
 
   it('renders all table column headers', () => {
@@ -86,7 +86,7 @@ describe('InboxPage', () => {
   it('renders the type dropdown options', () => {
     renderInboxPage();
     fireEvent.click(screen.getByRole('combobox', { name: /type/i }));
-    expect(screen.getByText('Sales')).toBeInTheDocument();
-    expect(screen.getByText('Purchase')).toBeInTheDocument();
+    expect(screen.getByText('Electronic')).toBeInTheDocument();
+    expect(screen.getByText('Manual')).toBeInTheDocument();
   });
 });
