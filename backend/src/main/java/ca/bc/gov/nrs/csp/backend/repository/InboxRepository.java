@@ -195,12 +195,11 @@ public class InboxRepository {
             }
         }
 
-        // Invoice number: prefix LIKE match.
-        // Value is already trimmed and uppercased by InboxService.normaliseInvoiceNum();
-        // the repository only appends the wildcard suffix.
+        // Invoice number: wildcard LIKE match (mirrors SearchRepository.toInvoiceNumberPattern).
+        // Value is already trimmed and uppercased by InboxService; wildcards *, %, ? are preserved.
         if (criteria.invoiceNum() != null && !criteria.invoiceNum().isBlank()) {
-            sql.append(" AND inv.CLIENT_INVOICE_NO LIKE :invoiceNum");
-            params.addValue("invoiceNum", criteria.invoiceNum() + "%");
+            sql.append(" AND inv.CLIENT_INVOICE_NO LIKE :invoiceNum ESCAPE '\\'");
+            params.addValue("invoiceNum", toInvoiceNumberPattern(criteria.invoiceNum()));
         }
 
         // Submission status code
@@ -208,6 +207,27 @@ public class InboxRepository {
             sql.append(" AND sub.CSP_SUBMISSION_STATUS_CODE = :submissionStatus");
             params.addValue("submissionStatus", criteria.submissionStatus());
         }
+    }
+
+    /**
+     * Builds the LIKE pattern for the invoice number filter (used with ESCAPE '\').
+     * Mirrors SearchRepository.toInvoiceNumberPattern() exactly.
+     * User-facing wildcards: '*' or '%' match any sequence, '?' matches a single character.
+     * Without wildcards, falls back to a substring (contains) match.
+     */
+    static String toInvoiceNumberPattern(String invoiceNum) {
+        boolean hasWildcard = invoiceNum.indexOf('*') >= 0
+                || invoiceNum.indexOf('?') >= 0
+                || invoiceNum.indexOf('%') >= 0;
+
+        String escaped = invoiceNum
+                .replace("\\", "\\\\")
+                .replace("_", "\\_");
+
+        if (hasWildcard) {
+            return escaped.replace('*', '%').replace('?', '_');
+        }
+        return "%" + escaped + "%";
     }
 
     /**

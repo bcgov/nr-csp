@@ -157,7 +157,7 @@ class InboxCriteriaValidatorTest {
     }
 
     // ---------------------------------------------------------------
-    // Invoice Number max length
+    // Invoice Number max length (wildcards count toward the 15-char limit)
     // ---------------------------------------------------------------
 
     @Test
