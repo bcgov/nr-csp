@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
+import { Grid, Column, TextInput, Button } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
-import { useNavigate } from 'react-router-dom';
-
-import { ROUTES } from '@/routes/routePaths';
 
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import PageTitle from '@/components/core/PageTitle';
@@ -19,7 +16,6 @@ import './index.scss';
 
 type InboxRow = {
   id: string;
-  coastalLogSaleId: number | null;
   submissionId: string;
   submissionDate: string;
   submissionStatus: string;
@@ -45,8 +41,7 @@ const typeItems: SelectItem[] = [
 
 function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
   return {
-    id: r.coastalLogSaleId?.toString() ?? `manual-${index}`,
-    coastalLogSaleId: r.coastalLogSaleId,
+    id: r.coastalLogSaleId?.toString() ?? `row-${index}`,
     submissionId: r.submissionId ?? '—',
     submissionDate: formatDisplayDate(r.submissionDate),
     submissionStatus: r.submissionStatus,
@@ -60,7 +55,6 @@ function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
 }
 
 export function InboxPage() {
-  const navigate = useNavigate();
   const [hasSearched, setHasSearched] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,24 +100,7 @@ export function InboxPage() {
   const totalElements = data?.totalElements ?? 0;
 
   const inboxColumns: ResultsTableColumn<InboxRow>[] = [
-    {
-      key: 'submissionId',
-      header: 'Submission ID',
-      renderCell: (row) =>
-        row.coastalLogSaleId != null && row.submissionId !== '—' ? (
-          <Link
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(`${ROUTES.INVOICE}/${row.coastalLogSaleId}`, { state: { fromInbox: true } });
-            }}
-          >
-            {row.submissionId}
-          </Link>
-        ) : (
-          <>{row.submissionId}</>
-        ),
-    },
+    { key: 'submissionId', header: 'Submission ID' },
     { key: 'submissionDate', header: 'Submission date' },
     {
       key: 'submissionStatus',
