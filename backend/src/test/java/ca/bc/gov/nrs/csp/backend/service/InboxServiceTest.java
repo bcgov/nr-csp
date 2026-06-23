@@ -204,7 +204,7 @@ class InboxServiceTest {
 
     @Test
     void search_repositoryResultsReturnedToCallers() {
-        InboxRow row = new InboxRow(1L, "SUB001", LocalDate.of(2024, 1, 15),
+        InboxRow row = new InboxRow(1L, 42L, "SUB001", LocalDate.of(2024, 1, 15),
                 "Inbox", "Electronic", 3, 2, 0, 1, 0);
         given(inboxRepository.search(any(), any()))
                 .willReturn(new PageImpl<>(List.of(row), PAGE, 1));

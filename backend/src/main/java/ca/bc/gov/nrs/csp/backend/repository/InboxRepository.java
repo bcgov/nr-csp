@@ -30,6 +30,7 @@ public class InboxRepository {
     // subStatus.description is in the SELECT and also in the GROUP BY — no MIN() needed.
     private static final String BASE_QUERY = """
             SELECT sub.csp_submission_id                                                            AS csp_submission_id,
+                   MIN(inv.coastal_log_sale_id)                                                     AS coastal_log_sale_id,
                    sub.submission_id                                                                 AS submission_id,
                    sub.entry_timestamp                                                               AS entry_timestamp,
                    subStatus.description                                                             AS submission_status,
@@ -106,7 +107,8 @@ public class InboxRepository {
 
         List<InboxRow> content = jdbc.query(dataSql, params, (rs, rowNum) -> new InboxRow(
                 RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
-                rs.getString("submission_id"),           // null for Manual rows 
+                RepositoryUtils.getLongNullable(rs, "coastal_log_sale_id"),
+                rs.getString("submission_id"),           // null for Manual rows
                 RepositoryUtils.getLocalDateNullable(rs, "entry_timestamp"),
                 rs.getString("submission_status"),
                 rs.getString("submission_type"),
