@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,15 +26,15 @@ class SortCodeExportServiceTest {
     private static final SortCode SAMPLE = new SortCode(
         "SC1",
         "Douglas Fir",
-        LocalDate.of(2020, 1, 1),
-        LocalDate.of(2099, 12, 31),
-        LocalDate.of(2024, 6, 1)
+        LocalDate.of(2020, Month.JANUARY, 1),
+        LocalDate.of(2099, Month.DECEMBER, 31),
+        LocalDate.of(2024, Month.JUNE, 1)
     );
 
     private static final SortCode NULL_DATES = new SortCode(
         "SC2",
         "Value with, comma",
-        LocalDate.of(2020, 1, 1),
+        LocalDate.of(2020, Month.JANUARY, 1),
         null,
         null
     );

@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,10 +51,10 @@ class InboxServiceTest {
 
     @Test
     void search_dateFromAfterDateTo_throwsValidationException() {
-        assertThatThrownBy(() -> search(
-                LocalDate.of(2024, 2, 1),
-                LocalDate.of(2024, 1, 1),
-                null, null, null, null, null, null))
+        LocalDate from = LocalDate.of(2024, Month.FEBRUARY, 1);
+        LocalDate to = LocalDate.of(2024, Month.JANUARY, 1);
+
+        assertThatThrownBy(() -> inboxService.search(from, to, null, null, null, null, null, null, PAGE))
                 .isInstanceOf(ValidationException.class)
                 .satisfies(ex -> {
                     ValidationException ve = (ValidationException) ex;
@@ -65,7 +66,7 @@ class InboxServiceTest {
 
     @Test
     void search_dateFromEqualsDateTo_doesNotThrow() {
-        LocalDate same = LocalDate.of(2024, 1, 15);
+        LocalDate same = LocalDate.of(2024, Month.JANUARY, 15);
         given(inboxRepository.search(any(), any())).willReturn(emptyPage());
 
         assertThat(search(same, same, null, null, null, null, null, null).getContent()).isEmpty();
@@ -76,8 +77,8 @@ class InboxServiceTest {
         given(inboxRepository.search(any(), any())).willReturn(emptyPage());
 
         assertThat(search(
-                LocalDate.of(2024, 1, 1),
-                LocalDate.of(2024, 12, 31),
+                LocalDate.of(2024, Month.JANUARY, 1),
+                LocalDate.of(2024, Month.DECEMBER, 31),
                 null, null, null, null, null, null).getContent()).isEmpty();
     }
 
@@ -180,8 +181,8 @@ class InboxServiceTest {
     @Test
     void search_allCriteriaProvided_passedThroughToCriteria() {
         given(inboxRepository.search(any(), any())).willReturn(emptyPage());
-        LocalDate from = LocalDate.of(2024, 1, 1);
-        LocalDate to = LocalDate.of(2024, 12, 31);
+        LocalDate from = LocalDate.of(2024, Month.JANUARY, 1);
+        LocalDate to = LocalDate.of(2024, Month.DECEMBER, 31);
 
         search(from, to, "Buyer", "Electronic", "INB", "WFP", "00012345", "00");
 
@@ -204,7 +205,7 @@ class InboxServiceTest {
 
     @Test
     void search_repositoryResultsReturnedToCallers() {
-        InboxRow row = new InboxRow(1L, "SUB001", LocalDate.of(2024, 1, 15),
+        InboxRow row = new InboxRow(1L, "SUB001", LocalDate.of(2024, Month.JANUARY, 15),
                 "Inbox", "Electronic", 3, 2, 0, 1, 0);
         given(inboxRepository.search(any(), any()))
                 .willReturn(new PageImpl<>(List.of(row), PAGE, 1));

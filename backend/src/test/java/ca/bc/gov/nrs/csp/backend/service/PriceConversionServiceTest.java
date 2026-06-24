@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,7 +36,7 @@ class PriceConversionServiceTest {
     @InjectMocks
     PriceConversionService service;
 
-    private static final LocalDate INV_DATE = LocalDate.of(2026, 1, 15);
+    private static final LocalDate INV_DATE = LocalDate.of(2026, Month.JANUARY, 15);
 
     @BeforeEach
     void defaultGrouping() {

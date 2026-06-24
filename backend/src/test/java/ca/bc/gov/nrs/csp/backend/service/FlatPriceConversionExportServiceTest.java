@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,8 +33,8 @@ class FlatPriceConversionExportServiceTest {
 
     private static final FlatPriceConversion SAMPLE = new FlatPriceConversion(
         1L, "P", "S", "FD", "U", "A", 100,
-        LocalDate.of(1990, 1, 1), null,
-        1, "JSMITH", LocalDate.of(2024, 1, 15), "JDOE", LocalDate.of(2024, 6, 1)
+        LocalDate.of(1990, Month.JANUARY, 1), null,
+        1, "JSMITH", LocalDate.of(2024, Month.JANUARY, 15), "JDOE", LocalDate.of(2024, Month.JUNE, 1)
     );
 
     @BeforeEach

@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,7 +107,7 @@ class InboxRepositoryTest {
     void search_submissionDateFrom_appendsStartDateFragment() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                LocalDate.of(2024, 1, 1), null, null, null, null, null, null, null);
+                LocalDate.of(2024, Month.JANUARY, 1), null, null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -126,7 +127,7 @@ class InboxRepositoryTest {
     void search_submissionDateTo_appendsEndDateFragmentWithEndOfDayTime() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, LocalDate.of(2024, 3, 15), null, null, null, null, null, null);
+                null, LocalDate.of(2024, Month.MARCH, 15), null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
