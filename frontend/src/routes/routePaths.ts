@@ -2,6 +2,7 @@ export const ROUTES = {
   LANDING: '/',
   LOGOUT: '/logout',
   SEARCH: '/search',
+  INBOX: '/inbox',
   INVOICE: '/invoice',
   SORT_CODE: '/sort-code',
   FLAT_PRICE_CONVERSION: '/table-maintenance/flat-price-conversion',
