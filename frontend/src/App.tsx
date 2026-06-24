@@ -19,6 +19,7 @@ const FlatPriceConversionPage = lazy(() =>
   import('@/pages/FlatPriceConversion').then((m) => ({ default: m.FlatPriceConversionPage })),
 );
 const InvoicePage = lazy(() => import('@/pages/Invoice').then((m) => ({ default: m.InvoicePage })));
+const InboxPage = lazy(() => import('@/pages/Inbox').then((m) => ({ default: m.InboxPage })));
 const SearchPage = lazy(() => import('@/pages/Search').then((m) => ({ default: m.SearchPage })));
 const NotFoundPage = lazy(() => import('@/pages/NotFound').then((m) => ({ default: m.NotFoundPage })));
 const SortCodePage = lazy(() => import('@/pages/SortCode').then((m) => ({ default: m.SortCodePage })));
@@ -73,6 +74,14 @@ export default function App() {
                         element={
                           <ProtectedRoute>
                             <SearchPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path={ROUTES.INBOX}
+                        element={
+                          <ProtectedRoute>
+                            <InboxPage />
                           </ProtectedRoute>
                         }
                       />

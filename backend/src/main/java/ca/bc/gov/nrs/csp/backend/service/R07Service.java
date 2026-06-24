@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.repository.CspSubmissionRepository;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
@@ -98,7 +99,9 @@ public class R07Service {
 
         if (r.getSubmissionNumber() != null)    p.put("SUBMISSION_NUMBER", r.getSubmissionNumber());
         if (r.getSubmissionYearMonth() != null) p.put("SUBMISSION_MONTH_YEAR", r.getSubmissionYearMonth());
-        if (r.getUserId() != null)              p.put("USER_ID", r.getUserId());
+        // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.
+        String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());
+        if (idir != null)                       p.put("USER_ID", idir);
         return p;
     }
 

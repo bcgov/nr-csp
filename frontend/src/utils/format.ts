@@ -32,8 +32,10 @@ export const formatCurrency = (value: number | null | undefined): string => {
 /**
  * Format a `yyyy-mm-dd` date string as a human-readable date, e.g. "January 6, 2026".
  * Constructs the Date from parts to avoid UTC timezone shifts.
+ * Returns "—" for null / undefined values.
  */
-export const formatDisplayDate = (dateStr: string): string => {
+export const formatDisplayDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return '—';
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString('en-CA', {
     month: 'long',

@@ -28,6 +28,7 @@ describe('ROUTES', () => {
       'LANDING',
       'LOGOUT',
       'SEARCH',
+      'INBOX',
       'INVOICE',
       'SORT_CODE',
       'FLAT_PRICE_CONVERSION',

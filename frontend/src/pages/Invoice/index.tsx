@@ -253,7 +253,8 @@ export function InvoicePage() {
   const location = useLocation();
   const { addNotification } = useNotification();
 
-  const fromSearch = (location.state as { fromSearch?: boolean } | null)?.fromSearch === true;
+  const locationState = location.state as { fromSearch?: boolean } | null;
+  const fromSearch = locationState?.fromSearch === true;
 
   // -----------------------------------------------------------------
   // Lookup data
@@ -297,7 +298,7 @@ export function InvoicePage() {
   const [adjustInvNum, setAdjustInvNum] = useState<string[]>([]);
 
   const breadCrumbs = [
-    ...(fromSearch ? [{ name: 'Search Results', path: ROUTES.SEARCH }] : []),
+    ...(fromSearch ? [{ name: 'Invoice search', path: ROUTES.SEARCH }] : []),
     { name: 'Invoice', path: '#' },
     ...(invNumber ? [{ name: invNumber, path: '#' }] : []),
   ];
@@ -725,9 +726,6 @@ export function InvoicePage() {
 
   // Convenience flags
   const currentStatus = loadedInvoice?.invStatus ?? (isExisting ? '' : 'DFT');
-  // `submissionId` is the surrogate join key — used only to drive the `manual`
-  // flag below. The business submission number is what we show the user.
-  const submissionId = loadedInvoice?.submissionId;
   const submissionNumber = loadedInvoice?.submissionNumber;
 
   // Permission flags

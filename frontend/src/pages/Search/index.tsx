@@ -313,15 +313,9 @@ export function SearchPage() {
 
         {/* Clear filters — always visible */}
         <Column lg={16} md={8} sm={4} className="search-page__clear-col">
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              handleClearFilters();
-            }}
-            href="#"
-          >
+          <Button kind="ghost" size="sm" onClick={handleClearFilters}>
             Clear filters
-          </Link>
+          </Button>
         </Column>
 
         {isError && (

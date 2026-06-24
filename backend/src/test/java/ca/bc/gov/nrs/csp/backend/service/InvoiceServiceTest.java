@@ -40,6 +40,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,7 +82,7 @@ class InvoiceServiceTest {
     InvoiceValidator validator;
 
     private static final InvoiceResponse SENTINEL = new InvoiceResponse(
-            1L, 10L, 67890L, "INV-001", LocalDate.of(2026, 1, 15), "DFT", "SAL", "M", null, null,
+            1L, 10L, 67890L, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), "DFT", "SAL", "M", null, null,
             null, null, null, "1234", "00", "Seller", null, null, null, null, null, null, null,
             List.of(), List.of(), List.of(), null, null, null, null, "system",
             List.of(), List.of(), List.of());
@@ -123,7 +124,7 @@ class InvoiceServiceTest {
     private InvoiceDetails details(Long id, String status, String otherClientNum,
                                    String otherClientName, String submittedBy) {
         return new InvoiceDetails(
-                id, "INV-001", LocalDate.of(2026, 1, 15), status, "SAL", "M", "FOB01", "SORT01",
+                id, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), status, "SAL", "M", "FOB01", "SORT01",
                 new BigDecimal("100.00"), 10, new BigDecimal("5.0"),
                 "1234", "00", submittedBy, "1234", "00",
                 otherClientNum, "00", otherClientName, "Nanaimo", "BC",
@@ -254,7 +255,7 @@ class InvoiceServiceTest {
 
         service.create(req);
 
-        verify(submissionRepo).insertSubmission(eq("1234"), eq("00"), eq("LOB"), eq(USER));
+        verify(submissionRepo).insertSubmission("1234", "00", "LOB", USER);
         verify(invoiceRepo).insertInvoice(any(), eq(77L), eq("DFT"), isNull(), isNull(), eq(USER));
         verify(lineItemRepo).insertLineItem(eq(500L), any(), eq(USER));
         verify(invoiceRepo, times(3)).replaceLogSources(eq(500L), any(), any(), eq(USER));
@@ -272,7 +273,7 @@ class InvoiceServiceTest {
 
         service.create(req);
 
-        verify(submissionRepo).insertSubmission(eq("1234"), eq("00"), eq("INB"), eq(USER));
+        verify(submissionRepo).insertSubmission("1234", "00", "INB", USER);
     }
 
     @Test
@@ -287,7 +288,7 @@ class InvoiceServiceTest {
 
         service.create(req);
 
-        verify(participantRepo).insert(eq("ABC Logging"), eq("Nanaimo"), eq("BC"), eq(USER));
+        verify(participantRepo).insert("ABC Logging", "Nanaimo", "BC", USER);
         verify(invoiceRepo).insertInvoice(any(), eq(77L), eq("DFT"), eq(900L), isNull(), eq(USER));
     }
 

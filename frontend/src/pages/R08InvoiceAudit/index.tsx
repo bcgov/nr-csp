@@ -17,7 +17,6 @@ import {
 } from '@/services/lookup.service';
 import { useR08ReportMutation } from '@/services/r08.service';
 import {
-  type SelectItem,
   TIME_FRAME_ITEMS,
   formatDate,
   formatYearMonth,
