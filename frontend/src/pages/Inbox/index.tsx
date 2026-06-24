@@ -245,7 +245,9 @@ export function InboxPage() {
               />
             </div>
             <div className="inbox-page__filter-item">
-              <span className="inbox-page__search-btn-spacer" aria-hidden="true">&nbsp;</span>
+              <span className="inbox-page__search-btn-spacer" aria-hidden="true">
+                &nbsp;
+              </span>
               <Button kind="primary" size="md" renderIcon={SearchIcon} iconDescription="Search" onClick={executeSearch}>
                 Search
               </Button>
