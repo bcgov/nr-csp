@@ -41,12 +41,12 @@ const buildLocalDate = (year: number, month: number, day: number): ParseResult =
 const parseDateInput = (val: string, dateFormat: string): ParseResult => {
   if (dateFormat === 'Y-m') {
     // Native `yyyy-mm` and autofilled `yyyy/mm`.
-    const m = val.match(/^(\d{4})[/-](\d{1,2})$/);
+    const m = /^(\d{4})[/-](\d{1,2})$/.exec(val);
     if (m) return buildLocalDate(+m[1], +m[2], 1);
     return null;
   }
   // Native Y-m-d (`yyyy-mm-dd`) and autofilled ISO (`yyyy/mm/dd`).
-  const m = val.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  const m = /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/.exec(val);
   if (m) return buildLocalDate(+m[1], +m[2], +m[3]);
   return null;
 };
