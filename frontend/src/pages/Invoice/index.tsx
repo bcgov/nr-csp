@@ -726,9 +726,6 @@ export function InvoicePage() {
 
   // Convenience flags
   const currentStatus = loadedInvoice?.invStatus ?? (isExisting ? '' : 'DFT');
-  // `submissionId` is the surrogate join key — used only to drive the `manual`
-  // flag below. The business submission number is what we show the user.
-  const submissionId = loadedInvoice?.submissionId;
   const submissionNumber = loadedInvoice?.submissionNumber;
 
   // Permission flags

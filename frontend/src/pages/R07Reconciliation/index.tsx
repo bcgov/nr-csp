@@ -20,7 +20,6 @@ import {
 } from '@/services/lookup.service';
 import { useR07ReportMutation } from '@/services/r07.service';
 import {
-  type SelectItem,
   TIME_FRAME_ITEMS,
   formatDate,
   formatYearMonth,

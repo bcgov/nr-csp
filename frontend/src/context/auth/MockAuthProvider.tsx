@@ -7,6 +7,8 @@ import type { AuthContextValue } from './types';
 
 export const MOCK_ROLE_KEY = 'csp.mockRole';
 
+// Dev-only mock provider; these helpers live alongside the component by design.
+// eslint-disable-next-line react-refresh/only-export-components
 export function getStoredRole(): Role {
   const stored = localStorage.getItem(MOCK_ROLE_KEY);
   return (ROLES as readonly string[]).includes(stored ?? '') ? (stored as Role) : 'ADMIN';

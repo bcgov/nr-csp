@@ -43,9 +43,31 @@ export default tseslint.config(
           'newlines-between': 'always',
         },
       ],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'no-console': 'warn',
       'no-debugger': 'warn',
       'prettier/prettier': 'warn',
+    },
+  },
+  {
+    // Node scripts (build/codegen) run outside the browser and use Node globals.
+    files: ['**/*.mjs', 'scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly' },
+    },
+  },
+  {
+    // Test files lean on `any` for mocks and partial fixtures.
+    files: ['**/*.test.{ts,tsx}', 'src/config/tests/**'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 );

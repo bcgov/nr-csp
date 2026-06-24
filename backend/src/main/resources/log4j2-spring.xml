@@ -8,7 +8,7 @@
 <Configuration status="WARN">
 
     <Properties>
-        <Property name="LOG_PATTERN">%d{ISO8601} [%t] %-5p %c{1} - %m%n</Property>
+        <Property name="LOG_PATTERN">%d{ISO8601} [%t] %-5p %c{1} - %notEmpty{[%X{user}] }%m%n</Property>
     </Properties>
 
     <Appenders>
