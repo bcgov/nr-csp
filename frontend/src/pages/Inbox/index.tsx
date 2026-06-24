@@ -8,7 +8,7 @@ import ClientAutocomplete, { type ClientLocationResponse } from '@/components/Fo
 import DateInput from '@/components/Form/DateInput';
 import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { formatDisplayDate } from '@/utils/format';
+import { formatDisplayDate, formatIsoDate } from '@/utils/format';
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
 
@@ -193,7 +193,7 @@ export function InboxPage() {
                 id="date-start"
                 labelText="Date start"
                 onChange={(dates) => {
-                  const val = dates[0] ? dates[0].toISOString().slice(0, 10) : '';
+                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
                   setStartDateInput(val);
                   validateDateRange(val, endDateInput);
                 }}
@@ -207,7 +207,7 @@ export function InboxPage() {
                 invalid={!!dateRangeError}
                 invalidText={dateRangeError ?? undefined}
                 onChange={(dates) => {
-                  const val = dates[0] ? dates[0].toISOString().slice(0, 10) : '';
+                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
                   setEndDateInput(val);
                   validateDateRange(startDateInput, val);
                 }}
