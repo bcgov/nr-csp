@@ -131,9 +131,9 @@ class SortCodeServiceTest {
     @Test
     void update_notFound_throwsResourceNotFound() {
         given(sortCodeRepository.existsByCode("Z")).willReturn(false);
+        UpdateSortCodeRequest request = new UpdateSortCodeRequest("desc", LocalDate.of(2020, Month.JANUARY, 1), LocalDate.of(2030, Month.JANUARY, 1));
 
-        assertThatThrownBy(() -> sortCodeService.update("Z",
-                new UpdateSortCodeRequest("desc", LocalDate.of(2020, Month.JANUARY, 1), LocalDate.of(2030, Month.JANUARY, 1))))
+        assertThatThrownBy(() -> sortCodeService.update("Z", request))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("'Z' not found");
     }
@@ -141,9 +141,9 @@ class SortCodeServiceTest {
     @Test
     void update_effectiveDateAfterExpiryDate_throwsBadRequest() {
         given(sortCodeRepository.existsByCode("A")).willReturn(true);
+        UpdateSortCodeRequest request = new UpdateSortCodeRequest("desc", LocalDate.of(2030, Month.JANUARY, 1), LocalDate.of(2020, Month.JANUARY, 1));
 
-        assertThatThrownBy(() -> sortCodeService.update("A",
-                new UpdateSortCodeRequest("desc", LocalDate.of(2030, Month.JANUARY, 1), LocalDate.of(2020, Month.JANUARY, 1))))
+        assertThatThrownBy(() -> sortCodeService.update("A", request))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Effective date must not be after expiry date");
     }

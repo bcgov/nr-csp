@@ -51,10 +51,10 @@ class InboxServiceTest {
 
     @Test
     void search_dateFromAfterDateTo_throwsValidationException() {
-        assertThatThrownBy(() -> search(
-                LocalDate.of(2024, Month.FEBRUARY, 1),
-                LocalDate.of(2024, Month.JANUARY, 1),
-                null, null, null, null, null, null))
+        LocalDate from = LocalDate.of(2024, Month.FEBRUARY, 1);
+        LocalDate to = LocalDate.of(2024, Month.JANUARY, 1);
+
+        assertThatThrownBy(() -> inboxService.search(from, to, null, null, null, null, null, null, PAGE))
                 .isInstanceOf(ValidationException.class)
                 .satisfies(ex -> {
                     ValidationException ve = (ValidationException) ex;
