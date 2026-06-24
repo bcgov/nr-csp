@@ -58,6 +58,11 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
+      coverage: {
+        provider: 'v8',
+        reportsDirectory: './coverage',
+        reporter: ['text', 'json', 'html', 'clover', 'lcov'],
+      },
       projects: [
         {
           extends: true,
