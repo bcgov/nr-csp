@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -68,7 +69,7 @@ class InboxControllerTest {
     @Test
     void searchInbox_withResults_returns200WithPagedContent() throws Exception {
         InboxRowResponse row = new InboxRowResponse(
-                42L, "SUB001", LocalDate.of(2024, 1, 15), "Inbox", "Electronic", 3, 2, 0, 1, 0
+                42L, "SUB001", LocalDate.of(2024, Month.JANUARY, 15), "Inbox", "Electronic", 3, 2, 0, 1, 0
         );
         given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .willReturn((Page) new PageImpl<>(List.of(), PageRequest.of(0, 100), 1));
