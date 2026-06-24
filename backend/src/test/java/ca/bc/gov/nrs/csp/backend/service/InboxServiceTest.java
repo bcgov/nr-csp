@@ -54,7 +54,7 @@ class InboxServiceTest {
         LocalDate from = LocalDate.of(2024, Month.FEBRUARY, 1);
         LocalDate to = LocalDate.of(2024, Month.JANUARY, 1);
 
-        assertThatThrownBy(() -> inboxService.search(from, to, null, null, null, null, null, null, PAGE))
+        assertThatThrownBy(() -> inboxService.search(from, to, null, null, null, null, null, null, null, PAGE))
                 .isInstanceOf(ValidationException.class)
                 .satisfies(ex -> {
                     ValidationException ve = (ValidationException) ex;
@@ -175,6 +175,43 @@ class InboxServiceTest {
     }
 
     // ---------------------------------------------------------------
+    // Keyword normalisation
+    // ---------------------------------------------------------------
+
+    @Test
+    void search_nonBlankKeyword_isTrimmedAndPassedToCriteria() {
+        given(inboxRepository.search(any(), any())).willReturn(emptyPage());
+
+        inboxService.search(null, null, null, null, null, null, null, null, "  hello  ", PAGE);
+
+        ArgumentCaptor<InboxCriteria> captor = ArgumentCaptor.forClass(InboxCriteria.class);
+        verify(inboxRepository).search(captor.capture(), any());
+        assertThat(captor.getValue().keyword()).isEqualTo("hello");
+    }
+
+    @Test
+    void search_blankKeyword_passesNullToCriteria() {
+        given(inboxRepository.search(any(), any())).willReturn(emptyPage());
+
+        inboxService.search(null, null, null, null, null, null, null, null, "   ", PAGE);
+
+        ArgumentCaptor<InboxCriteria> captor = ArgumentCaptor.forClass(InboxCriteria.class);
+        verify(inboxRepository).search(captor.capture(), any());
+        assertThat(captor.getValue().keyword()).isNull();
+    }
+
+    @Test
+    void search_nullKeyword_passesNullToCriteria() {
+        given(inboxRepository.search(any(), any())).willReturn(emptyPage());
+
+        search(null, null, null, null, null, null, null, null);
+
+        ArgumentCaptor<InboxCriteria> captor = ArgumentCaptor.forClass(InboxCriteria.class);
+        verify(inboxRepository).search(captor.capture(), any());
+        assertThat(captor.getValue().keyword()).isNull();
+    }
+
+    // ---------------------------------------------------------------
     // Criteria passthrough — confirm other fields are passed unchanged
     // ---------------------------------------------------------------
 
@@ -205,7 +242,7 @@ class InboxServiceTest {
 
     @Test
     void search_repositoryResultsReturnedToCallers() {
-        InboxRow row = new InboxRow(1L, "SUB001", LocalDate.of(2024, Month.JANUARY, 15),
+        InboxRow row = new InboxRow(1L, 42L, "SUB001", LocalDate.of(2024, Month.JANUARY, 15),
                 "Inbox", "Electronic", 3, 2, 0, 1, 0);
         given(inboxRepository.search(any(), any()))
                 .willReturn(new PageImpl<>(List.of(row), PAGE, 1));
@@ -227,7 +264,7 @@ class InboxServiceTest {
             String invoiceNum, String clientNum, String locNum) {
         return inboxService.search(
                 dateFrom, dateTo, submittedBy, submissionType, submissionStatus,
-                invoiceNum, clientNum, locNum, PAGE);
+                invoiceNum, clientNum, locNum, null, PAGE);
     }
 
     private Page<InboxRow> emptyPage() {
