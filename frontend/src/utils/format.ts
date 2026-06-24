@@ -30,13 +30,13 @@ export const formatCurrency = (value: number | null | undefined): string => {
 };
 
 /**
- * Format a `yyyy-mm-dd` date string as a human-readable date, e.g. "Jan 6, 2026".
+ * Format a `yyyy-mm-dd` date string as a human-readable date, e.g. "January 6, 2026".
  * Constructs the Date from parts to avoid UTC timezone shifts.
  */
 export const formatDisplayDate = (dateStr: string): string => {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString('en-CA', {
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     year: 'numeric',
   });
@@ -59,15 +59,14 @@ export const formatIsoDate = (date: Date): string => {
 };
 
 /**
- * Format a Date as a display-friendly `MM/dd/yyyy` string using LOCAL
- * calendar components. This preserves the user's picked calendar day instead
- * of applying UTC shifts.
+ * Format a Date as a `yyyy-MM-dd` string using LOCAL calendar components.
+ * Preserves the user's picked calendar day instead of applying UTC shifts.
  *
- * @example formatDisplayDateV2(new Date(2026, 5, 1)) // "06/01/2026"
+ * @example formatDisplayDateV2(new Date(2026, 5, 1)) // "2026-06-01"
  */
 export const formatDisplayDateV2 = (date: Date): string => {
+  const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
-  const y = date.getFullYear();
-  return `${m}/${d}/${y}`;
+  return `${y}-${m}-${d}`;
 };

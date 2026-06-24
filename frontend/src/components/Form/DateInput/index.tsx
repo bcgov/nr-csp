@@ -39,17 +39,14 @@ const buildLocalDate = (year: number, month: number, day: number): ParseResult =
 // shapes a browser is likely to autofill (ISO `yyyy-mm-dd`, `yyyy/mm/dd`, and
 // `yyyy-mm` for the year/month variant) so autofilled values aren't discarded.
 const parseDateInput = (val: string, dateFormat: string): ParseResult => {
-  if (dateFormat === 'Y/m') {
-    // Native `yyyy/mm` and autofilled `yyyy-mm`.
+  if (dateFormat === 'Y-m') {
+    // Native `yyyy-mm` and autofilled `yyyy/mm`.
     const m = val.match(/^(\d{4})[/-](\d{1,2})$/);
     if (m) return buildLocalDate(+m[1], +m[2], 1);
     return null;
   }
-  // Native `m/d/Y`.
-  let m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m) return buildLocalDate(+m[3], +m[1], +m[2]);
-  // Autofilled ISO `yyyy-mm-dd` or `yyyy/mm/dd`.
-  m = val.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  // Native Y-m-d (`yyyy-mm-dd`) and autofilled ISO (`yyyy/mm/dd`).
+  const m = val.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
   if (m) return buildLocalDate(+m[1], +m[2], +m[3]);
   return null;
 };
@@ -66,7 +63,7 @@ const DateInput: FC<DateInputProps> = ({
   id,
   labelText,
   placeholder,
-  dateFormat = 'm/d/Y',
+  dateFormat = 'Y-m-d',
   hideLabel,
   size = 'md',
   value,
@@ -81,7 +78,7 @@ const DateInput: FC<DateInputProps> = ({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  const resolvedPlaceholder = placeholder ?? (dateFormat === 'Y/m' ? 'yyyy/mm' : 'mm/dd/yyyy');
+  const resolvedPlaceholder = placeholder ?? (dateFormat === 'Y-m' ? 'yyyy-mm' : 'yyyy-mm-dd');
 
   const validateValue = useCallback(
     (val: string) => {
@@ -117,7 +114,7 @@ const DateInput: FC<DateInputProps> = ({
       // already in the right shape, so we skip the round-trip to avoid moving
       // the caret while the user types. Passing a Date (not a string) bypasses
       // the setDate guard installed below.
-      const isNativeShape = dateFormat === 'Y/m' ? /^\d{4}\/\d{1,2}$/.test(val) : /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val);
+      const isNativeShape = dateFormat === 'Y-m' ? /^\d{4}-\d{1,2}$/.test(val) : /^\d{4}-\d{2}-\d{2}$/.test(val);
       if (!isNativeShape) {
         const fp = getFlatpickr(containerRef.current?.querySelector('input'));
         fp?.setDate(parsed, false);

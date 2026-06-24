@@ -638,7 +638,7 @@ export function R13AdHocReportingPage() {
                 id="approval-month-year"
                 labelText=""
                 hideLabel
-                dateFormat="Y/m"
+                dateFormat="Y-m"
                 onChange={(dates) => set({ approvalMonthYear: dates[0] ?? null })}
               />
             </FilterRow>
