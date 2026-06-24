@@ -252,6 +252,61 @@ class InboxRepositoryTest {
     }
 
     // ---------------------------------------------------------------
+    // keyword — applied to outer subquery WHERE clause
+    // ---------------------------------------------------------------
+
+    @Test
+    void search_nonBlankKeyword_appendsKeywordWhereClause() {
+        stubJdbc();
+        InboxCriteria criteria = new InboxCriteria(
+                null, null, null, null, null, null, null, null, "hello");
+        repo.search(criteria, DEFAULT_PAGE);
+
+        String sql = captureDataSql();
+        assertThat(sql).contains("UPPER(submission_id) LIKE UPPER(:keyword)");
+        assertThat(sql).contains("UPPER(submission_status) LIKE UPPER(:keyword)");
+        assertThat(sql).contains("UPPER(submission_type) LIKE UPPER(:keyword)");
+        assertThat(sql).contains("TO_CHAR(entry_timestamp");
+
+        MapSqlParameterSource params = captureParams();
+        assertThat(params.getValue("keyword")).isEqualTo("%hello%");
+    }
+
+    @Test
+    void search_nullKeyword_noKeywordWhereClauseInSql() {
+        stubJdbc();
+        repo.search(emptyCriteria(), DEFAULT_PAGE);
+
+        assertThat(captureDataSql()).doesNotContain(":keyword");
+    }
+
+    @Test
+    void search_blankKeyword_noKeywordWhereClauseInSql() {
+        stubJdbc();
+        InboxCriteria criteria = new InboxCriteria(
+                null, null, null, null, null, null, null, null, "   ");
+        repo.search(criteria, DEFAULT_PAGE);
+
+        assertThat(captureDataSql()).doesNotContain(":keyword");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void search_keyword_appearsInBothDataAndCountSql() {
+        stubJdbc();
+        InboxCriteria criteria = new InboxCriteria(
+                null, null, null, null, null, null, null, null, "sub001");
+        repo.search(criteria, DEFAULT_PAGE);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).query(sqlCaptor.capture(), any(MapSqlParameterSource.class), any(RowMapper.class));
+        verify(jdbc).queryForObject(sqlCaptor.capture(), any(MapSqlParameterSource.class), eq(Long.class));
+
+        assertThat(sqlCaptor.getAllValues().get(0)).contains("UPPER(submission_id) LIKE UPPER(:keyword)");
+        assertThat(sqlCaptor.getAllValues().get(1)).contains("UPPER(submission_id) LIKE UPPER(:keyword)");
+    }
+
+    // ---------------------------------------------------------------
     // submissionStatus
     // ---------------------------------------------------------------
 
@@ -365,5 +420,49 @@ class InboxRepositoryTest {
 
         assertThat(page.getTotalElements()).isEqualTo(42L);
         assertThat(page.getContent()).isEmpty();
+    }
+
+    // ---------------------------------------------------------------
+    // toInvoiceNumberPattern — mirrors SearchRepository exactly
+    // ---------------------------------------------------------------
+
+    @Test
+    void toInvoiceNumberPattern_plainTerm_becomesContainsMatch() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("ABC")).isEqualTo("%ABC%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_starBecomesPercent() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("WFP521046*")).isEqualTo("WFP521046%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_questionMarkBecomesUnderscore() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("INV-?-23")).isEqualTo("INV-_-23");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_percentPassesThroughAsWildcard() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("INV-2024-%")).isEqualTo("INV-2024-%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_mixedWildcards() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("*-2024-?")).isEqualTo("%-2024-_");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_escapesUnderscoreInPlainTerm() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("ab_cd")).isEqualTo("%ab\\_cd%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_escapesUnderscoreInPatternMode() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("a_b*")).isEqualTo("a\\_b%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_escapesBackslash() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("a\\b")).isEqualTo("%a\\\\b%");
     }
 }

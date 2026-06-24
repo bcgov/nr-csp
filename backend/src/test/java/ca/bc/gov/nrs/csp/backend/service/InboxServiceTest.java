@@ -174,6 +174,43 @@ class InboxServiceTest {
     }
 
     // ---------------------------------------------------------------
+    // Keyword normalisation
+    // ---------------------------------------------------------------
+
+    @Test
+    void search_nonBlankKeyword_isTrimmedAndPassedToCriteria() {
+        given(inboxRepository.search(any(), any())).willReturn(emptyPage());
+
+        inboxService.search(null, null, null, null, null, null, null, null, "  hello  ", PAGE);
+
+        ArgumentCaptor<InboxCriteria> captor = ArgumentCaptor.forClass(InboxCriteria.class);
+        verify(inboxRepository).search(captor.capture(), any());
+        assertThat(captor.getValue().keyword()).isEqualTo("hello");
+    }
+
+    @Test
+    void search_blankKeyword_passesNullToCriteria() {
+        given(inboxRepository.search(any(), any())).willReturn(emptyPage());
+
+        inboxService.search(null, null, null, null, null, null, null, null, "   ", PAGE);
+
+        ArgumentCaptor<InboxCriteria> captor = ArgumentCaptor.forClass(InboxCriteria.class);
+        verify(inboxRepository).search(captor.capture(), any());
+        assertThat(captor.getValue().keyword()).isNull();
+    }
+
+    @Test
+    void search_nullKeyword_passesNullToCriteria() {
+        given(inboxRepository.search(any(), any())).willReturn(emptyPage());
+
+        search(null, null, null, null, null, null, null, null);
+
+        ArgumentCaptor<InboxCriteria> captor = ArgumentCaptor.forClass(InboxCriteria.class);
+        verify(inboxRepository).search(captor.capture(), any());
+        assertThat(captor.getValue().keyword()).isNull();
+    }
+
+    // ---------------------------------------------------------------
     // Criteria passthrough — confirm other fields are passed unchanged
     // ---------------------------------------------------------------
 
