@@ -25,6 +25,10 @@
         <ojdbc.version>23.3.0.23.09</ojdbc.version>
         <jasperreports.version>7.0.4</jasperreports.version>
         <testcontainers.version>1.20.4</testcontainers.version>
+        <sonar.coverage.exclusions>
+            **/*Test.java,
+            **/*IT.java
+        </sonar.coverage.exclusions>
     </properties>
 
     <dependencyManagement>
