@@ -18,11 +18,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
@@ -62,7 +62,7 @@ class InvoiceControllerTest {
 
     private InvoiceResponse sampleResponse() {
         return new InvoiceResponse(
-                1L, 10L, 67890L, "INV-001", LocalDate.of(2026, 1, 15), "DFT", "SAL", "M", "FOB01", "SORT01",
+                1L, 10L, 67890L, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), "DFT", "SAL", "M", "FOB01", "SORT01",
                 new BigDecimal("100.00"), 10, new BigDecimal("5.0"),
                 "1234", "00", "Seller", "1234", "00",
                 "5678", "00", "ABC Logging", "Nanaimo", "BC",
@@ -197,7 +197,7 @@ class InvoiceControllerTest {
 
     @Test
     void delete_returns204() throws Exception {
-        willDoNothing().given(invoiceService).delete(anyLong());
+        willDoNothing().given(invoiceService).delete(any());
 
         mockMvc.perform(delete("/api/invoices/1"))
                 .andExpect(status().isNoContent());
