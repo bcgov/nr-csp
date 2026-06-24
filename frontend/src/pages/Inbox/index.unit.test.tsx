@@ -1,9 +1,27 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
+
+// ── Service mocks ─────────────────────────────────────────────────────────────
+// Stub the data hooks so the table renders deterministically: clicking Search
+// must land on the "No results found" empty state, not the loading skeleton.
+
+vi.mock('@/services/inbox.service', () => ({
+  useInboxSearchQuery: vi.fn(() => ({
+    data: { content: [], totalElements: 0 },
+    isLoading: false,
+    isError: false,
+    error: null,
+  })),
+}));
+
+vi.mock('@/services/lookup.service', () => ({
+  useSubmissionStatusesQuery: vi.fn(() => ({ data: [], isLoading: false })),
+}));
+
 import { InboxPage } from './index';
 
 // ── Render helper ─────────────────────────────────────────────────────────────
@@ -34,7 +52,7 @@ describe('InboxPage', () => {
   it('renders all filter inputs', () => {
     renderInboxPage();
     expect(screen.getByLabelText(/invoice number/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/submitter client name/i)).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /submitter client name/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/date start/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/date end/i)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /submitted by/i })).toBeInTheDocument();
