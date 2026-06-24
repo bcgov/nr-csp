@@ -110,11 +110,14 @@ const DateInput: FC<DateInputProps> = ({
       onChangeRef.current?.([parsed]);
 
       // If the value arrived in a non-native shape (e.g. browser autofill gave
-      // ISO), redisplay it in the field's own format. Native-format typing is
-      // already in the right shape, so we skip the round-trip to avoid moving
-      // the caret while the user types. Passing a Date (not a string) bypasses
-      // the setDate guard installed below.
-      const isNativeShape = dateFormat === 'Y-m' ? /^\d{4}-\d{1,2}$/.test(val) : /^\d{4}-\d{2}-\d{2}$/.test(val);
+      // a slash-separated date), redisplay it in the field's own dash format.
+      // Native-format typing is already in the right shape, so we skip the
+      // round-trip to avoid moving the caret while the user types. The month/day
+      // are matched with `\d{1,2}` so a mid-typed value (e.g. "2026-12-2" before
+      // the final digit) still counts as native and isn't prematurely reformatted
+      // — that reformat would jump the caret and corrupt the rest of the input.
+      // Passing a Date (not a string) bypasses the setDate guard installed below.
+      const isNativeShape = dateFormat === 'Y-m' ? /^\d{4}-\d{1,2}$/.test(val) : /^\d{4}-\d{1,2}-\d{1,2}$/.test(val);
       if (!isNativeShape) {
         const fp = getFlatpickr(containerRef.current?.querySelector('input'));
         fp?.setDate(parsed, false);
