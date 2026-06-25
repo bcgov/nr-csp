@@ -262,7 +262,7 @@ export function R08InvoiceAuditPage() {
           <DateInput
             id="submission-year-month"
             labelText={<RequiredLabel>Year / month</RequiredLabel>}
-            dateFormat="Y/m"
+            dateFormat="Y-m"
             onChange={(dates) => setSubmissionYearMonth(dates[0] ?? null)}
           />
         </Column>

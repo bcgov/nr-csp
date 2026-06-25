@@ -283,7 +283,13 @@ export function R13AdHocReportingPage() {
   const calculatedEndDate = React.useMemo((): Date | null => {
     if (!filters.startDate || !filters.timeFrame) return null;
     const months = parseInt(filters.timeFrame, 10);
-    return new Date(Date.UTC(filters.startDate.getUTCFullYear(), filters.startDate.getUTCMonth() + months, 0));
+    // Build a LOCAL-midnight last-day-of-month date so it stays consistent with
+    // startDate (DateInput emits local-midnight) and with the local-component
+    // formatters used for display (formatDisplayDateV2) and the request payload
+    // (formatDate). Using Date.UTC here would produce a UTC-midnight instant
+    // that those local getters then read back one day early in negative-offset
+    // timezones (e.g. Pacific), dropping the final day from the report range.
+    return new Date(filters.startDate.getFullYear(), filters.startDate.getMonth() + months, 0);
   }, [filters.startDate, filters.timeFrame]);
 
   // The date used for validation and the request payload. When timeFrame is set
@@ -638,7 +644,7 @@ export function R13AdHocReportingPage() {
                 id="approval-month-year"
                 labelText=""
                 hideLabel
-                dateFormat="Y/m"
+                dateFormat="Y-m"
                 onChange={(dates) => set({ approvalMonthYear: dates[0] ?? null })}
               />
             </FilterRow>
