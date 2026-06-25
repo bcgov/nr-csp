@@ -18,7 +18,7 @@
     "test": "vitest",
     "test:unit": "vitest --project node",
     "test:browser": "vitest --project browser",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --project node",
     "test:ci": "vitest run --ci"
   },
   "dependencies": {
