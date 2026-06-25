@@ -70,10 +70,9 @@ jobs:
           commands: |
             npm ci
             npm run lint
-            npx playwright install --with-deps chromium
             npm run test:coverage
           dir: frontend
-          node_version: "22"
+          node_version: "24"
           sonar_args: >
             -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts,**/*.test.ts,**/*.test.tsx,**/e2e/**
             -Dsonar.organization=bcgov-sonarcloud
