@@ -70,7 +70,6 @@ jobs:
           commands: |
             npm ci
             npm run lint
-            npx playwright install --with-deps chromium
             npm run test:coverage
           dir: frontend
           node_version: "24"

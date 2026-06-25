@@ -73,27 +73,34 @@ export default defineConfig(({ mode }) => {
             setupFiles: ['src/config/tests/setup-env.ts'],
           },
         },
-        {
-          extends: true,
-          test: {
-            name: 'browser',
-            browser: {
-              enabled: true,
-              provider: 'playwright',
-              // PLAYWRIGHT_CHANNEL lets environments without a bundled Chromium
-              // (e.g. WSL/Ubuntu releases Playwright doesn't support yet) fall back
-              // to a system-installed browser, e.g. `PLAYWRIGHT_CHANNEL=chrome`.
-              instances: [
-                {
-                  browser: 'chromium',
-                  launch: { channel: process.env.PLAYWRIGHT_CHANNEL || undefined },
+        // Browser project is opt-in: set VITEST_BROWSER_ENABLED=true to include it.
+        // Without this guard, Vitest initialises the Playwright provider at startup
+        // even when --project node is passed, which triggers a Chromium download.
+        ...(process.env.VITEST_BROWSER_ENABLED === 'true'
+          ? [
+              {
+                extends: true,
+                test: {
+                  name: 'browser',
+                  browser: {
+                    enabled: true,
+                    provider: 'playwright',
+                    // PLAYWRIGHT_CHANNEL lets environments without a bundled Chromium
+                    // (e.g. WSL/Ubuntu releases Playwright doesn't support yet) fall back
+                    // to a system-installed browser, e.g. `PLAYWRIGHT_CHANNEL=chrome`.
+                    instances: [
+                      {
+                        browser: 'chromium',
+                        launch: { channel: process.env.PLAYWRIGHT_CHANNEL || undefined },
+                      },
+                    ],
+                  },
+                  include: ['src/**/*.browser.test.{ts,tsx}'],
+                  setupFiles: ['src/config/tests/setup-browser.ts'],
                 },
-              ],
-            },
-            include: ['src/**/*.browser.test.{ts,tsx}'],
-            setupFiles: ['src/config/tests/setup-browser.ts'],
-          },
-        },
+              },
+            ]
+          : []),
       ],
     },
   };
