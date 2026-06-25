@@ -147,6 +147,22 @@
             <version>${mapstruct.version}</version>
         </dependency>
 
+        <!-- CSP submission XML validation.
+             jakarta.xml.bind-api: annotation set referenced by the xjc-
+                                   generated JAXB classes for mof-csp.xsd
+             jaxb-runtime:         GlassFish JAXB implementation that
+                                   JAXBContext discovers at runtime -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <version>4.0.5</version>
+        </dependency>
+
         <!-- JasperReports 7.x -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
@@ -241,6 +257,37 @@
 
     <build>
         <plugins>
+            <!-- Generate JAXB bindings from the vendored CSP XSD bundle.
+                 Output lands under target/generated-sources/jaxb in the
+                 package below; the maven-compiler-plugin picks it up
+                 automatically. To force a regen: mvn clean compile. The
+                 entry schema (mof-csp.xsd) xs:imports mof-simpleTypes.xsd
+                 from the same directory. -->
+            <plugin>
+                <groupId>org.jvnet.jaxb</groupId>
+                <artifactId>jaxb-maven-plugin</artifactId>
+                <version>4.0.8</version>
+                <executions>
+                    <execution>
+                        <id>generate-csp-submission</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <schemaDirectory>${project.basedir}/src/main/resources/schemas/csp</schemaDirectory>
+                            <schemaIncludes>
+                                <include>mof-csp.xsd</include>
+                            </schemaIncludes>
+                            <generatePackage>ca.bc.gov.nrs.csp.backend.submission.generated</generatePackage>
+                            <generateDirectory>${project.build.directory}/generated-sources/jaxb</generateDirectory>
+                            <!-- Pin to JAXB 4 / Jakarta namespace to match the
+                                 jakarta.xml.bind-api + glassfish jaxb-runtime
+                                 declared above. -->
+                            <extension>true</extension>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
