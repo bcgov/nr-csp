@@ -31,6 +31,32 @@ on:
       oc_token:
         description: OpenShift token
         required: true
+      # Backend secrets (Oracle DB + Jasper)
+      spring_datasource_url:
+        description: Oracle JDBC URL
+        required: true
+      spring_datasource_username:
+        description: Oracle database username
+        required: true
+      spring_datasource_password:
+        description: Oracle database password
+        required: true
+      jasper_server_username:
+        description: Jasper Reports server username
+        required: false
+      jasper_server_password:
+        description: Jasper Reports server password
+        required: false
+      # Backend config (JWT / auth)
+      jwt_jwks_uri:
+        description: JWKS endpoint for JWT validation
+        required: false
+      jwt_issuer:
+        description: Expected JWT issuer claim
+        required: false
+      jwt_audience:
+        description: Expected JWT audience claim
+        required: false
 
     outputs:
       triggered:
@@ -59,6 +85,14 @@ jobs:
             -p DB_PASSWORD="${{ secrets.db_password }}"
             -p ZONE="${{ inputs.target }}"
             -p NAME="${{ github.event.repository.name }}"
+            -p SPRING_DATASOURCE_URL="${{ secrets.spring_datasource_url }}"
+            -p SPRING_DATASOURCE_USERNAME="${{ secrets.spring_datasource_username }}"
+            -p SPRING_DATASOURCE_PASSWORD="${{ secrets.spring_datasource_password }}"
+            -p JASPER_SERVER_USERNAME="${{ secrets.jasper_server_username }}"
+            -p JASPER_SERVER_PASSWORD="${{ secrets.jasper_server_password }}"
+            -p JWT_JWKS_URI="${{ secrets.jwt_jwks_uri }}"
+            -p JWT_ISSUER="${{ secrets.jwt_issuer }}"
+            -p JWT_AUDIENCE="${{ secrets.jwt_audience }}"
           triggers: ${{ inputs.triggers }}
           debug: true
 

@@ -37,6 +37,14 @@ jobs:
       db_password: ${{ secrets.db_password }}
       oc_namespace: ${{ secrets.oc_namespace }}
       oc_token: ${{ secrets.oc_token }}
+      spring_datasource_url: ${{ secrets.spring_datasource_url }}
+      spring_datasource_username: ${{ secrets.spring_datasource_username }}
+      spring_datasource_password: ${{ secrets.spring_datasource_password }}
+      jasper_server_username: ${{ secrets.jasper_server_username }}
+      jasper_server_password: ${{ secrets.jasper_server_password }}
+      jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
+      jwt_issuer: ${{ secrets.jwt_issuer }}
+      jwt_audience: ${{ secrets.jwt_audience }}
     with:
       environment: test
       target: test
@@ -57,6 +65,14 @@ jobs:
       db_password: ${{ secrets.db_password }}
       oc_namespace: ${{ secrets.oc_namespace }}
       oc_token: ${{ secrets.oc_token }}
+      spring_datasource_url: ${{ secrets.spring_datasource_url }}
+      spring_datasource_username: ${{ secrets.spring_datasource_username }}
+      spring_datasource_password: ${{ secrets.spring_datasource_password }}
+      jasper_server_username: ${{ secrets.jasper_server_username }}
+      jasper_server_password: ${{ secrets.jasper_server_password }}
+      jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
+      jwt_issuer: ${{ secrets.jwt_issuer }}
+      jwt_audience: ${{ secrets.jwt_audience }}
     with:
       environment: prod
       target: prod
