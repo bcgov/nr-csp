@@ -1,0 +1,77 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+
+.submission-history-page {
+  padding-top: $spacing-07;
+  padding-bottom: $spacing-07;
+
+  // Kill Carbon's grid side padding so columns are flush with the page edges.
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Apply horizontal padding only to the filter-side content so it keeps its
+  // inset look. The table column has no padding and therefore stretches edge to edge.
+  .page-title-col,
+  &__filter-row,
+  &__clear-col {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  .page-title-col {
+    margin-bottom: $spacing-07;
+  }
+
+  &__filter-row {
+    display: flex;
+    gap: $spacing-02;
+    margin-bottom: $spacing-05;
+
+    &--with-btn {
+      align-items: flex-start;
+    }
+  }
+
+  &__filter-item {
+    flex: 1;
+    min-width: 0;
+
+    .cds--btn {
+      width: 100%;
+      max-width: 100%;
+    }
+  }
+
+  // Invisible spacer matching Carbon's label-01 height so the Search button
+  // bottom-aligns with the adjacent inputs when the row uses align-items: flex-start.
+  &__search-btn-spacer {
+    @include type.type-style('label-01');
+    line-height: 1rem;
+    display: block;
+    margin-block-end: $spacing-03;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  &__clear-col {
+    margin-top: $spacing-03;
+    margin-bottom: $spacing-03;
+  }
+
+  &__error-col {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  &__error {
+    @include type.type-style('body-01');
+    color: var(--cds-text-error, #da1e28);
+  }
+
+  &__table-col {
+    margin-top: $spacing-05;
+  }
+}

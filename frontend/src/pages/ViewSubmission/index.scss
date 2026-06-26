@@ -1,0 +1,85 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+@use '@carbon/react/scss/theme' as theme;
+
+.view-submission-page {
+  padding-top: $spacing-05;
+  padding-bottom: $spacing-07;
+
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Inset everything except the full-width tables' surrounding sections keep
+  // their own padding too, so the whole page shares one left/right gutter.
+  .page-title-col,
+  &__back-col,
+  &__summary,
+  &__banner-col,
+  &__section,
+  &__error-col,
+  &__loading {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  &__back-col {
+    margin-bottom: $spacing-05;
+  }
+
+  &__back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  .page-title-col {
+    margin-bottom: $spacing-03;
+  }
+
+  &__summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-03;
+    margin-bottom: $spacing-05;
+  }
+
+  &__summary-text {
+    @include type.type-style('body-01');
+  }
+
+  &__banner-col {
+    margin-bottom: $spacing-06;
+
+    .cds--inline-notification {
+      max-width: none;
+      width: 100%;
+    }
+  }
+
+  &__section {
+    margin-bottom: $spacing-06;
+  }
+
+  &__section-title {
+    @include type.type-style('heading-03');
+    margin-bottom: $spacing-02;
+  }
+
+  &__section-count {
+    @include type.type-style('label-01');
+    color: theme.$text-secondary;
+    margin-bottom: $spacing-05;
+  }
+
+  &__loading {
+    margin-top: $spacing-07;
+  }
+
+  &__error {
+    @include type.type-style('body-01');
+    color: var(--cds-text-error, #da1e28);
+  }
+}

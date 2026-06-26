@@ -1,0 +1,36 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+@use '@carbon/react/scss/theme' as theme;
+
+.detail-section {
+  margin-bottom: $spacing-07;
+
+  &__title {
+    @include type.type-style('heading-03');
+    margin-bottom: $spacing-05;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: $spacing-05 $spacing-07;
+    margin: 0;
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-02;
+  }
+
+  &__label {
+    @include type.type-style('label-01');
+    color: theme.$text-secondary;
+  }
+
+  &__value {
+    @include type.type-style('body-01');
+    margin: 0;
+    word-break: break-word;
+  }
+}
