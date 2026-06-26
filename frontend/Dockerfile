@@ -50,8 +50,15 @@ CMD ["npm", "run", "start"]
 # Stage 2: Serve static files with Caddy
 FROM caddy:2-alpine
 
-# caddy:2-alpine runs as root by default — create a non-root user and
-# grant it ownership of Caddy's runtime dirs before switching to it.
+# caddy:2-alpine sets CAP_NET_BIND_SERVICE as a file capability on /usr/bin/caddy
+# so it can bind to port 80/443 without root. OpenShift's restricted SCC with
+# allowPrivilegeEscalation=false refuses to exec any binary that has file
+# capabilities. Strip it — we listen on port 3000 so the capability is unneeded.
+RUN apk add --no-cache libcap && \
+    setcap -r /usr/bin/caddy && \
+    apk del libcap
+
+# Create a non-root user and grant it ownership of Caddy's runtime dirs.
 RUN addgroup -S caddy && adduser -S -G caddy caddy && \
     chown caddy:caddy /data /config
 
