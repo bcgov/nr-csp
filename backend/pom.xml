@@ -113,20 +113,11 @@
             <artifactId>ojdbc11</artifactId>
             <version>${ojdbc.version}</version>
         </dependency>
-        <!-- Oracle PKI / SSO wallet support (required for cwallet.sso with TCPS) -->
+        <!-- Oracle PKI / SSO wallet support (required for cwallet.sso with TCPS).
+             oraclepki pulls in osdt_core and osdt_cert transitively. -->
         <dependency>
             <groupId>com.oracle.database.security</groupId>
             <artifactId>oraclepki</artifactId>
-            <version>${ojdbc.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.oracle.database.security</groupId>
-            <artifactId>osdt_core</artifactId>
-            <version>${ojdbc.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.oracle.database.security</groupId>
-            <artifactId>osdt_cert</artifactId>
             <version>${ojdbc.version}</version>
         </dependency>
 
