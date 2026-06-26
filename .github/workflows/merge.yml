@@ -34,7 +34,6 @@ jobs:
     needs: [init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
-      db_password: ${{ secrets.db_password }}
       oc_namespace: ${{ secrets.oc_namespace }}
       oc_token: ${{ secrets.oc_token }}
       spring_datasource_url: ${{ secrets.spring_datasource_url }}
@@ -62,7 +61,6 @@ jobs:
     needs: [tests, init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
-      db_password: ${{ secrets.db_password }}
       oc_namespace: ${{ secrets.oc_namespace }}
       oc_token: ${{ secrets.oc_token }}
       spring_datasource_url: ${{ secrets.spring_datasource_url }}

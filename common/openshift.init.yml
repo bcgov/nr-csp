@@ -7,10 +7,6 @@ parameters:
   - name: ZONE
     description: Deployment zone, e.g. pr-### or prod
     required: true
-  - name: DB_PASSWORD
-    description: Password for the PostgreSQL connection user.
-    required: true
-
   # ── Backend secrets ───────────────────────────────────────
   - name: SPRING_DATASOURCE_URL
     description: "Full Oracle JDBC URL, e.g. jdbc:oracle:thin:@//host:1543/SERVICE"
@@ -83,15 +79,6 @@ objects:
       AUTH_MOCK_ENABLED: ${AUTH_MOCK_ENABLED}
       AUTH_MOCK_ROLES: ${AUTH_MOCK_ROLES}
 
-  # ── Database Secret (legacy — retained for compatibility) ─
-  - apiVersion: v1
-    kind: Secret
-    metadata:
-      name: ${NAME}-${ZONE}-database
-      labels:
-        app: ${NAME}-${ZONE}
-    stringData:
-      database-password: ${DB_PASSWORD}
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
@@ -125,23 +112,5 @@ objects:
                 matchLabels:
                   app: ${NAME}-${ZONE}
                   deployment: ${NAME}-${ZONE}-frontend
-      policyTypes:
-        - Ingress
-  - apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: ${NAME}-${ZONE}-database-ingress
-      labels:
-        app: ${NAME}-${ZONE}
-    spec:
-      podSelector:
-        matchLabels:
-          deployment: ${NAME}-${ZONE}-database
-      ingress:
-        - from:
-            - podSelector:
-                matchLabels:
-                  app: ${NAME}-${ZONE}
-                  deployment: ${NAME}-${ZONE}-backend
       policyTypes:
         - Ingress
