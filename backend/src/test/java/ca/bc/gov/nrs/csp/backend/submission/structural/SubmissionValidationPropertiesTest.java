@@ -1,4 +1,4 @@
-package ca.bc.gov.nrs.csp.backend.submission;
+package ca.bc.gov.nrs.csp.backend.submission.structural;
 
 import org.junit.jupiter.api.Test;
 

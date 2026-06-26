@@ -1,4 +1,4 @@
-package ca.bc.gov.nrs.csp.backend.submission.parser;
+package ca.bc.gov.nrs.csp.backend.submission.structural.parser;
 
 /**
  * Thrown by {@link SubmissionEnvelopeStripper} when the upload's root

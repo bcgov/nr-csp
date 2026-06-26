@@ -1,8 +1,8 @@
-package ca.bc.gov.nrs.csp.backend.submission.parser;
+package ca.bc.gov.nrs.csp.backend.submission.structural.parser;
 
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationError;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationProperties;
-import ca.bc.gov.nrs.csp.backend.submission.validator.SchemaValidator;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
+import ca.bc.gov.nrs.csp.backend.submission.structural.SubmissionValidationProperties;
+import ca.bc.gov.nrs.csp.backend.submission.structural.schema.SchemaValidator;
 import jakarta.annotation.PostConstruct;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBElement;

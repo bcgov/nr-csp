@@ -1,7 +1,7 @@
-package ca.bc.gov.nrs.csp.backend.submission.validator;
+package ca.bc.gov.nrs.csp.backend.submission.structural.schema;
 
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationError;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationProperties;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
+import ca.bc.gov.nrs.csp.backend.submission.structural.SubmissionValidationProperties;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -65,7 +65,7 @@ class SchemaValidatorTest {
   @Test
   void classpathLsInput_adapter_surface() throws Exception {
     Class<?> c = Class.forName(
-        "ca.bc.gov.nrs.csp.backend.submission.validator.SchemaValidator$ClasspathLsInput");
+        "ca.bc.gov.nrs.csp.backend.submission.structural.schema.SchemaValidator$ClasspathLsInput");
     var ctor = c.getDeclaredConstructor(String.class, String.class, String.class, InputStream.class);
     ctor.setAccessible(true);
     Object in = new ByteArrayInputStream(new byte[]{1});

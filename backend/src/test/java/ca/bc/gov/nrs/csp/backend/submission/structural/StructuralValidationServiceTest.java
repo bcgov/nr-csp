@@ -1,8 +1,10 @@
-package ca.bc.gov.nrs.csp.backend.submission;
+package ca.bc.gov.nrs.csp.backend.submission.structural;
 
-import ca.bc.gov.nrs.csp.backend.submission.parser.SubmissionEnvelopeStripper;
-import ca.bc.gov.nrs.csp.backend.submission.parser.SubmissionXmlParser;
-import ca.bc.gov.nrs.csp.backend.submission.validator.SchemaValidator;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationResult;
+import ca.bc.gov.nrs.csp.backend.submission.structural.parser.SubmissionEnvelopeStripper;
+import ca.bc.gov.nrs.csp.backend.submission.structural.parser.SubmissionXmlParser;
+import ca.bc.gov.nrs.csp.backend.submission.structural.schema.SchemaValidator;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -18,12 +20,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Drives the envelope stripper + schema validator + JAXB parser chain
  * end-to-end on canned XML fixtures. Dependencies are wired manually
  * (no Spring context) so the test stays fast and exercises the exact
- * pipeline the controller uses. {@link SubmissionValidationProperties}
- * defaults are already CSP-specific, so no overrides are needed.
+ * structural pipeline the orchestrator uses.
+ * {@link SubmissionValidationProperties} defaults are already
+ * CSP-specific, so no overrides are needed.
  */
-class SubmissionValidationServiceTest {
+class StructuralValidationServiceTest {
 
-  private static SubmissionValidationService service;
+  private static StructuralValidationService service;
 
   @BeforeAll
   static void wirePipeline() throws Exception {
@@ -35,7 +38,7 @@ class SubmissionValidationServiceTest {
     SubmissionXmlParser parser = new SubmissionXmlParser(props, schemaValidator);
     invokePostConstruct(parser, "initContext");
 
-    service = new SubmissionValidationService(new SubmissionEnvelopeStripper(props), parser);
+    service = new StructuralValidationService(new SubmissionEnvelopeStripper(props), parser);
   }
 
   /**

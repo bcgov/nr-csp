@@ -1,6 +1,6 @@
-package ca.bc.gov.nrs.csp.backend.submission.parser;
+package ca.bc.gov.nrs.csp.backend.submission.structural.parser;
 
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationProperties;
+import ca.bc.gov.nrs.csp.backend.submission.structural.SubmissionValidationProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

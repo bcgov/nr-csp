@@ -2,9 +2,9 @@ package ca.bc.gov.nrs.csp.backend.controller;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionValidationResponse;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationError;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationResult;
 import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationService;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

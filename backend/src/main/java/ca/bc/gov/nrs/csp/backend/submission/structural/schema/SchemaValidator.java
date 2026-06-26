@@ -1,7 +1,7 @@
-package ca.bc.gov.nrs.csp.backend.submission.validator;
+package ca.bc.gov.nrs.csp.backend.submission.structural.schema;
 
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationError;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationProperties;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
+import ca.bc.gov.nrs.csp.backend.submission.structural.SubmissionValidationProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

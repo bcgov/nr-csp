@@ -1,4 +1,4 @@
-package ca.bc.gov.nrs.csp.backend.submission;
+package ca.bc.gov.nrs.csp.backend.submission.structural;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The handful of values that make the otherwise application-agnostic
- * submission-validation pipeline specific to CSP. These are the
+ * structural submission-validation pipeline specific to CSP. These are the
  * parameters the shared-package design calls out as the only things a
  * consuming app must supply: the classpath location of its XSD bundle,
  * the JAXB context package generated from that bundle, and the

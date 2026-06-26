@@ -1,12 +1,12 @@
-package ca.bc.gov.nrs.csp.backend.submission;
+package ca.bc.gov.nrs.csp.backend.submission.shared;
 
 import java.util.List;
 
 /**
- * Outcome of structural (format + envelope + schema) validation of a
- * submission upload. Empty {@code errors} on success, populated and
- * blocking on failure. Business-rule validation (DB lookups, cross-field
- * rules) runs separately, after this passes.
+ * Outcome of validating a submission upload. Empty {@code errors} on
+ * success, populated and blocking on failure. Shared by both the
+ * structural (format + envelope + schema) and business-rule phases; the
+ * orchestrator merges the two into a single result.
  */
 public record SubmissionValidationResult(boolean valid, List<SubmissionValidationError> errors) {
 

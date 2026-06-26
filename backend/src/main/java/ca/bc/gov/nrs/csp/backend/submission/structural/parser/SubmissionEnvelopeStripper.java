@@ -1,6 +1,6 @@
-package ca.bc.gov.nrs.csp.backend.submission.parser;
+package ca.bc.gov.nrs.csp.backend.submission.structural.parser;
 
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationProperties;
+import ca.bc.gov.nrs.csp.backend.submission.structural.SubmissionValidationProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.w3c.dom.Document;
