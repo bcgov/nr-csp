@@ -37,9 +37,11 @@ public class CspSubmissionController implements CspSubmissionApi {
 
     @Override
     public ResponseEntity<SubmissionValidationResponse> validate(MultipartFile file) {
-        log.info("POST /api/submissions/validate file={} size={}",
-                file == null ? "<null>" : file.getOriginalFilename(),
-                file == null ? "<null>" : file.getSize());
+        // Do not log user-controlled values (e.g. the original filename) — they
+        // can carry forged/injected log content. Log only safe, derived facts.
+        log.info("POST /api/submissions/validate received file part: present={} size={}",
+                file != null && !file.isEmpty(),
+                file == null ? 0 : file.getSize());
 
         if (file == null || file.isEmpty()) {
             SubmissionValidationResponse body = new SubmissionValidationResponse(
