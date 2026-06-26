@@ -5,6 +5,8 @@ import ca.bc.gov.nrs.csp.backend.submission.parser.SubmissionXmlParser;
 import ca.bc.gov.nrs.csp.backend.submission.validator.SchemaValidator;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
@@ -36,36 +38,24 @@ class SubmissionValidationServiceTest {
     service = new SubmissionValidationService(new SubmissionEnvelopeStripper(props), parser);
   }
 
-  @Test
-  void accepts_esf_wrapped_submission() throws IOException {
-    SubmissionValidationResult result = service.validate(read("valid-esf-wrapped.xml"));
+  /**
+   * Every structurally valid submission must pass schema validation, whether it
+   * is ESF-wrapped or bare. {@code esf-wrapped-business-error.xml} is included
+   * deliberately: it only fails downstream business-rule checks (DB lookups,
+   * cross-invoice rules), which are out of scope here, so it must pass too —
+   * documenting the boundary between this package and business rules.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "valid-esf-wrapped.xml",
+      "valid-bare.xml",
+      "esf-wrapped-business-error.xml"
+  })
+  void accepts_structurally_valid_submission(String fixture) throws IOException {
+    SubmissionValidationResult result = service.validate(read(fixture));
 
     assertThat(result.errors())
-        .as("real ESF-wrapped CSP submission should pass schema validation")
-        .isEmpty();
-    assertThat(result.valid()).isTrue();
-  }
-
-  @Test
-  void accepts_bare_submission() throws IOException {
-    SubmissionValidationResult result = service.validate(read("valid-bare.xml"));
-
-    assertThat(result.errors())
-        .as("bare <csp:CSPSubmission> should be validated identically to the wrapped form")
-        .isEmpty();
-    assertThat(result.valid()).isTrue();
-  }
-
-  @Test
-  void business_error_file_is_structurally_valid() throws IOException {
-    // This sample fails downstream business-rule checks (DB lookups,
-    // cross-invoice rules), not structural validation. This pipeline only
-    // covers format/envelope/schema, so it must pass here — documenting
-    // the boundary between this package and business rules.
-    SubmissionValidationResult result = service.validate(read("esf-wrapped-business-error.xml"));
-
-    assertThat(result.errors())
-        .as("business-rule failures are out of scope for structural validation")
+        .as("structurally valid submission %s should pass schema validation", fixture)
         .isEmpty();
     assertThat(result.valid()).isTrue();
   }

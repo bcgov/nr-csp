@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,14 +22,12 @@ public interface CspSubmissionApi {
                     + "format detection, envelope stripping, and schema-bound JAXB validation. "
                     + "Returns 200 with valid=true when the submission passes, or 422 with the "
                     + "collected errors when it does not. Business-rule validation runs separately.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Submission is structurally valid",
-                    content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class))),
-            @ApiResponse(responseCode = "422", description = "Submission failed format/envelope/schema validation",
-                    content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Missing or unreadable file part",
-                    content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "Submission is structurally valid",
+            content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class)))
+    @ApiResponse(responseCode = "422", description = "Submission failed format/envelope/schema validation",
+            content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Missing or unreadable file part",
+            content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class)))
     @PostMapping(value = "/validate", consumes = "multipart/form-data")
     ResponseEntity<SubmissionValidationResponse> validate(
             @RequestParam(value = "file", required = false) MultipartFile file);

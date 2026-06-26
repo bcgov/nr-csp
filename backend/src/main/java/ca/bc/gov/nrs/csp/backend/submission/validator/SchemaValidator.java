@@ -55,19 +55,32 @@ public class SchemaValidator {
   void compileSchema() {
     try {
       SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-      try {
-        factory.setFeature(FEATURE_SCHEMA_FULL_CHECKING, false);
-      } catch (Exception featureFail) {
-        log.debug("SchemaFactory does not honour {}; will rely on default settings",
-            FEATURE_SCHEMA_FULL_CHECKING, featureFail);
-      }
+      disableFullSchemaChecking(factory);
       factory.setResourceResolver(new ClasspathLsResolver(props.getSchemaClasspathRoot()));
-      try (InputStream in = openClasspath(props.getEntrySchema())) {
-        this.schema = factory.newSchema(new StreamSource(in, props.getEntrySchema()));
-      }
+      this.schema = loadSchema(factory);
       log.info("CSP submission schema compiled from {}", props.getEntrySchema());
     } catch (Exception e) {
       throw new IllegalStateException("Failed to compile CSP submission schema bundle", e);
+    }
+  }
+
+  /**
+   * Best-effort disable of the XSD 1.0 fullSchemaChecking pass. Not every
+   * {@link SchemaFactory} honours the feature; falling back to defaults is fine.
+   */
+  private void disableFullSchemaChecking(SchemaFactory factory) {
+    try {
+      factory.setFeature(FEATURE_SCHEMA_FULL_CHECKING, false);
+    } catch (Exception featureFail) {
+      log.debug("SchemaFactory does not honour {}; will rely on default settings",
+          FEATURE_SCHEMA_FULL_CHECKING, featureFail);
+    }
+  }
+
+  /** Reads the entry schema off the classpath and compiles the bundle. */
+  private Schema loadSchema(SchemaFactory factory) throws IOException, SAXException {
+    try (InputStream in = openClasspath(props.getEntrySchema())) {
+      return factory.newSchema(new StreamSource(in, props.getEntrySchema()));
     }
   }
 
@@ -147,16 +160,14 @@ public class SchemaValidator {
       String[] parts = path.split("/");
       java.util.Deque<String> stack = new java.util.ArrayDeque<>();
       for (String p : parts) {
-        if (p.isEmpty() || ".".equals(p)) {
-          continue;
-        }
         if ("..".equals(p)) {
           if (!stack.isEmpty()) {
             stack.removeLast();
           }
-          continue;
+        } else if (!p.isEmpty() && !".".equals(p)) {
+          stack.addLast(p);
         }
-        stack.addLast(p);
+        // empty ("") and current-dir (".") segments are intentionally ignored
       }
       return String.join("/", stack);
     }
@@ -175,22 +186,25 @@ public class SchemaValidator {
       this.byteStream = byteStream;
     }
 
+    // This is a read-only adapter over a classpath resource: it exposes the
+    // resource's byte stream only. All other LSInput properties are fixed at
+    // construction (or unused), so their setters are intentional no-ops.
     @Override public InputStream getByteStream() { return byteStream; }
     @Override public void setByteStream(InputStream byteStream) { this.byteStream = byteStream; }
     @Override public String getPublicId() { return publicId; }
-    @Override public void setPublicId(String publicId) { /* immutable */ }
+    @Override public void setPublicId(String publicId) { /* immutable: set via constructor */ }
     @Override public String getSystemId() { return systemId; }
-    @Override public void setSystemId(String systemId) { /* immutable */ }
+    @Override public void setSystemId(String systemId) { /* immutable: set via constructor */ }
     @Override public String getBaseURI() { return baseURI; }
-    @Override public void setBaseURI(String baseURI) { /* immutable */ }
+    @Override public void setBaseURI(String baseURI) { /* immutable: set via constructor */ }
     @Override public java.io.Reader getCharacterStream() { return null; }
-    @Override public void setCharacterStream(java.io.Reader characterStream) { }
+    @Override public void setCharacterStream(java.io.Reader characterStream) { /* unused: classpath inputs are byte streams only */ }
     @Override public String getStringData() { return null; }
-    @Override public void setStringData(String stringData) { }
+    @Override public void setStringData(String stringData) { /* unused: classpath inputs are byte streams only */ }
     @Override public String getEncoding() { return null; }
-    @Override public void setEncoding(String encoding) { }
+    @Override public void setEncoding(String encoding) { /* unused: classpath inputs are byte streams only */ }
     @Override public boolean getCertifiedText() { return false; }
-    @Override public void setCertifiedText(boolean certifiedText) { }
+    @Override public void setCertifiedText(boolean certifiedText) { /* unused: not applicable to classpath inputs */ }
   }
 
   private static final class CollectingErrorHandler implements ErrorHandler {
