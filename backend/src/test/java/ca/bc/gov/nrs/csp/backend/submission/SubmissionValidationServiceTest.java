@@ -99,6 +99,42 @@ class SubmissionValidationServiceTest {
   }
 
   @Test
+  void rejects_null_bytes() {
+    SubmissionValidationResult result = service.validate(null);
+
+    assertThat(result.valid()).isFalse();
+    assertThat(result.errors().get(0).code()).isEqualTo("FORMAT_UNRECOGNIZED");
+  }
+
+  @Test
+  void detects_xml_after_leading_whitespace() {
+    // Leading whitespace before the first '<' must be skipped by the sniff and
+    // treated as XML (not FORMAT_UNRECOGNIZED).
+    byte[] raw = "   \n\t<csp:CSPSubmission xmlns:csp=\"http://www.for.gov.bc.ca/schema/csp\"/>"
+        .getBytes();
+
+    SubmissionValidationResult result = service.validate(raw);
+
+    assertThat(result.errors())
+        .noneMatch(e -> e.code().equals("FORMAT_UNRECOGNIZED"));
+  }
+
+  @Test
+  void accepts_bom_prefixed_xml() throws IOException {
+    // A UTF-8 BOM must be skipped by the format sniff and tolerated by the parser.
+    byte[] body = read("valid-bare.xml");
+    byte[] bom = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+    byte[] withBom = new byte[bom.length + body.length];
+    System.arraycopy(bom, 0, withBom, 0, bom.length);
+    System.arraycopy(body, 0, withBom, bom.length, body.length);
+
+    SubmissionValidationResult result = service.validate(withBom);
+
+    assertThat(result.errors()).isEmpty();
+    assertThat(result.valid()).isTrue();
+  }
+
+  @Test
   void rejects_non_xml_payload() {
     SubmissionValidationResult result = service.validate("{\"not\":\"xml\"}".getBytes());
 
