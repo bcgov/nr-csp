@@ -17,6 +17,9 @@ parameters:
   - name: SPRING_DATASOURCE_PASSWORD
     description: Oracle database password
     required: true
+  - name: KEYSTORE_SECRET
+    description: Secret used by the Oracle wallet init container
+    required: true
   - name: JASPER_SERVER_USERNAME
     description: Jasper Reports server username
     value: ""
@@ -25,6 +28,12 @@ parameters:
     value: ""
 
   # ── Backend config ────────────────────────────────────────
+  - name: DATABASE_HOST
+    description: Oracle DB hostname used by the wallet init container
+    required: true
+  - name: DATABASE_SERVICE_NAME
+    description: Oracle service name
+    required: true
   - name: SPRING_PROFILES_ACTIVE
     description: Active Spring profile
     value: prod
@@ -46,6 +55,14 @@ parameters:
   - name: AUTH_MOCK_ROLES
     description: Comma-separated roles injected when AUTH_MOCK_ENABLED=true
     value: ""
+  - name: JASPER_SERVER_LOGIN_URL
+    value: ""
+  - name: JASPER_SERVER_FETCH_URL
+    value: ""
+  - name: JASPER_SERVER_PUT_URL
+    value: ""
+  - name: JASPER_SERVER_REPORT_URI_BASE
+    value: ""
 
 objects:
   # ── Backend Secret ────────────────────────────────────────
@@ -60,6 +77,7 @@ objects:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      KEYSTORE_SECRET: ${KEYSTORE_SECRET}
       JASPER_SERVER_USERNAME: ${JASPER_SERVER_USERNAME}
       JASPER_SERVER_PASSWORD: ${JASPER_SERVER_PASSWORD}
 
@@ -71,6 +89,8 @@ objects:
       labels:
         app: ${NAME}-${ZONE}
     data:
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_SERVICE_NAME: ${DATABASE_SERVICE_NAME}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JAVA_OPTS: ${JAVA_OPTS}
       JWT_JWKS_URI: ${JWT_JWKS_URI}
@@ -78,6 +98,10 @@ objects:
       JWT_AUDIENCE: ${JWT_AUDIENCE}
       AUTH_MOCK_ENABLED: ${AUTH_MOCK_ENABLED}
       AUTH_MOCK_ROLES: ${AUTH_MOCK_ROLES}
+      JASPER_SERVER_LOGIN_URL: ${JASPER_SERVER_LOGIN_URL}
+      JASPER_SERVER_FETCH_URL: ${JASPER_SERVER_FETCH_URL}
+      JASPER_SERVER_PUT_URL: ${JASPER_SERVER_PUT_URL}
+      JASPER_SERVER_REPORT_URI_BASE: ${JASPER_SERVER_REPORT_URI_BASE}
 
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy

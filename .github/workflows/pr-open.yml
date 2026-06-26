@@ -50,11 +50,18 @@ jobs:
       spring_datasource_url: ${{ secrets.spring_datasource_url }}
       spring_datasource_username: ${{ secrets.spring_datasource_username }}
       spring_datasource_password: ${{ secrets.spring_datasource_password }}
+      keystore_secret: ${{ secrets.keystore_secret }}
       jasper_server_username: ${{ secrets.jasper_server_username }}
       jasper_server_password: ${{ secrets.jasper_server_password }}
+      database_host: ${{ secrets.database_host }}
+      database_service_name: ${{ secrets.database_service_name }}
       jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
       jwt_issuer: ${{ secrets.jwt_issuer }}
       jwt_audience: ${{ secrets.jwt_audience }}
+      jasper_server_login_url: ${{ secrets.jasper_server_login_url }}
+      jasper_server_fetch_url: ${{ secrets.jasper_server_fetch_url }}
+      jasper_server_put_url: ${{ secrets.jasper_server_put_url }}
+      jasper_server_report_uri_base: ${{ secrets.jasper_server_report_uri_base }}
     with:
       target: ${{ github.event.number }}
       triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/')
