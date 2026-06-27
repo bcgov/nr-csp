@@ -6,6 +6,24 @@ server:
   servlet:
     context-path: /
 
+# ===================================================================
+# CSP submission XML validation
+# These parameters make the otherwise application-agnostic validation
+# pipeline specific to CSP. Defaults live in
+# SubmissionValidationProperties; listed here for visibility/override.
+# ===================================================================
+csp:
+  submission:
+    validation:
+      schema-classpath-root: schemas/csp/
+      entry-schema: schemas/csp/mof-csp.xsd
+      jaxb-context-path: ca.bc.gov.nrs.csp.backend.submission.generated
+      envelope-namespace: http://www.for.gov.bc.ca/schema/esf
+      envelope-root: ESFSubmission
+      envelope-content-element: submissionContent
+      body-namespace: http://www.for.gov.bc.ca/schema/csp
+      body-root: CSPSubmission
+
 springdoc:
   api-docs:
     path: /api/v3/api-docs
