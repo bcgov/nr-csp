@@ -46,6 +46,8 @@ RUN apt-get update && \
 
 COPY --from=build --chown=appuser:appgroup /app/target/*.jar app.jar
 COPY --from=jre-with-cert $JAVA_HOME/lib/security/cacerts $JAVA_HOME/lib/security/cacerts
+RUN printf 'jdk.tls.disabledAlgorithms=SSLv3, RC4, DES, MD5withRSA, \\\n    DH keySize < 512, EC keySize < 128, anon, NULL\n' \
+    > /app/tls-legacy.security
 
 USER appuser
 
@@ -57,4 +59,4 @@ EXPOSE 8080
 
 # 'exec' replaces the shell with the Java process so it becomes PID 1 and
 # receives SIGTERM directly from Docker, enabling graceful shutdown.
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Djava.security.properties=/app/tls-legacy.security -jar /app/app.jar"]
