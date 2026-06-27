@@ -9,7 +9,7 @@ parameters:
     required: true
   # ── Backend secrets ───────────────────────────────────────
   - name: SPRING_DATASOURCE_URL
-    description: "Oracle JDBC URL using TCPS descriptor form so Oracle JDBC applies the wallet for SSL. e.g. jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=hostname)(PORT=port))(CONNECT_DATA=(SERVICE_NAME=SERVICE)))"
+    description: "Full Oracle JDBC URL, e.g. jdbc:oracle:thin:@//host:1543/SERVICE"
     required: true
   - name: SPRING_DATASOURCE_USERNAME
     description: Oracle database username

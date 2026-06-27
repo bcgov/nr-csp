@@ -66,7 +66,6 @@ objects:
           securityContext:
             runAsNonRoot: true
           initContainers:
-            # Extract the Oracle server cert and write /cert/jssecacerts (JKS format)
             - name: ${NAME}-backend-init
               image: ghcr.io/bcgov/nr-forest-client/common:prod
               imagePullPolicy: Always
@@ -97,49 +96,6 @@ objects:
                   cpu: "500m"
                   memory: "500Mi"
                   ephemeral-storage: "100Mi"
-              securityContext:
-                allowPrivilegeEscalation: false
-                runAsNonRoot: true
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop: ["ALL"]
-            # Convert the JKS truststore to PKCS12 (ewallet.p12) so Oracle JDBC
-            # can initialise its SSL key-manager in Oracle-SSL mode (4=TRUE).
-            # Uses the same password as jssecacerts so Oracle JDBC can open it.
-            - name: ${NAME}-backend-wallet-convert
-              image: eclipse-temurin:21-jre-jammy
-              imagePullPolicy: IfNotPresent
-              command:
-                - sh
-                - -c
-                - |
-                  keytool -importkeystore \
-                    -srckeystore /cert/jssecacerts \
-                    -srcstoretype JKS \
-                    -srcstorepass "${ORACLEDB_SECRET}" \
-                    -destkeystore /cert/ewallet.p12 \
-                    -deststoretype PKCS12 \
-                    -deststorepass "${ORACLEDB_SECRET}" \
-                    -noprompt \
-                  && echo "ewallet.p12 created"
-              env:
-                - name: ORACLEDB_SECRET
-                  valueFrom:
-                    secretKeyRef:
-                      name: ${NAME}-${ZONE}-backend
-                      key: KEYSTORE_SECRET
-              volumeMounts:
-                - name: api-cert
-                  mountPath: /cert
-                - name: init-tmp
-                  mountPath: /tmp
-              resources:
-                requests:
-                  cpu: "50m"
-                  memory: "128Mi"
-                limits:
-                  cpu: "200m"
-                  memory: "256Mi"
               securityContext:
                 allowPrivilegeEscalation: false
                 runAsNonRoot: true

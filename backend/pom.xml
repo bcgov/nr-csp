@@ -22,7 +22,7 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <jjwt.version>0.12.6</jjwt.version>
         <jwks-rsa.version>0.22.1</jwks-rsa.version>
-        <ojdbc.version>21.13.0.0</ojdbc.version>
+        <ojdbc.version>23.3.0.23.09</ojdbc.version>
         <jasperreports.version>7.0.4</jasperreports.version>
         <testcontainers.version>1.20.4</testcontainers.version>
         <sonar.coverage.exclusions>
@@ -111,13 +111,6 @@
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc11</artifactId>
-            <version>${ojdbc.version}</version>
-        </dependency>
-        <!-- Oracle PKI / SSO wallet support (required for cwallet.sso with TCPS).
-             oraclepki pulls in osdt_core and osdt_cert transitively. -->
-        <dependency>
-            <groupId>com.oracle.database.security</groupId>
-            <artifactId>oraclepki</artifactId>
             <version>${ojdbc.version}</version>
         </dependency>
 
