@@ -19,13 +19,19 @@ public class DataSourceConfig {
     @Value("${spring.datasource.username}") String username,
     @Value("${spring.datasource.password}") String password,
     @Value("${spring.datasource.driver-class-name:oracle.jdbc.OracleDriver}") String driverClass) {
-    DataSource base = DataSourceBuilder.create()
+    HikariDataSource ds = DataSourceBuilder.create()
       .type(HikariDataSource.class)
       .url(url)
       .username(username)
       .password(password)
       .driverClassName(driverClass)
       .build();
-    return new ValidatingDataSource(base);
+    // Pass wallet password as a connection property (not a -D JVM flag) so it stays
+    // off the process table and out of JMX/thread dumps.
+    String walletPassword = System.getenv("KEYSTORE_SECRET");
+    if (walletPassword != null && !walletPassword.isEmpty()) {
+      ds.addDataSourceProperty("oracle.net.wallet_password", walletPassword);
+    }
+    return new ValidatingDataSource(ds);
   }
 }

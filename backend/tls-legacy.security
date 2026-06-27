@@ -1,0 +1,7 @@
+# Override Java 21 TLS defaults for nrcdb03.bcgov Oracle DB server.
+# The server uses legacy TLS protocol versions and cipher suites (TLSv1/1.1,
+# 3DES-CBC) that Java 21 disables by default.  This file is loaded via
+# -Djava.security.properties in the ENTRYPOINT and REPLACES (not appends)
+# the listed property, leaving all other java.security settings unchanged.
+jdk.tls.disabledAlgorithms=SSLv3, RC4, DES, MD5withRSA, \
+    DH keySize < 512, EC keySize < 128, anon, NULL
