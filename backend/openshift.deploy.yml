@@ -66,29 +66,6 @@ objects:
           securityContext:
             runAsNonRoot: true
           initContainers:
-            # Remove stale wallet files so Oracle JDBC does not try to parse them.
-            # Without cwallet.sso/ewallet.p12, Oracle JDBC uses Oracle SSL mode (4=TRUE)
-            # with its own cipher suite selection compatible with the old Oracle server.
-            - name: ${NAME}-backend-cert-cleanup
-              image: alpine:3
-              imagePullPolicy: IfNotPresent
-              command: ["sh", "-c", "rm -f /cert/ewallet.p12 /cert/sqlnet.ora && echo 'Cleaned up stale wallet files'"]
-              volumeMounts:
-                - name: api-cert
-                  mountPath: /cert
-              resources:
-                requests:
-                  cpu: "50m"
-                  memory: "32Mi"
-                limits:
-                  cpu: "100m"
-                  memory: "64Mi"
-              securityContext:
-                allowPrivilegeEscalation: false
-                runAsNonRoot: true
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop: ["ALL"]
             # Extract the Oracle server cert and write /cert/jssecacerts (JKS format)
             - name: ${NAME}-backend-init
               image: ghcr.io/bcgov/nr-forest-client/common:prod
