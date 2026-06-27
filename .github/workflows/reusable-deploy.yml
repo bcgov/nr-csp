@@ -143,7 +143,7 @@ jobs:
               -p COGNITO_USER_POOL_CLIENT_ID='${{ vars.cognito_user_pool_client_id }}'
               -p COGNITO_DOMAIN='${{ vars.cognito_domain }}'
               -p COGNITO_OAUTH_SCOPES='${{ vars.cognito_oauth_scopes }}'
-              -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca/'
+              -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca'
               -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca/logout'
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
