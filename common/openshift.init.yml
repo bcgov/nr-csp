@@ -39,7 +39,7 @@ parameters:
     value: prod
   - name: JAVA_OPTS
     description: JVM options
-    value: "-XX:MaxRAMPercentage=75.0 -XX:+UseContainerSupport -Doracle.net.tns_admin=/cert -Doracle.net.wallet_location=/cert"
+    value: "-XX:MaxRAMPercentage=75.0 -XX:+UseContainerSupport -Djavax.net.ssl.trustStore=/cert/jssecacerts -Doracle.net.ssl_server_dn_match=false"
   - name: JWT_JWKS_URI
     description: JWKS endpoint for JWT validation
     value: ""
@@ -91,7 +91,6 @@ objects:
     data:
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_SERVICE_NAME: ${DATABASE_SERVICE_NAME}
-      TNS_ADMIN: /cert
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JAVA_OPTS: ${JAVA_OPTS}
       JWT_JWKS_URI: ${JWT_JWKS_URI}
