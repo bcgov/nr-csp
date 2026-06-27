@@ -57,4 +57,4 @@ EXPOSE 8080
 
 # 'exec' replaces the shell with the Java process so it becomes PID 1 and
 # receives SIGTERM directly from Docker, enabling graceful shutdown.
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Doracle.net.wallet_password=$KEYSTORE_SECRET -jar /app/app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Doracle.net.tns_admin=/cert -Doracle.net.wallet_location=/cert -jar /app/app.jar"]

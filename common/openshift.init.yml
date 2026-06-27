@@ -39,7 +39,7 @@ parameters:
     value: prod
   - name: JAVA_OPTS
     description: JVM options
-    value: "-XX:MaxRAMPercentage=75.0 -XX:+UseContainerSupport -Doracle.net.tns_admin=/cert -Doracle.net.wallet_location=/cert"
+    value: "-XX:MaxRAMPercentage=75.0 -XX:+UseContainerSupport"
   - name: JWT_JWKS_URI
     description: JWKS endpoint for JWT validation
     value: ""
