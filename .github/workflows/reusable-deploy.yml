@@ -135,7 +135,16 @@ jobs:
             parameters: -p IMAGE_TAG="${{ inputs.tag }}"
           - name: frontend
             file: frontend/openshift.deploy.yml
-            parameters: -p IMAGE_TAG="${{ inputs.tag }}"
+            parameters: >-
+              -p IMAGE_TAG='${{ inputs.tag }}'
+              -p APP_ENV='${{ vars.app_env }}'
+              -p COGNITO_REGION='${{ vars.cognito_region }}'
+              -p COGNITO_USER_POOL_ID='${{ vars.cognito_user_pool_id }}'
+              -p COGNITO_USER_POOL_CLIENT_ID='${{ vars.cognito_user_pool_client_id }}'
+              -p COGNITO_DOMAIN='${{ vars.cognito_domain }}'
+              -p COGNITO_OAUTH_SCOPES='${{ vars.cognito_oauth_scopes }}'
+              -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca/'
+              -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca/logout'
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     steps:

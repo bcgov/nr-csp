@@ -31,14 +31,6 @@ jobs:
           triggers: ('${{ matrix.package }}/', '.github/workflows/')
           build_args: |
             BUILDKIT_INLINE_CACHE=1
-            APP_ENV=development
-            COGNITO_REGION=${{ vars.cognito_region }}
-            COGNITO_USER_POOL_ID=${{ vars.cognito_user_pool_id }}
-            COGNITO_USER_POOL_CLIENT_ID=${{ vars.cognito_user_pool_client_id }}
-            COGNITO_DOMAIN=${{ vars.cognito_domain }}
-            COGNITO_OAUTH_SCOPES=${{ vars.cognito_oauth_scopes }}
-            COGNITO_REDIRECT_SIGN_IN=https://${{ github.event.repository.name }}-${{ github.event.number }}.apps.gold.devops.gov.bc.ca/
-            COGNITO_REDIRECT_SIGN_OUT=https://${{ github.event.repository.name }}-${{ github.event.number }}.apps.gold.devops.gov.bc.ca/logout
             VITE_MOCK_USER=${{ vars.vite_mock_user }}
             VITE_FAM_CLIENT_ID=${{ vars.vite_fam_client_id }}
 
