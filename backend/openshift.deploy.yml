@@ -66,6 +66,7 @@ objects:
           securityContext:
             runAsNonRoot: true
           initContainers:
+            # Step 1: Extract the Oracle server cert and write /cert/jssecacerts (JKS format)
             - name: ${NAME}-backend-init
               image: ghcr.io/bcgov/nr-forest-client/common:prod
               imagePullPolicy: Always
@@ -95,6 +96,51 @@ objects:
                 limits:
                   cpu: "500m"
                   memory: "500Mi"
+                  ephemeral-storage: "100Mi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+            # Step 2: Convert jssecacerts (JKS) → ewallet.p12 (PKCS12) so Oracle JDBC can
+            # use Oracle-SSL-socket-factory mode (socket option 4=TRUE) which the DB requires.
+            # Also writes sqlnet.ora so oracle.net.tns_admin picks up SSL parameters.
+            - name: ${NAME}-backend-wallet-convert
+              image: eclipse-temurin:21-jre-jammy
+              imagePullPolicy: IfNotPresent
+              command: ["sh", "-c"]
+              args:
+                - |
+                  keytool -importkeystore \
+                    -srckeystore /cert/jssecacerts \
+                    -srcstoretype JKS \
+                    -srcstorepass "$ORACLEDB_SECRET" \
+                    -destkeystore /cert/ewallet.p12 \
+                    -deststoretype PKCS12 \
+                    -deststorepass "$ORACLEDB_SECRET" \
+                    -noprompt && echo "Created /cert/ewallet.p12"
+                  printf 'SSL_SERVER_DN_MATCH = OFF\nSSL_VERSION = 1.2\n' > /cert/sqlnet.ora
+                  echo "Created /cert/sqlnet.ora"
+              env:
+                - name: ORACLEDB_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-${ZONE}-backend
+                      key: KEYSTORE_SECRET
+              volumeMounts:
+                - name: api-cert
+                  mountPath: /cert
+                - name: wallet-convert-tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                  ephemeral-storage: "50Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "512Mi"
                   ephemeral-storage: "100Mi"
               securityContext:
                 allowPrivilegeEscalation: false
@@ -173,6 +219,8 @@ objects:
             - name: app-tmp
               emptyDir: {}
             - name: init-tmp
+              emptyDir: {}
+            - name: wallet-convert-tmp
               emptyDir: {}
 
   # ── Service ───────────────────────────────────────────────
