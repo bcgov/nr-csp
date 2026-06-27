@@ -100,23 +100,23 @@ jobs:
           oc_token: ${{ secrets.oc_token }}
           overwrite: true
           parameters:
-            -p ZONE="${{ inputs.target }}"
-            -p NAME="${{ github.event.repository.name }}"
-            -p SPRING_DATASOURCE_URL="${{ secrets.spring_datasource_url }}"
-            -p SPRING_DATASOURCE_USERNAME="${{ secrets.spring_datasource_username }}"
-            -p SPRING_DATASOURCE_PASSWORD="${{ secrets.spring_datasource_password }}"
-            -p KEYSTORE_SECRET="${{ secrets.keystore_secret }}"
-            -p JASPER_SERVER_USERNAME="${{ secrets.jasper_server_username }}"
-            -p JASPER_SERVER_PASSWORD="${{ secrets.jasper_server_password }}"
-            -p DATABASE_HOST="${{ secrets.database_host }}"
-            -p DATABASE_SERVICE_NAME="${{ secrets.database_service_name }}"
-            -p JWT_JWKS_URI="${{ secrets.jwt_jwks_uri }}"
-            -p JWT_ISSUER="${{ secrets.jwt_issuer }}"
-            -p JWT_AUDIENCE="${{ secrets.jwt_audience }}"
-            -p JASPER_SERVER_LOGIN_URL="${{ secrets.jasper_server_login_url }}"
-            -p JASPER_SERVER_FETCH_URL="${{ secrets.jasper_server_fetch_url }}"
-            -p JASPER_SERVER_PUT_URL="${{ secrets.jasper_server_put_url }}"
-            -p JASPER_SERVER_REPORT_URI_BASE="${{ secrets.jasper_server_report_uri_base }}"
+            -p ZONE='${{ inputs.target }}'
+            -p NAME='${{ github.event.repository.name }}'
+            -p SPRING_DATASOURCE_URL='${{ secrets.spring_datasource_url }}'
+            -p SPRING_DATASOURCE_USERNAME='${{ secrets.spring_datasource_username }}'
+            -p SPRING_DATASOURCE_PASSWORD='${{ secrets.spring_datasource_password }}'
+            -p KEYSTORE_SECRET='${{ secrets.keystore_secret }}'
+            -p JASPER_SERVER_USERNAME='${{ secrets.jasper_server_username }}'
+            -p JASPER_SERVER_PASSWORD='${{ secrets.jasper_server_password }}'
+            -p DATABASE_HOST='${{ secrets.database_host }}'
+            -p DATABASE_SERVICE_NAME='${{ secrets.database_service_name }}'
+            -p JWT_JWKS_URI='${{ secrets.jwt_jwks_uri }}'
+            -p JWT_ISSUER='${{ secrets.jwt_issuer }}'
+            -p JWT_AUDIENCE='${{ secrets.jwt_audience }}'
+            -p JASPER_SERVER_LOGIN_URL='${{ secrets.jasper_server_login_url }}'
+            -p JASPER_SERVER_FETCH_URL='${{ secrets.jasper_server_fetch_url }}'
+            -p JASPER_SERVER_PUT_URL='${{ secrets.jasper_server_put_url }}'
+            -p JASPER_SERVER_REPORT_URI_BASE='${{ secrets.jasper_server_report_uri_base }}'
           triggers: ${{ inputs.triggers }}
           debug: true
 
