@@ -36,9 +36,14 @@ export const searchInbox = (params: InboxSearchParams): Promise<PageResponse<Inb
   return apiClient.get<PageResponse<InboxRowResponse>>('/inbox', { params: cleanParams }).then(({ data }) => data);
 };
 
+// The inbox shows live submission/invoice status across users; override the
+// global 3h cache to always refetch on mount and window focus.
 export const useInboxSearchQuery = (params: InboxSearchParams, enabled: boolean) =>
   useQuery({
     queryKey: ['inbox', params],
     queryFn: () => searchInbox(params),
     enabled,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
