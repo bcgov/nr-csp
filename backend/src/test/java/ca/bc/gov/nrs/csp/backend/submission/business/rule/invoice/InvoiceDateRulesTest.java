@@ -9,23 +9,31 @@ import org.junit.jupiter.api.Test;
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Template for testing an invoice rule: call the rule's method directly, build a
- * context, assert on the collector. {@code dateNotInFuture} (I39) needs no mocks.
+ * context, assert on the collector. A fixed {@link Clock} pins "today" so the
+ * date check (I39) is deterministic.
  */
 class InvoiceDateRulesTest {
 
-  private final InvoiceDateRules rules = new InvoiceDateRules();
+  private static final ZoneId ZONE = ZoneId.of("America/Vancouver");
+  private static final LocalDate TODAY = LocalDate.of(2024, Month.JUNE, 15);
+
+  private final InvoiceDateRules rules =
+      new InvoiceDateRules(Clock.fixed(TODAY.atStartOfDay(ZONE).toInstant(), ZONE));
 
   @Test
   void dateNotInFuture_errors_when_in_the_future() throws Exception {
     ValidationCollector collector = new ValidationCollector();
 
-    rules.dateNotInFuture(context(collector, LocalDate.now().plusDays(1)));
+    rules.dateNotInFuture(context(collector, TODAY.plusDays(1)));
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.date.in.future.error");
@@ -36,8 +44,8 @@ class InvoiceDateRulesTest {
   void dateNotInFuture_passes_for_today_and_past() throws Exception {
     ValidationCollector collector = new ValidationCollector();
 
-    rules.dateNotInFuture(context(collector, LocalDate.now()));
-    rules.dateNotInFuture(context(collector, LocalDate.now().minusDays(5)));
+    rules.dateNotInFuture(context(collector, TODAY));
+    rules.dateNotInFuture(context(collector, TODAY.minusDays(5)));
 
     assertThat(collector.entries()).isEmpty();
   }

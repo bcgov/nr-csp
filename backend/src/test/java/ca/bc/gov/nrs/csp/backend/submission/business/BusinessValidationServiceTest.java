@@ -20,7 +20,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,10 +41,14 @@ class BusinessValidationServiceTest {
   @Mock
   ReferenceDataService referenceData;
 
+  private static final ZoneId ZONE = ZoneId.of("America/Vancouver");
+  private static final LocalDate TODAY = LocalDate.of(2024, Month.JUNE, 15);
+  private static final Clock CLOCK = Clock.fixed(TODAY.atStartOfDay(ZONE).toInstant(), ZONE);
+
   private BusinessValidationService service() {
     return new BusinessValidationService(
         List.of(new SubmissionRules()),
-        List.of(new InvoiceDateRules()),
+        List.of(new InvoiceDateRules(CLOCK)),
         List.of(new LineItemRules()),
         new SubmitterResolver(),
         new IdentifierNormalizer(),
@@ -53,8 +60,8 @@ class BusinessValidationServiceTest {
     given(referenceData.clientLocationExists(any(), any())).willReturn(true);
 
     CSPSubmissionType submission = submissionWith(
-        invoice("INV-GOOD", LocalDate.now().minusDays(1), "Z"),
-        invoice("INV-BAD", LocalDate.now().plusDays(1), "A"));
+        invoice("INV-GOOD", TODAY.minusDays(1), "Z"),
+        invoice("INV-BAD", TODAY.plusDays(1), "A"));
 
     BusinessValidationOutcome outcome = service().validate(submission);
 
@@ -74,7 +81,7 @@ class BusinessValidationServiceTest {
     given(referenceData.clientLocationExists(any(), any())).willReturn(false);
 
     CSPSubmissionType submission = submissionWith(
-        invoice("INV-1", LocalDate.now().minusDays(1), "A"));
+        invoice("INV-1", TODAY.minusDays(1), "A"));
 
     BusinessValidationOutcome outcome = service().validate(submission);
 

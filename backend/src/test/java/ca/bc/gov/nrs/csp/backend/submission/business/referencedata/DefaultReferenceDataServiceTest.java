@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,7 +31,7 @@ class DefaultReferenceDataServiceTest {
 
   @InjectMocks DefaultReferenceDataService service;
 
-  private static final LocalDate DATE = LocalDate.of(2024, 1, 15);
+  private static final LocalDate DATE = LocalDate.of(2024, Month.JANUARY, 15);
 
   @Test
   void delegates_client_location_lookup() {
