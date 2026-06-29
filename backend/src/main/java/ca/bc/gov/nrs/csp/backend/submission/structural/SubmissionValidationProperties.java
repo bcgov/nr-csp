@@ -49,4 +49,13 @@ public class SubmissionValidationProperties {
 
   /** Local name of the bare application submission body root element. */
   private String bodyRoot = "CSPSubmission";
+
+  /**
+   * Whether the business-rule phase runs after structural validation passes.
+   * Default false: the rules and their {@code ReferenceDataService} are still
+   * being implemented, so the live endpoint stays structural-only until this is
+   * turned on. Flip to true (or set
+   * {@code csp.submission.validation.business-rules-enabled=true}) once ready.
+   */
+  private boolean businessRulesEnabled = true;
 }

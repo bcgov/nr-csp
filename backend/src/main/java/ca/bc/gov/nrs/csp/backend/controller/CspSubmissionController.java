@@ -78,19 +78,22 @@ public class CspSubmissionController implements CspSubmissionApi {
      * {@code args}, and the parser message in {@code message}.
      */
     private SubmissionValidationResponse toResponse(SubmissionValidationResult result) {
-        if (result.valid()) {
-            return new SubmissionValidationResponse(true, "OK", "Submission is valid", List.of());
-        }
-        List<ValidationMessageResponse> errors = result.errors().stream()
+        // Include all messages either way: a valid result may still carry
+        // non-blocking warnings from the business phase.
+        List<ValidationMessageResponse> messages = result.errors().stream()
                 .map(this::toMessageResponse)
                 .toList();
+        if (result.valid()) {
+            return new SubmissionValidationResponse(true, "OK", "Submission is valid", messages);
+        }
         return new SubmissionValidationResponse(
-                false, "VALIDATION_ERROR", "Submission failed validation", errors);
+                false, "VALIDATION_ERROR", "Submission failed validation", messages);
     }
 
     private ValidationMessageResponse toMessageResponse(SubmissionValidationError err) {
         Object[] args = err.path() == null ? null : new Object[]{err.path()};
-        return new ValidationMessageResponse(
-                err.code(), args, MessageType.ERROR.name(), err.message());
+        // Carry the message's own severity (ERROR / WARNING) through to the response.
+        String type = err.severity() == null ? MessageType.ERROR.name() : err.severity().name();
+        return new ValidationMessageResponse(err.code(), args, type, err.message());
     }
 }
