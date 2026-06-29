@@ -1,32 +1,39 @@
-import { Grid, Column, Link, Loading, InlineNotification } from '@carbon/react';
 import { ArrowLeft } from '@carbon/icons-react';
+import { Grid, Column, Link, Loading } from '@carbon/react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import DetailSection, { type DetailItem } from '@/components/core/DetailSection';
 import PageTitle from '@/components/core/PageTitle';
+import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import { ROUTES } from '@/routes/routePaths';
-import { formatShortDate } from '@/utils/format';
 import {
   type SubmissionInvoiceResponse,
   type SubmissionLineItemResponse,
   useSubmissionDetailQuery,
 } from '@/services/submissionHistory.service';
+import { formatCurrency, formatNumber, formatShortDate } from '@/utils/format';
 
+import InvoiceDetailPanel from './InvoiceDetailPanel';
 import './index.scss';
 
-const fixed = (value: number | null, decimals: number): string =>
-  value === null || value === undefined ? '—' : Number(value).toFixed(decimals);
+type InvoiceRow = SubmissionInvoiceResponse & { id: string; lineItemCount: number };
 
-type InvoiceRow = SubmissionInvoiceResponse & { id: string };
-type LineItemRow = SubmissionLineItemResponse & { id: string };
+/** Strips a leading "mailto:" so the email displays as a plain address. */
+const cleanEmail = (email: string | null): string | null => (email ? email.replace(/^mailto:/i, '') : email);
+
+/** "n thing" / "n things" — keeps the summary line grammatical. */
+const pluralize = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
 export function ViewSubmissionPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const { data, isLoading, isError, error } = useSubmissionDetailQuery(id);
+
+  const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
 
   const apiErrorMessage = (() => {
     if (!isError) return null;
@@ -35,11 +42,9 @@ export function ViewSubmissionPage() {
     return axiosError?.response?.data?.message ?? 'Failed to load the submission. Please try again.';
   })();
 
-  const isRejected = (data?.submissionStatus ?? '').toLowerCase().includes('reject');
-
   const metadataItems: DetailItem[] = data
     ? [
-        { label: 'Email Address', value: data.email },
+        { label: 'Email Address', value: cleanEmail(data.email) },
         { label: 'Telephone Number', value: data.telephone },
       ]
     : [];
@@ -58,15 +63,40 @@ export function ViewSubmissionPage() {
       ]
     : [];
 
+  // Line items grouped by their parent invoice number, so each expanded row
+  // can render only its own lines and the table can show a per-invoice count.
+  const lineItemsByInvoice = useMemo(() => {
+    const map = new Map<string, SubmissionLineItemResponse[]>();
+    (data?.lineItems ?? []).forEach((li) => {
+      const key = li.invoiceNumber ?? '';
+      const group = map.get(key) ?? [];
+      group.push(li);
+      map.set(key, group);
+    });
+    return map;
+  }, [data]);
+
   const invoiceRows: InvoiceRow[] = (data?.invoices ?? []).map((inv, i) => ({
     ...inv,
     id: inv.coastalLogSaleId?.toString() ?? `inv-${i}`,
+    lineItemCount: (lineItemsByInvoice.get(inv.invoiceNumber ?? '') ?? []).length,
   }));
 
-  const lineItemRows: LineItemRow[] = (data?.lineItems ?? []).map((li, i) => ({
-    ...li,
-    id: `${li.invoiceNumber ?? 'li'}-${i}`,
-  }));
+  // Summary line totals across the submission's invoices.
+  const totalLineItems = data?.lineItems?.length ?? 0;
+  const totalAmount = (data?.invoices ?? []).reduce((sum, inv) => sum + (inv.totalAmount ?? 0), 0);
+  const totalVolume = (data?.invoices ?? []).reduce((sum, inv) => sum + (inv.totalVolume ?? 0), 0);
+  const totalPieces = (data?.invoices ?? []).reduce((sum, inv) => sum + (inv.totalPieces ?? 0), 0);
+  const invoicesSummary = [
+    pluralize(invoiceRows.length, 'invoice'),
+    pluralize(totalLineItems, 'line item'),
+    `Total ${formatCurrency(totalAmount)}`,
+    `${formatNumber(totalVolume, 3)} m³`,
+    pluralize(totalPieces, 'piece'),
+  ].join(' · ');
+
+  const expandAll = () => setExpandedRowIds(new Set(invoiceRows.map((row) => row.id)));
+  const collapseAll = () => setExpandedRowIds(new Set());
 
   const invoiceColumns: ResultsTableColumn<InvoiceRow>[] = [
     {
@@ -87,6 +117,11 @@ export function ViewSubmissionPage() {
           (row.invoiceNumber ?? '—')
         ),
     },
+    {
+      key: 'status',
+      header: 'Decision',
+      renderCell: (row) => (row.status ? <InvoiceStatusTag status={row.status} /> : '—'),
+    },
     { key: 'invoiceDate', header: 'Date', renderCell: (r) => r.invoiceDate ?? '—' },
     { key: 'type', header: 'Type', renderCell: (r) => r.type ?? '—' },
     { key: 'sellerClient', header: 'Seller Client #', renderCell: (r) => r.sellerClient ?? '—' },
@@ -98,50 +133,28 @@ export function ViewSubmissionPage() {
       header: 'Total Amount',
       headerAlign: 'right',
       cellAlign: 'right',
-      renderCell: (r) => fixed(r.totalAmount, 2),
+      renderCell: (r) => formatNumber(r.totalAmount, 2),
     },
     {
       key: 'totalVolume',
       header: 'Total Volume',
       headerAlign: 'right',
       cellAlign: 'right',
-      renderCell: (r) => fixed(r.totalVolume, 3),
+      renderCell: (r) => formatNumber(r.totalVolume, 3),
     },
     {
       key: 'totalPieces',
       header: 'Total Pieces',
       headerAlign: 'right',
       cellAlign: 'right',
-      renderCell: (r) => (r.totalPieces ?? '—').toString(),
-    },
-  ];
-
-  const lineItemColumns: ResultsTableColumn<LineItemRow>[] = [
-    { key: 'invoiceNumber', header: 'Invoice #', renderCell: (r) => r.invoiceNumber ?? '—' },
-    { key: 'species', header: 'Species', renderCell: (r) => r.species ?? '—' },
-    { key: 'grade', header: 'Grade', renderCell: (r) => r.grade ?? '—' },
-    { key: 'sortCode', header: 'Sort Code', renderCell: (r) => r.sortCode ?? '—' },
-    { key: 'clientSortCode', header: 'Client Sort Code', renderCell: (r) => r.clientSortCode ?? '—' },
-    {
-      key: 'pieces',
-      header: '# Pieces',
-      headerAlign: 'right',
-      cellAlign: 'right',
-      renderCell: (r) => (r.pieces ?? '—').toString(),
+      renderCell: (r) => formatNumber(r.totalPieces),
     },
     {
-      key: 'volume',
-      header: 'Volume',
+      key: 'lineItemCount',
+      header: 'Line Items',
       headerAlign: 'right',
       cellAlign: 'right',
-      renderCell: (r) => fixed(r.volume, 3),
-    },
-    {
-      key: 'price',
-      header: 'Price',
-      headerAlign: 'right',
-      cellAlign: 'right',
-      renderCell: (r) => fixed(r.price, 2),
+      renderCell: (r) => formatNumber(r.lineItemCount),
     },
   ];
 
@@ -187,16 +200,6 @@ export function ViewSubmissionPage() {
               </span>
             </Column>
 
-            <Column lg={16} md={8} sm={4} className="view-submission-page__banner-col">
-              <InlineNotification
-                lowContrast
-                hideCloseButton
-                kind={isRejected ? 'error' : 'info'}
-                title={isRejected ? 'Submission Rejected:' : 'Admin Comment:'}
-                subtitle={data.adminComment ?? (isRejected ? '' : 'no comment provided')}
-              />
-            </Column>
-
             <Column lg={16} md={8} sm={4} className="view-submission-page__section">
               <DetailSection title="Submission Metadata" items={metadataItems} />
             </Column>
@@ -208,27 +211,55 @@ export function ViewSubmissionPage() {
             </Column>
 
             <Column lg={16} md={8} sm={4} className="view-submission-page__section">
-              <h2 className="view-submission-page__section-title">Invoice Details</h2>
-              <p className="view-submission-page__section-count">{invoiceRows.length} invoice entries</p>
-              <ResultsTable
-                rows={invoiceRows}
-                columns={invoiceColumns}
-                hasSearched
-                emptyTitle="No invoices"
-                emptyDescription="This submission has no invoices."
-              />
-            </Column>
-
-            <Column lg={16} md={8} sm={4} className="view-submission-page__section">
-              <h2 className="view-submission-page__section-title">Invoice Line Items</h2>
-              <p className="view-submission-page__section-count">{lineItemRows.length} line item entries</p>
-              <ResultsTable
-                rows={lineItemRows}
-                columns={lineItemColumns}
-                hasSearched
-                emptyTitle="No line items"
-                emptyDescription="This submission has no line items."
-              />
+              <div className="view-submission-page__invoices-card">
+                <div className="view-submission-page__invoices-header">
+                  <div>
+                    <h2 className="view-submission-page__section-title">Invoices</h2>
+                    <p className="view-submission-page__section-count">{invoicesSummary}</p>
+                  </div>
+                  {invoiceRows.length > 0 && (
+                    <div className="view-submission-page__expand-actions">
+                      <Link
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          expandAll();
+                        }}
+                      >
+                        Expand all
+                      </Link>
+                      <span aria-hidden="true">|</span>
+                      <Link
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          collapseAll();
+                        }}
+                      >
+                        Collapse all
+                      </Link>
+                    </div>
+                  )}
+                </div>
+                <div className="view-submission-page__invoices-body">
+                  <ResultsTable
+                    rows={invoiceRows}
+                    columns={invoiceColumns}
+                    hasSearched
+                    expandable
+                    expandedRowIds={expandedRowIds}
+                    onExpandedRowIdsChange={setExpandedRowIds}
+                    renderExpandedContent={(row) => (
+                      <InvoiceDetailPanel
+                        invoice={row}
+                        lineItems={lineItemsByInvoice.get(row.invoiceNumber ?? '') ?? []}
+                      />
+                    )}
+                    emptyTitle="No invoices"
+                    emptyDescription="This submission has no invoices."
+                  />
+                </div>
+              </div>
             </Column>
           </>
         ) : null}

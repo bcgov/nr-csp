@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.controller;
 import ca.bc.gov.nrs.csp.backend.controller.api.SubmissionHistoryApi;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionDetailResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionHistoryRowResponse;
+import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceCommentResponse;
 import ca.bc.gov.nrs.csp.backend.service.SubmissionHistoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,5 +34,11 @@ public class SubmissionHistoryController implements SubmissionHistoryApi {
     public ResponseEntity<SubmissionDetailResponse> getSubmissionDetail(Long id) {
         log.info("GET /api/submission-history/{}", id);
         return ResponseEntity.ok(submissionHistoryService.getById(id));
+    }
+
+    @Override
+    public ResponseEntity<java.util.List<SubmissionInvoiceCommentResponse>> getSubmissionInvoiceComments(Long id) {
+        log.info("GET /api/submission-history/{}/invoices", id);
+        return ResponseEntity.ok(submissionHistoryService.getInvoiceComments(id));
     }
 }

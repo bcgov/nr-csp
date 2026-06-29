@@ -27,6 +27,9 @@ public record SubmissionHistoryRowResponse(
         @Schema(description = "Submission status description (not code) from CSP_SUBMISSION_STATUS_CODE.")
         String submissionStatus,
 
-        @Schema(description = "Admin/reviewer comment for the submission (first non-null reviewer_notes across its invoices). May be null.")
-        String comment
+        @Schema(description = "Total number of invoices (coastal_log_sale rows) in the submission.")
+        Integer invoiceCount,
+
+        @Schema(description = "Number of invoices in the submission that carry a reviewer comment (reviewer_notes not null).")
+        Integer commentedInvoiceCount
 ) {}

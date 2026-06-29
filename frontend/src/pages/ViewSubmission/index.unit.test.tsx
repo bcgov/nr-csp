@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect, vi } from 'vitest';
 
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 
@@ -29,15 +29,106 @@ function renderPage() {
 const sampleDetail = {
   cspSubmissionId: 42,
   submissionId: 'SUB-42',
-  submissionDate: '2026-01-15',
-  submissionStatus: 'Complete',
-  submissionType: 'Electronic',
-  numberInvoicesSubmitted: 2,
-  clientNumber: '00012345',
-  clientName: 'Acme Forestry',
+  submissionDate: '2025-11-10',
+  submittedBy: 'Emily Davis',
+  submissionStatus: 'Inbox',
+  clientNumber: '00000987',
+  clientName: 'INTERFOR CORPORATION',
+  clientLocnCode: '00',
+  email: 'mailto:emily.davis@gov.bc.ca',
+  telephone: '2503878363',
+  monthComplete: 'N',
+  sellerSubmission: 'Y',
+  adminComment: null,
   invoices: [
-    { coastalLogSaleId: 100, invoiceNumber: 'INV-100', invoiceDate: '2026-01-10', invoiceStatus: 'Approved', type: 'Original' },
-    { coastalLogSaleId: 101, invoiceNumber: 'INV-101', invoiceDate: '2026-01-11', invoiceStatus: 'Rejected', type: 'Original' },
+    {
+      coastalLogSaleId: 100,
+      invoiceNumber: 'INV-100',
+      invoiceDate: '2024-04-16',
+      type: 'SAL',
+      status: 'Pending',
+      sellerClient: '00126920/00',
+      buyerClient: '00123946/00',
+      maturity: 'O',
+      fobLocation: 'TEST',
+      totalAmount: 1,
+      totalVolume: 1,
+      totalPieces: 1,
+      replacesInvoiceNumbers: null,
+      adjustsInvoiceNumbers: null,
+      sellerClientLocnCode: '00',
+      buyerClientLocnCode: '00',
+      otherPartyName: null,
+      otherPartyCity: null,
+      otherPartyProvState: null,
+      primarySortCode: 'G',
+      clientPrimarySortCode: 'G',
+      boomNumbers: '1',
+      timberMarks: '1',
+      weighSlips: '1',
+      submitterNotes: '1',
+      staffComment: null,
+    },
+    {
+      coastalLogSaleId: 101,
+      invoiceNumber: 'INV-101',
+      invoiceDate: '2024-04-16',
+      type: 'SAL',
+      status: 'Rejected',
+      sellerClient: '00126920/00',
+      buyerClient: '00123946/00',
+      maturity: 'O',
+      fobLocation: 'TEST',
+      totalAmount: 1,
+      totalVolume: 1,
+      totalPieces: 1,
+      replacesInvoiceNumbers: null,
+      adjustsInvoiceNumbers: null,
+      sellerClientLocnCode: '00',
+      buyerClientLocnCode: '00',
+      otherPartyName: null,
+      otherPartyCity: null,
+      otherPartyProvState: null,
+      primarySortCode: 'G',
+      clientPrimarySortCode: 'G',
+      boomNumbers: null,
+      timberMarks: null,
+      weighSlips: null,
+      submitterNotes: null,
+      staffComment: 'Needs correction.',
+    },
+  ],
+  lineItems: [
+    {
+      invoiceNumber: 'INV-100',
+      species: 'FI',
+      grade: 'J',
+      sortCode: 'G',
+      clientSortCode: 'G',
+      pieces: 1,
+      volume: 1,
+      price: 1,
+    },
+    {
+      invoiceNumber: 'INV-100',
+      species: 'CE',
+      grade: 'J',
+      sortCode: 'G',
+      clientSortCode: 'G',
+      pieces: 1,
+      volume: 1,
+      price: 1,
+    },
+    {
+      invoiceNumber: 'INV-101',
+      species: 'HE',
+      grade: 'J',
+      sortCode: 'G',
+      clientSortCode: 'G',
+      pieces: 1,
+      volume: 1,
+      price: 1,
+    },
   ],
 };
 
@@ -48,15 +139,42 @@ describe('ViewSubmissionPage', () => {
     expect(screen.getByText(/loading submission/i)).toBeInTheDocument();
   });
 
-  it('renders submission detail and invoice rows', () => {
+  it('renders submission detail, the invoices summary and invoice rows', () => {
     useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false, error: null });
     renderPage();
     expect(screen.getByRole('heading', { name: /view submission/i })).toBeInTheDocument();
-    // "SUB-42" appears in both the breadcrumb and the detail value.
-    expect(screen.getAllByText('SUB-42').length).toBeGreaterThan(0);
-    expect(screen.getByText('Acme Forestry')).toBeInTheDocument();
+    expect(screen.getByText('INTERFOR CORPORATION', { exact: false })).toBeInTheDocument();
+    // Summary line counts: 2 invoices, 3 line items.
+    expect(screen.getByText(/2 invoices · 3 line items/)).toBeInTheDocument();
+    // Decision column renders the per-invoice status pill.
+    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'INV-100' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'INV-101' })).toBeInTheDocument();
+  });
+
+  it('strips the mailto: prefix from the email address', () => {
+    useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false, error: null });
+    renderPage();
+    expect(screen.getByText('emily.davis@gov.bc.ca')).toBeInTheDocument();
+    expect(screen.queryByText(/mailto:/)).not.toBeInTheDocument();
+  });
+
+  it('renders the per-invoice detail panel with its fields and line-item count', () => {
+    useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false, error: null });
+    renderPage();
+    // Carbon keeps expanded-row content in the DOM and toggles its visibility,
+    // so the panel content is present regardless of the expand/collapse state.
+    expect(screen.getByText('Invoice details for INV-100')).toBeInTheDocument();
+    expect(screen.getByText('Line items for INV-100 (2)')).toBeInTheDocument();
+    expect(screen.getByText('Line items for INV-101 (1)')).toBeInTheDocument();
+    // Staff comment falls back to the placeholder when none is present (INV-100).
+    expect(screen.getByText(/no comment provided/i)).toBeInTheDocument();
+    // ...and shows the real comment when present (INV-101).
+    expect(screen.getByText('Needs correction.')).toBeInTheDocument();
+    // The "Expand all" control is available and clickable.
+    fireEvent.click(screen.getByRole('link', { name: /expand all/i }));
+    expect(screen.getByRole('link', { name: /collapse all/i })).toBeInTheDocument();
   });
 
   it('renders an error message when the request fails', () => {

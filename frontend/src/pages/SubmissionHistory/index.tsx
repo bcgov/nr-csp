@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Grid, Column, IconButton } from '@carbon/react';
-import { View } from '@carbon/icons-react';
+import { Grid, Column, IconButton, Link } from '@carbon/react';
+import { View, Chat } from '@carbon/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
@@ -14,6 +14,7 @@ import {
   useSubmissionHistoryListQuery,
 } from '@/services/submissionHistory.service';
 
+import InvoiceCommentsPanel from './InvoiceCommentsPanel';
 import './index.scss';
 
 type SubmissionRow = {
@@ -23,7 +24,8 @@ type SubmissionRow = {
   submittedBy: string;
   clientName: string;
   submissionStatus: string;
-  comment: string;
+  invoiceCount: number;
+  commentedInvoiceCount: number;
 };
 
 function formatClientName(name: string | null, number: string | null): string {
@@ -39,7 +41,8 @@ function toSubmissionRow(r: SubmissionHistoryRowResponse, index: number): Submis
     submittedBy: r.submittedBy ?? '—',
     clientName: formatClientName(r.clientName, r.clientNumber),
     submissionStatus: r.submissionStatus,
-    comment: r.comment ?? '',
+    invoiceCount: r.invoiceCount ?? 0,
+    commentedInvoiceCount: r.commentedInvoiceCount ?? 0,
   };
 }
 
@@ -49,6 +52,7 @@ export function SubmissionHistoryPage() {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortParam, setSortParam] = useState<string | undefined>(undefined);
+  const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
 
   const queryParams: SubmissionHistoryListParams = {
     page: currentPage - 1, // Spring is 0-indexed; Carbon pagination is 1-indexed.
@@ -76,7 +80,37 @@ export function SubmissionHistoryPage() {
       header: 'Status',
       renderCell: (row) => <SubmissionStatusTag status={row.submissionStatus} />,
     },
-    { key: 'comment', header: 'Comments', sortable: false },
+    {
+      key: 'invoiceCount',
+      header: 'Invoices',
+      sortable: false,
+      renderCell: (row) => (
+        <span className="submission-history-page__invoices-cell">
+          {row.cspSubmissionId != null ? (
+            <Link
+              href={`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`);
+              }}
+            >
+              {row.invoiceCount} {row.invoiceCount === 1 ? 'invoice' : 'invoices'}
+            </Link>
+          ) : (
+            `${row.invoiceCount} ${row.invoiceCount === 1 ? 'invoice' : 'invoices'}`
+          )}
+          {row.commentedInvoiceCount > 0 && (
+            <span
+              className="submission-history-page__comment-badge"
+              title={`${row.commentedInvoiceCount} invoice(s) with comments`}
+            >
+              <Chat size={16} />
+              {row.commentedInvoiceCount}
+            </span>
+          )}
+        </span>
+      ),
+    },
     {
       key: 'id',
       header: 'Actions',
@@ -120,6 +154,12 @@ export function SubmissionHistoryPage() {
             isSortable
             serverSide
             hasSearched
+            expandable
+            expandedRowIds={expandedRowIds}
+            onExpandedRowIdsChange={setExpandedRowIds}
+            renderExpandedContent={(row) => (
+              <InvoiceCommentsPanel submissionId={row.cspSubmissionId} enabled={expandedRowIds.has(row.id)} />
+            )}
             isLoading={isLoading}
             page={currentPage}
             pageSize={pageSize}

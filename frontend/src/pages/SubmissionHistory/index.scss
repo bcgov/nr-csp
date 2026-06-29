@@ -74,4 +74,95 @@
   &__table-col {
     margin-top: $spacing-05;
   }
+
+  // "Invoices" column: count link + comment-count badge.
+  &__invoices-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-03;
+  }
+
+  &__comment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+    padding: 0 $spacing-02;
+    border-radius: $spacing-02;
+    background-color: var(--cds-layer-accent, #e0e0e0);
+    color: var(--cds-text-secondary, #525252);
+    @include type.type-style('label-01');
+
+    svg {
+      fill: currentColor;
+    }
+  }
+}
+
+// Expanded-row "Invoice comments" sub-table.
+.invoice-comments-panel {
+  padding: $spacing-03 $spacing-05 $spacing-05;
+
+  &--status {
+    display: flex;
+    align-items: center;
+    min-height: $spacing-09;
+  }
+
+  &__header {
+    @include type.type-style('label-01');
+    color: var(--cds-text-secondary, #525252);
+    margin-bottom: $spacing-03;
+  }
+
+  &__error {
+    @include type.type-style('body-01');
+    color: var(--cds-text-error, #da1e28);
+  }
+
+  &__empty {
+    @include type.type-style('body-01');
+    color: var(--cds-text-secondary, #525252);
+  }
+
+  // Scrollable so long invoice lists don't blow out the row height.
+  &__table-wrap {
+    max-height: 18rem;
+    overflow-y: auto;
+    border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    @include type.type-style('body-01');
+
+    th,
+    td {
+      text-align: left;
+      padding: $spacing-03 $spacing-05;
+      vertical-align: top;
+    }
+
+    thead th {
+      @include type.type-style('label-01');
+      position: sticky;
+      top: 0;
+      background-color: var(--cds-layer-accent, #e0e0e0);
+      color: var(--cds-text-primary, #161616);
+      z-index: 1;
+    }
+
+    tbody tr {
+      background-color: var(--cds-layer, #ffffff);
+      border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: var(--cds-layer-hover, #e8e8e8);
+    }
+  }
+
+  &__comment--rejected {
+    color: var(--cds-text-error, #da1e28);
+  }
 }

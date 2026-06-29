@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.csp.backend.repository;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionDetailResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionHistoryRowResponse;
+import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceCommentResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionLineItemResponse;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
@@ -50,11 +51,13 @@ public class SubmissionHistoryRepository {
                    sub.client_number                                                           AS client_number,
                    fc.client_name                                                              AS client_name,
                    subStatus.description                                                       AS submission_status,
-                   (SELECT cmt.reviewer_notes
-                      FROM THE.coastal_log_sale cmt
-                     WHERE cmt.csp_submission_id = sub.csp_submission_id
-                       AND cmt.reviewer_notes IS NOT NULL
-                       AND ROWNUM = 1)                                                         AS comment_text
+                   (SELECT COUNT(*)
+                      FROM THE.coastal_log_sale ic
+                     WHERE ic.csp_submission_id = sub.csp_submission_id)                       AS invoice_count,
+                   (SELECT COUNT(*)
+                      FROM THE.coastal_log_sale ic
+                     WHERE ic.csp_submission_id = sub.csp_submission_id
+                       AND ic.reviewer_notes IS NOT NULL)                                      AS commented_invoice_count
             FROM   THE.csp_submission sub
             INNER JOIN THE.csp_submission_status_code subStatus
                     ON sub.csp_submission_status_code = subStatus.csp_submission_status_code
@@ -111,11 +114,19 @@ public class SubmissionHistoryRepository {
             WHERE  sub.csp_submission_id = :id
             """;
 
+    // One row per invoice in the submission. The plain columns back the table
+    // row; the joins + correlated subqueries supply the expandable per-invoice
+    // detail panel. "Other party" is whichever side (buyer/seller) isn't the
+    // submitting client — mirrors InvoiceRepository.mapLoadedInvoice. The
+    // LISTAGG subqueries flatten the log-source (boom/mark/weigh) and related-
+    // invoice (replaces/adjusts) child rows the same way InvoiceRepository's
+    // helper methods do.
     private static final String DETAIL_INVOICES_QUERY = """
             SELECT inv.coastal_log_sale_id                                  AS coastal_log_sale_id,
                    inv.client_invoice_no                                    AS invoice_number,
                    inv.client_invoice_date                                  AS invoice_date,
                    inv.csp_invoice_type_code                                AS invoice_type,
+                   COALESCE(st.description, inv.log_sale_entry_status_code)  AS status,
                    inv.seller_client_number                                 AS seller_client_number,
                    inv.seller_client_locn_code                              AS seller_client_locn_code,
                    inv.buyer_client_number                                  AS buyer_client_number,
@@ -124,8 +135,70 @@ public class SubmissionHistoryRepository {
                    inv.log_sale_fob_location                                AS fob_location,
                    inv.client_total_invoice_amt                             AS total_amount,
                    inv.client_total_invoice_volume                          AS total_volume,
-                   inv.client_total_invoice_pieces                          AS total_pieces
+                   inv.client_total_invoice_pieces                          AS total_pieces,
+                   inv.log_sale_sort_code                                   AS primary_sort_code,
+                   inv.client_primary_sort_code                             AS client_primary_sort_code,
+                   inv.submitter_notes                                      AS submitter_notes,
+                   inv.reviewer_notes                                       AS staff_comment,
+                   CASE WHEN inv.seller_client_number = sub.client_number
+                             AND inv.seller_client_locn_code = sub.client_locn_code
+                        THEN buyer_part.name ELSE seller_part.name END       AS other_party_name,
+                   CASE WHEN inv.seller_client_number = sub.client_number
+                             AND inv.seller_client_locn_code = sub.client_locn_code
+                        THEN buyer_part.city ELSE seller_part.city END       AS other_party_city,
+                   CASE WHEN inv.seller_client_number = sub.client_number
+                             AND inv.seller_client_locn_code = sub.client_locn_code
+                        THEN buyer_part.province ELSE seller_part.province END AS other_party_prov_state,
+                   (SELECT LISTAGG(rcls.client_invoice_no, ', ')
+                              WITHIN GROUP (ORDER BY r.coastal_log_sale_rltd_invc_id)
+                      FROM THE.coastal_log_sale_rltd_invc r
+                      JOIN THE.coastal_log_sale rcls ON r.related_coastal_log_sale_id = rcls.coastal_log_sale_id
+                     WHERE r.coastal_log_sale_id = inv.coastal_log_sale_id
+                       AND r.csp_invoice_ref_type_code = 'REP')             AS replaces_invoice_numbers,
+                   (SELECT LISTAGG(rcls.client_invoice_no, ', ')
+                              WITHIN GROUP (ORDER BY r.coastal_log_sale_rltd_invc_id)
+                      FROM THE.coastal_log_sale_rltd_invc r
+                      JOIN THE.coastal_log_sale rcls ON r.related_coastal_log_sale_id = rcls.coastal_log_sale_id
+                     WHERE r.coastal_log_sale_id = inv.coastal_log_sale_id
+                       AND r.csp_invoice_ref_type_code = 'ADJ')             AS adjusts_invoice_numbers,
+                   (SELECT LISTAGG(ls.source_document_reference, ', ')
+                              WITHIN GROUP (ORDER BY ls.coastal_log_sale_log_source_id)
+                      FROM THE.coastal_log_sale_log_source ls
+                     WHERE ls.coastal_log_sale_id = inv.coastal_log_sale_id
+                       AND ls.log_source_code = 'BOOM')                     AS boom_numbers,
+                   (SELECT LISTAGG(ls.source_document_reference, ', ')
+                              WITHIN GROUP (ORDER BY ls.coastal_log_sale_log_source_id)
+                      FROM THE.coastal_log_sale_log_source ls
+                     WHERE ls.coastal_log_sale_id = inv.coastal_log_sale_id
+                       AND ls.log_source_code = 'MARK')                     AS timber_marks,
+                   (SELECT LISTAGG(ls.source_document_reference, ', ')
+                              WITHIN GROUP (ORDER BY ls.coastal_log_sale_log_source_id)
+                      FROM THE.coastal_log_sale_log_source ls
+                     WHERE ls.coastal_log_sale_id = inv.coastal_log_sale_id
+                       AND ls.log_source_code = 'WEIGH')                    AS weigh_slips
             FROM   THE.coastal_log_sale inv
+            INNER JOIN THE.csp_submission sub
+                    ON inv.csp_submission_id = sub.csp_submission_id
+            LEFT JOIN THE.log_sale_entry_status_code st
+                    ON inv.log_sale_entry_status_code = st.log_sale_entry_status_code
+            LEFT JOIN THE.log_sale_participant buyer_part
+                    ON inv.buyer_log_sale_participant_id = buyer_part.log_sale_participant_id
+            LEFT JOIN THE.log_sale_participant seller_part
+                    ON inv.seller_log_sale_participant_id = seller_part.log_sale_participant_id
+            WHERE  inv.csp_submission_id = :id
+            ORDER BY inv.coastal_log_sale_id
+            """;
+
+    // Per-invoice status + reviewer comment for a submission, backing the
+    // expanded "Invoice comments" sub-table. Status description join mirrors
+    // SearchRepository; ordering matches DETAIL_INVOICES_QUERY.
+    private static final String INVOICE_COMMENTS_QUERY = """
+            SELECT inv.client_invoice_no                                    AS invoice_number,
+                   COALESCE(st.description, inv.log_sale_entry_status_code)  AS status,
+                   inv.reviewer_notes                                       AS comment_text
+            FROM   THE.coastal_log_sale inv
+            LEFT JOIN THE.log_sale_entry_status_code st
+                    ON inv.log_sale_entry_status_code = st.log_sale_entry_status_code
             WHERE  inv.csp_submission_id = :id
             ORDER BY inv.coastal_log_sale_id
             """;
@@ -175,7 +248,8 @@ public class SubmissionHistoryRepository {
                         rs.getString("client_number"),
                         rs.getString("client_name"),
                         rs.getString("submission_status"),
-                        rs.getString("comment_text")
+                        rs.getObject("invoice_count", Integer.class),
+                        rs.getObject("commented_invoice_count", Integer.class)
                 ));
 
         Long total = jdbc.queryForObject(countSql, params, Long.class);
@@ -216,13 +290,28 @@ public class SubmissionHistoryRepository {
                         rs.getString("invoice_number"),
                         RepositoryUtils.getLocalDateNullable(rs, "invoice_date"),
                         rs.getString("invoice_type"),
+                        rs.getString("status"),
                         formatClient(rs.getString("seller_client_number"), rs.getString("seller_client_locn_code")),
                         formatClient(rs.getString("buyer_client_number"), rs.getString("buyer_client_locn_code")),
                         rs.getString("maturity"),
                         rs.getString("fob_location"),
                         rs.getBigDecimal("total_amount"),
                         rs.getBigDecimal("total_volume"),
-                        rs.getObject("total_pieces", Integer.class)
+                        rs.getObject("total_pieces", Integer.class),
+                        rs.getString("replaces_invoice_numbers"),
+                        rs.getString("adjusts_invoice_numbers"),
+                        rs.getString("seller_client_locn_code"),
+                        rs.getString("buyer_client_locn_code"),
+                        rs.getString("other_party_name"),
+                        rs.getString("other_party_city"),
+                        rs.getString("other_party_prov_state"),
+                        rs.getString("primary_sort_code"),
+                        rs.getString("client_primary_sort_code"),
+                        rs.getString("boom_numbers"),
+                        rs.getString("timber_marks"),
+                        rs.getString("weigh_slips"),
+                        rs.getString("submitter_notes"),
+                        rs.getString("staff_comment")
                 ));
 
         List<SubmissionLineItemResponse> lineItems = jdbc.query(DETAIL_LINE_ITEMS_QUERY, params, (rs, rowNum) ->
@@ -254,6 +343,17 @@ public class SubmissionHistoryRepository {
                 invoices,
                 lineItems
         ));
+    }
+
+    /** Per-invoice status + reviewer comment for a submission's expanded "Invoice comments" sub-table. */
+    public List<SubmissionInvoiceCommentResponse> findInvoiceComments(Long cspSubmissionId) {
+        MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
+        return jdbc.query(INVOICE_COMMENTS_QUERY, params, (rs, rowNum) ->
+                new SubmissionInvoiceCommentResponse(
+                        rs.getString("invoice_number"),
+                        rs.getString("status"),
+                        rs.getString("comment_text")
+                ));
     }
 
     /** Formats a client number + location code pair as "number/locn", or null when absent. */

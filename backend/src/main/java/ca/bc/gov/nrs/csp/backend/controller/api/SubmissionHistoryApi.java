@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.controller.api;
 import ca.bc.gov.nrs.csp.backend.controller.dto.error.ApiError;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionDetailResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionHistoryRowResponse;
+import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceCommentResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -59,6 +60,22 @@ public interface SubmissionHistoryApi {
     })
     @GetMapping("/submission-history/{id}")
     ResponseEntity<SubmissionDetailResponse> getSubmissionDetail(
+            @Parameter(description = "CSP submission id.") @PathVariable Long id
+    );
+
+    @Operation(
+            summary = "Get submission invoice comments",
+            description = "Returns each invoice in the submission with its status and reviewer comment, "
+                    + "backing the Submission History expanded row's \"Invoice comments\" sub-table."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Per-invoice status and comments",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = SubmissionInvoiceCommentResponse.class)))),
+            @ApiResponse(responseCode = "500", description = "Unexpected error",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    @GetMapping("/submission-history/{id}/invoices")
+    ResponseEntity<java.util.List<SubmissionInvoiceCommentResponse>> getSubmissionInvoiceComments(
             @Parameter(description = "CSP submission id.") @PathVariable Long id
     );
 }

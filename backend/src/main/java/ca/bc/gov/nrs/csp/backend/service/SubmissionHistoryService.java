@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionDetailResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionHistoryRowResponse;
+import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceCommentResponse;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.repository.SubmissionHistoryRepository;
 import org.slf4j.Logger;
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * Business logic for the Submission History screens. The list is unfiltered
@@ -39,5 +42,11 @@ public class SubmissionHistoryService {
         log.debug("Submission history detail requested for id={}", cspSubmissionId);
         return repository.findDetail(cspSubmissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission " + cspSubmissionId + " was not found."));
+    }
+
+    /** Per-invoice status + reviewer comments for a submission's expanded row. */
+    public List<SubmissionInvoiceCommentResponse> getInvoiceComments(Long cspSubmissionId) {
+        log.debug("Submission history invoice comments requested for id={}", cspSubmissionId);
+        return repository.findInvoiceComments(cspSubmissionId);
     }
 }

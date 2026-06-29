@@ -11,15 +11,27 @@ export interface SubmissionHistoryRowResponse {
   clientNumber: string | null;
   clientName: string | null;
   submissionStatus: string;
+  invoiceCount: number | null;
+  commentedInvoiceCount: number | null;
+}
+
+/** One row of a submission's expanded "Invoice comments" sub-table. */
+export interface SubmissionInvoiceCommentResponse {
+  invoiceNumber: string | null;
+  status: string | null;
   comment: string | null;
 }
 
-/** A row in the submission detail "Invoice Details" table. */
+/**
+ * A row in the submission detail "Invoices" table. The first block backs the
+ * table row; the rest backs the expandable per-invoice "Invoice details" panel.
+ */
 export interface SubmissionInvoiceResponse {
   coastalLogSaleId: number | null;
   invoiceNumber: string | null;
   invoiceDate: string | null;
   type: string | null;
+  status: string | null;
   sellerClient: string | null;
   buyerClient: string | null;
   maturity: string | null;
@@ -27,6 +39,21 @@ export interface SubmissionInvoiceResponse {
   totalAmount: number | null;
   totalVolume: number | null;
   totalPieces: number | null;
+  // Expandable "Invoice details" panel
+  replacesInvoiceNumbers: string | null;
+  adjustsInvoiceNumbers: string | null;
+  sellerClientLocnCode: string | null;
+  buyerClientLocnCode: string | null;
+  otherPartyName: string | null;
+  otherPartyCity: string | null;
+  otherPartyProvState: string | null;
+  primarySortCode: string | null;
+  clientPrimarySortCode: string | null;
+  boomNumbers: string | null;
+  timberMarks: string | null;
+  weighSlips: string | null;
+  submitterNotes: string | null;
+  staffComment: string | null;
 }
 
 /** A row in the submission detail "Invoice Line Items" table. */
@@ -79,6 +106,9 @@ export const listSubmissionHistory = (
 export const getSubmissionDetail = (id: string | number): Promise<SubmissionDetailResponse> =>
   apiClient.get<SubmissionDetailResponse>(`/submission-history/${id}`).then(({ data }) => data);
 
+export const getSubmissionInvoiceComments = (id: string | number): Promise<SubmissionInvoiceCommentResponse[]> =>
+  apiClient.get<SubmissionInvoiceCommentResponse[]>(`/submission-history/${id}/invoices`).then(({ data }) => data);
+
 export const useSubmissionHistoryListQuery = (params: SubmissionHistoryListParams) =>
   useQuery({
     queryKey: ['submission-history', params],
@@ -90,4 +120,12 @@ export const useSubmissionDetailQuery = (id: string | undefined) =>
     queryKey: ['submission-history', 'detail', id],
     queryFn: () => getSubmissionDetail(id as string),
     enabled: !!id,
+  });
+
+// `enabled` gates the request to expanded rows so collapsed rows never fetch.
+export const useSubmissionInvoiceCommentsQuery = (id: number | null, enabled: boolean) =>
+  useQuery({
+    queryKey: ['submission-history', 'invoice-comments', id],
+    queryFn: () => getSubmissionInvoiceComments(id as number),
+    enabled: enabled && id != null,
   });
