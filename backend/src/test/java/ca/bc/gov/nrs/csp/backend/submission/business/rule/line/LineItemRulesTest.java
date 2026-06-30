@@ -42,6 +42,6 @@ class LineItemRulesTest {
     invoice.setInvoiceNumber("INV-1");
     CSPLineItemType line = new CSPLineItemType();
     line.setGrade(grade);
-    return new LineItemRuleContext(invoice, line, 1, null, null, collector);
+    return new LineItemRuleContext(invoice, line, 0, 1, null, null, collector);
   }
 }

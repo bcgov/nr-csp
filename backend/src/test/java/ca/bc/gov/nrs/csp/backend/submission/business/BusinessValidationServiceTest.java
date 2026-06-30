@@ -90,6 +90,23 @@ class BusinessValidationServiceTest {
         && m.code().equals("invoice.submitter.client.location.invalid.error"));
   }
 
+  @Test
+  void duplicate_invoice_numbers_do_not_cross_contaminate() {
+    given(referenceData.clientLocationExists(any(), any())).willReturn(true);
+
+    // Two invoices share the SAME number; only the second has a future-date ERROR.
+    // Keying on index (not the number) must keep the first (clean) invoice accepted.
+    CSPSubmissionType submission = submissionWith(
+        invoice("DUP", TODAY.minusDays(1), "A"),    // clean
+        invoice("DUP", TODAY.plusDays(1), "A"));    // future date -> rejected
+
+    BusinessValidationOutcome outcome = service().validate(submission);
+
+    assertThat(outcome.acceptance().accepted()).containsExactly("DUP");  // the clean invoice (index 0)
+    assertThat(outcome.acceptance().rejected()).containsExactly("DUP");  // the bad invoice (index 1)
+    assertThat(outcome.valid()).isTrue();                                // >= 1 accepted
+  }
+
   // -------- fixture builders --------
 
   private static CSPSubmissionType submissionWith(CSPInvoiceType... invoices) {

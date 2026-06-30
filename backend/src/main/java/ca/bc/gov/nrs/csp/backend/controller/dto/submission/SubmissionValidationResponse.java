@@ -6,21 +6,26 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /**
- * Response for the submission structural-validation endpoint. The
- * per-error entries reuse the app's {@link ValidationMessageResponse}
- * shape (keeping the response contract consistent across the API),
- * while preserving the underlying parser's error formatting: the
- * machine code lands in {@code messageKey}, the source location (if any)
- * in {@code args}, and the parser message in {@code message}.
+ * Response for the submission validation endpoints. Beyond the overall
+ * {@code valid} flag and summary {@code code}, it surfaces the per-invoice
+ * acceptance breakdown so a partial outcome (some invoices accepted, others
+ * rejected) is never mistaken for a full accept: {@code acceptedInvoices}
+ * proceed, while {@code rejectedInvoices} must be corrected and resubmitted
+ * (their reasons are in {@code errors}). For structural validation the two
+ * invoice lists are empty.
  */
-@Schema(description = "Result of validating an uploaded submission against format, ESF envelope, and XSD schema.")
+@Schema(description = "Result of validating an uploaded submission (structural or business).")
 public record SubmissionValidationResponse(
-        @Schema(description = "True when the submission passed all structural validation", example = "false")
+        @Schema(description = "True ONLY when the submission is fully accepted (no rejected invoices)", example = "false")
         boolean valid,
-        @Schema(description = "Summary code: OK on success, VALIDATION_ERROR on failure", example = "VALIDATION_ERROR")
+        @Schema(description = "Outcome code: OK (fully accepted), PARTIALLY_ACCEPTED, or VALIDATION_ERROR", example = "PARTIALLY_ACCEPTED")
         String code,
-        @Schema(description = "Human-readable summary", example = "Submission failed schema validation")
+        @Schema(description = "Human-readable summary")
         String message,
-        @Schema(description = "Every structural error that fired (empty on success)")
+        @Schema(description = "Invoice numbers that passed all rules and are accepted (empty for structural validation)")
+        List<String> acceptedInvoices,
+        @Schema(description = "Invoice numbers rejected for at least one ERROR — correct and resubmit these")
+        List<String> rejectedInvoices,
+        @Schema(description = "Every message that fired (ERROR and WARNING), each with locator and severity")
         List<ValidationMessageResponse> errors
 ) {}

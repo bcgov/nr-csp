@@ -37,7 +37,8 @@ class InvoiceDateRulesTest {
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.date.in.future.error");
-    assertThat(collector.entries().get(0).invoiceNumber()).isEqualTo("INV-1");
+    assertThat(collector.entries().get(0).invoiceIndex()).isEqualTo(0);
+    assertThat(collector.entries().get(0).error().path()).isEqualTo("invoice #1 (INV-1)");
   }
 
   @Test
@@ -54,7 +55,7 @@ class InvoiceDateRulesTest {
     CSPInvoiceType invoice = new CSPInvoiceType();
     invoice.setInvoiceNumber("INV-1");
     invoice.setInvoiceDate(xmlDate(date));
-    return new InvoiceRuleContext(new CSPSubmissionType(), invoice, null, null, collector);
+    return new InvoiceRuleContext(new CSPSubmissionType(), invoice, 0, null, null, collector);
   }
 
   private static XMLGregorianCalendar xmlDate(LocalDate d) throws Exception {

@@ -1,8 +1,8 @@
 package ca.bc.gov.nrs.csp.backend.submission.business.rule;
 
 import ca.bc.gov.nrs.csp.backend.submission.business.ValidationCollector;
-import ca.bc.gov.nrs.csp.backend.submission.business.support.Dates;
 import ca.bc.gov.nrs.csp.backend.submission.business.referencedata.ReferenceDataService;
+import ca.bc.gov.nrs.csp.backend.submission.business.support.Dates;
 import ca.bc.gov.nrs.csp.backend.submission.business.support.SubmitterInfo;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmissionType;
@@ -14,13 +14,16 @@ import java.time.LocalDate;
  * What an {@link InvoiceRule} receives: the invoice (and its parent submission),
  * the resolved {@link SubmitterInfo}, convenience accessors, reference-data
  * access, and {@code error(...)} / {@code warning(...)} sinks pre-scoped to this
- * invoice. Any ERROR recorded here rejects this invoice only (other invoices in
- * the submission are unaffected — partial acceptance).
+ * invoice. Any ERROR recorded here rejects this invoice only — keyed on the
+ * invoice's <b>index</b> (its identity within the submission), never its
+ * user-supplied number, which can be blank or duplicated. Other invoices are
+ * unaffected (partial acceptance).
  */
 public final class InvoiceRuleContext {
 
   private final CSPSubmissionType submission;
   private final CSPInvoiceType invoice;
+  private final int invoiceIndex;
   private final SubmitterInfo submitter;
   private final ReferenceDataService referenceData;
   private final ValidationCollector collector;
@@ -30,16 +33,18 @@ public final class InvoiceRuleContext {
   public InvoiceRuleContext(
       CSPSubmissionType submission,
       CSPInvoiceType invoice,
+      int invoiceIndex,
       SubmitterInfo submitter,
       ReferenceDataService referenceData,
       ValidationCollector collector) {
     this.submission = submission;
     this.invoice = invoice;
+    this.invoiceIndex = invoiceIndex;
     this.submitter = submitter;
     this.referenceData = referenceData;
     this.collector = collector;
     this.invoiceNumber = invoice.getInvoiceNumber();
-    this.locator = "invoice " + invoiceNumber;
+    this.locator = Locators.invoice(invoiceIndex, invoiceNumber);
   }
 
   public CSPSubmissionType submission() {
@@ -69,11 +74,11 @@ public final class InvoiceRuleContext {
 
   /** Record a blocking error against this invoice. */
   public void error(String code, String message) {
-    collector.add(invoiceNumber, SubmissionValidationError.error(locator, code, message));
+    collector.add(invoiceIndex, SubmissionValidationError.error(locator, code, message));
   }
 
   /** Record a non-blocking warning against this invoice. */
   public void warning(String code, String message) {
-    collector.add(invoiceNumber, SubmissionValidationError.warning(locator, code, message));
+    collector.add(invoiceIndex, SubmissionValidationError.warning(locator, code, message));
   }
 }

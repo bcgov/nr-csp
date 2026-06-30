@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.controller;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionValidationResponse;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
 import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationService;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionAcceptance;
 import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
 import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -152,5 +153,27 @@ class CspSubmissionControllerTest {
         mockMvc.perform(multipart("/api/submissions/validate/business"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("UPLOAD_MISSING"));
+    }
+
+    @Test
+    void business_partialAcceptance_is200ButNotValidAndSurfacesRejected() throws Exception {
+        // One invoice accepted, one rejected for an ERROR. Must NOT read as a clean
+        // accept: valid=false, code=PARTIALLY_ACCEPTED, with both invoice lists exposed.
+        SubmissionValidationResult partial = new SubmissionValidationResult(
+                true,
+                List.of(SubmissionValidationError.error("invoice INV-BAD",
+                        "invoice.date.in.future.error",
+                        "invoiceDate for invoiceNumber INV-BAD cannot be in the future.")),
+                new SubmissionAcceptance(List.of("INV-GOOD"), List.of("INV-BAD")));
+        given(validationService.validateBusiness(any())).willReturn(partial);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("PARTIALLY_ACCEPTED"))
+                .andExpect(jsonPath("$.acceptedInvoices[0]").value("INV-GOOD"))
+                .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"));
     }
 }

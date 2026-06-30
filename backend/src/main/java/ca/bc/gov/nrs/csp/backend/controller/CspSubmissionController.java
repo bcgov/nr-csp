@@ -93,16 +93,33 @@ public class CspSubmissionController implements CspSubmissionApi {
      * its text in {@code message}.
      */
     private SubmissionValidationResponse toResponse(SubmissionValidationResult result) {
-        // Include all messages either way: a valid result may still carry
-        // non-blocking warnings from the business phase.
+        // Include all messages either way: a valid/partial result still carries the
+        // rejected invoices' ERRORs (and any WARNINGs).
         List<ValidationMessageResponse> messages = result.errors().stream()
                 .map(this::toMessageResponse)
                 .toList();
-        if (result.valid()) {
-            return new SubmissionValidationResponse(true, "OK", "Submission is valid", messages);
+        List<String> accepted = result.acceptance().accepted();
+        List<String> rejected = result.acceptance().rejected();
+
+        if (!result.valid()) {
+            // Rejected outright: a submission-level error, or no invoice was accepted.
+            return new SubmissionValidationResponse(
+                    false, "VALIDATION_ERROR", "Submission failed validation",
+                    accepted, rejected, messages);
         }
+        if (!rejected.isEmpty()) {
+            // Accepted, but some invoices were rejected — must NOT read as a clean accept.
+            // valid=false (so callers keying on valid notice), but HTTP stays 200 since the
+            // submission was processed and the accepted invoices proceed.
+            return new SubmissionValidationResponse(
+                    false, "PARTIALLY_ACCEPTED",
+                    "Submission partially accepted: " + rejected.size()
+                            + " invoice(s) rejected and must be corrected and resubmitted",
+                    accepted, rejected, messages);
+        }
+        // Fully accepted.
         return new SubmissionValidationResponse(
-                false, "VALIDATION_ERROR", "Submission failed validation", messages);
+                true, "OK", "Submission is valid", accepted, rejected, messages);
     }
 
     private ValidationMessageResponse toMessageResponse(SubmissionValidationError err) {
@@ -114,6 +131,7 @@ public class CspSubmissionController implements CspSubmissionApi {
 
     private SubmissionValidationResponse error(String code, String message) {
         return new SubmissionValidationResponse(false, code, message,
+                List.of(), List.of(),
                 List.of(new ValidationMessageResponse(code, null, MessageType.ERROR.name(), message)));
     }
 }

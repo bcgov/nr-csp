@@ -65,19 +65,22 @@ public class BusinessValidationService {
         new SubmissionRuleContext(submission, referenceData, collector);
     submissionRules.forEach(rule -> rule.validate(submissionCtx));
 
-    // Per-invoice and per-line rules.
-    for (CSPInvoiceType invoice : submission.getCSPInvoice()) {
+    // Per-invoice and per-line rules. Keyed on the invoice INDEX (its identity),
+    // so blank/duplicate invoice numbers never cross-contaminate accept/reject.
+    List<CSPInvoiceType> invoices = submission.getCSPInvoice();
+    for (int i = 0; i < invoices.size(); i++) {
+      CSPInvoiceType invoice = invoices.get(i);
       identifierNormalizer.normalizeInvoiceIdentifiers(invoice);
       SubmitterInfo submitter = submitterResolver.resolve(submission, invoice);
 
       InvoiceRuleContext invoiceCtx =
-          new InvoiceRuleContext(submission, invoice, submitter, referenceData, collector);
+          new InvoiceRuleContext(submission, invoice, i, submitter, referenceData, collector);
       invoiceRules.forEach(rule -> rule.validate(invoiceCtx));
 
       List<CSPLineItemType> lines = invoice.getCSPLineItem();
-      for (int i = 0; i < lines.size(); i++) {
+      for (int j = 0; j < lines.size(); j++) {
         LineItemRuleContext lineCtx = new LineItemRuleContext(
-            invoice, lines.get(i), i + 1, submitter, referenceData, collector);
+            invoice, lines.get(j), i, j + 1, submitter, referenceData, collector);
         lineItemRules.forEach(rule -> rule.validate(lineCtx));
       }
     }
@@ -89,18 +92,28 @@ public class BusinessValidationService {
       CSPSubmissionType submission, ValidationCollector collector) {
 
     boolean submissionLevelOk = collector.entries().stream()
-        .noneMatch(e -> e.invoiceNumber() == null && e.error().severity() == Severity.ERROR);
+        .noneMatch(e -> e.invoiceIndex() == null && e.error().severity() == Severity.ERROR);
 
-    Set<String> rejected = collector.entries().stream()
-        .filter(e -> e.invoiceNumber() != null && e.error().severity() == Severity.ERROR)
-        .map(ValidationCollector.Entry::invoiceNumber)
+    // Reject/accept is keyed on each invoice's INDEX (its identity), never its
+    // user-supplied number — two invoices can share a blank or duplicate number.
+    Set<Integer> rejectedIndices = collector.entries().stream()
+        .filter(e -> e.invoiceIndex() != null && e.error().severity() == Severity.ERROR)
+        .map(ValidationCollector.Entry::invoiceIndex)
         .collect(LinkedHashSet::new, Set::add, Set::addAll);
 
-    List<String> accepted = submission.getCSPInvoice().stream()
-        .map(CSPInvoiceType::getInvoiceNumber)
-        .filter(number -> !rejected.contains(number))
-        .distinct()
-        .toList();
+    // Build the accepted/rejected number lists by walking invoices positionally,
+    // preserving genuine duplicate numbers (no distinct()).
+    List<CSPInvoiceType> invoices = submission.getCSPInvoice();
+    List<String> accepted = new ArrayList<>();
+    List<String> rejected = new ArrayList<>();
+    for (int i = 0; i < invoices.size(); i++) {
+      String number = invoices.get(i).getInvoiceNumber();
+      if (rejectedIndices.contains(i)) {
+        rejected.add(number);
+      } else {
+        accepted.add(number);
+      }
+    }
 
     boolean valid = submissionLevelOk && !accepted.isEmpty();
 
@@ -108,7 +121,6 @@ public class BusinessValidationService {
         .map(ValidationCollector.Entry::error)
         .toList();
 
-    return new BusinessValidationOutcome(
-        valid, messages, new SubmissionAcceptance(accepted, new ArrayList<>(rejected)));
+    return new BusinessValidationOutcome(valid, messages, new SubmissionAcceptance(accepted, rejected));
   }
 }

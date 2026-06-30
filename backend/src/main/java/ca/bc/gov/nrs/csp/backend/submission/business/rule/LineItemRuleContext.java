@@ -1,8 +1,8 @@
 package ca.bc.gov.nrs.csp.backend.submission.business.rule;
 
 import ca.bc.gov.nrs.csp.backend.submission.business.ValidationCollector;
-import ca.bc.gov.nrs.csp.backend.submission.business.support.Dates;
 import ca.bc.gov.nrs.csp.backend.submission.business.referencedata.ReferenceDataService;
+import ca.bc.gov.nrs.csp.backend.submission.business.support.Dates;
 import ca.bc.gov.nrs.csp.backend.submission.business.support.SubmitterInfo;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPLineItemType;
@@ -15,34 +15,36 @@ import java.time.LocalDate;
  * resolved {@link SubmitterInfo}, convenience accessors (parent invoice type and
  * date — several line rules are relaxed for type {@code ADJ}), reference-data
  * access, and {@code error(...)} / {@code warning(...)} sinks scoped to this line.
- * A line ERROR rejects the parent invoice.
+ * A line ERROR rejects the parent invoice — keyed on the parent invoice's
+ * <b>index</b> (its identity), never its number.
  */
 public final class LineItemRuleContext {
 
   private final CSPInvoiceType invoice;
   private final CSPLineItemType line;
+  private final int invoiceIndex;
   private final int lineNumber;
   private final SubmitterInfo submitter;
   private final ReferenceDataService referenceData;
   private final ValidationCollector collector;
-  private final String invoiceNumber;
   private final String locator;
 
   public LineItemRuleContext(
       CSPInvoiceType invoice,
       CSPLineItemType line,
+      int invoiceIndex,
       int lineNumber,
       SubmitterInfo submitter,
       ReferenceDataService referenceData,
       ValidationCollector collector) {
     this.invoice = invoice;
     this.line = line;
+    this.invoiceIndex = invoiceIndex;
     this.lineNumber = lineNumber;
     this.submitter = submitter;
     this.referenceData = referenceData;
     this.collector = collector;
-    this.invoiceNumber = invoice.getInvoiceNumber();
-    this.locator = "invoice " + invoiceNumber + ", line " + lineNumber;
+    this.locator = Locators.line(invoiceIndex, invoice.getInvoiceNumber(), lineNumber);
   }
 
   public CSPLineItemType line() {
@@ -78,11 +80,11 @@ public final class LineItemRuleContext {
 
   /** Record a blocking error against this line (rejects the parent invoice). */
   public void error(String code, String message) {
-    collector.add(invoiceNumber, SubmissionValidationError.error(locator, code, message));
+    collector.add(invoiceIndex, SubmissionValidationError.error(locator, code, message));
   }
 
   /** Record a non-blocking warning against this line. */
   public void warning(String code, String message) {
-    collector.add(invoiceNumber, SubmissionValidationError.warning(locator, code, message));
+    collector.add(invoiceIndex, SubmissionValidationError.warning(locator, code, message));
   }
 }
