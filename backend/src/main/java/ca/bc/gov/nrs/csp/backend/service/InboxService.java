@@ -48,6 +48,7 @@ public class InboxService {
             String invoiceNum,
             String submitterClientNum,
             String submitterLocNum,
+            String keyword,
             Pageable pageable) {
 
         // Normalise string criteria before validation so the validator and repository
@@ -55,6 +56,7 @@ public class InboxService {
         // Null or blank → null (filter skipped in repo), non-blank → trim + UPPER.
         String normalisedInvoiceNum      = normaliseUpperCase(invoiceNum);
         String normalisedSubmissionStatus = normaliseUpperCase(submissionStatus);
+        String normalisedKeyword          = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
         ValidationResult validation = new InboxCriteriaValidator(validationLookupRepository)
                 .validate(submissionDateFrom, submissionDateTo,
@@ -70,7 +72,8 @@ public class InboxService {
                 normalisedSubmissionStatus,
                 normalisedInvoiceNum,
                 submitterClientNum,
-                submitterLocNum
+                submitterLocNum,
+                normalisedKeyword
         );
 
         log.debug("Inbox search requested with criteria: {}", criteria);

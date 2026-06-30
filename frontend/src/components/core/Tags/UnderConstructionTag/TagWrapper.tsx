@@ -1,4 +1,4 @@
-import { type FC, type ReactElement } from 'react';
+import { type FC } from 'react';
 
 import UnderConstructionTag, { type UnderConstructionTagProps } from '.';
 

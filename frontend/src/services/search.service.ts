@@ -63,9 +63,14 @@ export const getClientsByName = (name: string): Promise<ClientLocationResponse[]
 export const getClientsByNumber = (number: string): Promise<ClientLocationResponse[]> =>
   apiClient.get<ClientLocationResponse[]>('/clients', { params: { number } }).then(({ data }) => data);
 
+// Search results reflect live invoice state; override the global 3h cache so
+// re-running a search and returning to the tab always shows current data.
 export const useSearchQuery = (params: SearchParams, enabled: boolean) =>
   useQuery({
     queryKey: ['search', params],
     queryFn: () => searchInvoices(params),
     enabled,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });

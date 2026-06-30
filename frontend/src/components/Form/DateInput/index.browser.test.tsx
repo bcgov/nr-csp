@@ -19,12 +19,12 @@ describe('DateInput', () => {
   it('renders the label and default placeholder', () => {
     const { input } = setup();
     expect(input).toBeInTheDocument();
-    expect(input).toHaveAttribute('placeholder', 'mm/dd/yyyy');
+    expect(input).toHaveAttribute('placeholder', 'yyyy-mm-dd');
   });
 
   it('emits a local-midnight date for a valid typed value', async () => {
     const { input, onChange } = setup();
-    await userEvent.type(input, '12/25/2026');
+    await userEvent.type(input, '2026-12-25');
     const d = lastDate(onChange);
     expect(d).toBeInstanceOf(Date);
     expect(d?.getFullYear()).toBe(2026);
@@ -34,13 +34,13 @@ describe('DateInput', () => {
 
   it('flags an out-of-range date as invalid', async () => {
     const { input } = setup();
-    await userEvent.type(input, '13/40/2026');
+    await userEvent.type(input, '2026-13-40');
     expect(screen.getByText('Invalid date')).toBeInTheDocument();
   });
 
-  it('uses the yyyy/mm placeholder for the Y/m format', () => {
-    const { input } = setup({ dateFormat: 'Y/m' });
-    expect(input).toHaveAttribute('placeholder', 'yyyy/mm');
+  it('uses the yyyy-mm placeholder for the Y-m format', () => {
+    const { input } = setup({ dateFormat: 'Y-m' });
+    expect(input).toHaveAttribute('placeholder', 'yyyy-mm');
   });
 
   it('shows an externally provided ISO value in the field', () => {

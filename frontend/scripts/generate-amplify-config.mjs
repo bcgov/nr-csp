@@ -12,8 +12,8 @@ const config = {
   userPoolClientId: process.env.COGNITO_USER_POOL_CLIENT_ID ?? 'REPLACE_WITH_YOUR_COGNITO_CLIENT_ID',
   cognitoDomain: process.env.COGNITO_DOMAIN ?? 'REPLACE_WITH_YOUR_COGNITO_DOMAIN',
   oauthScopes: (process.env.COGNITO_OAUTH_SCOPES ?? 'openid,profile,email').split(','),
-  redirectSignIn: process.env.COGNITO_REDIRECT_SIGN_IN ?? 'http://localhost:3000',
-  redirectSignOut: process.env.COGNITO_REDIRECT_SIGN_OUT ?? 'http://localhost:3000',
+  redirectSignIn: process.env.COGNITO_REDIRECT_SIGN_IN ?? 'http://localhost:3000/',
+  redirectSignOut: process.env.COGNITO_REDIRECT_SIGN_OUT ?? 'http://localhost:3000/logout',
 };
 
 const content = `window.amplifyConfig = ${JSON.stringify(config, null, 2)};\n`;

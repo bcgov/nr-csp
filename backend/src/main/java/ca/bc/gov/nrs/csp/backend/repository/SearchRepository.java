@@ -156,8 +156,8 @@ public class SearchRepository {
             }
         }
         if (criteria.invNumber() != null) {
-            sql.append(" AND inv.client_invoice_no LIKE :invNumber");
-            params.addValue("invNumber", "%" + criteria.invNumber() + "%");
+            sql.append(" AND inv.client_invoice_no LIKE :invNumber ESCAPE '\\'");
+            params.addValue("invNumber", toInvoiceNumberPattern(criteria.invNumber()));
         }
         if (criteria.invStatus() != null) {
             sql.append(" AND inv.log_sale_entry_status_code = :invStatus");
@@ -171,6 +171,27 @@ public class SearchRepository {
             sql.append(" AND inv.log_sale_type_code = :maturity");
             params.addValue("maturity", criteria.maturity());
         }
+    }
+
+    // Builds the LIKE pattern for the invoice number filter (used with ESCAPE '\').
+    // User-facing wildcards: '*' or '%' match any sequence, '?' matches a single character.
+    // '%' is passed straight through as an SQL wildcard; the escape character '\' and the
+    // single-char SQL wildcard '_' are always escaped so they match literally. When the term
+    // contains a wildcard it is treated as a pattern; otherwise it falls back to a substring
+    // (contains) match for backward compatibility.
+    static String toInvoiceNumberPattern(String invNumber) {
+        boolean hasWildcard = invNumber.indexOf('*') >= 0
+                || invNumber.indexOf('?') >= 0
+                || invNumber.indexOf('%') >= 0;
+
+        String escaped = invNumber
+                .replace("\\", "\\\\")
+                .replace("_", "\\_");
+
+        if (hasWildcard) {
+            return escaped.replace('*', '%').replace('?', '_');
+        }
+        return "%" + escaped + "%";
     }
 
     private String buildOrderBy(Sort sort) {

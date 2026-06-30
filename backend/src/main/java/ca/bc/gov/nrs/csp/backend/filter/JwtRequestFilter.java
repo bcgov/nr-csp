@@ -8,6 +8,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.logging.log4j.CloseableThreadContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -41,9 +42,10 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         }
 
         String jwt = authHeader.substring(7);
+        String username;
 
         try {
-            String username = jwtUtil.extractUsername(jwt);
+            username = jwtUtil.extractUsername(jwt);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 Collection<? extends GrantedAuthority> authorities = jwtUtil.extractAuthorities(jwt);
@@ -66,6 +68,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             return;
         }
 
-        chain.doFilter(request, response);
+        // Expose the authenticated user (IDIR) to every log line emitted while handling this
+        // request via the Log4j2 ThreadContext (MDC). Auto-removed when the request completes.
+        try (CloseableThreadContext.Instance ignored =
+                     CloseableThreadContext.put("user", username != null ? username : "anonymous")) {
+            chain.doFilter(request, response);
+        }
     }
 }

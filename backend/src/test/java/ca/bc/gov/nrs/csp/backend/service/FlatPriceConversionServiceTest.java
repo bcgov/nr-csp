@@ -23,6 +23,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -64,8 +65,8 @@ class FlatPriceConversionServiceTest {
     // Test data helpers
     // ---------------------------------------------------------------
 
-    private static final LocalDate DATE = LocalDate.of(2020, 1, 1);
-    private static final LocalDate LATER_DATE = LocalDate.of(2025, 12, 31);
+    private static final LocalDate DATE = LocalDate.of(2020, Month.JANUARY, 1);
+    private static final LocalDate LATER_DATE = LocalDate.of(2025, Month.DECEMBER, 31);
 
     private FlatPriceConversionDetails sampleDetails() {
         return new FlatPriceConversionDetails("S", "FD", "U", "A", 100, DATE, null);
@@ -390,7 +391,7 @@ class FlatPriceConversionServiceTest {
 
         service.delete(1L);
 
-        verify(repository).auditDelete(eq(1L), eq("TESTUSER"));
+        verify(repository).auditDelete(1L,"TESTUSER");
         verify(repository).deleteById(1L);
     }
 

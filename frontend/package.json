@@ -17,8 +17,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,json}\"",
     "test": "vitest",
     "test:unit": "vitest --project node",
-    "test:browser": "vitest --project browser",
-    "test:coverage": "vitest run --coverage",
+    "test:browser": "cross-env VITEST_BROWSER_ENABLED=true vitest --project browser",
+    "test:coverage": "vitest run --coverage --project node",
     "test:ci": "vitest run --ci"
   },
   "dependencies": {

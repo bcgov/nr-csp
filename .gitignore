@@ -50,3 +50,4 @@ playbooks/collections/
 
 # Superpowers skill artifacts
 .superpowers/
+/backend/certs/*

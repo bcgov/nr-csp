@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.report.R13ShowOptions;
 import ca.bc.gov.nrs.csp.backend.exception.ReportGenerationException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.LookupItem;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
@@ -351,8 +352,10 @@ public class R13Service {
 
         Map<String, Object> p = new HashMap<>();
 
-        p.put("USER_ID",      r.getUserId());
-        p.put("USER_NAME",    r.getUserName());
+        // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.
+        String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());
+        p.put("USER_ID",      idir);
+        p.put("USER_NAME",    r.getUserName() != null ? r.getUserName() : idir);
         p.put("REPORT_NAME",  r.getReportName());
 
         p.put("INVOICE_DATE_FROM", r.getInvoiceDateFrom());

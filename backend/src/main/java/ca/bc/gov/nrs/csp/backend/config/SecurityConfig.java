@@ -12,7 +12,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Optional;
 
@@ -40,17 +41,18 @@ public class SecurityConfig {
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         http
-                // CSRF protection is intentionally disabled: this API is stateless (no session
-                // cookie) and authenticates solely via the Authorization: Bearer header, which
-                // browsers do not auto-attach — so CSRF is not exploitable here.
-                // codeql[java/spring-disabled-csrf-protection]
-                .csrf(csrf -> csrf.disable())
+                // Safe to disable: stateless sessions (no session cookie) + JWT via Authorization
+                // header means there is no browser-automatable credential for CSRF to exploit.
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((req, res, e) ->
+                                res.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/health",
-                                "/swagger-ui/**", "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/api/swagger-ui/**", "/api/swagger-ui.html",
+                                "/api/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers(API_PATH).authenticated()
                         .anyRequest().authenticated()

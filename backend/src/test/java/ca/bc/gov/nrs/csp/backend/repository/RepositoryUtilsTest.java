@@ -10,6 +10,7 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.Month;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -64,7 +65,7 @@ class RepositoryUtilsTest {
 
     @Test
     void setLocalDateOrNull_setsValue_whenPresent() throws Exception {
-        LocalDate date = LocalDate.of(2024, 1, 15);
+        LocalDate date = LocalDate.of(2024, Month.JANUARY, 15);
         RepositoryUtils.setLocalDateOrNull(cs, 3, date);
         verify(cs).setDate(3, Date.valueOf(date));
     }
@@ -99,7 +100,7 @@ class RepositoryUtilsTest {
 
     @Test
     void getLocalDateNullable_returnsDate_whenPresent() throws Exception {
-        LocalDate expected = LocalDate.of(2025, 6, 1);
+        LocalDate expected = LocalDate.of(2025, Month.JUNE, 1);
         when(rs.getDate("dt")).thenReturn(Date.valueOf(expected));
         assertThat(RepositoryUtils.getLocalDateNullable(rs, "dt")).isEqualTo(expected);
     }
