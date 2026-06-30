@@ -37,7 +37,7 @@ class InvoiceDateRulesTest {
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.date.in.future.error");
-    assertThat(collector.entries().get(0).invoiceIndex()).isEqualTo(0);
+    assertThat(collector.entries().get(0).invoiceIndex()).isZero();
     assertThat(collector.entries().get(0).error().path()).isEqualTo("invoice #1 (INV-1)");
   }
 
