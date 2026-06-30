@@ -1,11 +1,12 @@
 /**
  * Phase 2 of submission validation: <b>business rules</b> (DB-backed,
- * cross-field, per-invoice). Runs after the structural phase passes; wired by
- * the {@code submission.SubmissionValidationService} orchestrator and gated by
- * {@code csp.submission.validation.business-rules-enabled} (default false until
- * the rules are implemented; the
+ * cross-field, per-invoice). Exposed as its own endpoint
+ * ({@code POST /api/submissions/validate/business}) via the
+ * {@code submission.SubmissionValidationService} orchestrator; it runs after the
+ * structural phase parses the submission (the rules operate on the parsed tree).
+ * DB lookups go through the
  * {@link ca.bc.gov.nrs.csp.backend.submission.business.referencedata.ReferenceDataService}
- * facade is already wired to the repository layer).
+ * facade, which is wired to the repository layer.
  *
  * <h2>How to add a rule (the set structure — follow it, don't veer)</h2>
  * <ol>
