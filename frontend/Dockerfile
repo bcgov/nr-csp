@@ -8,28 +8,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
-# Declare build arguments after npm install so the install layer stays cached
-# when only config values change.
-ARG APP_ENV
-ARG COGNITO_REGION
-ARG COGNITO_USER_POOL_ID
-ARG COGNITO_USER_POOL_CLIENT_ID
-ARG COGNITO_DOMAIN
-ARG COGNITO_OAUTH_SCOPES
-ARG COGNITO_REDIRECT_SIGN_IN
-ARG COGNITO_REDIRECT_SIGN_OUT
+# Cognito config is injected at runtime via OpenShift ConfigMap (not baked in),
+# so only Vite-compiled env vars need to be declared here as build args.
 ARG VITE_API_BASE_URL
 ARG VITE_MOCK_USER
 
-ENV APP_ENV=${APP_ENV} \
-    COGNITO_REGION=${COGNITO_REGION} \
-    COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID} \
-    COGNITO_USER_POOL_CLIENT_ID=${COGNITO_USER_POOL_CLIENT_ID} \
-    COGNITO_DOMAIN=${COGNITO_DOMAIN} \
-    COGNITO_OAUTH_SCOPES=${COGNITO_OAUTH_SCOPES} \
-    COGNITO_REDIRECT_SIGN_IN=${COGNITO_REDIRECT_SIGN_IN} \
-    COGNITO_REDIRECT_SIGN_OUT=${COGNITO_REDIRECT_SIGN_OUT} \
-    VITE_API_BASE_URL=${VITE_API_BASE_URL} \
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     VITE_MOCK_USER=${VITE_MOCK_USER}
 
 COPY . .
@@ -50,9 +34,14 @@ CMD ["npm", "run", "start"]
 # Stage 2: Serve static files with Caddy
 FROM caddy:2-alpine
 
-# caddy:2-alpine runs as root by default — create a non-root user and
-# grant it ownership of Caddy's runtime dirs before switching to it.
-RUN addgroup -S caddy && adduser -S -G caddy caddy && \
+# caddy:2-alpine sets CAP_NET_BIND_SERVICE as a file capability on /usr/bin/caddy
+# so it can bind to port 80/443 without root. OpenShift's restricted SCC with
+# allowPrivilegeEscalation=false refuses to exec any binary that has file
+# capabilities. Strip it — we listen on port 3000 so the capability is unneeded.
+RUN apk add --no-cache libcap && \
+    setcap -r /usr/bin/caddy && \
+    apk del libcap && \
+    addgroup -S caddy && adduser -S -G caddy caddy && \
     chown caddy:caddy /data /config
 
 COPY --from=builder --chown=caddy:caddy /app/build /usr/share/caddy

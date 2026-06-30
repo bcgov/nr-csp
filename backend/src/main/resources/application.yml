@@ -1,6 +1,11 @@
+spring:
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
 server:
   servlet:
     context-path: /
+  forward-headers-strategy: framework
 
 # ===================================================================
 # CSP submission XML validation

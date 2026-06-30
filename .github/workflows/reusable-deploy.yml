@@ -22,15 +22,59 @@ on:
         type: string
 
     secrets:
-      db_password:
-        description: Database password
-        required: true
       oc_namespace:
         description: OpenShift namespace
         required: true
       oc_token:
         description: OpenShift token
         required: true
+      # Backend secrets
+      spring_datasource_url:
+        description: Oracle JDBC URL
+        required: true
+      spring_datasource_username:
+        description: Oracle database username
+        required: true
+      spring_datasource_password:
+        description: Oracle database password
+        required: true
+      keystore_secret:
+        description: Oracle wallet init container secret
+        required: true
+      jasper_server_username:
+        description: Jasper Reports server username
+        required: false
+      jasper_server_password:
+        description: Jasper Reports server password
+        required: false
+      # Backend config
+      database_host:
+        description: Oracle DB hostname
+        required: true
+      database_service_name:
+        description: Oracle service name
+        required: true
+      jwt_jwks_uri:
+        description: JWKS endpoint for JWT validation
+        required: false
+      jwt_issuer:
+        description: Expected JWT issuer claim
+        required: false
+      jwt_audience:
+        description: Expected JWT audience claim
+        required: false
+      jasper_server_login_url:
+        description: Jasper login URL
+        required: false
+      jasper_server_fetch_url:
+        description: Jasper fetch URL
+        required: false
+      jasper_server_put_url:
+        description: Jasper put URL
+        required: false
+      jasper_server_report_uri_base:
+        description: Jasper report URI base
+        required: false
 
     outputs:
       triggered:
@@ -56,9 +100,23 @@ jobs:
           oc_token: ${{ secrets.oc_token }}
           overwrite: true
           parameters:
-            -p DB_PASSWORD="${{ secrets.db_password }}"
-            -p ZONE="${{ inputs.target }}"
-            -p NAME="${{ github.event.repository.name }}"
+            -p ZONE='${{ inputs.target }}'
+            -p NAME='${{ github.event.repository.name }}'
+            -p SPRING_DATASOURCE_URL='${{ secrets.spring_datasource_url }}'
+            -p SPRING_DATASOURCE_USERNAME='${{ secrets.spring_datasource_username }}'
+            -p SPRING_DATASOURCE_PASSWORD='${{ secrets.spring_datasource_password }}'
+            -p KEYSTORE_SECRET='${{ secrets.keystore_secret }}'
+            -p JASPER_SERVER_USERNAME='${{ secrets.jasper_server_username }}'
+            -p JASPER_SERVER_PASSWORD='${{ secrets.jasper_server_password }}'
+            -p DATABASE_HOST='${{ secrets.database_host }}'
+            -p DATABASE_SERVICE_NAME='${{ secrets.database_service_name }}'
+            -p JWT_JWKS_URI='${{ secrets.jwt_jwks_uri }}'
+            -p JWT_ISSUER='${{ secrets.jwt_issuer }}'
+            -p JWT_AUDIENCE='${{ secrets.jwt_audience }}'
+            -p JASPER_SERVER_LOGIN_URL='${{ secrets.jasper_server_login_url }}'
+            -p JASPER_SERVER_FETCH_URL='${{ secrets.jasper_server_fetch_url }}'
+            -p JASPER_SERVER_PUT_URL='${{ secrets.jasper_server_put_url }}'
+            -p JASPER_SERVER_REPORT_URI_BASE='${{ secrets.jasper_server_report_uri_base }}'
           triggers: ${{ inputs.triggers }}
           debug: true
 
@@ -70,17 +128,23 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        name: [database, backend, frontend]
+        name: [backend, frontend]
         include:
-          - name: database
-            file: common/openshift.database.yml
-            parameters: -p DB_PVC_SIZE="256Mi"
           - name: backend
             file: backend/openshift.deploy.yml
             parameters: -p IMAGE_TAG="${{ inputs.tag }}"
           - name: frontend
             file: frontend/openshift.deploy.yml
-            parameters: -p IMAGE_TAG="${{ inputs.tag }}"
+            parameters: >-
+              -p IMAGE_TAG='${{ inputs.tag }}'
+              -p APP_ENV='${{ vars.app_env }}'
+              -p COGNITO_REGION='${{ vars.cognito_region }}'
+              -p COGNITO_USER_POOL_ID='${{ vars.cognito_user_pool_id }}'
+              -p COGNITO_USER_POOL_CLIENT_ID='${{ vars.cognito_user_pool_client_id }}'
+              -p COGNITO_DOMAIN='${{ vars.cognito_domain }}'
+              -p COGNITO_OAUTH_SCOPES='${{ vars.cognito_oauth_scopes }}'
+              -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca'
+              -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca/logout'
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     steps:

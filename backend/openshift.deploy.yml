@@ -36,44 +36,8 @@ parameters:
     value: "512Mi"
   - name: APP_LOG_LEVEL
     value: INFO
-  # Database — host/service used by the init container to fetch the wallet;
-  # the full JDBC URL is passed to Spring Boot separately.
-  - name: DATABASE_HOST
-    description: Oracle DB hostname (used by the init container)
-    required: true
-  - name: DATABASE_SERVICE_NAME
-    description: Oracle service name
-    required: true
-  - name: SPRING_DATASOURCE_URL
-    description: "Full Oracle JDBC URL, e.g. jdbc:oracle:thin:@//host:1543/SERVICE"
-    required: true
-  - name: SPRING_DATASOURCE_USERNAME
-    required: true
-  - name: SPRING_DATASOURCE_PASSWORD
-    required: true
-  - name: KEYSTORE_SECRET
-    description: Secret used by the init container to authenticate against the Oracle keystore
-    required: true
-  # JWT / Cognito
-  - name: JWT_JWKS_URI
-    required: true
-  - name: JWT_ISSUER
-    value: ""
-  - name: JWT_AUDIENCE
-    value: ""
-  # Jasper server
-  - name: JASPER_SERVER_LOGIN_URL
-    value: ""
-  - name: JASPER_SERVER_FETCH_URL
-    value: ""
-  - name: JASPER_SERVER_PUT_URL
-    value: ""
-  - name: JASPER_SERVER_REPORT_URI_BASE
-    value: ""
-  - name: JASPER_SERVER_USERNAME
-    value: ""
-  - name: JASPER_SERVER_PASSWORD
-    value: ""
+  # Credentials and config are read at runtime from the Secret and ConfigMap
+  # created by common/openshift.init.yml (${NAME}-${ZONE}-backend).
 
 objects:
   # ── Deployment ────────────────────────────────────────────
@@ -107,13 +71,16 @@ objects:
               imagePullPolicy: Always
               env:
                 - name: ORACLEDB_HOST
-                  value: ${DATABASE_HOST}
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ${NAME}-${ZONE}-backend
+                      key: DATABASE_HOST
                 - name: ORACLEDB_PORT
                   value: "1543"
                 - name: ORACLEDB_SECRET
                   valueFrom:
                     secretKeyRef:
-                      name: ${NAME}-backend-secret-${ZONE}
+                      name: ${NAME}-${ZONE}-backend
                       key: KEYSTORE_SECRET
               volumeMounts:
                 - name: api-cert
@@ -142,54 +109,14 @@ objects:
               ports:
                 - containerPort: 8080
                   protocol: TCP
+              envFrom:
+                - secretRef:
+                    name: ${NAME}-${ZONE}-backend
+                - configMapRef:
+                    name: ${NAME}-${ZONE}-backend
               env:
-                - name: SPRING_PROFILES_ACTIVE
-                  value: prod
                 - name: SERVER_PORT
                   value: "8080"
-                # Database — pulled from Secret
-                - name: SPRING_DATASOURCE_URL
-                  valueFrom:
-                    secretKeyRef:
-                      name: ${NAME}-backend-secret-${ZONE}
-                      key: SPRING_DATASOURCE_URL
-                - name: SPRING_DATASOURCE_USERNAME
-                  valueFrom:
-                    secretKeyRef:
-                      name: ${NAME}-backend-secret-${ZONE}
-                      key: SPRING_DATASOURCE_USERNAME
-                - name: SPRING_DATASOURCE_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: ${NAME}-backend-secret-${ZONE}
-                      key: SPRING_DATASOURCE_PASSWORD
-                # JWT / Cognito
-                - name: JWT_JWKS_URI
-                  value: ${JWT_JWKS_URI}
-                - name: JWT_ISSUER
-                  value: ${JWT_ISSUER}
-                - name: JWT_AUDIENCE
-                  value: ${JWT_AUDIENCE}
-                # Jasper — URLs are non-secret; credentials from Secret
-                - name: JASPER_SERVER_LOGIN_URL
-                  value: ${JASPER_SERVER_LOGIN_URL}
-                - name: JASPER_SERVER_FETCH_URL
-                  value: ${JASPER_SERVER_FETCH_URL}
-                - name: JASPER_SERVER_PUT_URL
-                  value: ${JASPER_SERVER_PUT_URL}
-                - name: JASPER_SERVER_REPORT_URI_BASE
-                  value: ${JASPER_SERVER_REPORT_URI_BASE}
-                - name: JASPER_SERVER_USERNAME
-                  valueFrom:
-                    secretKeyRef:
-                      name: ${NAME}-backend-secret-${ZONE}
-                      key: JASPER_SERVER_USERNAME
-                - name: JASPER_SERVER_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: ${NAME}-backend-secret-${ZONE}
-                      key: JASPER_SERVER_PASSWORD
-                # Logging
                 - name: LOGGING_LEVEL_CA_BC_GOV_NRS_CSP
                   value: ${APP_LOG_LEVEL}
               volumeMounts:
@@ -306,23 +233,6 @@ objects:
         requests:
           storage: 50Mi
       storageClassName: netapp-file-standard
-
-  # ── Secret ────────────────────────────────────────────────
-  - apiVersion: v1
-    kind: Secret
-    metadata:
-      name: ${NAME}-backend-secret-${ZONE}
-      labels:
-        app: ${NAME}-backend-${ZONE}
-        app.kubernetes.io/instance: ${ZONE}
-    type: Opaque
-    stringData:
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-      KEYSTORE_SECRET: ${KEYSTORE_SECRET}
-      JASPER_SERVER_USERNAME: ${JASPER_SERVER_USERNAME}
-      JASPER_SERVER_PASSWORD: ${JASPER_SERVER_PASSWORD}
 
   # ── NetworkPolicy: ingress from same-zone frontend + cluster monitoring ──
   - apiVersion: networking.k8s.io/v1
