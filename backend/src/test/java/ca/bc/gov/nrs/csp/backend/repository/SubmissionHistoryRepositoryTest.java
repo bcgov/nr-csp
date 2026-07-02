@@ -73,7 +73,8 @@ class SubmissionHistoryRepositoryTest {
 
     @Test
     void buildOrderBy_unknownField_throwsBadRequest() {
-        assertThatThrownBy(() -> SubmissionHistoryRepository.buildOrderBy(Sort.by("bogus")))
+        Sort unknownSort = Sort.by("bogus");
+        assertThatThrownBy(() -> SubmissionHistoryRepository.buildOrderBy(unknownSort))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Unsupported sort field: bogus");
     }

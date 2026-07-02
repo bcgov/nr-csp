@@ -247,7 +247,10 @@ public class SubmissionHistoryRepository {
 
         String countSql = "SELECT count(*) FROM (" + LIST_QUERY + ") cnt";
 
-        List<SubmissionHistoryRowResponse> content = jdbc.query(dataSql, params, (rs, rowNum) ->
+        // orderBy is composed only from the SORT_COLUMNS whitelist and hardcoded
+        // ASC/DESC keywords (see buildOrderBy); offset/limit are bound parameters.
+        // No user-controlled value reaches the SQL string, so this is not injectable.
+        List<SubmissionHistoryRowResponse> content = jdbc.query(dataSql, params, (rs, rowNum) -> // NOSONAR S2077 - ORDER BY is whitelist-only, not injectable
                 new SubmissionHistoryRowResponse(
                         RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
                         RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),

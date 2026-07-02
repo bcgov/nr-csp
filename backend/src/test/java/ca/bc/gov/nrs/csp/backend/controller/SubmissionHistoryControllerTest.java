@@ -23,7 +23,6 @@ import java.time.Month;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -46,7 +45,7 @@ class SubmissionHistoryControllerTest {
     }
 
     // ---------------------------------------------------------------
-    // GET /api/submission-history
+    // listSubmissionHistory
     // ---------------------------------------------------------------
 
     @Test
@@ -73,7 +72,7 @@ class SubmissionHistoryControllerTest {
     }
 
     // ---------------------------------------------------------------
-    // GET /api/submission-history/{id}
+    // getSubmissionDetail
     // ---------------------------------------------------------------
 
     @Test
@@ -99,14 +98,14 @@ class SubmissionHistoryControllerTest {
     }
 
     // ---------------------------------------------------------------
-    // GET /api/submission-history/{id}/invoices
+    // getSubmissionInvoiceComments
     // ---------------------------------------------------------------
 
     @Test
     void getSubmissionInvoiceComments_returns200WithList() throws Exception {
         SubmissionInvoiceCommentResponse comment =
                 new SubmissionInvoiceCommentResponse("WFP521046", "Approved", "Looks good");
-        given(service.getInvoiceComments(eq(200456L))).willReturn(List.of(comment));
+        given(service.getInvoiceComments(200456L)).willReturn(List.of(comment));
 
         mockMvc.perform(get("/api/submission-history/200456/invoices"))
                 .andExpect(status().isOk())
