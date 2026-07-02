@@ -1,106 +1,53 @@
 package ca.bc.gov.nrs.csp.backend.submission;
 
-import ca.bc.gov.nrs.csp.backend.submission.parser.SubmissionEnvelopeException;
-import ca.bc.gov.nrs.csp.backend.submission.parser.SubmissionEnvelopeStripper;
-import ca.bc.gov.nrs.csp.backend.submission.parser.SubmissionXmlParser;
+import ca.bc.gov.nrs.csp.backend.submission.business.BusinessValidationOutcome;
+import ca.bc.gov.nrs.csp.backend.submission.business.BusinessValidationService;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationResult;
+import ca.bc.gov.nrs.csp.backend.submission.structural.StructuralValidationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Structural validation entry point: format detection → ESF envelope
- * stripping → schema-bound JAXB parse. This is the reusable core
- * extracted from nr-fspts — no business rules, no DB access, no
- * application-specific logic. Business-rule validation runs separately,
- * after this passes.
+ * Submission validation entry point. The two phases are exposed as separate,
+ * independently-callable operations (one per endpoint):
  *
- * <p>Returns an empty error list on success and a populated, blocking
- * list on failure.
+ * <ul>
+ *   <li>{@link #validateStructural(byte[])} — format detection, ESF envelope
+ *       stripping, XSD/JAXB parse ({@link StructuralValidationService}).</li>
+ *   <li>{@link #validateBusiness(byte[])} — DB-backed business rules
+ *       ({@link BusinessValidationService}). Business needs a parsed submission,
+ *       so this parses first; if the XML doesn't parse it returns those
+ *       structural errors, because business rules cannot run on it.</li>
+ * </ul>
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SubmissionValidationService {
 
-  private final SubmissionEnvelopeStripper envelopeStripper;
-  private final SubmissionXmlParser parser;
+  private final StructuralValidationService structuralValidationService;
+  private final BusinessValidationService businessValidationService;
 
-  public SubmissionValidationResult validate(byte[] xml) {
-    return validateAndParse(xml).result();
+  /** Phase 1 — structural validation only. */
+  public SubmissionValidationResult validateStructural(byte[] xml) {
+    return structuralValidationService.validate(xml);
   }
 
   /**
-   * Variant that also returns the parsed JAXB tree so callers (e.g. a
-   * future persistence path) don't have to re-parse on success. On
-   * failure, {@code submission} may be null.
+   * Phase 2 — business-rule validation. Parses the submission first (the rules
+   * operate on the JAXB tree); on a parse/schema failure, returns those
+   * structural errors since business rules cannot run on an unparseable document.
    */
-  public ValidationOutcome validateAndParse(byte[] bytes) {
-    List<SubmissionValidationError> errors = new ArrayList<>();
-
-    SubmissionXmlParser.ParseOutcome outcome = switch (detectFormat(bytes)) {
-      case XML -> parseXml(bytes, errors);
-      case UNKNOWN -> {
-        errors.add(SubmissionValidationError.of(
-            "FORMAT_UNRECOGNIZED",
-            "could not detect format — expected XML (starts with '<')"));
-        yield new SubmissionXmlParser.ParseOutcome(null, List.of());
-      }
-    };
-    errors.addAll(outcome.errors());
-
-    SubmissionValidationResult result = errors.isEmpty()
-        ? SubmissionValidationResult.ok()
-        : SubmissionValidationResult.failed(errors);
-    return new ValidationOutcome(result, outcome.submission());
-  }
-
-  /**
-   * XML path: strip the ESF envelope if present, then JAXB-parse.
-   * Envelope failures short-circuit with their dedicated error code.
-   */
-  private SubmissionXmlParser.ParseOutcome parseXml(
-      byte[] bytes, List<SubmissionValidationError> errors) {
-    byte[] bodyBytes;
-    try {
-      bodyBytes = envelopeStripper.toBareSubmission(bytes);
-    } catch (SubmissionEnvelopeException e) {
-      errors.add(SubmissionValidationError.of(e.getCode(), e.getMessage()));
-      return new SubmissionXmlParser.ParseOutcome(null, List.of());
+  public SubmissionValidationResult validateBusiness(byte[] xml) {
+    StructuralValidationService.ValidationOutcome structural =
+        structuralValidationService.validateAndParse(xml);
+    if (!structural.result().valid() || structural.submission() == null) {
+      return structural.result();
     }
-    return parser.parse(bodyBytes);
+    BusinessValidationOutcome business =
+        businessValidationService.validate(structural.submission());
+    return new SubmissionValidationResult(
+        business.valid(), business.messages(), business.acceptance());
   }
-
-  /**
-   * Cheap leading-byte sniff. Skips whitespace + UTF-8 BOM; anything
-   * that isn't an opening '<' falls through to {@link Format#UNKNOWN}.
-   */
-  static Format detectFormat(byte[] bytes) {
-    if (bytes == null) return Format.UNKNOWN;
-    int i = 0;
-    // Skip UTF-8 BOM.
-    if (bytes.length >= 3
-        && (bytes[0] & 0xFF) == 0xEF
-        && (bytes[1] & 0xFF) == 0xBB
-        && (bytes[2] & 0xFF) == 0xBF) {
-      i = 3;
-    }
-    while (i < bytes.length) {
-      byte b = bytes[i];
-      if (b == ' ' || b == '\t' || b == '\n' || b == '\r') {
-        i++;
-        continue;
-      }
-      if (b == '<') return Format.XML;
-      return Format.UNKNOWN;
-    }
-    return Format.UNKNOWN;
-  }
-
-  /** Submission upload format. */
-  enum Format { XML, UNKNOWN }
-
-  public record ValidationOutcome(SubmissionValidationResult result, Object submission) {}
 }

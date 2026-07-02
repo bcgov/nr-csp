@@ -2,9 +2,10 @@ package ca.bc.gov.nrs.csp.backend.controller;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionValidationResponse;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationError;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationResult;
 import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationService;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionAcceptance;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
+import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,14 +44,18 @@ class CspSubmissionControllerTest {
                 .build();
     }
 
+    private static MockMultipartFile file(String name, byte[] content) {
+        return new MockMultipartFile("file", name, "text/xml", content);
+    }
+
+    // ---------- structural endpoint ----------
+
     @Test
-    void validate_validSubmission_returns200() throws Exception {
-        given(validationService.validate(any())).willReturn(SubmissionValidationResult.ok());
+    void structural_valid_returns200() throws Exception {
+        given(validationService.validateStructural(any())).willReturn(SubmissionValidationResult.ok());
 
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "submission.xml", "text/xml", "<csp:CSPSubmission/>".getBytes());
-
-        mockMvc.perform(multipart("/api/submissions/validate").file(file))
+        mockMvc.perform(multipart("/api/submissions/validate/structural")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(true))
                 .andExpect(jsonPath("$.code").value("OK"))
@@ -58,16 +63,14 @@ class CspSubmissionControllerTest {
     }
 
     @Test
-    void validate_invalidSubmission_returns422WithErrors() throws Exception {
+    void structural_invalid_returns422WithErrors() throws Exception {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.of("line 5, col 30", "XSD",
                         "cvc-enumeration-valid: Value 'MAYBE' is not facet-valid")));
-        given(validationService.validate(any())).willReturn(failed);
+        given(validationService.validateStructural(any())).willReturn(failed);
 
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "bad.xml", "text/xml", "<csp:CSPSubmission/>".getBytes());
-
-        mockMvc.perform(multipart("/api/submissions/validate").file(file))
+        mockMvc.perform(multipart("/api/submissions/validate/structural")
+                        .file(file("bad.xml", "<csp:CSPSubmission/>".getBytes())))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
@@ -77,15 +80,29 @@ class CspSubmissionControllerTest {
     }
 
     @Test
-    void validate_missingFile_returns400() throws Exception {
-        mockMvc.perform(multipart("/api/submissions/validate"))
+    void structural_errorWithNullPath_mapsToMessageWithoutLocationArgs() throws Exception {
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", "could not detect format")));
+        given(validationService.validateStructural(any())).willReturn(failed);
+
+        mockMvc.perform(multipart("/api/submissions/validate/structural")
+                        .file(file("x.txt", "{".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("FORMAT_UNRECOGNIZED"))
+                .andExpect(jsonPath("$.errors[0].type").value("ERROR"));
+    }
+
+    @Test
+    void structural_missingFile_returns400() throws Exception {
+        mockMvc.perform(multipart("/api/submissions/validate/structural"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.code").value("UPLOAD_MISSING"));
     }
 
     @Test
-    void validate_unreadableFile_returns400Unreadable() throws Exception {
+    void structural_unreadableFile_returns400Unreadable() throws Exception {
         // A present-but-unreadable upload: getBytes() throws. Built directly so
         // we can force the IOException the controller's catch block handles.
         MultipartFile file = mock(MultipartFile.class);
@@ -93,7 +110,7 @@ class CspSubmissionControllerTest {
         given(file.getBytes()).willThrow(new IOException("boom"));
 
         ResponseEntity<SubmissionValidationResponse> resp =
-                new CspSubmissionController(validationService).validate(file);
+                new CspSubmissionController(validationService).validateStructural(file);
 
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
         assertThat(resp.getBody()).isNotNull();
@@ -101,21 +118,62 @@ class CspSubmissionControllerTest {
         assertThat(resp.getBody().code()).isEqualTo("UPLOAD_UNREADABLE");
     }
 
+    // ---------- business endpoint ----------
+
     @Test
-    void validate_errorWithNullPath_mapsToMessageWithoutLocationArgs() throws Exception {
-        // Error created via the (code, message) factory has a null path, which
-        // exercises the args == null branch of the controller's error mapping.
+    void business_valid_returns200() throws Exception {
+        given(validationService.validateBusiness(any())).willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.code").value("OK"));
+    }
+
+    @Test
+    void business_invalid_returns422WithErrors() throws Exception {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
-                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", "could not detect format")));
-        given(validationService.validate(any())).willReturn(failed);
+                SubmissionValidationError.error("invoice INV-1", "invoice.date.in.future.error",
+                        "invoiceDate for invoiceNumber INV-1 cannot be in the future.")));
+        given(validationService.validateBusiness(any())).willReturn(failed);
 
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "x.txt", "text/plain", "{".getBytes());
-
-        mockMvc.perform(multipart("/api/submissions/validate").file(file))
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
                 .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors[0].messageKey").value("FORMAT_UNRECOGNIZED"))
-                .andExpect(jsonPath("$.errors[0].type").value("ERROR"));
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"))
+                .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
+                .andExpect(jsonPath("$.errors[0].args[0]").value("invoice INV-1"));
+    }
+
+    @Test
+    void business_missingFile_returns400() throws Exception {
+        mockMvc.perform(multipart("/api/submissions/validate/business"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("UPLOAD_MISSING"));
+    }
+
+    @Test
+    void business_partialAcceptance_is200ButNotValidAndSurfacesRejected() throws Exception {
+        // One invoice accepted, one rejected for an ERROR. Must NOT read as a clean
+        // accept: valid=false, code=PARTIALLY_ACCEPTED, with both invoice lists exposed.
+        SubmissionValidationResult partial = new SubmissionValidationResult(
+                true,
+                List.of(SubmissionValidationError.error("invoice INV-BAD",
+                        "invoice.date.in.future.error",
+                        "invoiceDate for invoiceNumber INV-BAD cannot be in the future.")),
+                new SubmissionAcceptance(List.of("INV-GOOD"), List.of("INV-BAD")));
+        given(validationService.validateBusiness(any())).willReturn(partial);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("PARTIALLY_ACCEPTED"))
+                .andExpect(jsonPath("$.acceptedInvoices[0]").value("INV-GOOD"))
+                .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"));
     }
 }
