@@ -9,8 +9,8 @@ public class InvoiceCodeRules implements InvoiceRule {
 
   @Override
   public void validate(InvoiceRuleContext ctx) {
-    maturityValid(ctx); // I22
-    primarySortCodeValid(ctx); // I23
+    maturityValid(ctx);
+    primarySortCodeValid(ctx);
   }
 
   /** Maturity code must be recognised and active on the invoice date. */
