@@ -18,11 +18,6 @@ export const NAVIGATION_ITEMS = [
     icon: Search,
   },
   {
-    name: 'Submission History',
-    path: ROUTES.SUBMISSION_HISTORY,
-    icon: RecentlyViewed,
-  },
-  {
     name: 'Inbox',
     path: ROUTES.INBOX,
     icon: Email,
@@ -31,6 +26,17 @@ export const NAVIGATION_ITEMS = [
     name: 'Invoice',
     path: ROUTES.INVOICE,
     icon: Receipt,
+  },
+  {
+    name: 'Submissions',
+    icon: RecentlyViewed,
+    children: [
+      {
+        name: 'Submission History',
+        path: ROUTES.SUBMISSION_HISTORY,
+        icon: RecentlyViewed,
+      },
+    ],
   },
   {
     name: 'Table maintenance',

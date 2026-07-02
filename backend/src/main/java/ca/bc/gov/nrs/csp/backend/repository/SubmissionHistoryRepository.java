@@ -124,7 +124,11 @@ public class SubmissionHistoryRepository {
     // One row per invoice in the submission. The plain columns back the table
     // row; the joins + correlated subqueries supply the expandable per-invoice
     // detail panel. "Other party" is whichever side (buyer/seller) isn't the
-    // submitting client — mirrors InvoiceRepository.mapLoadedInvoice. The
+    // submitting client — mirrors InvoiceRepository.mapLoadedInvoice. Its
+    // name/city/province live in log_sale_participant ONLY for non-registered
+    // parties; when the other party is a registered client (has a client
+    // number) those participant columns are null, so we COALESCE to the
+    // forest_client name and client_location city/province instead. The
     // LISTAGG subqueries flatten the log-source (boom/mark/weigh) and related-
     // invoice (replaces/adjusts) child rows the same way InvoiceRepository's
     // helper methods do.
@@ -149,13 +153,16 @@ public class SubmissionHistoryRepository {
                    inv.reviewer_notes                                       AS staff_comment,
                    CASE WHEN inv.seller_client_number = sub.client_number
                              AND inv.seller_client_locn_code = sub.client_locn_code
-                        THEN buyer_part.name ELSE seller_part.name END       AS other_party_name,
+                        THEN COALESCE(buyer_part.name, buyer_fc.client_name)
+                        ELSE COALESCE(seller_part.name, seller_fc.client_name) END       AS other_party_name,
                    CASE WHEN inv.seller_client_number = sub.client_number
                              AND inv.seller_client_locn_code = sub.client_locn_code
-                        THEN buyer_part.city ELSE seller_part.city END       AS other_party_city,
+                        THEN COALESCE(buyer_part.city, buyer_cl.city)
+                        ELSE COALESCE(seller_part.city, seller_cl.city) END              AS other_party_city,
                    CASE WHEN inv.seller_client_number = sub.client_number
                              AND inv.seller_client_locn_code = sub.client_locn_code
-                        THEN buyer_part.province ELSE seller_part.province END AS other_party_prov_state,
+                        THEN COALESCE(buyer_part.province, buyer_cl.province)
+                        ELSE COALESCE(seller_part.province, seller_cl.province) END       AS other_party_prov_state,
                    (SELECT LISTAGG(rcls.client_invoice_no, ', ')
                               WITHIN GROUP (ORDER BY r.coastal_log_sale_rltd_invc_id)
                       FROM THE.coastal_log_sale_rltd_invc r
@@ -192,6 +199,16 @@ public class SubmissionHistoryRepository {
                     ON inv.buyer_log_sale_participant_id = buyer_part.log_sale_participant_id
             LEFT JOIN THE.log_sale_participant seller_part
                     ON inv.seller_log_sale_participant_id = seller_part.log_sale_participant_id
+            LEFT JOIN THE.forest_client buyer_fc
+                    ON inv.buyer_client_number = buyer_fc.client_number
+            LEFT JOIN THE.forest_client seller_fc
+                    ON inv.seller_client_number = seller_fc.client_number
+            LEFT JOIN THE.client_location buyer_cl
+                    ON inv.buyer_client_number = buyer_cl.client_number
+                   AND inv.buyer_client_locn_code = buyer_cl.client_locn_code
+            LEFT JOIN THE.client_location seller_cl
+                    ON inv.seller_client_number = seller_cl.client_number
+                   AND inv.seller_client_locn_code = seller_cl.client_locn_code
             WHERE  inv.csp_submission_id = :id
             ORDER BY inv.coastal_log_sale_id
             """;
