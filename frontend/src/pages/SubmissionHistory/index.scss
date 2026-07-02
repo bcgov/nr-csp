@@ -1,0 +1,168 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+
+.submission-history-page {
+  padding-top: $spacing-07;
+  padding-bottom: $spacing-07;
+
+  // Kill Carbon's grid side padding so columns are flush with the page edges.
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Apply horizontal padding only to the filter-side content so it keeps its
+  // inset look. The table column has no padding and therefore stretches edge to edge.
+  .page-title-col,
+  &__filter-row,
+  &__clear-col {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  .page-title-col {
+    margin-bottom: $spacing-07;
+  }
+
+  &__filter-row {
+    display: flex;
+    gap: $spacing-02;
+    margin-bottom: $spacing-05;
+
+    &--with-btn {
+      align-items: flex-start;
+    }
+  }
+
+  &__filter-item {
+    flex: 1;
+    min-width: 0;
+
+    .cds--btn {
+      width: 100%;
+      max-width: 100%;
+    }
+  }
+
+  // Invisible spacer matching Carbon's label-01 height so the Search button
+  // bottom-aligns with the adjacent inputs when the row uses align-items: flex-start.
+  &__search-btn-spacer {
+    @include type.type-style('label-01');
+    line-height: 1rem;
+    display: block;
+    margin-block-end: $spacing-03;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  &__clear-col {
+    margin-top: $spacing-03;
+    margin-bottom: $spacing-03;
+  }
+
+  &__error-col {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  &__error {
+    @include type.type-style('body-01');
+    color: var(--cds-text-error, #da1e28);
+  }
+
+  &__table-col {
+    margin-top: $spacing-05;
+  }
+
+  // "Invoices" column: count link + comment-count badge.
+  &__invoices-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-03;
+  }
+
+  &__comment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+    padding: 0 $spacing-02;
+    border-radius: $spacing-02;
+    background-color: var(--cds-layer-accent, #e0e0e0);
+    color: var(--cds-text-secondary, #525252);
+    @include type.type-style('label-01');
+
+    svg {
+      fill: currentColor;
+    }
+  }
+}
+
+// Expanded-row "Invoice comments" sub-table.
+.invoice-comments-panel {
+  padding: $spacing-03 $spacing-05 $spacing-05;
+
+  &--status {
+    display: flex;
+    align-items: center;
+    min-height: $spacing-09;
+  }
+
+  &__header {
+    @include type.type-style('label-01');
+    color: var(--cds-text-secondary, #525252);
+    margin-bottom: $spacing-03;
+  }
+
+  &__error {
+    @include type.type-style('body-01');
+    color: var(--cds-text-error, #da1e28);
+  }
+
+  &__empty {
+    @include type.type-style('body-01');
+    color: var(--cds-text-secondary, #525252);
+  }
+
+  // Scrollable so long invoice lists don't blow out the row height.
+  &__table-wrap {
+    max-height: 18rem;
+    overflow-y: auto;
+    border: 1px solid var(--cds-border-subtle, #e0e0e0);
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    @include type.type-style('body-01');
+
+    th,
+    td {
+      text-align: left;
+      padding: $spacing-03 $spacing-05;
+      vertical-align: top;
+    }
+
+    thead th {
+      @include type.type-style('label-01');
+      position: sticky;
+      top: 0;
+      background-color: var(--cds-layer-accent, #e0e0e0);
+      color: var(--cds-text-primary, #161616);
+      z-index: 1;
+    }
+
+    tbody tr {
+      background-color: var(--cds-layer, #ffffff);
+      border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: var(--cds-layer-hover, #e8e8e8);
+    }
+  }
+
+  &__comment--rejected {
+    color: var(--cds-text-error, #da1e28);
+  }
+}
