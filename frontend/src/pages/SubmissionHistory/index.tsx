@@ -68,7 +68,7 @@ export function SubmissionHistoryPage() {
     return axiosError?.response?.data?.message ?? 'Failed to load submissions. Please try again.';
   })();
 
-  const rows: SubmissionRow[] = (data?.content ?? []).map(toSubmissionRow);
+  const rows: SubmissionRow[] = (data?.content ?? []).map((r, index) => toSubmissionRow(r, index));
   const totalElements = data?.totalElements ?? 0;
 
   const columns: ResultsTableColumn<SubmissionRow>[] = [
@@ -84,32 +84,35 @@ export function SubmissionHistoryPage() {
       key: 'invoiceCount',
       header: 'Invoices',
       sortable: false,
-      renderCell: (row) => (
-        <span className="submission-history-page__invoices-cell">
-          {row.cspSubmissionId != null ? (
-            <Link
-              href={`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`);
-              }}
-            >
-              {row.invoiceCount} {row.invoiceCount === 1 ? 'invoice' : 'invoices'}
-            </Link>
-          ) : (
-            `${row.invoiceCount} ${row.invoiceCount === 1 ? 'invoice' : 'invoices'}`
-          )}
-          {row.commentedInvoiceCount > 0 && (
-            <span
-              className="submission-history-page__comment-badge"
-              title={`${row.commentedInvoiceCount} invoice(s) with comments`}
-            >
-              <Chat size={16} />
-              {row.commentedInvoiceCount}
-            </span>
-          )}
-        </span>
-      ),
+      renderCell: (row) => {
+        const invoiceLabel = `${row.invoiceCount} ${row.invoiceCount === 1 ? 'invoice' : 'invoices'}`;
+        return (
+          <span className="submission-history-page__invoices-cell">
+            {row.cspSubmissionId == null ? (
+              invoiceLabel
+            ) : (
+              <Link
+                href={`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`);
+                }}
+              >
+                {invoiceLabel}
+              </Link>
+            )}
+            {row.commentedInvoiceCount > 0 && (
+              <span
+                className="submission-history-page__comment-badge"
+                title={`${row.commentedInvoiceCount} invoice(s) with comments`}
+              >
+                <Chat size={16} />
+                {row.commentedInvoiceCount}
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       key: 'id',
@@ -118,7 +121,7 @@ export function SubmissionHistoryPage() {
       headerAlign: 'center',
       cellAlign: 'center',
       renderCell: (row) =>
-        row.cspSubmissionId != null ? (
+        row.cspSubmissionId == null ? null : (
           <IconButton
             kind="ghost"
             size="sm"
@@ -128,7 +131,7 @@ export function SubmissionHistoryPage() {
           >
             <View />
           </IconButton>
-        ) : null,
+        ),
     },
   ];
 

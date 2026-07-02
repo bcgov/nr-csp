@@ -98,12 +98,112 @@ export function ViewSubmissionPage() {
   const expandAll = () => setExpandedRowIds(new Set(invoiceRows.map((row) => row.id)));
   const collapseAll = () => setExpandedRowIds(new Set());
 
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <Column lg={16} md={8} sm={4} className="view-submission-page__loading">
+          <Loading withOverlay={false} description="Loading submission" />
+        </Column>
+      );
+    }
+
+    if (isError) {
+      return (
+        <Column lg={16} md={8} sm={4} className="view-submission-page__error-col">
+          <p className="view-submission-page__error">{apiErrorMessage}</p>
+        </Column>
+      );
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return (
+      <>
+        <Column lg={16} md={8} sm={4} className="view-submission-page__summary">
+          <SubmissionStatusTag status={data.submissionStatus} />
+          <span className="view-submission-page__summary-text">
+            Submission by <strong>{data.submittedBy ?? '—'}</strong> — Client Name{' '}
+            <strong>
+              {data.clientName ?? '—'}
+              {data.clientNumber ? ` (${data.clientNumber})` : ''}
+            </strong>
+            {' · '}
+            {formatShortDate(data.submissionDate)}
+          </span>
+        </Column>
+
+        <Column lg={16} md={8} sm={4} className="view-submission-page__section">
+          <DetailSection title="Submission Metadata" items={metadataItems} />
+        </Column>
+        <Column lg={16} md={8} sm={4} className="view-submission-page__section">
+          <DetailSection title="Submission Details" items={detailItems} />
+        </Column>
+        <Column lg={16} md={8} sm={4} className="view-submission-page__section">
+          <DetailSection title="Submitter Information" items={submitterItems} />
+        </Column>
+
+        <Column lg={16} md={8} sm={4} className="view-submission-page__section">
+          <div className="view-submission-page__invoices-card">
+            <div className="view-submission-page__invoices-header">
+              <div>
+                <h2 className="view-submission-page__section-title">Invoices</h2>
+                <p className="view-submission-page__section-count">{invoicesSummary}</p>
+              </div>
+              {invoiceRows.length > 0 && (
+                <div className="view-submission-page__expand-actions">
+                  <Link
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      expandAll();
+                    }}
+                  >
+                    Expand all
+                  </Link>
+                  <span aria-hidden="true">|</span>
+                  <Link
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      collapseAll();
+                    }}
+                  >
+                    Collapse all
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div className="view-submission-page__invoices-body">
+              <ResultsTable
+                rows={invoiceRows}
+                columns={invoiceColumns}
+                hasSearched
+                expandable
+                expandedRowIds={expandedRowIds}
+                onExpandedRowIdsChange={setExpandedRowIds}
+                renderExpandedContent={(row) => (
+                  <InvoiceDetailPanel invoice={row} lineItems={lineItemsByInvoice.get(row.invoiceNumber ?? '') ?? []} />
+                )}
+                emptyTitle="No invoices"
+                emptyDescription="This submission has no invoices."
+              />
+            </div>
+          </div>
+        </Column>
+      </>
+    );
+  };
+
   const invoiceColumns: ResultsTableColumn<InvoiceRow>[] = [
     {
       key: 'invoiceNumber',
       header: 'Invoice #',
       renderCell: (row) =>
-        row.coastalLogSaleId != null ? (
+        row.coastalLogSaleId == null ? (
+          (row.invoiceNumber ?? '—')
+        ) : (
           <Link
             href={`${ROUTES.INVOICE}/${row.coastalLogSaleId}`}
             onClick={(e) => {
@@ -113,8 +213,6 @@ export function ViewSubmissionPage() {
           >
             {row.invoiceNumber ?? '—'}
           </Link>
-        ) : (
-          (row.invoiceNumber ?? '—')
         ),
     },
     {
@@ -177,92 +275,7 @@ export function ViewSubmissionPage() {
 
         <PageTitle title="View Submission" />
 
-        {isLoading ? (
-          <Column lg={16} md={8} sm={4} className="view-submission-page__loading">
-            <Loading withOverlay={false} description="Loading submission" />
-          </Column>
-        ) : isError ? (
-          <Column lg={16} md={8} sm={4} className="view-submission-page__error-col">
-            <p className="view-submission-page__error">{apiErrorMessage}</p>
-          </Column>
-        ) : data ? (
-          <>
-            <Column lg={16} md={8} sm={4} className="view-submission-page__summary">
-              <SubmissionStatusTag status={data.submissionStatus} />
-              <span className="view-submission-page__summary-text">
-                Submission by <strong>{data.submittedBy ?? '—'}</strong> — Client Name{' '}
-                <strong>
-                  {data.clientName ?? '—'}
-                  {data.clientNumber ? ` (${data.clientNumber})` : ''}
-                </strong>
-                {' · '}
-                {formatShortDate(data.submissionDate)}
-              </span>
-            </Column>
-
-            <Column lg={16} md={8} sm={4} className="view-submission-page__section">
-              <DetailSection title="Submission Metadata" items={metadataItems} />
-            </Column>
-            <Column lg={16} md={8} sm={4} className="view-submission-page__section">
-              <DetailSection title="Submission Details" items={detailItems} />
-            </Column>
-            <Column lg={16} md={8} sm={4} className="view-submission-page__section">
-              <DetailSection title="Submitter Information" items={submitterItems} />
-            </Column>
-
-            <Column lg={16} md={8} sm={4} className="view-submission-page__section">
-              <div className="view-submission-page__invoices-card">
-                <div className="view-submission-page__invoices-header">
-                  <div>
-                    <h2 className="view-submission-page__section-title">Invoices</h2>
-                    <p className="view-submission-page__section-count">{invoicesSummary}</p>
-                  </div>
-                  {invoiceRows.length > 0 && (
-                    <div className="view-submission-page__expand-actions">
-                      <Link
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          expandAll();
-                        }}
-                      >
-                        Expand all
-                      </Link>
-                      <span aria-hidden="true">|</span>
-                      <Link
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          collapseAll();
-                        }}
-                      >
-                        Collapse all
-                      </Link>
-                    </div>
-                  )}
-                </div>
-                <div className="view-submission-page__invoices-body">
-                  <ResultsTable
-                    rows={invoiceRows}
-                    columns={invoiceColumns}
-                    hasSearched
-                    expandable
-                    expandedRowIds={expandedRowIds}
-                    onExpandedRowIdsChange={setExpandedRowIds}
-                    renderExpandedContent={(row) => (
-                      <InvoiceDetailPanel
-                        invoice={row}
-                        lineItems={lineItemsByInvoice.get(row.invoiceNumber ?? '') ?? []}
-                      />
-                    )}
-                    emptyTitle="No invoices"
-                    emptyDescription="This submission has no invoices."
-                  />
-                </div>
-              </div>
-            </Column>
-          </>
-        ) : null}
+        {renderContent()}
       </Grid>
     </div>
   );

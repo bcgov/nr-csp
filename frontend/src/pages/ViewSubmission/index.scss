@@ -134,6 +134,14 @@
     @include type.type-style('heading-compact-01');
   }
 
+  // Lock the invoice-detail field grid to a fixed 3-column layout so fields
+  // align row-by-row regardless of container width (overrides the responsive
+  // auto-fill from DetailSection). minmax(0, 1fr) lets long values wrap rather
+  // than widening the column.
+  &__details .detail-section__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   &__empty {
     color: theme.$text-secondary;
     font-style: italic;

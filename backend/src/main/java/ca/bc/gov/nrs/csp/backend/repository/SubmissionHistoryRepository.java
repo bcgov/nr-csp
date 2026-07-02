@@ -42,6 +42,13 @@ import java.util.Optional;
 @Repository
 public class SubmissionHistoryRepository {
 
+    // Result-set column aliases reused across the SELECTs, sort whitelist and row mappers.
+    private static final String COL_ENTRY_TIMESTAMP = "entry_timestamp";
+    private static final String COL_SUBMITTED_BY = "submitted_by";
+    private static final String COL_CLIENT_NAME = "client_name";
+    private static final String COL_SUBMISSION_STATUS = "submission_status";
+    private static final String COL_INVOICE_NUMBER = "invoice_number";
+
     // Shared joins: status description, client name, electronic submission
     // (submitter name + email), client location (email + phone).
     private static final String LIST_QUERY = """
@@ -70,10 +77,10 @@ public class SubmissionHistoryRepository {
 
     // API sort key → SQL alias from the SELECT (Oracle allows ORDER BY alias).
     private static final Map<String, String> SORT_COLUMNS = Map.of(
-            "submissionDate",   "entry_timestamp",
-            "submittedBy",      "submitted_by",
-            "clientName",       "client_name",
-            "submissionStatus", "submission_status"
+            "submissionDate",   COL_ENTRY_TIMESTAMP,
+            "submittedBy",      COL_SUBMITTED_BY,
+            "clientName",       COL_CLIENT_NAME,
+            "submissionStatus", COL_SUBMISSION_STATUS
     );
 
     private static final String DEFAULT_ORDER_BY = "entry_timestamp DESC";
@@ -243,11 +250,11 @@ public class SubmissionHistoryRepository {
         List<SubmissionHistoryRowResponse> content = jdbc.query(dataSql, params, (rs, rowNum) ->
                 new SubmissionHistoryRowResponse(
                         RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
-                        RepositoryUtils.getLocalDateNullable(rs, "entry_timestamp"),
-                        rs.getString("submitted_by"),
+                        RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),
+                        rs.getString(COL_SUBMITTED_BY),
                         rs.getString("client_number"),
-                        rs.getString("client_name"),
-                        rs.getString("submission_status"),
+                        rs.getString(COL_CLIENT_NAME),
+                        rs.getString(COL_SUBMISSION_STATUS),
                         rs.getObject("invoice_count", Integer.class),
                         rs.getObject("commented_invoice_count", Integer.class)
                 ));
@@ -265,11 +272,11 @@ public class SubmissionHistoryRepository {
             header = jdbc.queryForObject(DETAIL_QUERY, params, (rs, rowNum) -> new SubmissionDetailHeader(
                     RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
                     rs.getString("submission_id"),
-                    RepositoryUtils.getLocalDateNullable(rs, "entry_timestamp"),
-                    rs.getString("submitted_by"),
-                    rs.getString("submission_status"),
+                    RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),
+                    rs.getString(COL_SUBMITTED_BY),
+                    rs.getString(COL_SUBMISSION_STATUS),
                     rs.getString("client_number"),
-                    rs.getString("client_name"),
+                    rs.getString(COL_CLIENT_NAME),
                     rs.getString("client_locn_code"),
                     rs.getString("email"),
                     rs.getString("telephone"),
@@ -280,14 +287,11 @@ public class SubmissionHistoryRepository {
         } catch (EmptyResultDataAccessException ex) {
             return Optional.empty();
         }
-        if (header == null) {
-            return Optional.empty();
-        }
 
         List<SubmissionInvoiceResponse> invoices = jdbc.query(DETAIL_INVOICES_QUERY, params, (rs, rowNum) ->
                 new SubmissionInvoiceResponse(
                         RepositoryUtils.getLongNullable(rs, "coastal_log_sale_id"),
-                        rs.getString("invoice_number"),
+                        rs.getString(COL_INVOICE_NUMBER),
                         RepositoryUtils.getLocalDateNullable(rs, "invoice_date"),
                         rs.getString("invoice_type"),
                         rs.getString("status"),
@@ -316,7 +320,7 @@ public class SubmissionHistoryRepository {
 
         List<SubmissionLineItemResponse> lineItems = jdbc.query(DETAIL_LINE_ITEMS_QUERY, params, (rs, rowNum) ->
                 new SubmissionLineItemResponse(
-                        rs.getString("invoice_number"),
+                        rs.getString(COL_INVOICE_NUMBER),
                         rs.getString("species"),
                         rs.getString("grade"),
                         rs.getString("sort_code"),
@@ -350,14 +354,14 @@ public class SubmissionHistoryRepository {
         MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
         return jdbc.query(INVOICE_COMMENTS_QUERY, params, (rs, rowNum) ->
                 new SubmissionInvoiceCommentResponse(
-                        rs.getString("invoice_number"),
+                        rs.getString(COL_INVOICE_NUMBER),
                         rs.getString("status"),
                         rs.getString("comment_text")
                 ));
     }
 
     /** Formats a client number + location code pair as "number/locn", or null when absent. */
-    private String formatClient(String clientNumber, String locnCode) {
+    static String formatClient(String clientNumber, String locnCode) {
         if (clientNumber == null || clientNumber.isBlank()) {
             return null;
         }
@@ -368,7 +372,7 @@ public class SubmissionHistoryRepository {
      * Builds the ORDER BY clause from the Pageable sort using the whitelist.
      * Unknown sort keys throw a 400. A stable tiebreaker keeps paging deterministic.
      */
-    private String buildOrderBy(Sort sort) {
+    static String buildOrderBy(Sort sort) {
         if (sort == null || sort.isUnsorted()) {
             return DEFAULT_ORDER_BY + ", csp_submission_id DESC";
         }
