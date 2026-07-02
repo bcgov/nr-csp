@@ -14,7 +14,6 @@ public class InvoiceLineItemPresenceRules implements InvoiceRule {
 
   /** An invoice must have at least one line item. */
   void lineItemExists(InvoiceRuleContext ctx) {
-
     boolean hasLineItems = ctx.invoice().getCSPLineItem() != null && !ctx.invoice().getCSPLineItem().isEmpty();
 
     if (!hasLineItems) {
