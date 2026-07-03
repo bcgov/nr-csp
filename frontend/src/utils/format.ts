@@ -61,6 +61,21 @@ export const formatIsoDate = (date: Date): string => {
 };
 
 /**
+ * Format a `yyyy-MM-dd` date string as a short human-readable date, e.g. "Dec 9, 2025".
+ * Constructs the Date from parts to avoid UTC timezone shifts.
+ * Returns "—" for null / undefined values.
+ */
+export const formatShortDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return '—';
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+/**
  * Format a Date as a `yyyy-MM-dd` string using LOCAL calendar components.
  * Preserves the user's picked calendar day instead of applying UTC shifts.
  *
