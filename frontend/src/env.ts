@@ -1,19 +1,19 @@
 declare global {
-  interface Window {
-    amplifyConfig?: {
-      appEnv: string;
-      idpName: string;
-      region: string;
-      userPoolId: string;
-      userPoolClientId: string;
-      cognitoDomain: string;
-      oauthScopes?: string[];
-      redirectSignIn: string;
-      redirectSignOut: string;
-      mockUser?: boolean;
-      famClientId?: string;
-    };
-  }
+  var amplifyConfig:
+    | {
+        appEnv: string;
+        idpName: string;
+        region: string;
+        userPoolId: string;
+        userPoolClientId: string;
+        cognitoDomain: string;
+        oauthScopes?: string[];
+        redirectSignIn: string;
+        redirectSignOut: string;
+        mockUser?: boolean;
+        famClientId?: string;
+      }
+    | undefined;
 }
 
 // Mock authentication bypasses Cognito entirely (auto-login as ADMIN), so it is
@@ -22,12 +22,13 @@ declare global {
 // a local host.
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
 const isLocalHost =
-  typeof window !== 'undefined' &&
-  (LOCAL_HOSTNAMES.has(window.location.hostname) || window.location.hostname.endsWith('.localhost'));
+  globalThis.window !== undefined &&
+  (LOCAL_HOSTNAMES.has(globalThis.window.location.hostname) ||
+    globalThis.window.location.hostname.endsWith('.localhost'));
 
 export const env = {
-  mockUser: window.amplifyConfig?.mockUser === true && isLocalHost,
-  appEnv: window.amplifyConfig?.appEnv ?? 'dev',
+  mockUser: globalThis.amplifyConfig?.mockUser === true && isLocalHost,
+  appEnv: globalThis.amplifyConfig?.appEnv ?? 'dev',
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
 } as const;
