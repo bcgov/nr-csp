@@ -2,7 +2,6 @@ package ca.bc.gov.nrs.csp.backend.submission.business.rule.line;
 
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.LineItemRule;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.LineItemRuleContext;
-import ca.bc.gov.nrs.csp.backend.submission.generated.CSPLineItemType;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
