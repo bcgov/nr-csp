@@ -23,8 +23,62 @@ parameters:
   - name: DOMAIN
     description: Cluster apps domain (no leading dot)
     value: apps.gold.devops.gov.bc.ca
+  - name: APP_ENV
+    description: Application environment label (dev, test, prod)
+    value: dev
+  - name: COGNITO_IDP_NAME
+    description: Cognito identity provider name (DEV-IDIR, TEST-IDIR, PROD-IDIR)
+    value: DEV-IDIR
+  - name: COGNITO_REGION
+    description: AWS region for Cognito
+    value: ca-central-1
+  - name: COGNITO_USER_POOL_ID
+    description: Cognito user pool ID
+    required: true
+  - name: COGNITO_USER_POOL_CLIENT_ID
+    description: Cognito app client ID (differs per environment)
+    required: true
+  - name: COGNITO_DOMAIN
+    description: Cognito hosted UI domain (no https://)
+    required: true
+  - name: COGNITO_OAUTH_SCOPES
+    description: Comma-separated OAuth scopes
+    value: openid,profile,email
+  - name: COGNITO_REDIRECT_SIGN_IN
+    description: Post-login redirect URL
+    required: true
+  - name: COGNITO_REDIRECT_SIGN_OUT
+    description: Post-logout redirect URL
+    required: true
+  - name: FAM_CLIENT_ID
+    description: FAM application client ID (Cognito group prefix, e.g. CSP)
+    required: true
 
 objects:
+  # ── Amplify config (runtime-injected, overrides the build-time placeholder) ──
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${NAME}-frontend-amplify-config-${ZONE}
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    data:
+      amplify-config.js: |
+        window.amplifyConfig = {
+          "appEnv": "${APP_ENV}",
+          "idpName": "${COGNITO_IDP_NAME}",
+          "region": "${COGNITO_REGION}",
+          "userPoolId": "${COGNITO_USER_POOL_ID}",
+          "userPoolClientId": "${COGNITO_USER_POOL_CLIENT_ID}",
+          "cognitoDomain": "${COGNITO_DOMAIN}",
+          "oauthScopes": "${COGNITO_OAUTH_SCOPES}".split(','),
+          "redirectSignIn": "${COGNITO_REDIRECT_SIGN_IN}",
+          "redirectSignOut": "${COGNITO_REDIRECT_SIGN_OUT}",
+          "mockUser": false,
+          "famClientId": "${FAM_CLIENT_ID}"
+        };
+
   # ── Deployment ────────────────────────────────────────────
   - apiVersion: apps/v1
     kind: Deployment
@@ -66,6 +120,10 @@ objects:
                   mountPath: /config
                 - name: tmp
                   mountPath: /tmp
+                - name: amplify-config
+                  mountPath: /usr/share/caddy/amplify-config.js
+                  subPath: amplify-config.js
+                  readOnly: true
               resources:
                 requests:
                   cpu: "50m"
@@ -104,6 +162,9 @@ objects:
               emptyDir: {}
             - name: tmp
               emptyDir: {}
+            - name: amplify-config
+              configMap:
+                name: ${NAME}-frontend-amplify-config-${ZONE}
 
   # ── Service ───────────────────────────────────────────────
   - apiVersion: v1
