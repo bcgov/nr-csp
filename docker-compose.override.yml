@@ -12,8 +12,8 @@ services:
       # Build the Vite dev-server stage rather than the Caddy static stage.
       target: dev
     env_file:
-      # Supplies VITE_MOCK_USER, COGNITO_*, etc. to the dev server and to the
-      # prestart amplify-config generation.
+      # Supplies env vars to the dev server. Auth config (mockUser, Cognito,
+      # famClientId) comes from frontend/public/amplify-config.js at runtime.
       - ./.env
     environment:
       # Poll the filesystem so host edits are detected inside the container

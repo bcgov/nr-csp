@@ -7,9 +7,6 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "generate-amplify-config": "node --env-file-if-exists=../.env scripts/generate-amplify-config.mjs",
-    "prestart": "npm run generate-amplify-config",
-    "prebuild": "npm run generate-amplify-config",
     "start": "vite",
     "build": "cross-env CI=false vite build",
     "preview": "vite preview",

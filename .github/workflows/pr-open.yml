@@ -31,8 +31,7 @@ jobs:
           triggers: ('${{ matrix.package }}/', '.github/workflows/')
           build_args: |
             BUILDKIT_INLINE_CACHE=1
-            VITE_MOCK_USER=${{ vars.vite_mock_user }}
-            VITE_FAM_CLIENT_ID=${{ vars.vite_fam_client_id }}
+
 
   deploys:
     name: Deploys (${{ github.event.number }})

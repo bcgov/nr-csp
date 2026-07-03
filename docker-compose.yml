@@ -16,18 +16,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        # These are passed to the Dockerfile as ARG during the build stage
-        APP_ENV: ${APP_ENV:-dev}
-        COGNITO_REGION: ${COGNITO_REGION:-ca-central-1}
-        COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID}
-        COGNITO_USER_POOL_CLIENT_ID: ${COGNITO_USER_POOL_CLIENT_ID}
-        COGNITO_DOMAIN: ${COGNITO_DOMAIN}
-        COGNITO_OAUTH_SCOPES: ${COGNITO_OAUTH_SCOPES:-openid,profile,email}
-        COGNITO_REDIRECT_SIGN_IN: ${COGNITO_REDIRECT_SIGN_IN:-http://localhost:3000/}
-        COGNITO_REDIRECT_SIGN_OUT: ${COGNITO_REDIRECT_SIGN_OUT:-http://localhost:3000/logout}
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
-        VITE_MOCK_USER: ${VITE_MOCK_USER:-false}
+      # All auth config (Cognito, mockUser, famClientId) is injected at runtime
+      # via amplify-config.js — edit frontend/public/amplify-config.js locally.
     container_name: csp-frontend
     environment:
       BACKEND_URL: backend:8080

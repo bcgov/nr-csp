@@ -24,10 +24,10 @@ parameters:
     description: Cluster apps domain (no leading dot)
     value: apps.gold.devops.gov.bc.ca
   - name: APP_ENV
-    description: Application environment label (development, test, production)
-    value: development
+    description: Application environment label (dev, test, prod)
+    value: dev
   - name: COGNITO_IDP_NAME
-    description: Cognito identity provider display name
+    description: Cognito identity provider name (DEV-IDIR, TEST-IDIR, PROD-IDIR)
     value: DEV-IDIR
   - name: COGNITO_REGION
     description: AWS region for Cognito
@@ -50,6 +50,9 @@ parameters:
   - name: COGNITO_REDIRECT_SIGN_OUT
     description: Post-logout redirect URL
     required: true
+  - name: FAM_CLIENT_ID
+    description: FAM application client ID (Cognito group prefix, e.g. CSP)
+    required: true
 
 objects:
   # ── Amplify config (runtime-injected, overrides the build-time placeholder) ──
@@ -71,7 +74,9 @@ objects:
           "cognitoDomain": "${COGNITO_DOMAIN}",
           "oauthScopes": "${COGNITO_OAUTH_SCOPES}".split(','),
           "redirectSignIn": "${COGNITO_REDIRECT_SIGN_IN}",
-          "redirectSignOut": "${COGNITO_REDIRECT_SIGN_OUT}"
+          "redirectSignOut": "${COGNITO_REDIRECT_SIGN_OUT}",
+          "mockUser": false,
+          "famClientId": "${FAM_CLIENT_ID}"
         };
 
   # ── Deployment ────────────────────────────────────────────

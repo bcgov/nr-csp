@@ -1,4 +1,4 @@
 export const famConfig = {
-  clientId: import.meta.env.VITE_FAM_CLIENT_ID ?? '',
-  environment: window.amplifyConfig?.appEnv ?? 'development',
+  clientId: window.amplifyConfig?.famClientId ?? '',
+  environment: window.amplifyConfig?.appEnv ?? 'dev',
 } as const;

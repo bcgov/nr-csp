@@ -36,15 +36,17 @@ springdoc:
 
 # ===================================================================
 # JasperReports Server Configuration
+# All values are injected via env vars (OpenShift Secret in deployment,
+# .env locally) — no endpoints or credentials live in the repo.
 # ===================================================================
 jasper:
   server:
-    login-url: ${JASPER_SERVER_LOGIN_URL:https://snow.nrs.bcgov/ext/jcrs/rest/login}
-    fetch-url: ${JASPER_SERVER_FETCH_URL:https://snow.nrs.bcgov/ext/jcrs/rest/report/}
-    put-url: ${JASPER_SERVER_PUT_URL:https://snow.nrs.bcgov/ext/jcrs/rest/report/JCRS/CSP/Reports/}
-    report-uri-base: ${JASPER_SERVER_REPORT_URI_BASE:/JCRS/CSP/Reports/}
-    username: ${JASPER_SERVER_USERNAME:}
-    password: ${JASPER_SERVER_PASSWORD:}
+    login-url: ${JASPER_SERVER_LOGIN_URL}
+    fetch-url: ${JASPER_SERVER_FETCH_URL}
+    put-url: ${JASPER_SERVER_PUT_URL}
+    report-uri-base: ${JASPER_SERVER_REPORT_URI_BASE}
+    username: ${JASPER_SERVER_USERNAME}
+    password: ${JASPER_SERVER_PASSWORD}
     ssl-verify: ${JASPER_SERVER_SSL_VERIFY:true}
     read-timeout-seconds: ${JASPER_SERVER_READ_TIMEOUT_SECONDS:300}
 
@@ -53,9 +55,9 @@ jasper:
 # ===================================================================
 security:
   jwt:
-    jwks-uri: ${JWT_JWKS_URI:https://cognito-idp.ca-central-1.amazonaws.com/REPLACE_WITH_YOUR_COGNITO_USER_POOL_ID/.well-known/jwks.json}
-    issuer: ${JWT_ISSUER:}
-    audience: ${JWT_AUDIENCE:}
+    jwks-uri: ${JWT_JWKS_URI}
+    issuer: ${JWT_ISSUER}
+    audience: ${JWT_AUDIENCE}
 
 # ===================================================================
 # Logging — per-package levels (override via env or logging.level.*)
@@ -69,6 +71,8 @@ logging:
 
 ---
 # Local development profile
+# Empty fallbacks let the app boot without Jasper/Cognito configured;
+# set the env vars in .env when those integrations are needed.
 spring:
   config:
     activate:
@@ -79,9 +83,20 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: oracle.jdbc.OracleDriver
 
+jasper:
+  server:
+    login-url: ${JASPER_SERVER_LOGIN_URL:}
+    fetch-url: ${JASPER_SERVER_FETCH_URL:}
+    put-url: ${JASPER_SERVER_PUT_URL:}
+    report-uri-base: ${JASPER_SERVER_REPORT_URI_BASE:}
+    username: ${JASPER_SERVER_USERNAME:}
+    password: ${JASPER_SERVER_PASSWORD:}
+
 security:
   jwt:
-    jwks-uri: ${JWT_JWKS_URI:https://cognito-idp.ca-central-1.amazonaws.com/REPLACE_WITH_YOUR_COGNITO_USER_POOL_ID/.well-known/jwks.json}
+    jwks-uri: ${JWT_JWKS_URI:}
+    issuer: ${JWT_ISSUER:}
+    audience: ${JWT_AUDIENCE:}
 
 auth:
   mock:

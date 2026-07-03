@@ -3,19 +3,12 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first — this layer is cached unless package*.json changes,
-# even when build args (Cognito config, env) change.
+# Install dependencies first — this layer is cached unless package*.json changes.
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
-# Cognito config is injected at runtime via OpenShift ConfigMap (not baked in),
-# so only Vite-compiled env vars need to be declared here as build args.
-ARG VITE_API_BASE_URL
-ARG VITE_MOCK_USER
-
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
-    VITE_MOCK_USER=${VITE_MOCK_USER}
-
+# All environment-specific config (Cognito, mockUser, FAM client ID) is injected
+# at runtime via amplify-config.js — nothing is baked into the build.
 COPY . .
 RUN npm run build
 
