@@ -4,6 +4,7 @@ import ca.bc.gov.nrs.csp.backend.submission.business.ValidationCollector;
 import ca.bc.gov.nrs.csp.backend.submission.business.referencedata.ReferenceDataService;
 import ca.bc.gov.nrs.csp.backend.submission.business.support.Dates;
 import ca.bc.gov.nrs.csp.backend.submission.business.support.SubmitterInfo;
+import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceDetailsType;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
@@ -70,6 +71,18 @@ public final class InvoiceRuleContext {
   /** The invoice date as a {@link LocalDate} (null if absent). */
   public LocalDate invoiceDate() {
     return Dates.toLocalDate(invoice.getInvoiceDate());
+  }
+
+  /** Maturity code from the invoice details (null if details/maturity absent). */
+  public String maturity() {
+    CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+    return details == null ? null : details.getMaturity();
+  }
+
+  /** Primary sort code from the invoice details (null if details/code absent). */
+  public String primarySortCode() {
+    CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+    return details == null ? null : details.getPrimarySortCode();
   }
 
   /** Record a blocking error against this invoice. */
