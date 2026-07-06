@@ -11,6 +11,8 @@ import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.submission.shared.Severity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -44,38 +46,17 @@ class InvoiceReferenceRulesTest {
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
   }
 
-  @Test
-  void i4_passes_when_only_replaces_is_populated() {
+  @ParameterizedTest(name = "passes when replaces=[{0}] adjusts=[{1}]")
+  @CsvSource(value = {
+      "INV-2 , null",   // only replaces populated
+      "null  , INV-3",  // only adjusts populated
+      "null  , null",   // neither populated
+      "'  '  , INV-3",  // blank replaces treated as not populated
+  }, nullValues = "null")
+  void i4_passes_unless_both_replaces_and_adjusts_are_populated(String replaces, String adjusts) {
     ValidationCollector collector = new ValidationCollector();
 
-    rules.onlyOneOfReplaceOrAdjust(context(collector, "INV-2", null));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i4_passes_when_only_adjusts_is_populated() {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.onlyOneOfReplaceOrAdjust(context(collector, null, "INV-3"));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i4_passes_when_neither_is_populated() {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.onlyOneOfReplaceOrAdjust(context(collector, null, null));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i4_treats_blank_as_not_populated() {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.onlyOneOfReplaceOrAdjust(context(collector, "  ", "INV-3"));
+    rules.onlyOneOfReplaceOrAdjust(context(collector, replaces, adjusts));
 
     assertThat(collector.entries()).isEmpty();
   }
@@ -187,29 +168,16 @@ class InvoiceReferenceRulesTest {
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
   }
 
-  @Test
-  void i7_passes_at_exactly_five_replaces_numbers() {
+  @ParameterizedTest(name = "passes when replaces=[{0}]")
+  @CsvSource(value = {
+      "'A,B,C,D,E'",  // exactly the max of five
+      "A",            // a single number
+      "null",         // blank / not populated
+  }, nullValues = "null")
+  void i7_passes_when_replaces_within_max(String replaces) {
     ValidationCollector collector = new ValidationCollector();
 
-    rules.replaceInvoiceNumbersWithinMax(context(collector, "A,B,C,D,E", null));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i7_passes_with_a_single_replaces_number() {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.replaceInvoiceNumbersWithinMax(context(collector, "A", null));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i7_passes_when_replaces_is_blank() {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.replaceInvoiceNumbersWithinMax(context(collector, null, null));
+    rules.replaceInvoiceNumbersWithinMax(context(collector, replaces, null));
 
     assertThat(collector.entries()).isEmpty();
   }
@@ -380,29 +348,16 @@ class InvoiceReferenceRulesTest {
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
   }
 
-  @Test
-  void i11_passes_at_exactly_five_adjusts_numbers() {
+  @ParameterizedTest(name = "passes when adjusts=[{0}]")
+  @CsvSource(value = {
+      "'A,B,C,D,E'",  // exactly the max of five
+      "A",            // a single number
+      "null",         // blank / not populated
+  }, nullValues = "null")
+  void i11_passes_when_adjusts_within_max(String adjusts) {
     ValidationCollector collector = new ValidationCollector();
 
-    rules.adjustInvoiceNumbersWithinMax(context(collector, null, "A,B,C,D,E"));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i11_passes_with_a_single_adjusts_number() {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.adjustInvoiceNumbersWithinMax(context(collector, null, "A"));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i11_passes_when_adjusts_is_blank() {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.adjustInvoiceNumbersWithinMax(context(collector, null, null));
+    rules.adjustInvoiceNumbersWithinMax(context(collector, null, adjusts));
 
     assertThat(collector.entries()).isEmpty();
   }
