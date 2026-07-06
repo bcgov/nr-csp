@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Month;
@@ -58,6 +59,8 @@ class BusinessValidationServiceTest {
   @Test
   void partial_acceptance_rejects_only_the_bad_invoice() {
     given(referenceData.clientLocationExists(any(), any())).willReturn(true);
+    given(referenceData.sortCodeValidOn(any(), any())).willReturn(true);
+    given(referenceData.speciesGradeCombinationExists(any(), any())).willReturn(true);
 
     CSPSubmissionType submission = submissionWith(
         invoice("INV-GOOD", TODAY.minusDays(1), "Z"),
@@ -93,6 +96,8 @@ class BusinessValidationServiceTest {
   @Test
   void duplicate_invoice_numbers_do_not_cross_contaminate() {
     given(referenceData.clientLocationExists(any(), any())).willReturn(true);
+    given(referenceData.sortCodeValidOn(any(), any())).willReturn(true);
+    given(referenceData.speciesGradeCombinationExists(any(), any())).willReturn(true);
 
     // Two invoices share the SAME number; only the second has a future-date ERROR.
     // Keying on index (not the number) must keep the first (clean) invoice accepted.
@@ -126,7 +131,12 @@ class BusinessValidationServiceTest {
     invoice.setInvoiceType("SAL");
     invoice.setInvoiceDate(xmlDate(date));
     CSPLineItemType line = new CSPLineItemType();
+    line.setSecondarySortCode("SC");
+    line.setSpecies("FIR");
     line.setGrade(grade);
+    line.setNumberOfPieces(1);
+    line.setVolume(BigDecimal.ONE);
+    line.setPrice(BigDecimal.ONE);
     invoice.getCSPLineItem().add(line);
     return invoice;
   }
