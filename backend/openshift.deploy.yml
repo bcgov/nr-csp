@@ -31,7 +31,7 @@ parameters:
   - name: MAX_REPLICAS
     value: "2"
   - name: MIN_CPU
-    value: "200m"
+    value: "50m"
   - name: MIN_MEM
     value: "512Mi"
   - name: APP_LOG_LEVEL
@@ -89,13 +89,9 @@ objects:
                   mountPath: /tmp
               resources:
                 requests:
-                  cpu: "200m"
-                  memory: "300Mi"
+                  cpu: "20m"
+                  memory: "100Mi"
                   ephemeral-storage: "50Mi"
-                limits:
-                  cpu: "500m"
-                  memory: "500Mi"
-                  ephemeral-storage: "100Mi"
               securityContext:
                 allowPrivilegeEscalation: false
                 runAsNonRoot: true
@@ -134,10 +130,6 @@ objects:
                   cpu: ${MIN_CPU}
                   memory: ${MIN_MEM}
                   ephemeral-storage: "200Mi"
-                limits:
-                  cpu: "1000m"
-                  memory: "1Gi"
-                  ephemeral-storage: "500Mi"
               livenessProbe:
                 httpGet:
                   path: /api/health

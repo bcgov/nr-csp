@@ -129,10 +129,6 @@ objects:
                   cpu: "50m"
                   memory: "64Mi"
                   ephemeral-storage: "100Mi"
-                limits:
-                  cpu: "200m"
-                  memory: "128Mi"
-                  ephemeral-storage: "200Mi"
               livenessProbe:
                 httpGet:
                   path: /health
