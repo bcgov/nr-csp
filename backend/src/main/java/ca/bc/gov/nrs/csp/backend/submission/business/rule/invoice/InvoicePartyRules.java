@@ -105,9 +105,7 @@ public class InvoicePartyRules implements InvoiceRule {
     if (!ctx.referenceData().clientLocationExists(buyerClientNumber, buyerLocnCode)) {
       ctx.error(
           "invoice.buyer.client.location.invalid.error",
-          "The combination of the buyer client number " + buyerClientNumber
-              + " and location " + buyerLocnCode + " cannot be found in CSP for invoiceNumber "
-              + ctx.invoiceNumber() + ".");
+          clientLocationNotFound("buyer", buyerClientNumber, buyerLocnCode, ctx));
     }
   }
 
@@ -127,9 +125,7 @@ public class InvoicePartyRules implements InvoiceRule {
     if (!ctx.referenceData().clientLocationExists(sellerClientNumber, sellerLocnCode)) {
       ctx.error(
           "invoice.seller.client.location.invalid.error",
-          "The combination of the seller client number " + sellerClientNumber
-              + " and location " + sellerLocnCode + " cannot be found in CSP for invoiceNumber "
-              + ctx.invoiceNumber() + ".");
+          clientLocationNotFound("seller", sellerClientNumber, sellerLocnCode, ctx));
     }
   }
 
@@ -173,9 +169,8 @@ public class InvoicePartyRules implements InvoiceRule {
         submitter.otherClientNumber(), submitter.otherLocnCode())) {
       ctx.error(
           "invoice.otherparty.client.location.invalid.error",
-          "The combination of the other-party client number " + submitter.otherClientNumber()
-              + " and location " + submitter.otherLocnCode()
-              + " cannot be found in CSP for invoiceNumber " + ctx.invoiceNumber() + ".");
+          clientLocationNotFound(
+              "other-party", submitter.otherClientNumber(), submitter.otherLocnCode(), ctx));
     }
   }
 
@@ -188,22 +183,19 @@ public class InvoicePartyRules implements InvoiceRule {
     String otherParty =
         submitter.submittedBy() == SubmitterInfo.SubmittedBy.SELLER ? "buyer" : "seller";
 
-    if (isBlank(submitter.otherPartyName())) {
+    requireOtherPartyField(ctx, otherParty, submitter.otherPartyName(), "name", "otherPartyName");
+    requireOtherPartyField(ctx, otherParty, submitter.otherPartyCity(), "city", "otherPartyCity");
+    requireOtherPartyField(
+        ctx, otherParty, submitter.otherPartyProvState(), "province", "otherPartyProvinceState");
+  }
+
+  /** Records the "other-party field required" error for one free-text field */
+  private static void requireOtherPartyField(
+      InvoiceRuleContext ctx, String otherParty, String value, String keySegment, String label) {
+    if (isBlank(value)) {
       ctx.error(
-          "invoice.otherparty." + otherParty + ".name.required.error",
-          "otherPartyName is required when there is no " + otherParty
-              + " client number+location for invoiceNumber " + ctx.invoiceNumber() + ".");
-    }
-    if (isBlank(submitter.otherPartyCity())) {
-      ctx.error(
-          "invoice.otherparty." + otherParty + ".city.required.error",
-          "otherPartyCity is required when there is no " + otherParty
-              + " client number+location for invoiceNumber " + ctx.invoiceNumber() + ".");
-    }
-    if (isBlank(submitter.otherPartyProvState())) {
-      ctx.error(
-          "invoice.otherparty." + otherParty + ".province.required.error",
-          "otherPartyProvinceState is required when there is no " + otherParty
+          "invoice.otherparty." + otherParty + "." + keySegment + ".required.error",
+          label + " is required when there is no " + otherParty
               + " client number+location for invoiceNumber " + ctx.invoiceNumber() + ".");
     }
   }
@@ -228,6 +220,19 @@ public class InvoicePartyRules implements InvoiceRule {
               + submitter.submitterClientNumber() + "/" + submitter.submitterLocnCode()
               + ") for invoiceNumber " + ctx.invoiceNumber() + ".");
     }
+  }
+
+  /**
+   * Shared "client number + location not found" message used by the buyer, seller
+   * and other-party existence checks. {@code party} labels which
+   * party the numbers belong to (e.g. {@code "buyer"}, {@code "seller"},
+   * {@code "other-party"}).
+   */
+  private static String clientLocationNotFound(
+      String party, String clientNumber, String locnCode, InvoiceRuleContext ctx) {
+    return "The combination of the " + party + " client number " + clientNumber
+        + " and location " + locnCode + " cannot be found in CSP for invoiceNumber "
+        + ctx.invoiceNumber() + ".";
   }
 
   private static boolean isBlank(String s) {

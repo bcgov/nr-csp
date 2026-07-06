@@ -40,8 +40,8 @@ public class InvoiceReferenceRules implements InvoiceRule {
     if (hasReplaces && hasAdjusts) {
       ctx.error(
           "innoice.both.replace.adjust.invoicenum.error",
-          "invoiceNumber " + ctx.invoiceNumber()
-              + " cannot populate both replacesInvoiceNumbers and adjustsInvoiceNumbers.");
+          invoiceMessage(ctx.invoiceNumber(),
+              "cannot populate both replacesInvoiceNumbers and adjustsInvoiceNumbers."));
     }
   }
 
@@ -85,7 +85,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
       if (token.trim().equals(thisInvoiceNumber)) {
         ctx.error(
             "invoice.replace.with.itself.error",
-            "invoiceNumber " + thisInvoiceNumber + " cannot be replaced by itself.");
+            invoiceMessage(thisInvoiceNumber, "cannot be replaced by itself."));
         return;
       }
     }
@@ -151,8 +151,8 @@ public class InvoiceReferenceRules implements InvoiceRule {
         if (CANCELLED_STATUS.equals(ref.statusCode())) {
           ctx.error(
               "invoice.validation.adjustedInvoiceCancelled",
-              "invoiceNumber " + ctx.invoiceNumber()
-                  + " cannot adjust cancelled or deleted invoice " + invoiceNumber + ".");
+              invoiceMessage(ctx.invoiceNumber(),
+                  "cannot adjust cancelled or deleted invoice " + invoiceNumber + "."));
           return;
         }
       }
@@ -170,7 +170,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
       if (token.trim().equals(thisInvoiceNumber)) {
         ctx.error(
             "invoice.adjust.with.itself.error",
-            "invoiceNumber " + thisInvoiceNumber + " cannot be adjusted by itself.");
+            invoiceMessage(thisInvoiceNumber, "cannot be adjusted by itself."));
         return;
       }
     }
@@ -188,6 +188,15 @@ public class InvoiceReferenceRules implements InvoiceRule {
           "The adjustsInvoiceNumbers field for invoiceNumber " + ctx.invoiceNumber()
               + " must be up to " + MAX_REPLACE_ADJUST_INVOICE_NUMBERS + " numbers.");
     }
+  }
+
+  /**
+   * Builds an error message scoped to a specific invoice, e.g.
+   * {@code "invoiceNumber INV-1 cannot be replaced by itself."}. {@code detail}
+   * is the clause following the invoice number (no leading space).
+   */
+  private static String invoiceMessage(String invoiceNumber, String detail) {
+    return "invoiceNumber " + invoiceNumber + " " + detail;
   }
 
   private static boolean isBlank(String s) {
