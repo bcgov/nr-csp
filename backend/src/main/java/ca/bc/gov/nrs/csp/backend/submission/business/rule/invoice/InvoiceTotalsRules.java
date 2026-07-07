@@ -32,15 +32,7 @@ public class InvoiceTotalsRules implements InvoiceRule {
 
   /** Total amount cannot be negative (except ADJ) (ERROR) */
   void totalAmountNotNegative(InvoiceRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    BigDecimal totalAmount = ctx.totalAmount();
-    if (totalAmount != null && totalAmount.signum() < 0) {
-      ctx.error(
-          "invoice.totalamount.negative.error",
-          invoiceMessage("totalAmount", ctx, "cannot be negative."));
-    }
+    errorIfNegative(ctx, "totalAmount", "invoice.totalamount.negative.error", ctx.totalAmount());
   }
 
   /** Submitted total amount within ±$5.00 of calculated (WARNING) */
@@ -60,15 +52,7 @@ public class InvoiceTotalsRules implements InvoiceRule {
 
   /** Total volume cannot be negative (except ADJ) (ERROR) */
   void totalVolumeNotNegative(InvoiceRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    BigDecimal totalVolume = ctx.totalVolume();
-    if (totalVolume != null && totalVolume.signum() < 0) {
-      ctx.error(
-          "invoice.totalvolume.negative.error",
-          invoiceMessage("totalVolume", ctx, "cannot be negative."));
-    }
+    errorIfNegative(ctx, "totalVolume", "invoice.totalvolume.negative.error", ctx.totalVolume());
   }
 
   /** Submitted total volume within ±5.00 of calculated (WARNING) */
@@ -88,15 +72,7 @@ public class InvoiceTotalsRules implements InvoiceRule {
 
   /** Total pieces cannot be negative (except ADJ) (ERROR) */
   void totalPiecesNotNegative(InvoiceRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    Integer totalPieces = ctx.totalPieces();
-    if (totalPieces != null && totalPieces < 0) {
-      ctx.error(
-          "invoice.totalpieces.negative.error",
-          invoiceMessage("totalPieces", ctx, "cannot be negative."));
-    }
+    errorIfNegative(ctx, "totalPieces", "invoice.totalpieces.negative.error", ctx.totalPieces());
   }
 
   /** Submitted total pieces exactly matches calculated (WARNING) */
@@ -164,6 +140,20 @@ public class InvoiceTotalsRules implements InvoiceRule {
 
   private static boolean isAdjustment(InvoiceRuleContext ctx) {
     return ADJUSTMENT.equals(ctx.invoiceType());
+  }
+
+  /** Emits {@code code} when a decimal total is negative, unless the invoice is ADJ. */
+  private static void errorIfNegative(InvoiceRuleContext ctx, String field, String code, BigDecimal value) {
+    if (!isAdjustment(ctx) && value != null && value.signum() < 0) {
+      ctx.error(code, invoiceMessage(field, ctx, "cannot be negative."));
+    }
+  }
+
+  /** Integer overload (total pieces). */
+  private static void errorIfNegative(InvoiceRuleContext ctx, String field, String code, Integer value) {
+    if (!isAdjustment(ctx) && value != null && value < 0) {
+      ctx.error(code, invoiceMessage(field, ctx, "cannot be negative."));
+    }
   }
 
   /**
