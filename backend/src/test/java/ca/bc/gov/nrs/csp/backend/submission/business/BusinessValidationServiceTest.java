@@ -112,6 +112,61 @@ class BusinessValidationServiceTest {
     assertThat(outcome.valid()).isTrue();                                // >= 1 accepted
   }
 
+  // -------- S2: submission valid iff S1 passes AND >= 1 invoice passes all its rules --------
+
+  @Test
+  void s2_submission_invalid_when_s1_ok_but_all_invoices_rejected() {
+    given(referenceData.clientLocationExists(any(), any())).willReturn(true); // S1 passes
+    given(referenceData.sortCodeValidOn(any(), any())).willReturn(true);
+    given(referenceData.speciesGradeCombinationExists(any(), any())).willReturn(true);
+
+    // Every invoice has a future date (ERROR), so none passes -> nothing accepted.
+    CSPSubmissionType submission = submissionWith(
+        invoice("INV-1", TODAY.plusDays(1), "A"),
+        invoice("INV-2", TODAY.plusDays(2), "A"));
+
+    BusinessValidationOutcome outcome = service().validate(submission);
+
+    // S1 ok but zero invoices accepted -> submission invalid (the second S2 clause fails).
+    assertThat(outcome.acceptance().accepted()).isEmpty();
+    assertThat(outcome.acceptance().rejected()).containsExactly("INV-1", "INV-2");
+    assertThat(outcome.valid()).isFalse();
+  }
+
+  @Test
+  void s2_submission_valid_when_s1_ok_and_all_invoices_pass() {
+    given(referenceData.clientLocationExists(any(), any())).willReturn(true);
+    given(referenceData.sortCodeValidOn(any(), any())).willReturn(true);
+    given(referenceData.speciesGradeCombinationExists(any(), any())).willReturn(true);
+
+    CSPSubmissionType submission = submissionWith(
+        invoice("INV-1", TODAY.minusDays(1), "A"),
+        invoice("INV-2", TODAY.minusDays(2), "A"));
+
+    BusinessValidationOutcome outcome = service().validate(submission);
+
+    assertThat(outcome.acceptance().accepted()).containsExactly("INV-1", "INV-2");
+    assertThat(outcome.acceptance().rejected()).isEmpty();
+    assertThat(outcome.valid()).isTrue();
+  }
+
+  @Test
+  void s2_warning_only_invoice_still_counts_as_passing() {
+    given(referenceData.clientLocationExists(any(), any())).willReturn(true);
+    given(referenceData.sortCodeValidOn(any(), any())).willReturn(true);
+    given(referenceData.speciesGradeCombinationExists(any(), any())).willReturn(true);
+
+    // Grade Z raises a WARNING only; a warning does not reject, so the invoice passes.
+    CSPSubmissionType submission = submissionWith(invoice("INV-1", TODAY.minusDays(1), "Z"));
+
+    BusinessValidationOutcome outcome = service().validate(submission);
+
+    assertThat(outcome.acceptance().accepted()).containsExactly("INV-1");
+    assertThat(outcome.valid()).isTrue();
+    assertThat(outcome.messages()).anyMatch(m -> m.severity() == Severity.WARNING
+        && m.code().equals("invoice.grade.z.warning"));
+  }
+
   // -------- fixture builders --------
 
   private static CSPSubmissionType submissionWith(CSPInvoiceType... invoices) {
