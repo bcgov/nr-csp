@@ -36,6 +36,12 @@
 
   .page-title-col {
     margin-bottom: $spacing-03;
+
+    // Compact page heading — the full-size heading-05 reads as oversized here;
+    // heading-03 matches the design's subheading scale.
+    .title-container h1 {
+      @include type.type-style('heading-03');
+    }
   }
 
   &__summary {
