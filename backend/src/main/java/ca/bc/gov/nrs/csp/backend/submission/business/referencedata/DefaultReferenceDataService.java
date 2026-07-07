@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.submission.business.referencedata;
 import ca.bc.gov.nrs.csp.backend.repository.FlatPriceConversionRepository;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository;
 import ca.bc.gov.nrs.csp.backend.repository.ValidationLookupRepository;
+import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -75,5 +76,12 @@ public class DefaultReferenceDataService implements ReferenceDataService {
   public boolean isMonthComplete(LocalDate invoiceDate, String clientNumber, String locnCode) {
     // ESF submissions are always new, so there is no current invoice to exclude.
     return invoices.isMonthCompleted(invoiceDate, clientNumber, locnCode, null);
+  }
+
+  @Override
+  public boolean boomNumberUsedByAnotherInvoice(String boomNumber) {
+    // ESF submissions are always new, so there is no current invoice to exclude.
+    return invoices.countBoomNumberDuplicates(
+        null, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, boomNumber) > 0;
   }
 }
