@@ -8,6 +8,8 @@ import ca.bc.gov.nrs.csp.backend.submission.generated.CSPLineItemType;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.submission.shared.Severity;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
 
@@ -204,32 +206,18 @@ class InvoiceTotalsRulesTest {
 
   // --- I27: submitted total volume within ±5.00 of calculated ---
 
-  @Test
-  void totalVolume_variance_passes_when_matching_calculated() {
+  // Calculated volume = Σ(10.000, 15.000) = 25.000; each submitted value is within ±5.00.
+  @ParameterizedTest(name = "passes when submitted={0} ({1})")
+  @CsvSource({
+      "25.000, exact match",
+      "29.999, within +5",
+      "20.000, exactly -5 boundary",
+  })
+  void totalVolume_variance_passes_within_tolerance(String submitted, String scenario) {
     ValidationCollector collector = new ValidationCollector();
-    // Σ volume = 10 + 15 = 25.000 calculated, submitted matches.
+
     rules.totalVolumeWithinVariance(
-        volumeVarianceContext(collector, "SAL", new BigDecimal("25.000"), "10.000", "15.000"));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void totalVolume_variance_passes_within_five() {
-    ValidationCollector collector = new ValidationCollector();
-    // calculated 25.000, submitted 29.999 → diff 4.999 ≤ 5.00.
-    rules.totalVolumeWithinVariance(
-        volumeVarianceContext(collector, "SAL", new BigDecimal("29.999"), "10.000", "15.000"));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void totalVolume_variance_passes_at_exactly_five() {
-    ValidationCollector collector = new ValidationCollector();
-    // calculated 25.000, submitted 20.000 → diff exactly 5.00 → within tolerance.
-    rules.totalVolumeWithinVariance(
-        volumeVarianceContext(collector, "SAL", new BigDecimal("20.000"), "10.000", "15.000"));
+        volumeVarianceContext(collector, "SAL", new BigDecimal(submitted), "10.000", "15.000"));
 
     assertThat(collector.entries()).isEmpty();
   }
