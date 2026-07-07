@@ -13,14 +13,19 @@ import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -191,49 +196,37 @@ class InvoiceValidatorTest {
     }
 
     // ---------------------------------------------------------------
-    // replaceAdjustInvoiceCheck
+    // replaceAdjustInvoiceCheck and replaceAdjustByItselfCheck
     // ---------------------------------------------------------------
 
-    @Test
-    void validate_replaceInvoiceNotFound_addsError() {
-        InvoiceDetails details = invWith(i -> i.replaceInvNum = "MISSING-1");
-
-        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
-
-        assertHasError(result, "invoice.replace.invoicenumber.error");
+    private static Stream<Arguments> replaceAdjustScenarios() {
+        return Stream.of(
+                Arguments.of("replaceInvNum", "MISSING-1", "invoice.replace.invoicenumber.error"),
+                Arguments.of("adjustInvNum", "ADJ-OLD", "invoice.validation.adjustedInvoiceCancelled"),
+                Arguments.of("replaceInvNum", "INV-001", "invoice.replace.with.itself.error"),
+                Arguments.of("adjustInvNum", "INV-001", "invoice.adjust.with.itself.error")
+        );
     }
 
-    @Test
-    void validate_adjustInvoiceIsCancelled_addsError() {
-        InvoiceDetails details = invWith(i -> i.adjustInvNum = "ADJ-OLD");
-        given(invoiceRepo.findByInvoiceNoAndClient("ADJ-OLD", "00001234", "01"))
-                .willReturn(List.of(new RelatedInvoice(99L, ConstantsCode.INVENTRYSTATUS_CANCELLED)));
+    @ParameterizedTest
+    @MethodSource("replaceAdjustScenarios")
+    void validate_replaceAdjustInvoiceScenarios(String field, String value, String expectedError) {
+        InvoiceDetails details = invWith(i -> {
+            if ("replaceInvNum".equals(field)) {
+                i.replaceInvNum = value;
+            } else {
+                i.adjustInvNum = value;
+            }
+        });
+
+        if ("ADJ-OLD".equals(value)) {
+            given(invoiceRepo.findByInvoiceNoAndClient("ADJ-OLD", "00001234", "01"))
+                    .willReturn(List.of(new RelatedInvoice(99L, ConstantsCode.INVENTRYSTATUS_CANCELLED)));
+        }
 
         ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
 
-        assertHasError(result, "invoice.validation.adjustedInvoiceCancelled");
-    }
-
-    // ---------------------------------------------------------------
-    // replaceAdjustByItselfCheck
-    // ---------------------------------------------------------------
-
-    @Test
-    void validate_replaceContainsItself_addsError() {
-        InvoiceDetails details = invWith(i -> i.replaceInvNum = "INV-001");
-
-        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
-
-        assertHasError(result, "invoice.replace.with.itself.error");
-    }
-
-    @Test
-    void validate_adjustContainsItself_addsError() {
-        InvoiceDetails details = invWith(i -> i.adjustInvNum = "INV-001");
-
-        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
-
-        assertHasError(result, "invoice.adjust.with.itself.error");
+        assertHasError(result, expectedError);
     }
 
     // ---------------------------------------------------------------
@@ -598,7 +591,7 @@ class InvoiceValidatorTest {
 
     @Test
     void validate_invoiceDateInFuture_addsError() {
-        InvoiceDetails details = invWith(i -> i.invoiceDate = LocalDate.now().plusDays(7));
+        InvoiceDetails details = invWith(i -> i.invoiceDate = LocalDate.now().plusDays(1));
 
         ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
 
@@ -693,7 +686,7 @@ class InvoiceValidatorTest {
     private static class Inv {
         Long invID = 1L;
         String invNumber = "INV-001";
-        LocalDate invoiceDate = LocalDate.of(2024, 6, 15);
+        LocalDate invoiceDate = LocalDate.of(2024, Month.JUNE, 15);
         String invStatus = "DFT";
         String invType = "SAL";
         String maturity = "M";
@@ -777,26 +770,22 @@ class InvoiceValidatorTest {
     }
 
     private void assertHasError(ValidationResult r, String key) {
-        assertThat(r.errors().stream().map(ValidationMessage::messageKey).toList())
+        assertThat(r.errors()).extracting(ValidationMessage::messageKey)
                 .as("expected error with key %s; got %s", key, r.messages())
                 .contains(key);
     }
 
     private void assertHasWarning(ValidationResult r, String key) {
-        assertThat(r.warnings().stream().map(ValidationMessage::messageKey).toList())
+        assertThat(r.warnings()).extracting(ValidationMessage::messageKey)
                 .as("expected warning with key %s; got %s", key, r.messages())
                 .contains(key);
     }
 
     private void assertNoError(ValidationResult r, String key) {
-        assertThat(r.errors().stream().map(ValidationMessage::messageKey).toList())
-                .as("expected no error with key %s", key)
-                .doesNotContain(key);
+        assertThat(r.errors()).noneMatch(m -> m.messageKey().equals(key));
     }
 
     private void assertNoWarning(ValidationResult r, String key) {
-        assertThat(r.warnings().stream().map(ValidationMessage::messageKey).toList())
-                .as("expected no warning with key %s", key)
-                .doesNotContain(key);
+        assertThat(r.warnings()).noneMatch(m -> m.messageKey().equals(key));
     }
 }

@@ -1,24 +1,35 @@
 services:
   backend:
-    build: ./backend
-    ports:
-      - "8080:8080"
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: csp-backend
     env_file:
-      - .env
-    environment:
-      SPRING_PROFILES_ACTIVE: local
+      - ./.env
+    restart: unless-stopped
+    # ports:
+    #   - "8080:8080"  # uncomment for direct backend access during development
+    networks:
+      - app-network
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      # All auth config (Cognito, mockUser, famClientId) is injected at runtime
+      # via amplify-config.js — edit frontend/public/amplify-config.js locally.
+    container_name: csp-frontend
+    environment:
+      BACKEND_URL: backend:8080
     ports:
       - "3000:3000"
-    env_file:
-      - .env
-    environment:
-      REACT_APP_API_TARGET: http://backend:8080
-      VITE_USE_POLLING: 'true'
-    volumes:
-      - ${FRONTEND_PATH:-./frontend}:/app
-      - /app/node_modules
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 public record InboxRow(
         Long cspSubmissionId,
+        Long coastalLogSaleId,
         String submissionId,
         LocalDate submissionDate,
         String submissionStatus,

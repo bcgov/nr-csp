@@ -116,9 +116,9 @@ describe('SearchPage', () => {
     expect(screen.getByRole('button', { name: 'Search', exact: true })).toBeInTheDocument();
   });
 
-  it('renders the Clear filters link', () => {
+  it('renders the Clear filters button', () => {
     renderSearchPage();
-    expect(screen.getByRole('link', { name: /clear filters/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear filters/i })).toBeInTheDocument();
   });
 
   it('renders all table column headers', () => {

@@ -1,0 +1,170 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+@use '@carbon/react/scss/theme' as theme;
+
+.view-submission-page {
+  padding-top: $spacing-05;
+  padding-bottom: $spacing-07;
+
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Inset everything to one shared left/right page gutter. The section cards
+  // sit at this gutter; their own title band / body padding insets the content
+  // further (matching the design).
+  .page-title-col,
+  &__back-col,
+  &__summary,
+  &__section,
+  &__error-col,
+  &__loading {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  &__back-col {
+    margin-bottom: $spacing-05;
+  }
+
+  &__back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  .page-title-col {
+    margin-bottom: $spacing-03;
+  }
+
+  &__summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-03;
+    margin-bottom: $spacing-06;
+  }
+
+  &__summary-text {
+    @include type.type-style('body-01');
+  }
+
+  &__section {
+    margin-bottom: $spacing-06;
+  }
+
+  // ── Section cards ────────────────────────────────────────────────────────
+  // Each detail block and the invoices block render as a bordered card with a
+  // light-grey title band and a white body.
+  .detail-section,
+  &__invoices-card {
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$background;
+    margin: 0;
+  }
+
+  .detail-section__title,
+  &__invoices-header {
+    margin: 0;
+    padding: $spacing-04 $spacing-05;
+    background: theme.$layer-01;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+
+  .detail-section__title {
+    @include type.type-style('heading-03');
+  }
+
+  .detail-section__grid {
+    padding: $spacing-05;
+  }
+
+  // The invoices band carries the title + summary on the left and the
+  // expand/collapse actions on the right.
+  &__invoices-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $spacing-05;
+    flex-wrap: wrap;
+  }
+
+  &__section-title {
+    @include type.type-style('heading-03');
+    margin: 0 0 $spacing-02;
+  }
+
+  &__section-count {
+    @include type.type-style('label-01');
+    color: theme.$text-secondary;
+    margin: 0;
+  }
+
+  &__expand-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-03;
+    color: theme.$text-secondary;
+    white-space: nowrap;
+  }
+
+  &__loading {
+    margin-top: $spacing-07;
+  }
+
+  &__error {
+    @include type.type-style('body-01');
+    color: var(--cds-text-error, #da1e28);
+  }
+}
+
+// ── Expanded invoice row content (rendered inside the Invoices table) ────────
+// Full-width grey bands separate the field grid, staff comment and line items,
+// matching the design. No outer card border — the table's expanded row already
+// provides the container.
+.invoice-detail-panel {
+  &__details.detail-section {
+    border: none;
+    background: transparent;
+  }
+
+  // The panel's section header is a smaller band than the page-level cards.
+  &__details .detail-section__title {
+    @include type.type-style('heading-compact-01');
+  }
+
+  // Lock the invoice-detail field grid to a fixed 3-column layout so fields
+  // align row-by-row regardless of container width (overrides the responsive
+  // auto-fill from DetailSection). minmax(0, 1fr) lets long values wrap rather
+  // than widening the column.
+  &__details .detail-section__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  &__empty {
+    color: theme.$text-secondary;
+    font-style: italic;
+  }
+
+  &__staff-comment {
+    @include type.type-style('body-01');
+    margin: 0;
+    padding: $spacing-04 $spacing-05;
+    background: theme.$layer-01;
+    border-top: 1px solid theme.$border-subtle-02;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+
+  &__muted {
+    color: theme.$text-secondary;
+  }
+
+  &__line-items-title {
+    @include type.type-style('heading-compact-01');
+    margin: 0;
+    padding: $spacing-04 $spacing-05;
+    background: theme.$layer-01;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+}

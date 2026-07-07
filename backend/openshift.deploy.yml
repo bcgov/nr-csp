@@ -1,0 +1,250 @@
+# Backend deploy template — consumed by `oc process` in reusable-deploy.yml.
+#
+# Oracle connectivity requires a wallet/keystore fetched by the init container
+# (ghcr.io/bcgov/nr-forest-client/common:prod) before the app starts.
+# The wallet is stored in a per-ZONE PVC so it persists across pod restarts.
+# A firewall rule in the OpenShift namespace allows egress to the Oracle host
+# on port 1543 (TCPS); this init container is what triggers that rule.
+#
+# Sensitive values (DB credentials, Jasper credentials, keystore secret) are
+# written into a per-ZONE Secret and mounted as environment variables so they
+# never appear in pod specs or logs.
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: nr-csp-backend-deploy
+parameters:
+  - name: NAME
+    description: App name prefix
+    value: nr-csp
+  - name: ZONE
+    description: PR number, 'test', or 'prod'
+    required: true
+  - name: IMAGE_TAG
+    description: Container image tag (PR number, 'test', or 'prod')
+    value: latest
+  - name: REGISTRY
+    description: Image registry path (no tag)
+    value: ghcr.io/bcgov/nr-csp/backend
+  - name: MIN_REPLICAS
+    value: "1"
+  - name: MAX_REPLICAS
+    value: "2"
+  - name: MIN_CPU
+    value: "50m"
+  - name: MIN_MEM
+    value: "512Mi"
+  - name: APP_LOG_LEVEL
+    value: INFO
+  # Credentials and config are read at runtime from the Secret and ConfigMap
+  # created by common/openshift.init.yml (${NAME}-${ZONE}-backend).
+
+objects:
+  # ── Deployment ────────────────────────────────────────────
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ${NAME}-backend-${ZONE}
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/name: ${NAME}-backend
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      replicas: ${{MIN_REPLICAS}}
+      selector:
+        matchLabels:
+          app: ${NAME}-backend-${ZONE}
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            app: ${NAME}-backend-${ZONE}
+            app.kubernetes.io/instance: ${ZONE}
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+          initContainers:
+            - name: ${NAME}-backend-init
+              image: ghcr.io/bcgov/nr-forest-client/common:prod
+              imagePullPolicy: Always
+              env:
+                - name: ORACLEDB_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ${NAME}-${ZONE}-backend
+                      key: DATABASE_HOST
+                - name: ORACLEDB_PORT
+                  value: "1543"
+                - name: ORACLEDB_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: ${NAME}-${ZONE}-backend
+                      key: KEYSTORE_SECRET
+              volumeMounts:
+                - name: api-cert
+                  mountPath: /cert
+                - name: init-tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: "20m"
+                  memory: "100Mi"
+                  ephemeral-storage: "50Mi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+          containers:
+            - name: ${NAME}-backend
+              image: ${REGISTRY}:${IMAGE_TAG}
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 8080
+                  protocol: TCP
+              envFrom:
+                - secretRef:
+                    name: ${NAME}-${ZONE}-backend
+                - configMapRef:
+                    name: ${NAME}-${ZONE}-backend
+              env:
+                - name: SERVER_PORT
+                  value: "8080"
+                - name: LOGGING_LEVEL_CA_BC_GOV_NRS_CSP
+                  value: ${APP_LOG_LEVEL}
+              volumeMounts:
+                - name: api-cert
+                  mountPath: /cert
+                - name: tls-certs
+                  mountPath: /etc/tls-certs
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+                - name: app-tmp
+                  mountPath: /temp
+              resources:
+                requests:
+                  cpu: ${MIN_CPU}
+                  memory: ${MIN_MEM}
+                  ephemeral-storage: "200Mi"
+              livenessProbe:
+                httpGet:
+                  path: /api/health
+                  port: 8080
+                initialDelaySeconds: 60
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 5
+              readinessProbe:
+                tcpSocket:
+                  port: 8080
+                initialDelaySeconds: 20
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 10
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+          volumes:
+            # Oracle wallet written by the init container, read by the app
+            - name: api-cert
+              persistentVolumeClaim:
+                claimName: ${NAME}-backend-api-cert-${ZONE}
+            # TLS serving cert auto-generated by OpenShift via the Service annotation
+            - name: tls-certs
+              secret:
+                secretName: ${NAME}-backend-cert-${ZONE}
+            - name: tmp
+              emptyDir: {}
+            - name: app-tmp
+              emptyDir: {}
+            - name: init-tmp
+              emptyDir: {}
+
+  # ── Service ───────────────────────────────────────────────
+  # The serving-cert annotation tells OpenShift to auto-generate a TLS keypair
+  # in the named Secret, which is then mounted into the pod as tls-certs.
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${NAME}-backend-${ZONE}
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+      annotations:
+        service.alpha.openshift.io/serving-cert-secret-name: ${NAME}-backend-cert-${ZONE}
+    spec:
+      selector:
+        app: ${NAME}-backend-${ZONE}
+      ports:
+        - name: 8080-tcp
+          port: 8080
+          protocol: TCP
+
+  # ── HorizontalPodAutoscaler ───────────────────────────────
+  - apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    metadata:
+      name: ${NAME}-backend-${ZONE}-cpu
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ${NAME}-backend-${ZONE}
+      minReplicas: ${{MIN_REPLICAS}}
+      maxReplicas: ${{MAX_REPLICAS}}
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 200
+
+  # ── PVC for Oracle wallet (per-ZONE so PR previews are isolated) ──────────
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: ${NAME}-backend-api-cert-${ZONE}
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      accessModes:
+        - ReadWriteMany
+      resources:
+        requests:
+          storage: 50Mi
+      storageClassName: netapp-file-standard
+
+  # ── NetworkPolicy: ingress from same-zone frontend + cluster monitoring ──
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: ${NAME}-backend-${ZONE}-ingress
+      labels:
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    spec:
+      podSelector:
+        matchLabels:
+          app: ${NAME}-backend-${ZONE}
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app: ${NAME}-frontend-${ZONE}
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: monitoring
+      policyTypes:
+        - Ingress

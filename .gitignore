@@ -50,3 +50,7 @@ playbooks/collections/
 
 # Superpowers skill artifacts
 .superpowers/
+/backend/certs/*
+
+# GitHub IaC — secret values must never be committed
+github-state/*.secrets.env

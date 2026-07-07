@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,7 +78,7 @@ class InboxRepositoryTest {
     }
 
     private InboxCriteria emptyCriteria() {
-        return new InboxCriteria(null, null, null, null, null, null, null, null);
+        return new InboxCriteria(null, null, null, null, null, null, null, null, null);
     }
 
     // ---------------------------------------------------------------
@@ -106,7 +107,7 @@ class InboxRepositoryTest {
     void search_submissionDateFrom_appendsStartDateFragment() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                LocalDate.of(2024, 1, 1), null, null, null, null, null, null, null);
+                LocalDate.of(2024, Month.JANUARY, 1), null, null, null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -126,7 +127,7 @@ class InboxRepositoryTest {
     void search_submissionDateTo_appendsEndDateFragmentWithEndOfDayTime() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, LocalDate.of(2024, 3, 15), null, null, null, null, null, null);
+                null, LocalDate.of(2024, Month.MARCH, 15), null, null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -152,7 +153,7 @@ class InboxRepositoryTest {
     void search_submittedByBuyer_appendsBuyerJoinCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, "Buyer", null, null, null, null, null);
+                null, null, "Buyer", null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -165,7 +166,7 @@ class InboxRepositoryTest {
     void search_submittedBySeller_appendsSellerJoinCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, "Seller", null, null, null, null, null);
+                null, null, "Seller", null, null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -182,7 +183,7 @@ class InboxRepositoryTest {
     void search_submitterClientNum_usesNamedParams_notStringConcatenation() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, null, null, "00012345", "00");
+                null, null, null, null, null, null, "00012345", "00", null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -206,7 +207,7 @@ class InboxRepositoryTest {
     void search_submissionTypeElectronic_appendsIsNotNullCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, "Electronic", null, null, null, null);
+                null, null, null, "Electronic", null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         assertThat(captureDataSql()).contains("sub.submission_id IS NOT NULL");
@@ -216,14 +217,14 @@ class InboxRepositoryTest {
     void search_submissionTypeManual_appendsIsNullCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, "Manual", null, null, null, null);
+                null, null, null, "Manual", null, null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         assertThat(captureDataSql()).contains("sub.submission_id IS NULL");
     }
 
     // ---------------------------------------------------------------
-    // invoiceNum (Q6: null-safe, trimmed, uppercased, prefix LIKE)
+    // invoiceNum (null-safe, trimmed, uppercased, contains LIKE when no wildcards)
     // ---------------------------------------------------------------
 
     @Test
@@ -235,19 +236,76 @@ class InboxRepositoryTest {
     }
 
     @Test
-    void search_nonBlankInvoiceNum_appendsLikeWithPrefixSuffix() {
+    void search_nonBlankInvoiceNum_appendsLikeContainsPattern() {
         stubJdbc();
         // InboxCriteria always receives a value already normalised by InboxService
-        // (trimmed + uppercased); the repository only appends the wildcard suffix.
+        // (trimmed + uppercased). Without user wildcards, falls back to a %contains% match
+        // (mirrors SearchRepository.toInvoiceNumberPattern).
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, null, "ABC", null, null);
+                null, null, null, null, null, "ABC", null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
         assertThat(sql).contains("inv.CLIENT_INVOICE_NO LIKE :invoiceNum");
 
         MapSqlParameterSource params = captureParams();
-        assertThat(params.getValue("invoiceNum")).isEqualTo("ABC%");
+        assertThat(params.getValue("invoiceNum")).isEqualTo("%ABC%");
+    }
+
+    // ---------------------------------------------------------------
+    // keyword — applied to outer subquery WHERE clause
+    // ---------------------------------------------------------------
+
+    @Test
+    void search_nonBlankKeyword_appendsKeywordWhereClause() {
+        stubJdbc();
+        InboxCriteria criteria = new InboxCriteria(
+                null, null, null, null, null, null, null, null, "hello");
+        repo.search(criteria, DEFAULT_PAGE);
+
+        String sql = captureDataSql();
+        assertThat(sql)
+                .contains("UPPER(submission_id) LIKE UPPER(:keyword)")
+                .contains("UPPER(submission_status) LIKE UPPER(:keyword)")
+                .contains("UPPER(submission_type) LIKE UPPER(:keyword)")
+                .contains("TO_CHAR(entry_timestamp");
+
+        MapSqlParameterSource params = captureParams();
+        assertThat(params.getValue("keyword")).isEqualTo("%hello%");
+    }
+
+    @Test
+    void search_nullKeyword_noKeywordWhereClauseInSql() {
+        stubJdbc();
+        repo.search(emptyCriteria(), DEFAULT_PAGE);
+
+        assertThat(captureDataSql()).doesNotContain(":keyword");
+    }
+
+    @Test
+    void search_blankKeyword_noKeywordWhereClauseInSql() {
+        stubJdbc();
+        InboxCriteria criteria = new InboxCriteria(
+                null, null, null, null, null, null, null, null, "   ");
+        repo.search(criteria, DEFAULT_PAGE);
+
+        assertThat(captureDataSql()).doesNotContain(":keyword");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void search_keyword_appearsInBothDataAndCountSql() {
+        stubJdbc();
+        InboxCriteria criteria = new InboxCriteria(
+                null, null, null, null, null, null, null, null, "sub001");
+        repo.search(criteria, DEFAULT_PAGE);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).query(sqlCaptor.capture(), any(MapSqlParameterSource.class), any(RowMapper.class));
+        verify(jdbc).queryForObject(sqlCaptor.capture(), any(MapSqlParameterSource.class), eq(Long.class));
+
+        assertThat(sqlCaptor.getAllValues().get(0)).contains("UPPER(submission_id) LIKE UPPER(:keyword)");
+        assertThat(sqlCaptor.getAllValues().get(1)).contains("UPPER(submission_id) LIKE UPPER(:keyword)");
     }
 
     // ---------------------------------------------------------------
@@ -258,7 +316,7 @@ class InboxRepositoryTest {
     void search_submissionStatus_appendsCodeEqualityCondition() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, "INB", null, null, null);
+                null, null, null, null, "INB", null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
@@ -332,7 +390,7 @@ class InboxRepositoryTest {
     void search_countQueryIncludesSameCriteriaAsDataQuery() {
         stubJdbc();
         InboxCriteria criteria = new InboxCriteria(
-                null, null, null, null, "COM", null, null, null);
+                null, null, null, null, "COM", null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
         // Capture both the data SQL and count SQL
@@ -364,5 +422,49 @@ class InboxRepositoryTest {
 
         assertThat(page.getTotalElements()).isEqualTo(42L);
         assertThat(page.getContent()).isEmpty();
+    }
+
+    // ---------------------------------------------------------------
+    // toInvoiceNumberPattern — mirrors SearchRepository exactly
+    // ---------------------------------------------------------------
+
+    @Test
+    void toInvoiceNumberPattern_plainTerm_becomesContainsMatch() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("ABC")).isEqualTo("%ABC%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_starBecomesPercent() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("WFP521046*")).isEqualTo("WFP521046%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_questionMarkBecomesUnderscore() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("INV-?-23")).isEqualTo("INV-_-23");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_percentPassesThroughAsWildcard() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("INV-2024-%")).isEqualTo("INV-2024-%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_mixedWildcards() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("*-2024-?")).isEqualTo("%-2024-_");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_escapesUnderscoreInPlainTerm() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("ab_cd")).isEqualTo("%ab\\_cd%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_escapesUnderscoreInPatternMode() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("a_b*")).isEqualTo("a\\_b%");
+    }
+
+    @Test
+    void toInvoiceNumberPattern_escapesBackslash() {
+        assertThat(InboxRepository.toInvoiceNumberPattern("a\\b")).isEqualTo("%a\\\\b%");
     }
 }

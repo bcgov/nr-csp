@@ -1,0 +1,140 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+parameters:
+  - name: NAME
+    description: Product name
+    value: nr-csp
+  - name: ZONE
+    description: Deployment zone, e.g. pr-### or prod
+    required: true
+  # ── Backend secrets ───────────────────────────────────────
+  - name: SPRING_DATASOURCE_URL
+    description: "Full Oracle JDBC URL, e.g. jdbc:oracle:thin:@//host:1543/SERVICE"
+    required: true
+  - name: SPRING_DATASOURCE_USERNAME
+    description: Oracle database username
+    required: true
+  - name: SPRING_DATASOURCE_PASSWORD
+    description: Oracle database password
+    required: true
+  - name: KEYSTORE_SECRET
+    description: Secret used by the Oracle wallet init container
+    required: true
+  - name: JASPER_SERVER_USERNAME
+    description: Jasper Reports server username
+    value: ""
+  - name: JASPER_SERVER_PASSWORD
+    description: Jasper Reports server password
+    value: ""
+
+  # ── Backend config ────────────────────────────────────────
+  - name: DATABASE_HOST
+    description: Oracle DB hostname used by the wallet init container
+    required: true
+  - name: DATABASE_SERVICE_NAME
+    description: Oracle service name
+    required: true
+  - name: SPRING_PROFILES_ACTIVE
+    description: Active Spring profile
+    value: prod
+  - name: JAVA_OPTS
+    description: JVM options
+    value: "-XX:MaxRAMPercentage=75.0 -XX:+UseContainerSupport"
+  - name: JWT_JWKS_URI
+    description: JWKS endpoint for JWT validation
+    value: ""
+  - name: JWT_ISSUER
+    description: Expected JWT issuer claim
+    value: ""
+  - name: JWT_AUDIENCE
+    description: Expected JWT audience claim
+    value: ""
+  - name: AUTH_MOCK_ENABLED
+    description: Set to true to bypass real authentication (local/dev only)
+    value: "false"
+  - name: AUTH_MOCK_ROLES
+    description: Comma-separated roles injected when AUTH_MOCK_ENABLED=true
+    value: ""
+  - name: JASPER_SERVER_LOGIN_URL
+    value: ""
+  - name: JASPER_SERVER_FETCH_URL
+    value: ""
+  - name: JASPER_SERVER_PUT_URL
+    value: ""
+  - name: JASPER_SERVER_REPORT_URI_BASE
+    value: ""
+
+objects:
+  # ── Backend Secret ────────────────────────────────────────
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: ${NAME}-${ZONE}-backend
+      labels:
+        app: ${NAME}-${ZONE}
+    type: Opaque
+    stringData:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      KEYSTORE_SECRET: ${KEYSTORE_SECRET}
+      JASPER_SERVER_USERNAME: ${JASPER_SERVER_USERNAME}
+      JASPER_SERVER_PASSWORD: ${JASPER_SERVER_PASSWORD}
+
+  # ── Backend ConfigMap ─────────────────────────────────────
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${NAME}-${ZONE}-backend
+      labels:
+        app: ${NAME}-${ZONE}
+    data:
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_SERVICE_NAME: ${DATABASE_SERVICE_NAME}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      JAVA_OPTS: ${JAVA_OPTS}
+      JWT_JWKS_URI: ${JWT_JWKS_URI}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      AUTH_MOCK_ENABLED: ${AUTH_MOCK_ENABLED}
+      AUTH_MOCK_ROLES: ${AUTH_MOCK_ROLES}
+      JASPER_SERVER_LOGIN_URL: ${JASPER_SERVER_LOGIN_URL}
+      JASPER_SERVER_FETCH_URL: ${JASPER_SERVER_FETCH_URL}
+      JASPER_SERVER_PUT_URL: ${JASPER_SERVER_PUT_URL}
+      JASPER_SERVER_REPORT_URI_BASE: ${JASPER_SERVER_REPORT_URI_BASE}
+
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: ${NAME}-${ZONE}-frontend-ingress
+      labels:
+        app: ${NAME}-${ZONE}
+    spec:
+      podSelector:
+        matchLabels:
+          deployment: ${NAME}-${ZONE}-frontend
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: ingress
+      policyTypes:
+        - Ingress
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: ${NAME}-${ZONE}-backend-ingress
+      labels:
+        app: ${NAME}-${ZONE}
+    spec:
+      podSelector:
+        matchLabels:
+          deployment: ${NAME}-${ZONE}-backend
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app: ${NAME}-${ZONE}
+                  deployment: ${NAME}-${ZONE}-frontend
+      policyTypes:
+        - Ingress

@@ -9,6 +9,7 @@ import PageTitle from '@/components/core/PageTitle';
 import DateInput from '@/components/Form/DateInput';
 import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
+import { formatIsoDate } from '@/utils/format';
 import {
   type SearchResultResponse,
   type ClientLocationResponse,
@@ -193,7 +194,7 @@ export function SearchPage() {
                 key={`invoice-date-${dateKey}`}
                 id="invoice-date"
                 labelText="Invoice date"
-                onChange={(dates) => setInvoiceDateInput(dates[0] ? dates[0].toISOString().slice(0, 10) : '')}
+                onChange={(dates) => setInvoiceDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
               />
             </div>
             <div className="search-page__filter-item">
@@ -201,7 +202,7 @@ export function SearchPage() {
                 key={`start-date-${dateKey}`}
                 id="start-date"
                 labelText="Start date (invoice)"
-                onChange={(dates) => setStartDateInput(dates[0] ? dates[0].toISOString().slice(0, 10) : '')}
+                onChange={(dates) => setStartDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
               />
             </div>
             <div className="search-page__filter-item">
@@ -209,7 +210,7 @@ export function SearchPage() {
                 key={`end-date-${dateKey}`}
                 id="end-date"
                 labelText="End date (invoice)"
-                onChange={(dates) => setEndDateInput(dates[0] ? dates[0].toISOString().slice(0, 10) : '')}
+                onChange={(dates) => setEndDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
               />
             </div>
             <div className="search-page__filter-item">
@@ -217,6 +218,7 @@ export function SearchPage() {
                 id="invoice-number"
                 labelText="Invoice number"
                 placeholder="Invoice number"
+                helperText="Use * or % (any) and ? (single) as wildcards"
                 value={invoiceNumberInput}
                 onChange={(e) => setInvoiceNumberInput(e.target.value)}
               />
@@ -312,15 +314,9 @@ export function SearchPage() {
 
         {/* Clear filters — always visible */}
         <Column lg={16} md={8} sm={4} className="search-page__clear-col">
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              handleClearFilters();
-            }}
-            href="#"
-          >
+          <Button kind="ghost" size="sm" onClick={handleClearFilters}>
             Clear filters
-          </Link>
+          </Button>
         </Column>
 
         {isError && (
