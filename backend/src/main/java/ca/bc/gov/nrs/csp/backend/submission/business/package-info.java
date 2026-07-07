@@ -23,7 +23,13 @@
  *   </li>
  *   <li>Add a package-private method {@code void xxx(<Level>RuleContext ctx)},
  *       header-commented with its catalogue ID (e.g. I12), then add a call to it
- *       from that class's {@code validate(...)} in catalogue order.</li>
+ *       from that class's {@code validate(...)} in catalogue order. If (and only
+ *       if) a later rule in the same class must run conditionally on an earlier
+ *       rule's outcome — mirroring a legacy {@code if (checkX(...)) { checkY(...); }}
+ *       gate — the earlier method may return {@code boolean} instead of
+ *       {@code void} (see {@code InvoiceTypeRules#invoiceTypeValidOn}, which gates
+ *       I2 on I1). Keep such returns package-private and local to the owning
+ *       class; don't thread them through the context or {@code validate(ctx)}.</li>
  *   <li>Read the target off the context ({@code ctx.submission()} /
  *       {@code ctx.invoice()} / {@code ctx.line()} and convenience accessors).</li>
  *   <li>For any DB lookup, call the {@code ctx.referenceData()} facade — never a

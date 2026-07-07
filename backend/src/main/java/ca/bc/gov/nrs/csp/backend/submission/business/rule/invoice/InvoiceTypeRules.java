@@ -2,6 +2,8 @@ package ca.bc.gov.nrs.csp.backend.submission.business.rule.invoice;
 
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.InvoiceRule;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.InvoiceRuleContext;
+import ca.bc.gov.nrs.csp.backend.submission.business.support.SubmitterInfo;
+import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,7 +13,10 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>I1 — invoice type recognised and active on the invoice date (ERROR)</li>
- *   <li>I2 — type should be SAL or PUR, else warn (WARNING)</li>
+ *   <li>I2 — type should be SAL or PUR, else warn (WARNING). Only evaluated
+ *       when I1 passes — matches the legacy {@code InvoiceValidator.isValid}
+ *       gating ({@code if (checkInvoiceType(...)) { checkInvoiceTypeForSalesOrPurchase(...); }}),
+ *       so an unrecognized type reports only the I1 error, not both.</li>
  *   <li>I3 — submitter vs type: Seller cannot be PUR, Buyer cannot be SAL (ERROR)</li>
  * </ul>
  */
@@ -20,6 +25,57 @@ public class InvoiceTypeRules implements InvoiceRule {
 
   @Override
   public void validate(InvoiceRuleContext ctx) {
-    // TODO: I1, I2, I3 — add one call per rule, in catalogue order.
+    if (invoiceTypeValidOn(ctx)) { // I1
+      saleOrPurchase(ctx); // I2
+    }
+    submitterVsType(ctx); // I3
+  }
+
+  /**
+   * I1 — invoice type must be recognised and active on the invoice date.
+   *
+   * @return true if the type is valid (so I2 should also run), matching the
+   *     legacy {@code checkInvoiceType} return value used for that gate.
+   */
+  boolean invoiceTypeValidOn(InvoiceRuleContext ctx) {
+    String type = ctx.invoice().getInvoiceType();
+    if (isBlank(type) || !ctx.referenceData().invoiceTypeValidOn(type, ctx.invoiceDate())) {
+      ctx.error(
+          "invoice.type.invalid.error",
+          "invoiceType " + type + " for invoiceNumber " + ctx.invoiceNumber()
+              + " is not a recognized code active on the invoice date.");
+      return false;
+    }
+    return true;
+  }
+
+  /** I2 — invoice type should be Sale or Purchase; anything else is a warning. */
+  void saleOrPurchase(InvoiceRuleContext ctx) {
+    String type = ctx.invoice().getInvoiceType();
+    if (!ConstantsCode.INVTYPE_SALE.equals(type) && !ConstantsCode.INVTYPE_PURCHASE.equals(type)) {
+      ctx.warning(
+          "invoice.type.not.saleorpurchase.warning",
+          "invoiceType " + type + " for invoiceNumber " + ctx.invoiceNumber()
+              + " is not Sale or Purchase.");
+    }
+  }
+
+  /** I3 — a Seller submission cannot be type Purchase; a Buyer submission cannot be type Sale. */
+  void submitterVsType(InvoiceRuleContext ctx) {
+    String type = ctx.invoice().getInvoiceType();
+    SubmitterInfo.SubmittedBy submittedBy = ctx.submitter().submittedBy();
+    boolean invalid = (submittedBy == SubmitterInfo.SubmittedBy.SELLER
+            && ConstantsCode.INVTYPE_PURCHASE.equals(type))
+        || (submittedBy == SubmitterInfo.SubmittedBy.BUYER && ConstantsCode.INVTYPE_SALE.equals(type));
+    if (invalid) {
+      ctx.error(
+          "invoice.type.invalid.submitter",
+          "invoiceType " + type + " for invoiceNumber " + ctx.invoiceNumber()
+              + " is not valid for a submission by " + submittedBy + ".");
+    }
+  }
+
+  private static boolean isBlank(String s) {
+    return s == null || s.isBlank();
   }
 }
