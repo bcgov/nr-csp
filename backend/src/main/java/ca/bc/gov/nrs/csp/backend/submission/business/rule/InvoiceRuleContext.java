@@ -9,6 +9,7 @@ import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -66,6 +67,29 @@ public final class InvoiceRuleContext {
 
   public String invoiceNumber() {
     return invoiceNumber;
+  }
+
+  /** Invoice type code (e.g. {@code SAL}, {@code PUR}, {@code ADJ}); null if absent. */
+  public String invoiceType() {
+    return invoice.getInvoiceType();
+  }
+
+  /** Submitted total amount from the invoice details (null if details/amount absent). */
+  public BigDecimal totalAmount() {
+    CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+    return details == null ? null : details.getTotalAmount();
+  }
+
+  /** Submitted total volume from the invoice details (null if details/volume absent). */
+  public BigDecimal totalVolume() {
+    CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+    return details == null ? null : details.getTotalVolume();
+  }
+
+  /** Submitted total pieces from the invoice details (null if details/pieces absent; the field is optional). */
+  public Integer totalPieces() {
+    CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+    return details == null ? null : details.getTotalPieces();
   }
 
   /** The invoice date as a {@link LocalDate} (null if absent). */
