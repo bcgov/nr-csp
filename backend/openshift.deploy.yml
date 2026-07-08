@@ -31,9 +31,9 @@ parameters:
   - name: MAX_REPLICAS
     value: "2"
   - name: MIN_CPU
-    value: "50m"
+    value: "30m"
   - name: MIN_MEM
-    value: "512Mi"
+    value: "256Mi"
   - name: APP_LOG_LEVEL
     value: INFO
   # Credentials and config are read at runtime from the Secret and ConfigMap
@@ -89,8 +89,8 @@ objects:
                   mountPath: /tmp
               resources:
                 requests:
-                  cpu: "20m"
-                  memory: "100Mi"
+                  cpu: "10m"
+                  memory: "64Mi"
                   ephemeral-storage: "50Mi"
               securityContext:
                 allowPrivilegeEscalation: false
