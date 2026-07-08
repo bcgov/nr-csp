@@ -28,6 +28,8 @@ describe('ROUTES', () => {
       'LANDING',
       'LOGOUT',
       'SEARCH',
+      'SUBMISSION_HISTORY',
+      'INBOX',
       'INVOICE',
       'SORT_CODE',
       'FLAT_PRICE_CONVERSION',

@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.service;
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R06ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
@@ -68,7 +69,9 @@ public class R06Service {
         if (r.getMaturityCodes() != null)          p.put("LOG_SALE_TYPE_CODE_MATURITY", r.getMaturityCodes());
         if (r.getLogSaleEntryStatusCode() != null) p.put("LOG_SALE_ENTRY_STATUS_CODE", r.getLogSaleEntryStatusCode());
         if (r.getCspInvoiceTypeCode() != null)     p.put("CSP_INVOICE_TYPE_CODE", r.getCspInvoiceTypeCode());
-        if (r.getUserId() != null)                 p.put("USER_ID", r.getUserId());
+        // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.
+        String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());
+        if (idir != null)                          p.put("USER_ID", idir);
         return p;
     }
 }

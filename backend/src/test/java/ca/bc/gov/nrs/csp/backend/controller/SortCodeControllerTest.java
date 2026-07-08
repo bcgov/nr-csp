@@ -26,13 +26,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
-import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -63,7 +62,7 @@ class SortCodeControllerTest {
 
     private SortCodeResponse sampleResponse(String code) {
         return new SortCodeResponse(code, "Lumber - Cedar",
-                LocalDate.of(1990, 1, 1), LocalDate.of(9999, 12, 31), LocalDate.now());
+                LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now());
     }
 
     // ---------------------------------------------------------------
@@ -167,7 +166,7 @@ class SortCodeControllerTest {
                 """;
         given(sortCodeService.update(eq("A"), any())).willReturn(null);
         given(sortCodeMapper.toResponse(any())).willReturn(
-                new SortCodeResponse("A", "Updated", LocalDate.of(2000, 1, 1), LocalDate.of(9999, 12, 31), LocalDate.now()));
+                new SortCodeResponse("A", "Updated", LocalDate.of(2000, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now()));
 
         mockMvc.perform(put("/api/sort-codes/A")
                         .contentType(MediaType.APPLICATION_JSON)

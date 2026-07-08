@@ -30,6 +30,7 @@ public class InboxRepository {
     // subStatus.description is in the SELECT and also in the GROUP BY — no MIN() needed.
     private static final String BASE_QUERY = """
             SELECT sub.csp_submission_id                                                            AS csp_submission_id,
+                   MIN(inv.coastal_log_sale_id)                                                     AS coastal_log_sale_id,
                    sub.submission_id                                                                 AS submission_id,
                    sub.entry_timestamp                                                               AS entry_timestamp,
                    subStatus.description                                                             AS submission_status,
@@ -92,18 +93,22 @@ public class InboxRepository {
         String innerQuery = BASE_QUERY + whereFragments + "\n" + GROUP_BY;
         String outerAlias = "inbox_results";
 
+        String keywordClause = buildKeywordClause(criteria, params);
+
         String dataSql = "SELECT * FROM (" + innerQuery + ") " + outerAlias
+                + keywordClause
                 + " ORDER BY " + orderBy
                 + " OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY";
         params.addValue("offset", pageable.getOffset());
         params.addValue("limit", pageable.getPageSize());
 
         // COUNT wraps only the grouped inner query (counts distinct submission rows, not raw invoice rows).
-        String countSql = "SELECT count(*) FROM (" + innerQuery + ") cnt";
+        String countSql = "SELECT count(*) FROM (" + innerQuery + ") cnt" + keywordClause;
 
         List<InboxRow> content = jdbc.query(dataSql, params, (rs, rowNum) -> new InboxRow(
                 RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
-                rs.getString("submission_id"),           // null for Manual rows 
+                RepositoryUtils.getLongNullable(rs, "coastal_log_sale_id"),
+                rs.getString("submission_id"),           // null for Manual rows
                 RepositoryUtils.getLocalDateNullable(rs, "entry_timestamp"),
                 rs.getString("submission_status"),
                 rs.getString("submission_type"),
@@ -119,8 +124,23 @@ public class InboxRepository {
     }
 
     /**
+     * Builds a WHERE clause for keyword search applied to the outer subquery.
+     * Returns an empty string when no keyword is present.
+     * The pattern is a case-insensitive contains match (%keyword%) across
+     * submission_id, submission_status, submission_type, and the formatted date.
+     */
+    private String buildKeywordClause(InboxCriteria criteria, MapSqlParameterSource params) {
+        if (criteria.keyword() == null || criteria.keyword().isBlank()) return "";
+        params.addValue("keyword", "%" + criteria.keyword() + "%");
+        return " WHERE (UPPER(submission_id) LIKE UPPER(:keyword)"
+                + " OR UPPER(submission_status) LIKE UPPER(:keyword)"
+                + " OR UPPER(submission_type) LIKE UPPER(:keyword)"
+                + " OR TO_CHAR(entry_timestamp, 'YYYY-MM-DD') LIKE :keyword)";
+    }
+
+    /**
      * Builds the dynamic WHERE fragments from the criteria, mirroring the legacy
-     * InboxCriteriaDTOHelper.createNativeQueryCriteria() logic 
+     * InboxCriteriaDTOHelper.createNativeQueryCriteria() logic
      */
     private void appendCriteriaFilters(StringBuilder sql, MapSqlParameterSource params, InboxCriteria criteria) {
 
@@ -175,12 +195,11 @@ public class InboxRepository {
             }
         }
 
-        // Invoice number: prefix LIKE match.
-        // Value is already trimmed and uppercased by InboxService.normaliseInvoiceNum();
-        // the repository only appends the wildcard suffix.
+        // Invoice number: wildcard LIKE match (mirrors SearchRepository.toInvoiceNumberPattern).
+        // Value is already trimmed and uppercased by InboxService; wildcards *, %, ? are preserved.
         if (criteria.invoiceNum() != null && !criteria.invoiceNum().isBlank()) {
-            sql.append(" AND inv.CLIENT_INVOICE_NO LIKE :invoiceNum");
-            params.addValue("invoiceNum", criteria.invoiceNum() + "%");
+            sql.append(" AND inv.CLIENT_INVOICE_NO LIKE :invoiceNum ESCAPE '\\'");
+            params.addValue("invoiceNum", toInvoiceNumberPattern(criteria.invoiceNum()));
         }
 
         // Submission status code
@@ -188,6 +207,27 @@ public class InboxRepository {
             sql.append(" AND sub.CSP_SUBMISSION_STATUS_CODE = :submissionStatus");
             params.addValue("submissionStatus", criteria.submissionStatus());
         }
+    }
+
+    /**
+     * Builds the LIKE pattern for the invoice number filter (used with ESCAPE '\').
+     * Mirrors SearchRepository.toInvoiceNumberPattern() exactly.
+     * User-facing wildcards: '*' or '%' match any sequence, '?' matches a single character.
+     * Without wildcards, falls back to a substring (contains) match.
+     */
+    static String toInvoiceNumberPattern(String invoiceNum) {
+        boolean hasWildcard = invoiceNum.indexOf('*') >= 0
+                || invoiceNum.indexOf('?') >= 0
+                || invoiceNum.indexOf('%') >= 0;
+
+        String escaped = invoiceNum
+                .replace("\\", "\\\\")
+                .replace("_", "\\_");
+
+        if (hasWildcard) {
+            return escaped.replace('*', '%').replace('?', '_');
+        }
+        return "%" + escaped + "%";
     }
 
     /**

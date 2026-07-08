@@ -19,7 +19,14 @@ const FlatPriceConversionPage = lazy(() =>
   import('@/pages/FlatPriceConversion').then((m) => ({ default: m.FlatPriceConversionPage })),
 );
 const InvoicePage = lazy(() => import('@/pages/Invoice').then((m) => ({ default: m.InvoicePage })));
+const InboxPage = lazy(() => import('@/pages/Inbox').then((m) => ({ default: m.InboxPage })));
 const SearchPage = lazy(() => import('@/pages/Search').then((m) => ({ default: m.SearchPage })));
+const SubmissionHistoryPage = lazy(() =>
+  import('@/pages/SubmissionHistory').then((m) => ({ default: m.SubmissionHistoryPage })),
+);
+const ViewSubmissionPage = lazy(() =>
+  import('@/pages/ViewSubmission').then((m) => ({ default: m.ViewSubmissionPage })),
+);
 const NotFoundPage = lazy(() => import('@/pages/NotFound').then((m) => ({ default: m.NotFoundPage })));
 const SortCodePage = lazy(() => import('@/pages/SortCode').then((m) => ({ default: m.SortCodePage })));
 const R06InvoicePrintOutPage = lazy(() =>
@@ -73,6 +80,30 @@ export default function App() {
                         element={
                           <ProtectedRoute>
                             <SearchPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path={ROUTES.SUBMISSION_HISTORY}
+                        element={
+                          <ProtectedRoute>
+                            <SubmissionHistoryPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path={`${ROUTES.SUBMISSION_HISTORY}/:id`}
+                        element={
+                          <ProtectedRoute>
+                            <ViewSubmissionPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path={ROUTES.INBOX}
+                        element={
+                          <ProtectedRoute>
+                            <InboxPage />
                           </ProtectedRoute>
                         }
                       />

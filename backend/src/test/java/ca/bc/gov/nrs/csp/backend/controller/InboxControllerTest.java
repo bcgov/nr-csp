@@ -4,11 +4,11 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.inbox.InboxRowResponse;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
+import ca.bc.gov.nrs.csp.backend.service.InboxService;
+import ca.bc.gov.nrs.csp.backend.service.mapper.InboxMapper;
 import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
-import ca.bc.gov.nrs.csp.backend.service.InboxService;
-import ca.bc.gov.nrs.csp.backend.service.mapper.InboxMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -54,7 +55,7 @@ class InboxControllerTest {
 
     @Test
     void searchInbox_noFilters_returns200WithEmptyPage() throws Exception {
-        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .willReturn((Page) new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
         given(inboxMapper.toResponsePage(any()))
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
@@ -68,9 +69,9 @@ class InboxControllerTest {
     @Test
     void searchInbox_withResults_returns200WithPagedContent() throws Exception {
         InboxRowResponse row = new InboxRowResponse(
-                "SUB001", LocalDate.of(2024, 1, 15), "Inbox", "Electronic", 3, 2, 0, 1, 0
+                42L, "SUB001", LocalDate.of(2024, Month.JANUARY, 15), "Inbox", "Electronic", 3, 2, 0, 1, 0
         );
-        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .willReturn((Page) new PageImpl<>(List.of(), PageRequest.of(0, 100), 1));
         given(inboxMapper.toResponsePage(any()))
                 .willReturn(new PageImpl<>(List.of(row), PageRequest.of(0, 100), 1));
@@ -90,7 +91,7 @@ class InboxControllerTest {
 
     @Test
     void searchInbox_honorsPageAndSizeQueryParams() throws Exception {
-        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .willReturn((Page) new PageImpl<>(List.of(), PageRequest.of(1, 50), 0));
         given(inboxMapper.toResponsePage(any()))
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(1, 50), 0));
@@ -109,7 +110,7 @@ class InboxControllerTest {
     void searchInbox_serviceThrowsValidationExceptionForDateRange_returns400WithValidationError() throws Exception {
         ValidationResult result = new ValidationResult(List.of(
                 new ValidationMessage("inbox.dateperiod.error", null, MessageType.ERROR)));
-        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .willThrow(new ValidationException("Inbox search criteria validation failed.", result));
 
         mockMvc.perform(get("/api/inbox")
@@ -122,7 +123,7 @@ class InboxControllerTest {
 
     @Test
     void searchInbox_serviceThrowsBadRequestForUnknownSortField_returns400WithApiError() throws Exception {
-        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        given(inboxService.search(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .willThrow(new BadRequestException("Unsupported sort field: unknownField."));
 
         mockMvc.perform(get("/api/inbox").param("sort", "unknownField,asc"))

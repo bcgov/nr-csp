@@ -1,0 +1,23 @@
+:3000 {
+	encode zstd gzip
+
+	handle /health {
+		respond 200
+	}
+
+	handle /api/* {
+		reverse_proxy {$BACKEND_URL}
+	}
+
+	handle {
+		root * /usr/share/caddy
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
