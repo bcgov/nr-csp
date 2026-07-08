@@ -42,7 +42,7 @@ class InvoiceReferenceRulesTest {
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code())
-        .isEqualTo("innoice.both.replace.adjust.invoicenum.error");
+        .isEqualTo("invoice.both.replace.adjust.invoicenum.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
   }
 

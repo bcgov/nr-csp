@@ -39,7 +39,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
 
     if (hasReplaces && hasAdjusts) {
       ctx.error(
-          "innoice.both.replace.adjust.invoicenum.error",
+          "invoice.both.replace.adjust.invoicenum.error",
           invoiceMessage(ctx.invoiceNumber(),
               "cannot populate both replacesInvoiceNumbers and adjustsInvoiceNumbers."));
     }
