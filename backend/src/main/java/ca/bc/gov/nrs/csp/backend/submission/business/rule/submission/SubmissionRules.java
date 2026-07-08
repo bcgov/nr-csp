@@ -5,25 +5,15 @@ import ca.bc.gov.nrs.csp.backend.submission.business.rule.SubmissionRuleContext;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmitterType;
 import org.springframework.stereotype.Component;
 
-/**
- * All submission-level business rules (catalogue §1), one method per rule.
- *
- * <p><b>How to add a rule:</b> write a package-private {@code void xxx(SubmissionRuleContext ctx)}
- * method (header-commented with its catalogue ID), then add a call to it in
- * {@link #validate} in catalogue order. Report via {@code ctx.error(...)} /
- * {@code ctx.warning(...)}; use the message key from
- * {@code docs/submission-validation-business-rules.md}. Never throw for a
- * validation failure. Unit-test each method directly (see {@code SubmissionRulesTest}).
- */
 @Component
 public class SubmissionRules implements SubmissionRule {
 
   @Override
   public void validate(SubmissionRuleContext ctx) {
-    clientLocationExists(ctx); // S1
+    clientLocationExists(ctx);
   }
 
-  /** S1 — submission Client Number + Client Location must exist in CSP. */
+  /** Submission Client Number + Client Location must exist in CSP (ERROR) */
   void clientLocationExists(SubmissionRuleContext ctx) {
     CSPSubmitterType submitter = ctx.submission().getCSPSubmitter();
     String clientNumber = submitter.getSubmissionClientNumber();

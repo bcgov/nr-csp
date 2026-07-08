@@ -23,4 +23,11 @@ jobs:
       oc_server: ${{ secrets.oc_server }}
     with:
       cleanup: label
+      # Resources are labeled with three app values: ${NAME}-${ZONE} (init),
+      # ${NAME}-backend-${ZONE} and ${NAME}-frontend-${ZONE} (deploys).
+      # The default cleanup only deletes app=<repo>-<PR#>, so list all three.
+      cleanup_name: >-
+        ${{ github.event.repository.name }}-${{ github.event.number }}
+        ${{ github.event.repository.name }}-backend-${{ github.event.number }}
+        ${{ github.event.repository.name }}-frontend-${{ github.event.number }}
       packages: backend frontend
