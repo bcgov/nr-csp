@@ -31,6 +31,29 @@ class InvoiceSourceDocumentRulesTest {
 
   private final InvoiceSourceDocumentRules rules = new InvoiceSourceDocumentRules();
 
+  // ---------------------------------------------------------------- validate (orchestration)
+
+  @Test
+  void validate_runs_every_rule_and_reports_nothing_for_a_valid_invoice() {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(context(collector, "B1, B1", "T1", "W1"));
+
+    // I31 de-dupes "B1, B1" -> "B1" in place; all other checks pass.
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void validate_reports_a_finding_from_a_downstream_rule() {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(context(collector, null, null, null));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code())
+        .isEqualTo("invoice.oneofthe.boom.timber.wiegh.requiered.error");
+  }
+
   // ---------------------------------------------------------------- I30
 
   @Test
@@ -95,6 +118,25 @@ class InvoiceSourceDocumentRulesTest {
     assertThat(details.getBoomNumbers()).isNull();
     assertThat(details.getTimberMarks()).isEqualTo("  ");
     assertThat(details.getWeighSlipNumbers()).isEqualTo("W1");
+  }
+
+  @Test
+  void i31_drops_empty_tokens_between_consecutive_commas() {
+    CSPInvoiceDetailsType details = details("B1,,B2", null, null);
+    InvoiceRuleContext ctx = context(new ValidationCollector(), details);
+
+    rules.deduplicateSourceDocuments(ctx);
+
+    assertThat(details.getBoomNumbers()).isEqualTo("B1,B2");
+  }
+
+  @Test
+  void i31_is_a_no_op_when_the_details_block_is_absent() {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.deduplicateSourceDocuments(contextWithoutDetails(collector));
+
+    assertThat(collector.entries()).isEmpty();
   }
 
   // ---------------------------------------------------------------- I32/I33/I34
@@ -177,6 +219,15 @@ class InvoiceSourceDocumentRulesTest {
     assertThat(collector.entries()).isEmpty();
   }
 
+  @Test
+  void token_length_check_is_skipped_when_the_field_is_blank() {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.boomTokensWithinMaxLength(context(collector, null, null, null));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
   // ---------------------------------------------------------------- I38
 
   @Test
@@ -203,6 +254,17 @@ class InvoiceSourceDocumentRulesTest {
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().message()).contains("B2");
+  }
+
+  @Test
+  void i38_skips_empty_tokens_between_consecutive_commas() {
+    given(referenceData.boomNumberUsedByAnotherInvoice("B1")).willReturn(true);
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.boomNumbersNotUsedByAnotherInvoice(context(collector, "B1, ,", null, null));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().message()).contains("B1");
   }
 
   @Test

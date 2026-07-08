@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.submission.business.rule.invoice;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.InvoiceRule;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.InvoiceRuleContext;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceDetailsType;
+import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -33,16 +34,6 @@ import java.util.Set;
  */
 @Component
 public class InvoiceSourceDocumentRules implements InvoiceRule {
-
-  /** Max items permitted per source-document CSV (I32 / I33 / I34). */
-  private static final int MAX_BOOM_NUMBERS = 10;
-  private static final int MAX_TIMBER_MARKS = 10;
-  private static final int MAX_WEIGH_SLIPS = 10;
-
-  /** Max length of a single token in each source-document CSV (I35 / I36 / I37). */
-  private static final int MAX_BOOM_TOKEN_LENGTH = 20;
-  private static final int MAX_TIMBER_TOKEN_LENGTH = 6;
-  private static final int MAX_WEIGH_TOKEN_LENGTH = 100;
 
   private static final String BOOM_LABEL = "Boom Numbers";
   private static final String TIMBER_LABEL = "Timber Marks";
@@ -89,35 +80,35 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
 
   /** At most 10 Boom Numbers (ERROR). */
   void boomNumbersWithinMax(InvoiceRuleContext ctx) {
-    csvWithinMax(ctx, boomNumbers(ctx), MAX_BOOM_NUMBERS,
+    csvWithinMax(ctx, boomNumbers(ctx), ConstantsCode.MAXOFCSVFORBOOMNUMBERS,
         "invoice.morethan.Max.boomnumbers.error", BOOM_LABEL);
   }
 
   /** At most 10 Timber Marks (ERROR). */
   void timberMarksWithinMax(InvoiceRuleContext ctx) {
-    csvWithinMax(ctx, timberMarks(ctx), MAX_TIMBER_MARKS,
+    csvWithinMax(ctx, timberMarks(ctx), ConstantsCode.MAXOFCSVFORTIMBERMARKS,
         "invoice.morethan.Max.timbermarks.error", TIMBER_LABEL);
   }
 
   /** At most 10 Weigh Slips (ERROR). */
   void weighSlipsWithinMax(InvoiceRuleContext ctx) {
-    csvWithinMax(ctx, weighSlips(ctx), MAX_WEIGH_SLIPS,
+    csvWithinMax(ctx, weighSlips(ctx), ConstantsCode.MAXOFCSVFORWEIGHSLIPS,
         "invoice.morethan.Max.weighslips.error", WEIGH_LABEL);
   }
 
   /** Each Boom Number token ≤ 20 chars (ERROR). */
   void boomTokensWithinMaxLength(InvoiceRuleContext ctx) {
-    csvTokensWithinMaxLength(ctx, boomNumbers(ctx), MAX_BOOM_TOKEN_LENGTH, BOOM_LABEL);
+    csvTokensWithinMaxLength(ctx, boomNumbers(ctx), ConstantsCode.MAXTOKENLENGTHFORBOOMNUMBERS, BOOM_LABEL);
   }
 
   /** Each Timber Mark token ≤ 6 chars (ERROR). */
   void timberTokensWithinMaxLength(InvoiceRuleContext ctx) {
-    csvTokensWithinMaxLength(ctx, timberMarks(ctx), MAX_TIMBER_TOKEN_LENGTH, TIMBER_LABEL);
+    csvTokensWithinMaxLength(ctx, timberMarks(ctx), ConstantsCode.MAXTOKENLENGTHFORTIMBERMARKS, TIMBER_LABEL);
   }
 
   /** Each Weigh Slip token ≤ 100 chars (ERROR). */
   void weighTokensWithinMaxLength(InvoiceRuleContext ctx) {
-    csvTokensWithinMaxLength(ctx, weighSlips(ctx), MAX_WEIGH_TOKEN_LENGTH, WEIGH_LABEL);
+    csvTokensWithinMaxLength(ctx, weighSlips(ctx), ConstantsCode.MAXTOKENLENGTHFORWEIGHSLIPS, WEIGH_LABEL);
   }
 
   /**
