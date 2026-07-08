@@ -15,8 +15,10 @@ import org.springframework.context.NoSuchMessageException;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Component
 public class InvoiceMapper {
@@ -51,9 +53,9 @@ public class InvoiceMapper {
                 req.otherClientName(),
                 req.otherClientCity(),
                 req.otherClientProvState(),
-                req.boomNumbers() == null ? List.of() : req.boomNumbers(),
-                req.timberMarks() == null ? List.of() : req.timberMarks(),
-                req.weightSlips() == null ? List.of() : req.weightSlips(),
+                dedupSourceDocuments(req.boomNumbers()),
+                dedupSourceDocuments(req.timberMarks()),
+                dedupSourceDocuments(req.weightSlips()),
                 req.replaceInvNum(),
                 req.adjustInvNum(),
                 req.reviewComments(),
@@ -86,15 +88,41 @@ public class InvoiceMapper {
                 req.otherClientName(),
                 req.otherClientCity(),
                 req.otherClientProvState(),
-                req.boomNumbers() == null ? List.of() : req.boomNumbers(),
-                req.timberMarks() == null ? List.of() : req.timberMarks(),
-                req.weightSlips() == null ? List.of() : req.weightSlips(),
+                dedupSourceDocuments(req.boomNumbers()),
+                dedupSourceDocuments(req.timberMarks()),
+                dedupSourceDocuments(req.weightSlips()),
                 req.replaceInvNum(),
                 req.adjustInvNum(),
                 req.reviewComments(),
                 req.submitComments(),
                 existingEntryUserID
         );
+    }
+
+    /**
+     * De-duplicates a source-document list (Boom Numbers / Timber Marks / Weigh
+     * Slips) on the way into the domain model (catalogue I31): tokens are
+     * trimmed, blanks dropped, and duplicates removed keeping first-seen order.
+     * A null list maps to an empty list. Mirrors the electronic path's
+     * {@code InvoiceSourceDocumentRules#deduplicateCsv} and the legacy
+     * {@code ignoreCSVForDuplicates}, so the validator's count checks and the
+     * persisted log sources both see the de-duplicated values.
+     */
+    private static List<String> dedupSourceDocuments(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        Set<String> unique = new LinkedHashSet<>();
+        for (String value : values) {
+            if (value == null) {
+                continue;
+            }
+            String trimmed = value.trim();
+            if (!trimmed.isEmpty()) {
+                unique.add(trimmed);
+            }
+        }
+        return List.copyOf(unique);
     }
 
     public LineItem toLineItem(LineItemRequest req, Long invoiceId) {
