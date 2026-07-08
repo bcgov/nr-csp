@@ -1,5 +1,6 @@
 package ca.bc.gov.nrs.csp.backend.submission.business.support;
 
+import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceDetailsType;
 import ca.bc.gov.nrs.csp.backend.submission.generated.CSPInvoiceType;
 import org.springframework.stereotype.Component;
 
@@ -11,9 +12,10 @@ import java.util.Locale;
  * (the legacy app stores these upper-cased — see rule-doc §0B). Run by
  * {@code BusinessValidationService} on each invoice before the rules execute.
  *
- * <p>Currently normalises the invoice-level identifiers carried on
- * {@link CSPInvoiceType}. Detail-level identifiers (boom numbers, timber marks,
- * weigh slips, FOB) are normalised here too when those rules are implemented.
+ * <p>Normalises the invoice-level identifiers carried on {@link CSPInvoiceType}
+ * and the detail-level source-document identifiers (boom numbers, timber marks,
+ * weigh slips) — the latter so the I38 boom-number duplicate lookup matches the
+ * upper-cased stored references.
  */
 @Component
 public class IdentifierNormalizer {
@@ -28,5 +30,12 @@ public class IdentifierNormalizer {
     invoice.setInvoiceNumber(normalize(invoice.getInvoiceNumber()));
     invoice.setReplacesInvoiceNumbers(normalize(invoice.getReplacesInvoiceNumbers()));
     invoice.setAdjustsInvoiceNumbers(normalize(invoice.getAdjustsInvoiceNumbers()));
+
+    CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+    if (details != null) {
+      details.setBoomNumbers(normalize(details.getBoomNumbers()));
+      details.setTimberMarks(normalize(details.getTimberMarks()));
+      details.setWeighSlipNumbers(normalize(details.getWeighSlipNumbers()));
+    }
   }
 }
