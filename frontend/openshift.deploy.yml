@@ -187,6 +187,12 @@ objects:
       labels:
         app: ${NAME}-frontend-${ZONE}
         app.kubernetes.io/instance: ${ZONE}
+      annotations:
+        # The frontend is a stateless static server + reverse proxy, so it needs no
+        # session affinity. Without this, the HAProxy router injects a balancing
+        # cookie on every response — flagged by security scans as a SameSite=None
+        # cookie. Disabling it removes the cookie at the source.
+        haproxy.router.openshift.io/disable_cookies: "true"
     spec:
       host: ${NAME}-${ZONE}.${DOMAIN}
       to:
