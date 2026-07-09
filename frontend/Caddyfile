@@ -19,5 +19,8 @@
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
+		# connect-src covers the Cognito hosted-UI token exchange the SPA makes via
+		# fetch/XHR after the OAuth redirect back from {$COGNITO_DOMAIN}.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://{$COGNITO_DOMAIN}; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
 	}
 }
