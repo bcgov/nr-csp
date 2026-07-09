@@ -59,16 +59,22 @@ public class SubmissionEnvelopeStripper {
       throw new SubmissionEnvelopeException(
           "ENVELOPE_PARSE_ERROR",
           "could not read XML to detect root element: " + e.getMessage(),
+          new Object[] {e.getMessage()},
           e);
     }
 
     return switch (kind) {
       case BODY -> raw; // already in the right shape
       case ENVELOPE -> extractInner(raw);
+      // The {namespace}root qnames are composed here as args — literal braces
+      // would collide with the MessageFormat syntax if embedded in the template.
       case UNKNOWN -> throw new SubmissionEnvelopeException(
           "ENVELOPE_UNRECOGNIZED",
           "root element must be {" + props.getEnvelopeNamespace() + "}" + props.getEnvelopeRoot()
-              + " or {" + props.getBodyNamespace() + "}" + props.getBodyRoot());
+              + " or {" + props.getBodyNamespace() + "}" + props.getBodyRoot(),
+          new Object[] {
+              "{" + props.getEnvelopeNamespace() + "}" + props.getEnvelopeRoot(),
+              "{" + props.getBodyNamespace() + "}" + props.getBodyRoot()});
     };
   }
 
@@ -140,7 +146,8 @@ public class SubmissionEnvelopeStripper {
         throw new SubmissionEnvelopeException(
             "ENVELOPE_MISSING_CONTENT",
             "<" + props.getEnvelopeRoot() + "> has no <" + props.getEnvelopeContentElement()
-                + "> child");
+                + "> child",
+            new Object[] {props.getEnvelopeRoot(), props.getEnvelopeContentElement()});
       }
       NodeList children = contents.item(0).getChildNodes();
       Element body = null;
@@ -156,7 +163,8 @@ public class SubmissionEnvelopeStripper {
         throw new SubmissionEnvelopeException(
             "ENVELOPE_NO_BODY",
             "<" + props.getEnvelopeContentElement() + "> does not wrap a <" + props.getBodyRoot()
-                + "> element");
+                + "> element",
+            new Object[] {props.getEnvelopeContentElement(), props.getBodyRoot()});
       }
 
       ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -170,6 +178,7 @@ public class SubmissionEnvelopeStripper {
       throw new SubmissionEnvelopeException(
           "ENVELOPE_EXTRACTION_FAILED",
           "could not extract " + props.getBodyRoot() + " from envelope: " + e.getMessage(),
+          new Object[] {props.getBodyRoot(), e.getMessage()},
           e);
     }
   }

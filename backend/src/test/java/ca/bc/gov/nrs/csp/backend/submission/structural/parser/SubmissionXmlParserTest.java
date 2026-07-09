@@ -51,7 +51,7 @@ class SubmissionXmlParserTest {
     assertThat(new SubmissionXmlParser.ParseOutcome(null, List.of()).ok()).isFalse();
     assertThat(new SubmissionXmlParser.ParseOutcome(new Object(), List.of()).ok()).isTrue();
     assertThat(new SubmissionXmlParser.ParseOutcome(
-        new Object(), List.of(SubmissionValidationError.of("X", "y"))).ok()).isFalse();
+        new Object(), List.of(SubmissionValidationError.of("X", new Object[0]))).ok()).isFalse();
   }
 
   private static byte[] read(String fixture) throws IOException {

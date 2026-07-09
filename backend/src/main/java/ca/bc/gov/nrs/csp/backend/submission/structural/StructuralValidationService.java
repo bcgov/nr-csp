@@ -45,9 +45,7 @@ public class StructuralValidationService {
     SubmissionXmlParser.ParseOutcome outcome = switch (detectFormat(bytes)) {
       case XML -> parseXml(bytes, errors);
       case UNKNOWN -> {
-        errors.add(SubmissionValidationError.of(
-            "FORMAT_UNRECOGNIZED",
-            "could not detect format — expected XML (starts with '<')"));
+        errors.add(SubmissionValidationError.of("FORMAT_UNRECOGNIZED", new Object[0]));
         yield new SubmissionXmlParser.ParseOutcome(null, List.of());
       }
     };
@@ -69,7 +67,8 @@ public class StructuralValidationService {
     try {
       bodyBytes = envelopeStripper.toBareSubmission(bytes);
     } catch (SubmissionEnvelopeException e) {
-      errors.add(SubmissionValidationError.of(e.getCode(), e.getMessage()));
+      log.debug("Envelope handling failed [{}]: {}", e.getCode(), e.getMessage());
+      errors.add(SubmissionValidationError.of(e.getCode(), e.getArgs()));
       return new SubmissionXmlParser.ParseOutcome(null, List.of());
     }
     return parser.parse(bodyBytes);

@@ -61,7 +61,7 @@ public class SubmissionXmlParser {
                         event.getLocator().getLineNumber(),
                         event.getLocator().getColumnNumber()),
                 "JAXB",
-                event.getMessage()));
+                new Object[] {event.getMessage()}));
         return true; // continue collecting
       });
 
@@ -74,7 +74,7 @@ public class SubmissionXmlParser {
       Object root = unmarshaller.unmarshal(reader);
       return new ParseOutcome(unwrap(root), errors);
     } catch (Exception e) {
-      errors.add(SubmissionValidationError.of("XML_PARSE", e.getMessage()));
+      errors.add(SubmissionValidationError.of("XML_PARSE", new Object[] {e.getMessage()}));
       return new ParseOutcome(null, errors);
     }
   }

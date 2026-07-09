@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 
@@ -69,9 +70,13 @@ class CspSubmissionControllerTest {
 
     @Test
     void structural_invalid_returns422WithErrors() throws Exception {
+        // Structural errors follow the same (code, args) + bundle format as business
+        // ones (refactor doc §3.5 Step B): the parser detail rides in args and the
+        // resolved message is locator-prefixed.
+        messageSource.addMessage("XSD", Locale.getDefault(), "{0}");
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.of("line 5, col 30", "XSD",
-                        "cvc-enumeration-valid: Value 'MAYBE' is not facet-valid")));
+                        new Object[]{"cvc-enumeration-valid: Value 'MAYBE' is not facet-valid"})));
         given(validationService.validateStructural(any())).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/structural")
@@ -81,13 +86,18 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("XSD"))
                 .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
-                .andExpect(jsonPath("$.errors[0].args[0]").value("line 5, col 30"));
+                .andExpect(jsonPath("$.errors[0].args[0]")
+                        .value("cvc-enumeration-valid: Value 'MAYBE' is not facet-valid"))
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "line 5, col 30: cvc-enumeration-valid: Value 'MAYBE' is not facet-valid"));
     }
 
     @Test
     void structural_errorWithNullPath_mapsToMessageWithoutLocationArgs() throws Exception {
+        messageSource.addMessage("FORMAT_UNRECOGNIZED", Locale.getDefault(),
+                "could not detect format");
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
-                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", "could not detect format")));
+                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", new Object[0])));
         given(validationService.validateStructural(any())).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/structural")
@@ -95,7 +105,8 @@ class CspSubmissionControllerTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("FORMAT_UNRECOGNIZED"))
-                .andExpect(jsonPath("$.errors[0].type").value("ERROR"));
+                .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
+                .andExpect(jsonPath("$.errors[0].message").value("could not detect format"));
     }
 
     @Test
@@ -140,7 +151,7 @@ class CspSubmissionControllerTest {
     void business_invalid_returns422WithErrors() throws Exception {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.error("invoice INV-1", "invoice.date.in.future.error",
-                        "invoiceDate for invoiceNumber INV-1 cannot be in the future.")));
+                        new Object[]{"INV-1", LocalDate.of(2026, 1, 1)})));
         given(validationService.validateBusiness(any())).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
@@ -150,7 +161,7 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"))
                 .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
-                .andExpect(jsonPath("$.errors[0].args[0]").value("invoice INV-1"));
+                .andExpect(jsonPath("$.errors[0].args[0]").value("INV-1"));
     }
 
     @Test
@@ -207,7 +218,7 @@ class CspSubmissionControllerTest {
                 true,
                 List.of(SubmissionValidationError.error("invoice INV-BAD",
                         "invoice.date.in.future.error",
-                        "invoiceDate for invoiceNumber INV-BAD cannot be in the future.")),
+                        new Object[]{"INV-BAD", LocalDate.of(2026, 1, 1)})),
                 new SubmissionAcceptance(List.of("INV-GOOD"), List.of("INV-BAD")));
         given(validationService.validateBusiness(any())).willReturn(partial);
 

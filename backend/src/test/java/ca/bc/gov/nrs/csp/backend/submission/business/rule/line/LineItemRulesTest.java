@@ -123,7 +123,6 @@ class LineItemRulesTest {
         .isEqualTo("invoice.grade.invalid.required.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
     assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
-    assertThat(collector.entries().get(0).error().message()).isNull();
   }
 
   @Test

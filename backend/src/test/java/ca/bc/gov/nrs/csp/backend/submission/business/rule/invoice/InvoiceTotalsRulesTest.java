@@ -37,7 +37,6 @@ class InvoiceTotalsRulesTest {
     assertThat(err.code()).isEqualTo("invoice.totalamount.negative.error");
     assertThat(err.severity()).isEqualTo(Severity.ERROR);
     assertThat(err.args()).isEmpty();
-    assertThat(err.message()).isNull();
     assertThat(err.path()).contains("INV-1");
   }
 

@@ -11,12 +11,11 @@ package ca.bc.gov.nrs.csp.backend.submission.shared;
  *   <li>{@code code} — stable machine code: a structural code (XSD / JAXB /
  *       XML_PARSE / ENVELOPE_* / FORMAT_UNRECOGNIZED) or a business message key
  *       (e.g. {@code invoice.type.invalid.error}).</li>
- *   <li>{@code message} — human-readable detail. Null for messages produced by
- *       rules on the messages.properties strategy, which carry {@code args}
- *       instead (the text is resolved at the HTTP boundary).</li>
  *   <li>{@code args} — the {@code {0}}/{@code {1}}… substitution args the
- *       message key's {@code messages.properties} template expects; null for
- *       messages that carry pre-rendered {@code message} text.</li>
+ *       message key's {@code messages.properties} template expects. There is
+ *       deliberately no rendered-text field: every message resolves from the
+ *       bundle at the HTTP boundary (refactor doc §3.5 Step C), so inline
+ *       English cannot be emitted anywhere in the pipeline.</li>
  *   <li>{@code severity} — {@link Severity#ERROR} (blocking) or
  *       {@link Severity#WARNING} (informational).</li>
  * </ul>
@@ -25,42 +24,29 @@ package ca.bc.gov.nrs.csp.backend.submission.shared;
  * at the HTTP boundary.
  */
 public record SubmissionValidationError(
-    String path, String code, String message, Object[] args, Severity severity) {
+    String path, String code, Object[] args, Severity severity) {
 
   // ── Structural factories (always ERROR) ─────────────────────────────
 
-  public static SubmissionValidationError of(String code, String message) {
-    return new SubmissionValidationError(null, code, message, null, Severity.ERROR);
+  /** A structural error carrying its messages.properties template args. */
+  public static SubmissionValidationError of(String code, Object[] args) {
+    return new SubmissionValidationError(null, code, args, Severity.ERROR);
   }
 
-  public static SubmissionValidationError of(String path, String code, String message) {
-    return new SubmissionValidationError(path, code, message, null, Severity.ERROR);
+  /** Locator-scoped variant of {@link #of(String, Object[])}. */
+  public static SubmissionValidationError of(String path, String code, Object[] args) {
+    return new SubmissionValidationError(path, code, args, Severity.ERROR);
   }
 
   // ── Business factories (explicit severity, locator-aware) ────────────
 
-  /** A blocking business error at the given locator, with pre-rendered text. */
-  public static SubmissionValidationError error(String locator, String code, String message) {
-    return new SubmissionValidationError(locator, code, message, null, Severity.ERROR);
-  }
-
-  /** A non-blocking business warning at the given locator, with pre-rendered text. */
-  public static SubmissionValidationError warning(String locator, String code, String message) {
-    return new SubmissionValidationError(locator, code, message, null, Severity.WARNING);
-  }
-
-  // ── Business factories (message-key args; text resolves at the edge) ──
-  // Rules converted to the messages.properties strategy (refactor doc §3.5)
-  // carry the template args instead of rendered text; the controller resolves
-  // code + args against the bundle at the HTTP boundary.
-
   /** A blocking business error at the given locator, carrying template args. */
   public static SubmissionValidationError error(String locator, String code, Object[] args) {
-    return new SubmissionValidationError(locator, code, null, args, Severity.ERROR);
+    return new SubmissionValidationError(locator, code, args, Severity.ERROR);
   }
 
   /** A non-blocking business warning at the given locator, carrying template args. */
   public static SubmissionValidationError warning(String locator, String code, Object[] args) {
-    return new SubmissionValidationError(locator, code, null, args, Severity.WARNING);
+    return new SubmissionValidationError(locator, code, args, Severity.WARNING);
   }
 }

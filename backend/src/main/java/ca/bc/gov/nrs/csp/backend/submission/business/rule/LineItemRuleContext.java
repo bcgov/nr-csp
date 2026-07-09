@@ -78,20 +78,11 @@ public final class LineItemRuleContext {
     return Dates.toLocalDate(invoice.getInvoiceDate());
   }
 
-  /** Record a blocking error against this line (rejects the parent invoice), with pre-rendered text. */
-  public void error(String code, String message) {
-    collector.add(invoiceIndex, SubmissionValidationError.error(locator, code, message));
-  }
-
-  /** Record a non-blocking warning against this line, with pre-rendered text. */
-  public void warning(String code, String message) {
-    collector.add(invoiceIndex, SubmissionValidationError.warning(locator, code, message));
-  }
-
   /**
-   * Record a blocking error against this line as a message key + its
-   * {@code messages.properties} template args; the text is resolved at the HTTP
-   * boundary (refactor doc §3.5).
+   * Record a blocking error against this line (rejects the parent invoice) as a
+   * message key + its {@code messages.properties} template args; the text is
+   * resolved at the HTTP boundary (refactor doc §3.5 — there is deliberately no
+   * rendered-text sink).
    */
   public void error(String code, Object[] args) {
     collector.add(invoiceIndex, SubmissionValidationError.error(locator, code, args));

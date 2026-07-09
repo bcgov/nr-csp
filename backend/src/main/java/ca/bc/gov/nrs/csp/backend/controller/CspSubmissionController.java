@@ -127,21 +127,14 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     private ValidationMessageResponse toMessageResponse(SubmissionValidationError err) {
-        // Carry the message's own severity (ERROR / WARNING) through to the response.
+        // Uniform format (refactor doc §3.5 Step C): every message is a key + its
+        // template args. Resolve against messages.properties, prefixed with the
+        // locator so multi-invoice submissions stay attributable; fall back to the
+        // bare key when the bundle has no entry.
         String type = err.severity() == null ? MessageType.ERROR.name() : err.severity().name();
-        if (err.args() != null) {
-            // Rule on the messages.properties strategy (refactor doc §3.5): resolve
-            // the key + template args against the bundle, prefixed with the invoice
-            // locator so multi-invoice submissions stay attributable. Falls back to
-            // the bare key when the bundle has no entry.
-            String text = messageSource.getMessage(err.code(), err.args(), err.code(), Locale.getDefault());
-            String message = err.path() == null ? text : err.path() + ": " + text;
-            return new ValidationMessageResponse(err.code(), err.args(), type, message);
-        }
-        // Pre-rendered message (structural phase + rules not yet converted): the
-        // locator rides in args, matching the historical response shape.
-        Object[] args = err.path() == null ? null : new Object[]{err.path()};
-        return new ValidationMessageResponse(err.code(), args, type, err.message());
+        String text = messageSource.getMessage(err.code(), err.args(), err.code(), Locale.getDefault());
+        String message = err.path() == null ? text : err.path() + ": " + text;
+        return new ValidationMessageResponse(err.code(), err.args(), type, message);
     }
 
     private SubmissionValidationResponse error(String code, String message) {

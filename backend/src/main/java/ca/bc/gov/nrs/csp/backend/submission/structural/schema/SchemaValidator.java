@@ -99,10 +99,10 @@ public class SchemaValidator {
       // Already captured by the error handler unless it was a fatal
       // pre-parse problem (e.g. malformed XML before the first element).
       if (errors.isEmpty()) {
-        errors.add(SubmissionValidationError.of("XML_PARSE", e.getMessage()));
+        errors.add(SubmissionValidationError.of("XML_PARSE", new Object[] {e.getMessage()}));
       }
     } catch (IOException e) {
-      errors.add(SubmissionValidationError.of("XML_READ", e.getMessage()));
+      errors.add(SubmissionValidationError.of("XML_READ", new Object[] {e.getMessage()}));
     }
     return errors;
   }
@@ -232,7 +232,7 @@ public class SchemaValidator {
 
     private SubmissionValidationError toError(SAXParseException e) {
       String location = String.format("line %d, col %d", e.getLineNumber(), e.getColumnNumber());
-      return SubmissionValidationError.of(location, "XSD", e.getMessage());
+      return SubmissionValidationError.of(location, "XSD", new Object[] {e.getMessage()});
     }
   }
 }
