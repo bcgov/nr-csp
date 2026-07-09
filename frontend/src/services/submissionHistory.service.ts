@@ -58,6 +58,7 @@ export interface SubmissionInvoiceResponse {
 
 /** A row in the submission detail "Invoice Line Items" table. */
 export interface SubmissionLineItemResponse {
+  coastalLogSaleId: number | null;
   invoiceNumber: string | null;
   species: string | null;
   grade: string | null;

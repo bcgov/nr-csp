@@ -63,12 +63,14 @@ export function ViewSubmissionPage() {
       ]
     : [];
 
-  // Line items grouped by their parent invoice number, so each expanded row
-  // can render only its own lines and the table can show a per-invoice count.
+  // Line items grouped by their parent invoice id (coastal_log_sale_id), so
+  // each expanded row can render only its own lines and the table can show a
+  // per-invoice count. Keyed on the id rather than the invoice number because
+  // invoice numbers can be blank or duplicated within a submission.
   const lineItemsByInvoice = useMemo(() => {
-    const map = new Map<string, SubmissionLineItemResponse[]>();
+    const map = new Map<number | null, SubmissionLineItemResponse[]>();
     (data?.lineItems ?? []).forEach((li) => {
-      const key = li.invoiceNumber ?? '';
+      const key = li.coastalLogSaleId;
       const group = map.get(key) ?? [];
       group.push(li);
       map.set(key, group);
@@ -79,7 +81,7 @@ export function ViewSubmissionPage() {
   const invoiceRows: InvoiceRow[] = (data?.invoices ?? []).map((inv, i) => ({
     ...inv,
     id: inv.coastalLogSaleId?.toString() ?? `inv-${i}`,
-    lineItemCount: (lineItemsByInvoice.get(inv.invoiceNumber ?? '') ?? []).length,
+    lineItemCount: (lineItemsByInvoice.get(inv.coastalLogSaleId) ?? []).length,
   }));
 
   // Summary line totals across the submission's invoices.
@@ -184,7 +186,7 @@ export function ViewSubmissionPage() {
                 expandedRowIds={expandedRowIds}
                 onExpandedRowIdsChange={setExpandedRowIds}
                 renderExpandedContent={(row) => (
-                  <InvoiceDetailPanel invoice={row} lineItems={lineItemsByInvoice.get(row.invoiceNumber ?? '') ?? []} />
+                  <InvoiceDetailPanel invoice={row} lineItems={lineItemsByInvoice.get(row.coastalLogSaleId) ?? []} />
                 )}
                 emptyTitle="No invoices"
                 emptyDescription="This submission has no invoices."

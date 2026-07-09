@@ -9,6 +9,9 @@ import java.math.BigDecimal;
  * {@code coastal_log_sale_detail} line, with its parent invoice number.
  */
 public record SubmissionLineItemResponse(
+        @Schema(description = "Parent invoice id (coastal_log_sale_id) this line belongs to.")
+        Long coastalLogSaleId,
+
         @Schema(description = "Parent invoice number (client_invoice_no) this line belongs to.")
         String invoiceNumber,
 

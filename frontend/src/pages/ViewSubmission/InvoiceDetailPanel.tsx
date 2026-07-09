@@ -7,7 +7,7 @@ import { formatNumber } from '@/utils/format';
 
 export type InvoiceDetailPanelProps = {
   invoice: SubmissionInvoiceResponse;
-  /** Line items belonging to this invoice (already filtered by invoice number). */
+  /** Line items belonging to this invoice (already filtered by coastal log sale id). */
   lineItems: SubmissionLineItemResponse[];
 };
 
