@@ -154,7 +154,7 @@ class SortCodeServiceTest {
     @Test
     void update_uppercasesPathCode() {
         given(sortCodeRepository.existsByCode("A")).willReturn(true);
-        given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode("A")));
+        given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode()));
 
         sortCodeService.update("a", new UpdateSortCodeRequest("New desc", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31)));
 
