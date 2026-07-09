@@ -37,10 +37,10 @@
   .page-title-col {
     margin-bottom: $spacing-03;
 
-    // Compact page heading — the full-size heading-05 reads as oversized here;
-    // heading-03 matches the design's subheading scale.
+    // Compact page heading — the full-size heading-05 reads as oversized here.
     .title-container h1 {
       @include type.type-style('heading-03');
+      font-size: 1rem; // 16px per design
     }
   }
 
@@ -61,8 +61,7 @@
   }
 
   // ── Section cards ────────────────────────────────────────────────────────
-  // Each detail block and the invoices block render as a bordered card with a
-  // light-grey title band and a white body.
+  // Each detail block and the invoices block render as a bordered card.
   .detail-section,
   &__invoices-card {
     border: 1px solid theme.$border-subtle-02;
@@ -74,12 +73,15 @@
   &__invoices-header {
     margin: 0;
     padding: $spacing-04 $spacing-05;
-    background: theme.$layer-01;
     border-bottom: 1px solid theme.$border-subtle-02;
   }
 
+  // Detail cards are a single light-grey surface — the title band matches the
+  // grey ($background) body, so the whole card reads as full light grey.
   .detail-section__title {
     @include type.type-style('heading-03');
+    font-size: 1rem; // 16px per design (heading-03 is otherwise 20px)
+    background: theme.$background;
   }
 
   .detail-section__grid {
@@ -94,10 +96,13 @@
     justify-content: space-between;
     gap: $spacing-05;
     flex-wrap: wrap;
+    // The invoices card keeps a white header band.
+    background: theme.$layer-01;
   }
 
   &__section-title {
     @include type.type-style('heading-03');
+    font-size: 1rem; // 16px, matching the detail-section titles
     margin: 0 0 $spacing-02;
   }
 
@@ -115,6 +120,90 @@
     white-space: nowrap;
   }
 
+  // Parent invoice rows read as a light-grey band ($background → #f4f4f4). The
+  // expanded panel below sits on a white surface ($layer-01 → #ffffff in this
+  // project's g10 theme), with the detail fields as a bordered white card and
+  // the staff comment as a distinct grey banner. Scoped to this page only — the
+  // expandable table is shared with pages that keep their default surfaces.
+  &__invoices-body .results-table--expandable {
+    // Parent invoice rows read as a light-grey band, overriding ResultsTable's
+    // paired zebra (which paints alternating parent rows white). The extra
+    // `.cds--data-table` class lifts specificity to (0,4,3) to beat the zebra's
+    // (0,3,3) !important rules.
+    .cds--data-table tbody tr.cds--parent-row > td {
+      background-color: theme.$background !important;
+      // Carbon gives each cell a white (`$layer`) top border, which shows as a
+      // gap between the grey rows. Make it transparent so rows separate with a
+      // single subtle bottom border instead.
+      border-block-start-color: transparent;
+    }
+
+    // The expanded content row sits on a white surface. Scope this to the
+    // EXPANDED case only (parent carries `cds--expandable-row`) — otherwise the
+    // COLLAPSED child rows between parent rows also get painted white, showing
+    // as a thin white "gap". Collapsed rows keep Carbon's zero-height default.
+    // Zero Carbon's cell padding so the panel controls its own spacing and sits
+    // right below the parent row.
+    .cds--data-table tbody tr.cds--parent-row.cds--expandable-row + tr[data-child-row] > td {
+      background-color: theme.$layer-01 !important;
+      padding: 0 !important;
+    }
+
+    // Collapsed child rows can still show a thin sliver whose colour follows the
+    // zebra (white on the first, grey on the rest). Paint them grey to match the
+    // parent rows so no white line appears between collapsed rows.
+    .cds--data-table tbody tr.cds--parent-row:not(.cds--expandable-row) + tr[data-child-row] > td {
+      background-color: theme.$background !important;
+    }
+
+    // Carbon adds `padding-block: 1rem` here, which shows as a large gap above
+    // the details card. Zero it (!important beats Carbon's non-important rule)
+    // and let `.invoice-detail-panel` control the spacing instead.
+    .cds--child-row-inner-container {
+      background-color: theme.$layer-01 !important;
+      padding: 0 !important;
+    }
+
+    // Line-item table headers, exact to the Figma
+    // (th.px-4.py-2.text-left.text-xs.text-[#525252]): 12px / 16px line-height,
+    // normal weight, #525252 text, 8px×16px padding, on a #f4f4f4 header row.
+    // The (0,4,2)!important specificity beats ResultsTable's shared header rules.
+    .cds--child-row-inner-container .cds--data-table thead th {
+      background-color: theme.$background !important; // #f4f4f4
+      color: theme.$text-secondary !important; // #525252
+      padding-block: $spacing-03 !important; // 8px
+      padding-inline: $spacing-05 !important; // 16px
+      font-size: 0.75rem !important; // 12px
+      line-height: 1rem !important; // 16px
+      font-weight: 400 !important; // normal
+      letter-spacing: normal !important;
+      text-align: left;
+
+      // Carbon's sm header wraps text in this span with its own 7px
+      // padding-block — zero it so the th padding-block gives an exact 8px, and
+      // carry the type through so the label matches.
+      .cds--table-header-label,
+      .cds--table-sort {
+        padding-block: 0 !important;
+        font-size: 0.75rem;
+        line-height: 1rem;
+        font-weight: 400;
+        letter-spacing: normal;
+        color: theme.$text-secondary;
+      }
+    }
+
+    // Carbon's expandable rule (`tr[data-child-row] td { padding-inline-start:
+    // 3.5rem }`) leaks onto the nested line-item table's body cells, shifting
+    // them ~56px right of their headers so they read as centred. Reset the
+    // nested body cells to the standard 16px inline padding so the columns line
+    // up under their headers. The extra `.cds--data-table--sm` class lifts this
+    // to (0,5,2), beating Carbon's (0,4,3).
+    .cds--child-row-inner-container .cds--data-table.cds--data-table--sm tbody td {
+      padding-inline: $spacing-05 !important;
+    }
+  }
+
   &__loading {
     margin-top: $spacing-07;
   }
@@ -130,14 +219,26 @@
 // matching the design. No outer card border — the table's expanded row already
 // provides the container.
 .invoice-detail-panel {
+  // Inset the cards from the expanded row edges so their borders read as
+  // distinct cards on the white surface. Per the Figma: a small top/bottom gap,
+  // a large left gap (aligns the card past the expand column) and a moderate
+  // right gap (padding: top right bottom left).
+  padding: $spacing-02 $spacing-06 $spacing-03 $spacing-09;
+
+  // The detail fields sit in a bordered white card with a grey title band.
   &__details.detail-section {
-    border: none;
-    background: transparent;
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$layer-01;
+    margin-bottom: $spacing-05;
   }
 
-  // The panel's section header is a smaller band than the page-level cards.
+  // Grey title band across the top of the white detail card.
   &__details .detail-section__title {
     @include type.type-style('heading-compact-01');
+    margin: 0;
+    padding: $spacing-04 $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
   }
 
   // Lock the invoice-detail field grid to a fixed 3-column layout so fields
@@ -146,6 +247,7 @@
   // than widening the column.
   &__details .detail-section__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: $spacing-05;
   }
 
   &__empty {
@@ -153,24 +255,44 @@
     font-style: italic;
   }
 
+  // Staff comment banner: a full-width grey strip with a bold label and a
+  // slightly darker grey accent block on the left, so it reads as a banner.
   &__staff-comment {
     @include type.type-style('body-01');
-    margin: 0;
+    margin: 0 0 $spacing-05;
     padding: $spacing-04 $spacing-05;
-    background: theme.$layer-01;
-    border-top: 1px solid theme.$border-subtle-02;
-    border-bottom: 1px solid theme.$border-subtle-02;
+    background: theme.$background;
+    border: 1px solid theme.$border-subtle-02;
+    border-left: $spacing-02 solid theme.$border-subtle-02;
+
+    strong {
+      font-weight: 600;
+      color: theme.$text-primary;
+    }
   }
 
   &__muted {
     color: theme.$text-secondary;
   }
 
+  // Line-item data rows are always white, regardless of the parent invoice
+  // row's zebra tint. The shared expandable table paints nested rows with
+  // `var(--row-bg, …)`, inheriting the parent row's stripe colour — override
+  // `--row-bg` to white here (a closer ancestor than the outer expanded cell
+  // that stamps it) so every line-item row renders white.
+  &__line-items {
+    --row-bg: #{theme.$layer-01};
+  }
+
+  // "Line items for…" title band, exact to the Figma
+  // (div.px-4.py-2.border-b.border-[#e0e0e0].bg-[#f4f4f4]): #f4f4f4 background,
+  // 8px×16px padding, and a single #e0e0e0 bottom border.
   &__line-items-title {
     @include type.type-style('heading-compact-01');
     margin: 0;
-    padding: $spacing-04 $spacing-05;
-    background: theme.$layer-01;
-    border-bottom: 1px solid theme.$border-subtle-02;
+    padding: $spacing-03 $spacing-05;
+    background: theme.$background;
+    border: none;
+    border-bottom: 1px solid #e0e0e0;
   }
 }

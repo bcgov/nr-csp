@@ -27,16 +27,20 @@ const lineItemColumns: ResultsTableColumn<LineItemRow>[] = [
   {
     key: 'pieces',
     header: '# Pieces',
+    // Number/decimal values are right-aligned; headers stay left-aligned.
+    cellAlign: 'right',
     renderCell: (r) => formatNumber(r.pieces),
   },
   {
     key: 'volume',
     header: 'Volume',
+    cellAlign: 'right',
     renderCell: (r) => formatNumber(r.volume == null ? null : Number(r.volume), 3),
   },
   {
     key: 'price',
     header: 'Price',
+    cellAlign: 'right',
     renderCell: (r) => formatNumber(r.price == null ? null : Number(r.price), 2),
   },
 ];

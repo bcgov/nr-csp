@@ -123,6 +123,7 @@ export function SubmissionHistoryPage() {
       renderCell: (row) =>
         row.cspSubmissionId == null ? null : (
           <IconButton
+            className="submission-history-page__view-btn"
             kind="ghost"
             size="sm"
             label="View submission"
