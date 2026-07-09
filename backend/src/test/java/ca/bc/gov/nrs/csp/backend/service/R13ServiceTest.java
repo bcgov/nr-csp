@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -169,8 +168,10 @@ class R13ServiceTest {
             opts.setShowSellerName(true);
             r.setShowOptions(opts);
 
-            // Validation passes; JRXML loading from classpath will fail (expected in unit test context)
-            assertThatCode(() -> service.generateReport(r)).doesNotThrowAnyException();
+            // Validation passes; the empty fill against the mock DataSource then yields
+            // "no data" (ResourceNotFoundException), which is not a validation failure.
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isNotInstanceOf(ValidationException.class);
         }
 
         @Test
@@ -184,7 +185,8 @@ class R13ServiceTest {
             opts.setShowSellerName(true);
             r.setShowOptions(opts);
 
-            assertThatCode(() -> service.generateReport(r)).doesNotThrowAnyException();
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isNotInstanceOf(ValidationException.class);
         }
     }
 
@@ -209,7 +211,8 @@ class R13ServiceTest {
             r.setInvoiceDateFrom("20200101");
             r.setInvoiceDateTo("20200101");
 
-            assertThatCode(() -> service.generateReport(r)).doesNotThrowAnyException();
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isNotInstanceOf(ValidationException.class);
         }
     }
 
@@ -228,7 +231,8 @@ class R13ServiceTest {
             opts.setShowSellerName(true);
             r.setShowOptions(opts);
 
-            assertThatCode(() -> service.generateReport(r)).doesNotThrowAnyException();
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isNotInstanceOf(ValidationException.class);
         }
     }
 
