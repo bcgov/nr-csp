@@ -19,6 +19,12 @@ public class InvoiceReferenceRules implements InvoiceRule {
   /** Entry-status code for a cancelled/deleted invoice. */
   private static final String CANCELLED_STATUS = "CAN";
 
+  /** For keys whose messages.properties template takes no placeholders. */
+  private static final Object[] NO_ARGS = new Object[0];
+
+  /** List separator the templates render — matches the manual path's join. */
+  private static final String LIST_SEPARATOR = " , ";
+
   @Override
   public void validate(InvoiceRuleContext ctx) {
     onlyOneOfReplaceOrAdjust(ctx);
@@ -38,10 +44,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
     boolean hasAdjusts = !isBlank(invoice.getAdjustsInvoiceNumbers());
 
     if (hasReplaces && hasAdjusts) {
-      ctx.error(
-          "invoice.both.replace.adjust.invoicenum.error",
-          invoiceMessage(ctx.invoiceNumber(),
-              "cannot populate both replacesInvoiceNumbers and adjustsInvoiceNumbers."));
+      ctx.error("invoice.both.replace.adjust.invoicenum.error", NO_ARGS);
     }
   }
 
@@ -66,11 +69,9 @@ public class InvoiceReferenceRules implements InvoiceRule {
       }
     }
     if (!missing.isEmpty()) {
-      ctx.error(
-          "invoice.replace.invoicenumber.error",
-          "The following invoice numbers listed in the replacesInvoiceNumbers field do not identify"
-              + " another invoice for this Client: " + String.join(", ", missing)
-              + " (invoiceNumber " + ctx.invoiceNumber() + ").");
+      // Template: the joined list of unknown invoice numbers.
+      ctx.error("invoice.replace.invoicenumber.error",
+          new Object[] {String.join(LIST_SEPARATOR, missing)});
     }
   }
 
@@ -83,9 +84,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
     String thisInvoiceNumber = ctx.invoiceNumber();
     for (String token : replaces.split(",")) {
       if (token.trim().equals(thisInvoiceNumber)) {
-        ctx.error(
-            "invoice.replace.with.itself.error",
-            invoiceMessage(thisInvoiceNumber, "cannot be replaced by itself."));
+        ctx.error("invoice.replace.with.itself.error", NO_ARGS);
         return;
       }
     }
@@ -98,10 +97,9 @@ public class InvoiceReferenceRules implements InvoiceRule {
       return;
     }
     if (replaces.split(",").length > MAX_REPLACE_ADJUST_INVOICE_NUMBERS) {
-      ctx.error(
-          "invoice.morethanmax.replace.invoicenum.error",
-          "The replacesInvoiceNumbers field for invoiceNumber " + ctx.invoiceNumber()
-              + " must be up to " + MAX_REPLACE_ADJUST_INVOICE_NUMBERS + " numbers.");
+      // Template: the maximum permitted count.
+      ctx.error("invoice.morethanmax.replace.invoicenum.error",
+          new Object[] {MAX_REPLACE_ADJUST_INVOICE_NUMBERS});
     }
   }
 
@@ -126,11 +124,8 @@ public class InvoiceReferenceRules implements InvoiceRule {
       }
     }
     if (!missing.isEmpty()) {
-      ctx.error(
-          "invoice.adjust.invoicenumber.error",
-          "The following invoice numbers listed in the adjustsInvoiceNumbers field do not identify"
-              + " another invoice for this Client: " + String.join(", ", missing)
-              + " (invoiceNumber " + ctx.invoiceNumber() + ").");
+      ctx.error("invoice.adjust.invoicenumber.error",
+          new Object[] {String.join(LIST_SEPARATOR, missing)});
     }
   }
 
@@ -149,10 +144,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
       for (InvoiceRef ref : ctx.referenceData()
           .findInvoices(invoiceNumber, submitter.submitterClientNumber(), submitter.submitterLocnCode())) {
         if (CANCELLED_STATUS.equals(ref.statusCode())) {
-          ctx.error(
-              "invoice.validation.adjustedInvoiceCancelled",
-              invoiceMessage(ctx.invoiceNumber(),
-                  "cannot adjust cancelled or deleted invoice " + invoiceNumber + "."));
+          ctx.error("invoice.validation.adjustedInvoiceCancelled", NO_ARGS);
           return;
         }
       }
@@ -168,9 +160,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
     String thisInvoiceNumber = ctx.invoiceNumber();
     for (String token : adjusts.split(",")) {
       if (token.trim().equals(thisInvoiceNumber)) {
-        ctx.error(
-            "invoice.adjust.with.itself.error",
-            invoiceMessage(thisInvoiceNumber, "cannot be adjusted by itself."));
+        ctx.error("invoice.adjust.with.itself.error", NO_ARGS);
         return;
       }
     }
@@ -183,20 +173,9 @@ public class InvoiceReferenceRules implements InvoiceRule {
       return;
     }
     if (adjusts.split(",").length > MAX_REPLACE_ADJUST_INVOICE_NUMBERS) {
-      ctx.error(
-          "invoice.morethanmax.adjust.invoicenum.error",
-          "The adjustsInvoiceNumbers field for invoiceNumber " + ctx.invoiceNumber()
-              + " must be up to " + MAX_REPLACE_ADJUST_INVOICE_NUMBERS + " numbers.");
+      ctx.error("invoice.morethanmax.adjust.invoicenum.error",
+          new Object[] {MAX_REPLACE_ADJUST_INVOICE_NUMBERS});
     }
-  }
-
-  /**
-   * Builds an error message scoped to a specific invoice, e.g.
-   * {@code "invoiceNumber INV-1 cannot be replaced by itself."}. {@code detail}
-   * is the clause following the invoice number (no leading space).
-   */
-  private static String invoiceMessage(String invoiceNumber, String detail) {
-    return "invoiceNumber " + invoiceNumber + " " + detail;
   }
 
   private static boolean isBlank(String s) {

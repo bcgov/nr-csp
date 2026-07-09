@@ -40,27 +40,26 @@ public class InvoiceTypeRules implements InvoiceRule {
   boolean invoiceTypeValidOn(InvoiceRuleContext ctx) {
     String type = ctx.invoice().getInvoiceType();
     if (isBlank(type) || !ctx.referenceData().invoiceTypeValidOn(type, ctx.invoiceDate())) {
-      ctx.error(
-          "invoice.type.invalid.error",
-          "invoiceType " + type + " for invoiceNumber " + ctx.invoiceNumber()
-              + " is not a recognized code active on the invoice date.");
+      ctx.error("invoice.type.invalid.error", new Object[] {type, ctx.invoiceDate()});
       return false;
     }
     return true;
   }
 
-  /** I2 — invoice type should be Sale or Purchase; anything else is a warning. */
+  /** I2 — invoice type should be Sale or Purchase; anything else is a warning. Template: type. */
   void saleOrPurchase(InvoiceRuleContext ctx) {
     String type = ctx.invoice().getInvoiceType();
     if (!ConstantsCode.INVTYPE_SALE.equals(type) && !ConstantsCode.INVTYPE_PURCHASE.equals(type)) {
-      ctx.warning(
-          "invoice.type.not.saleorpurchase.warning",
-          "invoiceType " + type + " for invoiceNumber " + ctx.invoiceNumber()
-              + " is not Sale or Purchase.");
+      ctx.warning("invoice.type.not.saleorpurchase.warning", new Object[] {type});
     }
   }
 
-  /** I3 — a Seller submission cannot be type Purchase; a Buyer submission cannot be type Sale. */
+  /**
+   * I3 — a Seller submission cannot be type Purchase; a Buyer submission cannot
+   * be type Sale. Template: submitted-by label, type — rendered with the same
+   * {@code ConstantsCode} strings the manual path passes, so both channels read
+   * identically.
+   */
   void submitterVsType(InvoiceRuleContext ctx) {
     String type = ctx.invoice().getInvoiceType();
     SubmitterInfo.SubmittedBy submittedBy = ctx.submitter().submittedBy();
@@ -68,10 +67,10 @@ public class InvoiceTypeRules implements InvoiceRule {
             && ConstantsCode.INVTYPE_PURCHASE.equals(type))
         || (submittedBy == SubmitterInfo.SubmittedBy.BUYER && ConstantsCode.INVTYPE_SALE.equals(type));
     if (invalid) {
-      ctx.error(
-          "invoice.type.invalid.submitter",
-          "invoiceType " + type + " for invoiceNumber " + ctx.invoiceNumber()
-              + " is not valid for a submission by " + submittedBy + ".");
+      String submittedByLabel = submittedBy == SubmitterInfo.SubmittedBy.SELLER
+          ? ConstantsCode.INVOICE_SUBMITTEDBY_SELLER
+          : ConstantsCode.INVOICE_SUBMITTEDBY_BUYER;
+      ctx.error("invoice.type.invalid.submitter", new Object[] {submittedByLabel, type});
     }
   }
 

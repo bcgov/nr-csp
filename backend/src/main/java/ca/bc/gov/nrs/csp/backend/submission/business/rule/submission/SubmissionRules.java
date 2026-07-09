@@ -13,7 +13,7 @@ public class SubmissionRules implements SubmissionRule {
     clientLocationExists(ctx);
   }
 
-  /** Submission Client Number + Client Location must exist in CSP (ERROR) */
+  /** Submission Client Number + Client Location must exist in CSP (ERROR). Template: number, location. */
   void clientLocationExists(SubmissionRuleContext ctx) {
     CSPSubmitterType submitter = ctx.submission().getCSPSubmitter();
     String clientNumber = submitter.getSubmissionClientNumber();
@@ -21,10 +21,8 @@ public class SubmissionRules implements SubmissionRule {
 
     boolean missing = isBlank(clientNumber) || isBlank(locnCode);
     if (missing || !ctx.referenceData().clientLocationExists(clientNumber, locnCode)) {
-      ctx.error(
-          "invoice.submitter.client.location.invalid.error",
-          "The combination of the submissionClientNumber " + clientNumber
-              + " and submissionClientLocnCode " + locnCode + " cannot be found in CSP.");
+      ctx.error("invoice.submitter.client.location.invalid.error",
+          new Object[] {clientNumber, locnCode});
     }
   }
 

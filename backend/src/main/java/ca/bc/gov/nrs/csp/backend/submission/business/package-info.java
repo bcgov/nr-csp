@@ -51,8 +51,14 @@
  *
  * <p>The catalogue of rules to implement (S1, I1–I41, L1–L9, conversion) lives in
  * {@code docs/submission-validation-business-rules.md}; the implemented worked
- * examples to copy are {@code SubmissionRules#clientLocationExists} (S1),
- * {@code InvoiceDateRules#dateNotInFuture} (I39), and
- * {@code LineItemRules#gradeZWarning} (L4).
+ * examples to copy are {@code SubmissionRules#clientLocationExists} (S1) and
+ * {@code InvoiceDateRules#dateNotInFuture} (I39).
+ *
+ * <p><b>Shared pure rules:</b> the channel-agnostic invoice rules — totals
+ * (I24–I29) and line-item values (L3–L9) — live in the neutral
+ * {@code ca.bc.gov.nrs.csp.backend.invoice.rules} core, shared with the manual
+ * (CRUD) path so the two channels cannot drift. {@code InvoiceTotalsRules} and
+ * {@code LineItemRules} are thin adapters over that core; see
+ * {@code docs/refactor-shared-invoice-rules.md}.
  */
 package ca.bc.gov.nrs.csp.backend.submission.business;

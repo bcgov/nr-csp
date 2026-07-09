@@ -199,6 +199,35 @@ class InvoiceLineValidatorTest {
     }
 
     // ---------------------------------------------------------------
+    // Core-delegation glue (refactor doc §5/§8): the exhaustive L3–L9 matrix
+    // lives in InvoiceLineRuleSetTest; here we lock the adapter contract.
+    // ---------------------------------------------------------------
+
+    @Test
+    void validate_coreFinding_carriesLineLabelAsTemplateArg() {
+        LineItem line = lineWith(l -> l.grade = null);
+
+        ValidationResult result = validator.validate(line, "SAL", INV_DATE);
+
+        ValidationMessage msg = result.errors().stream()
+                .filter(m -> "invoice.grade.invalid.required.error".equals(m.messageKey()))
+                .findFirst().orElseThrow();
+        assertThat(msg.args()).containsExactly("Line #1");
+    }
+
+    @Test
+    void validate_newLine_usesTheNewLabel() {
+        LineItem line = lineWith(l -> { l.lineItemID = null; l.grade = null; });
+
+        ValidationResult result = validator.validate(line, "SAL", INV_DATE);
+
+        ValidationMessage msg = result.errors().stream()
+                .filter(m -> "invoice.grade.invalid.required.error".equals(m.messageKey()))
+                .findFirst().orElseThrow();
+        assertThat(msg.args()).containsExactly("Line #New");
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 

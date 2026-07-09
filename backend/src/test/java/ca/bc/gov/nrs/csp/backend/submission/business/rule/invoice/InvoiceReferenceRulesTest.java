@@ -76,7 +76,8 @@ class InvoiceReferenceRulesTest {
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.replace.invoicenumber.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-    assertThat(collector.entries().get(0).error().message()).contains("INV-2").doesNotContain("INV-3");
+    // Template arg: only the missing number, not the one that resolved.
+    assertThat(collector.entries().get(0).error().args()).containsExactly("INV-2");
   }
 
   @Test
@@ -197,7 +198,8 @@ class InvoiceReferenceRulesTest {
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.adjust.invoicenumber.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-    assertThat(collector.entries().get(0).error().message()).contains("INV-2").doesNotContain("INV-3");
+    // Template arg: only the missing number, not the one that resolved.
+    assertThat(collector.entries().get(0).error().args()).containsExactly("INV-2");
   }
 
   @Test
@@ -268,7 +270,8 @@ class InvoiceReferenceRulesTest {
     rules.adjustedInvoiceNotCancelled(adjustContext(collector, "INV-2,INV-3", "100", "00"));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().message()).contains("INV-2");
+    assertThat(collector.entries().get(0).error().code())
+        .isEqualTo("invoice.validation.adjustedInvoiceCancelled");
   }
 
   @Test

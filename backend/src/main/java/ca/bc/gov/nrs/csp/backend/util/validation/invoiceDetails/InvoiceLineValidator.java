@@ -1,7 +1,10 @@
 package ca.bc.gov.nrs.csp.backend.util.validation.invoiceDetails;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
-import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.Finding;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.InvoiceLine;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.InvoiceLineRuleSet;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.Severity;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
@@ -9,7 +12,6 @@ import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,12 +46,29 @@ public class InvoiceLineValidator {
 
         isValidSortCode(line.secondSort(), "invoice.secondry.sortcode.invalid.error");
         checkSpeciesGradeCombination(line.species(), line.grade());
-        checkGrade(line.grade());
-        checkNumberOfPieces(line.numOfPieces());
-        checkVolume(line.volume());
-        checkPrice(line.price());
+        checkLineValues(line);
 
         return new ValidationResult(messages);
+    }
+
+    /**
+     * Value rules L3–L9 (grade / pieces / volume / price), delegated to the
+     * shared channel-agnostic {@link InvoiceLineRuleSet} (refactor doc §5) —
+     * the same core the electronic path runs, so the two channels cannot
+     * drift. Each {@link Finding} surfaces as a {@code ValidationMessage}
+     * whose key + args resolve from {@code messages.properties} downstream.
+     */
+    private void checkLineValues(LineItem line) {
+        InvoiceLine coreLine = new InvoiceLine(invType, lineLabel,
+                line.grade(), line.numOfPieces(), line.volume(), line.price());
+        for (Finding f : InvoiceLineRuleSet.validate(coreLine)) {
+            if (f.severity() == Severity.ERROR) {
+                log.debug("InvoiceLineValidator: line rule failed: {}", f.code());
+                addError(f.code(), f.args());
+            } else {
+                addWarning(f.code(), f.args());
+            }
+        }
     }
 
     private boolean isValidSortCode(String sortCode, String messageKey) {
@@ -68,57 +87,6 @@ public class InvoiceLineValidator {
             addError("invoice.species.grade.combination.error", new Object[]{species, grade, lineLabel});
         }
         return ok;
-    }
-
-    private boolean checkGrade(String grade) {
-        if (grade == null) {
-            log.debug("InvoiceLineValidator: missing grade");
-            addError("invoice.grade.invalid.required.error", new Object[]{lineLabel});
-            return false;
-        }
-        if (grade.equals("Z")) {
-            log.debug("InvoiceLineValidator: grade Z warning");
-            addWarning("invoice.grade.z.warning", new Object[]{lineLabel});
-        }
-        return true;
-    }
-
-    private boolean checkNumberOfPieces(Integer numOfPieces) {
-        if (ConstantsCode.INVTYPE_ADJUST.equals(invType)) return true;
-        if (numOfPieces == null || numOfPieces <= 0) {
-            log.debug("InvoiceLineValidator: invalid number of pieces");
-            addError("invoice.numberof.pieces.negative.or.zero.error", new Object[]{lineLabel});
-            return false;
-        }
-        return true;
-    }
-
-    private boolean checkVolume(BigDecimal volume) {
-        if (ConstantsCode.INVTYPE_ADJUST.equals(invType)) return true;
-        if (volume == null || volume.signum() < 0) {
-            log.debug("InvoiceLineValidator: negative or missing volume");
-            addError("invoice.volume.negative.value.error", new Object[]{lineLabel});
-            return false;
-        }
-        if (volume.signum() == 0) {
-            log.debug("InvoiceLineValidator: zero volume warning");
-            addWarning("invoice.volume.zero.value.warning", new Object[]{lineLabel});
-        }
-        return true;
-    }
-
-    private boolean checkPrice(BigDecimal price) {
-        if (ConstantsCode.INVTYPE_ADJUST.equals(invType)) return true;
-        if (price == null || price.signum() < 0) {
-            log.debug("InvoiceLineValidator: negative or missing price");
-            addError("invoice.price.negative.value.error", new Object[]{lineLabel});
-            return false;
-        }
-        if (price.signum() == 0) {
-            log.debug("InvoiceLineValidator: zero price warning");
-            addWarning("invoice.price.zero.value.warning", new Object[]{lineLabel});
-        }
-        return true;
     }
 
     private void addError(String key, Object[] args) {

@@ -101,169 +101,89 @@ class LineItemRulesTest {
     assertThat(collector.entries()).isEmpty();
   }
 
-  // --- L3 grade required ------------------------------------------------------
+  // --- L3–L9 delegation smoke tests (refactor doc §8) --------------------------
+  // The exhaustive value-rule matrix lives in the core InvoiceLineRuleSetTest.
+  // Here we only prove the adapter: the JAXB line maps onto InvoiceLine, findings
+  // surface through LineItemRuleContext, and the core severity maps onto the
+  // collector's ERROR / WARNING sinks with the message key + template args.
 
   @Test
-  void grade_errors_when_null() throws Exception {
+  void valueRule_error_surfaces_through_the_collector_with_code_and_args() throws Exception {
+    stubReferenceDataToPass(null); // L2 sees the null grade — stub it to pass too
     ValidationCollector collector = new ValidationCollector();
 
-    rules.gradeRequired(lineContext(collector, line -> line.setGrade(null)));
+    // Grade missing → L3 ERROR; every other value is rule-clean.
+    rules.validate(lineContext(collector, "SAL", line -> {
+      cleanLine(line);
+      line.setGrade(null);
+    }));
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.grade.invalid.required.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
+    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
+    assertThat(collector.entries().get(0).error().message()).isNull();
   }
 
   @Test
-  void grade_passes_when_present() throws Exception {
+  void valueRule_warning_surfaces_with_the_line_label_as_template_arg() throws Exception {
+    stubReferenceDataToPass("1");
     ValidationCollector collector = new ValidationCollector();
 
-    rules.gradeRequired(lineContext(collector, line -> line.setGrade("1")));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  // --- L4 grade Z warning -----------------------------------------------------
-
-  @Test
-  void gradeZWarning_warns_on_grade_z() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.gradeZWarning(lineContext(collector, line -> line.setGrade("Z")));
-
-    assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.grade.z.warning");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.WARNING);
-  }
-
-  @Test
-  void gradeZWarning_silent_for_other_grades() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.gradeZWarning(lineContext(collector, line -> line.setGrade("A")));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  // --- L5 number of pieces ----------------------------------------------------
-
-  @Test
-  void numberOfPieces_errors_when_zero_or_negative() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.numberOfPiecesPositive(lineContext(collector, "SAL", line -> line.setNumberOfPieces(0)));
-
-    assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
-        .isEqualTo("invoice.numberof.pieces.negative.or.zero.error");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-  }
-
-  @Test
-  void numberOfPieces_passes_when_positive() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.numberOfPiecesPositive(lineContext(collector, "SAL", line -> line.setNumberOfPieces(3)));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void numberOfPieces_relaxed_for_adjustment() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.numberOfPiecesPositive(lineContext(collector, "ADJ", line -> line.setNumberOfPieces(0)));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  // --- L6 / L7 volume ---------------------------------------------------------
-
-  @Test
-  void volume_errors_when_negative() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.volumeNotNegative(lineContext(collector, "SAL", line -> line.setVolume(new BigDecimal("-1"))));
-
-    assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
-        .isEqualTo("invoice.volume.negative.value.error");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-  }
-
-  @Test
-  void volume_negative_relaxed_for_adjustment() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.volumeNotNegative(lineContext(collector, "ADJ", line -> line.setVolume(new BigDecimal("-1"))));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void volume_warns_when_zero() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.volumeZeroWarning(lineContext(collector, "SAL", line -> line.setVolume(BigDecimal.ZERO)));
-
-    assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
-        .isEqualTo("invoice.volume.zero.value.warning");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.WARNING);
-  }
-
-  @Test
-  void volume_zero_relaxed_for_adjustment() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.volumeZeroWarning(lineContext(collector, "ADJ", line -> line.setVolume(BigDecimal.ZERO)));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  // --- L8 / L9 price ----------------------------------------------------------
-
-  @Test
-  void price_errors_when_negative() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.priceNotNegative(lineContext(collector, "SAL", line -> line.setPrice(new BigDecimal("-1"))));
-
-    assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
-        .isEqualTo("invoice.price.negative.value.error");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-  }
-
-  @Test
-  void price_negative_relaxed_for_adjustment() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.priceNotNegative(lineContext(collector, "ADJ", line -> line.setPrice(new BigDecimal("-1"))));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void price_warns_when_zero() throws Exception {
-    ValidationCollector collector = new ValidationCollector();
-
-    rules.priceZeroWarning(lineContext(collector, "SAL", line -> line.setPrice(BigDecimal.ZERO)));
+    // Zero price → L9 WARNING.
+    rules.validate(lineContext(collector, "SAL", line -> {
+      cleanLine(line);
+      line.setPrice(BigDecimal.ZERO);
+    }));
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.price.zero.value.warning");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.WARNING);
+    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
   }
 
   @Test
-  void price_zero_relaxed_for_adjustment() throws Exception {
+  void adjustment_relaxation_passes_through_the_adapter() throws Exception {
+    stubReferenceDataToPass("1");
     ValidationCollector collector = new ValidationCollector();
 
-    rules.priceZeroWarning(lineContext(collector, "ADJ", line -> line.setPrice(BigDecimal.ZERO)));
+    // ADJ relaxes the value rules: negative volume/price and zero pieces stay quiet.
+    rules.validate(lineContext(collector, "ADJ", line -> {
+      cleanLine(line);
+      line.setNumberOfPieces(0);
+      line.setVolume(new BigDecimal("-1"));
+      line.setPrice(new BigDecimal("-1"));
+    }));
 
     assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void clean_line_produces_no_findings() throws Exception {
+    stubReferenceDataToPass("1");
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(lineContext(collector, "SAL", LineItemRulesTest::cleanLine));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  /** L1/L2 pass (for the given grade) so the smoke tests isolate the L3–L9 delegation. */
+  private void stubReferenceDataToPass(String grade) {
+    given(referenceData.sortCodeValidOn("SC", INVOICE_DATE)).willReturn(true);
+    given(referenceData.speciesGradeCombinationExists("FIR", grade)).willReturn(true);
+  }
+
+  /** A line that passes every rule: perturb one field per test. */
+  private static void cleanLine(CSPLineItemType line) {
+    line.setSecondarySortCode("SC");
+    line.setSpecies("FIR");
+    line.setGrade("1");
+    line.setNumberOfPieces(3);
+    line.setVolume(new BigDecimal("10"));
+    line.setPrice(new BigDecimal("5"));
   }
 
   // --- helpers ----------------------------------------------------------------

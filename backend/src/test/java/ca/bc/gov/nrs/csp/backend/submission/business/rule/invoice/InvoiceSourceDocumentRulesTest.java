@@ -197,7 +197,8 @@ class InvoiceSourceDocumentRulesTest {
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.tokennumber.lenght.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-    assertThat(collector.entries().get(0).error().message()).contains(tooLong).doesNotContain("OK,");
+    // Template args: field label, max length, then only the offending token(s).
+    assertThat(collector.entries().get(0).error().args()).containsExactly("Boom Numbers", 20, tooLong);
   }
 
   @Test
@@ -241,7 +242,7 @@ class InvoiceSourceDocumentRulesTest {
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.boomnumber.duplicate.warning");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.WARNING);
-    assertThat(collector.entries().get(0).error().message()).contains("B1").doesNotContain("B2");
+    assertThat(collector.entries().get(0).error().args()).containsExactly("B1");
   }
 
   @Test
@@ -253,7 +254,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.boomNumbersNotUsedByAnotherInvoice(context(collector, "B1,B2", null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().message()).contains("B2");
+    assertThat(collector.entries().get(0).error().args()).containsExactly("B2");
   }
 
   @Test
@@ -264,7 +265,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.boomNumbersNotUsedByAnotherInvoice(context(collector, "B1, ,", null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().message()).contains("B1");
+    assertThat(collector.entries().get(0).error().args()).containsExactly("B1");
   }
 
   @Test

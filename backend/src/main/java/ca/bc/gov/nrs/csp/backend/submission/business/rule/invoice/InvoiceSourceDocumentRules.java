@@ -39,6 +39,9 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
   private static final String TIMBER_LABEL = "Timber Marks";
   private static final String WEIGH_LABEL = "Weigh Slips";
 
+  /** For keys whose messages.properties template takes no placeholders. */
+  private static final Object[] NO_ARGS = new Object[0];
+
   @Override
   public void validate(InvoiceRuleContext ctx) {
     atLeastOneSourceDocument(ctx);            // I30
@@ -55,10 +58,7 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
   /** At least one of Boom Number / Timber Mark / Weigh Slip must be present (ERROR). */
   void atLeastOneSourceDocument(InvoiceRuleContext ctx) {
     if (isBlank(boomNumbers(ctx)) && isBlank(timberMarks(ctx)) && isBlank(weighSlips(ctx))) {
-      ctx.error(
-          "invoice.oneofthe.boom.timber.wiegh.requiered.error",
-          invoiceMessage(ctx.invoiceNumber(),
-              "must have at least one of Boom Number, Timber Mark or Weigh Slip."));
+      ctx.error("invoice.oneofthe.boom.timber.wiegh.requiered.error", NO_ARGS);
     }
   }
 
@@ -132,28 +132,27 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
       }
     }
     if (!duplicates.isEmpty()) {
-      ctx.warning(
-          "invoice.boomnumber.duplicate.warning",
-          invoiceMessage(ctx.invoiceNumber(),
-              "has Boom Numbers already used by another invoice: " + String.join(", ", duplicates)
-                  + "."));
+      // Template: the joined list of already-used boom numbers (manual join separator).
+      ctx.warning("invoice.boomnumber.duplicate.warning",
+          new Object[] {String.join(" , ", duplicates)});
     }
   }
 
-  /** Reports an ERROR when a CSV holds more than {@code max} items. */
+  /** Reports an ERROR when a CSV holds more than {@code max} items. Template: the max. */
   private void csvWithinMax(
       InvoiceRuleContext ctx, String csv, int max, String code, String label) {
     if (isBlank(csv)) {
       return;
     }
     if (csv.split(",").length > max) {
-      ctx.error(code,
-          "The " + label + " for invoiceNumber " + ctx.invoiceNumber()
-              + " must be up to " + max + " values.");
+      ctx.error(code, new Object[] {max});
     }
   }
 
-  /** Reports an ERROR listing every token longer than {@code maxLength}. */
+  /**
+   * Reports an ERROR listing every token longer than {@code maxLength}.
+   * Template: field label, max length, joined offending tokens.
+   */
   private void csvTokensWithinMaxLength(
       InvoiceRuleContext ctx, String csv, int maxLength, String label) {
     if (isBlank(csv)) {
@@ -167,11 +166,8 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
       }
     }
     if (!tooLong.isEmpty()) {
-      ctx.error(
-          "invoice.tokennumber.lenght.error",
-          "The following " + label + " for invoiceNumber " + ctx.invoiceNumber()
-              + " exceed the required length of " + maxLength + " characters: "
-              + String.join(", ", tooLong) + ".");
+      ctx.error("invoice.tokennumber.lenght.error",
+          new Object[] {label, maxLength, String.join(", ", tooLong)});
     }
   }
 
@@ -206,15 +202,6 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
   private static String weighSlips(InvoiceRuleContext ctx) {
     CSPInvoiceDetailsType details = ctx.invoice().getCSPInvoiceDetails();
     return details == null ? null : details.getWeighSlipNumbers();
-  }
-
-  /**
-   * Builds an error message scoped to a specific invoice, e.g.
-   * {@code "invoiceNumber INV-1 must have at least one ..."}. {@code detail} is
-   * the clause following the invoice number (no leading space).
-   */
-  private static String invoiceMessage(String invoiceNumber, String detail) {
-    return "invoiceNumber " + invoiceNumber + " " + detail;
   }
 
   private static boolean isBlank(String s) {

@@ -2,6 +2,10 @@ package ca.bc.gov.nrs.csp.backend.util.validation.invoiceDetails;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceDetails;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.Finding;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.InvoiceTotals;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.InvoiceTotalsRuleSet;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.Severity;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository.InvoiceMatch;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository.RelatedInvoice;
@@ -14,7 +18,6 @@ import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -113,19 +116,7 @@ public class InvoiceValidator {
         isSubmitProcessRequiered(action, "invoice.submit.saved.warning");
         isReviewerCommentUpdate(details, action.toString(), "invoice.reviewer.notes.update.warning");
 
-        BigDecimal totalCalAmount = BigDecimal.ZERO;
-        BigDecimal totalCalVolume = BigDecimal.ZERO;
-        int totalCalPieces = 0;
-        for (LineItem line : lines) {
-            BigDecimal lineAmount = nullSafeMultiply(line.volume(), line.price());
-            totalCalAmount = nullSafeAdd(totalCalAmount, lineAmount);
-            totalCalVolume = nullSafeAdd(totalCalVolume, line.volume());
-            if (line.numOfPieces() != null) totalCalPieces += line.numOfPieces();
-        }
-
-        checkTotalAmountsVariance(details.totalAmt(), totalCalAmount, details.invType());
-        checkTotalVolumesVariance(details.totalVol(), totalCalVolume, details.invType());
-        checkTotalPiecesVariance(details.totalPieces(), totalCalPieces, details.invType());
+        checkTotals(details, lines);
 
         checkSourceDocumentRefs(details.boomNumbers(), details.timberMarks(), details.weightSlips());
 
@@ -444,45 +435,31 @@ public class InvoiceValidator {
         return true;
     }
 
-    private boolean checkTotalAmountsVariance(BigDecimal submittedTotal, BigDecimal calculatedTotal, String invType) {
-        boolean ok = true;
-        if (submittedTotal != null && submittedTotal.signum() < 0 && !ConstantsCode.INVTYPE_ADJUST.equals(invType)) {
-            log.debug("InvoiceValidator: total amount negative");
-            addError("invoice.totalamount.negative.error", null);
-            ok = false;
+    /**
+     * Totals rules I24–I29, delegated to the shared channel-agnostic
+     * {@link InvoiceTotalsRuleSet} (refactor doc §5) — the same core the
+     * electronic path runs, so the two channels cannot drift. Each
+     * {@link Finding} surfaces as a {@link ValidationMessage} whose key + args
+     * resolve from {@code messages.properties} downstream (InvoiceMapper).
+     */
+    private boolean checkTotals(InvoiceDetails details, List<LineItem> lines) {
+        List<InvoiceTotals.Line> coreLines = new ArrayList<>();
+        for (LineItem line : lines) {
+            coreLines.add(new InvoiceTotals.Line(line.volume(), line.price(),
+                    line.numOfPieces() == null ? 0 : line.numOfPieces()));
         }
-        if (!withinVariance(submittedTotal, calculatedTotal, ConstantsCode.TOTALAMOUNT_MAXPERMITTEDVARIANCE)) {
-            log.debug("InvoiceValidator: total amount variance exceeded");
-            addWarning("invoice.totalamount.dismatch.warning", new Object[]{submittedTotal});
-        }
-        return ok;
-    }
+        InvoiceTotals totals = new InvoiceTotals(details.invType(),
+                details.totalAmt(), details.totalVol(), details.totalPieces(), coreLines);
 
-    private boolean checkTotalVolumesVariance(BigDecimal submittedTotal, BigDecimal calculatedTotal, String invType) {
         boolean ok = true;
-        if (submittedTotal != null && submittedTotal.signum() < 0 && !ConstantsCode.INVTYPE_ADJUST.equals(invType)) {
-            log.debug("InvoiceValidator: total volume negative");
-            addError("invoice.totalvolume.negative.error", null);
-            ok = false;
-        }
-        if (!withinVariance(submittedTotal, calculatedTotal, ConstantsCode.TOTALVOLUME_MAXPERMITTEDVARIANCE)) {
-            log.debug("InvoiceValidator: total volume variance exceeded");
-            addWarning("invoice.totalvolume.dismatch.warning", new Object[]{submittedTotal});
-        }
-        return ok;
-    }
-
-    private boolean checkTotalPiecesVariance(Integer submittedPieces, int calculatedPieces, String invType) {
-        boolean ok = true;
-        int submitted = submittedPieces == null ? 0 : submittedPieces;
-        if (submittedPieces != null && submitted < 0 && !ConstantsCode.INVTYPE_ADJUST.equals(invType)) {
-            log.debug("InvoiceValidator: total pieces negative");
-            addError("invoice.totalpieces.negative.error", null);
-            ok = false;
-        }
-        if (!withinVariance(submitted, calculatedPieces, ConstantsCode.TOTALPIECES_MAXPERMITTEDVARIANCE)) {
-            log.debug("InvoiceValidator: total pieces variance exceeded");
-            addWarning("invoice.totalpieces.dismatch.warning", new Object[]{submitted});
+        for (Finding f : InvoiceTotalsRuleSet.validate(totals)) {
+            if (f.severity() == Severity.ERROR) {
+                log.debug("InvoiceValidator: totals rule failed: {}", f.code());
+                addError(f.code(), f.args());
+                ok = false;
+            } else {
+                addWarning(f.code(), f.args());
+            }
         }
         return ok;
     }
@@ -642,29 +619,6 @@ public class InvoiceValidator {
             if (lineResult.hasErrors()) ok = false;
         }
         return ok;
-    }
-
-    private boolean withinVariance(BigDecimal submitted, BigDecimal calculated, double variance) {
-        BigDecimal a = submitted == null ? BigDecimal.ZERO : submitted;
-        BigDecimal b = calculated == null ? BigDecimal.ZERO : calculated;
-        double diff = b.subtract(a).doubleValue();
-        return !(diff > variance || diff < -variance);
-    }
-
-    private boolean withinVariance(int submitted, int calculated, double variance) {
-        int diff = calculated - submitted;
-        return !(diff > variance || diff < -variance);
-    }
-
-    private BigDecimal nullSafeAdd(BigDecimal a, BigDecimal b) {
-        BigDecimal x = a == null ? BigDecimal.ZERO : a;
-        BigDecimal y = b == null ? BigDecimal.ZERO : b;
-        return x.add(y);
-    }
-
-    private BigDecimal nullSafeMultiply(BigDecimal a, BigDecimal b) {
-        if (a == null || b == null) return BigDecimal.ZERO;
-        return a.multiply(b);
     }
 
     private boolean isBlank(String s) {

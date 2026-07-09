@@ -22,17 +22,16 @@ public class InvoiceDateRules implements InvoiceRule {
     invoiceMonthCompleted(ctx);
   }
 
-  /** The invoice date cannot be in the future. */
+  /** The invoice date cannot be in the future. Template: invoice number, latest permitted date. */
   void dateNotInFuture(InvoiceRuleContext ctx) {
+    LocalDate today = LocalDate.now(clock);
     LocalDate invoiceDate = ctx.invoiceDate();
-    if (invoiceDate != null && invoiceDate.isAfter(LocalDate.now(clock))) {
-      ctx.error(
-          "invoice.date.in.future.error",
-          "invoiceDate for invoiceNumber " + ctx.invoiceNumber() + " cannot be in the future.");
+    if (invoiceDate != null && invoiceDate.isAfter(today)) {
+      ctx.error("invoice.date.in.future.error", new Object[] {ctx.invoiceNumber(), today});
     }
   }
 
-  /** Invoice date must not be in a month already marked complete. */
+  /** Invoice date must not be in a month already marked complete. Template: invoice number, date. */
   void invoiceMonthCompleted(InvoiceRuleContext ctx) {
     LocalDate invoiceDate = ctx.invoiceDate();
     String clientNumber = ctx.submitter().submitterClientNumber();
@@ -41,9 +40,7 @@ public class InvoiceDateRules implements InvoiceRule {
     boolean isMonthCompleted = ctx.referenceData().isMonthComplete(invoiceDate, clientNumber, clientLocation);
 
     if (isMonthCompleted) {
-      ctx.warning(
-          "invoice.month.completed.warning",
-          "invoiceNumber " + ctx.invoiceNumber() + " has an invoiceDate in a month already marked complete.");
+      ctx.warning("invoice.month.completed.warning", new Object[] {ctx.invoiceNumber(), invoiceDate});
     }
   }
 }

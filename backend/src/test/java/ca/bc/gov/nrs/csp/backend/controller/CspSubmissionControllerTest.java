@@ -19,7 +19,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,12 +36,15 @@ class CspSubmissionControllerTest {
 
     @Mock SubmissionValidationService validationService;
 
+    // Real (in-memory) bundle so args-carrying messages resolve like production.
+    StaticMessageSource messageSource = new StaticMessageSource();
+
     MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new CspSubmissionController(validationService))
+                .standaloneSetup(new CspSubmissionController(validationService, messageSource))
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .build();
     }
@@ -110,7 +115,7 @@ class CspSubmissionControllerTest {
         given(file.getBytes()).willThrow(new IOException("boom"));
 
         ResponseEntity<SubmissionValidationResponse> resp =
-                new CspSubmissionController(validationService).validateStructural(file);
+                new CspSubmissionController(validationService, messageSource).validateStructural(file);
 
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
         assertThat(resp.getBody()).isNotNull();
@@ -146,6 +151,45 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"))
                 .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
                 .andExpect(jsonPath("$.errors[0].args[0]").value("invoice INV-1"));
+    }
+
+    @Test
+    void business_argsCarryingMessage_resolvesTextFromBundleAndKeepsTemplateArgs() throws Exception {
+        // A rule on the messages.properties strategy (refactor doc §3.5) emits
+        // code + template args; the controller resolves the text and prefixes the
+        // invoice locator so multi-invoice submissions stay attributable.
+        messageSource.addMessage("invoice.totalamount.dismatch.warning", Locale.getDefault(),
+                "The Total Amount of {0} does not match with the calculated total amount.");
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.warning("invoice INV-1",
+                        "invoice.totalamount.dismatch.warning", new Object[]{new BigDecimal("90.00")})));
+        given(validationService.validateBusiness(any())).willReturn(failed);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.totalamount.dismatch.warning"))
+                .andExpect(jsonPath("$.errors[0].type").value("WARNING"))
+                .andExpect(jsonPath("$.errors[0].args[0]").value(90.00))
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "invoice INV-1: The Total Amount of 90 does not match with the calculated total amount."));
+    }
+
+    @Test
+    void business_argsCarryingMessage_fallsBackToTheKeyWhenNoBundleEntry() throws Exception {
+        // No template registered for the key → the resolved text falls back to the
+        // bare key (locator-prefixed) instead of throwing.
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.error("invoice INV-1",
+                        "invoice.totalamount.negative.error", new Object[0])));
+        given(validationService.validateBusiness(any())).willReturn(failed);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.totalamount.negative.error"))
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "invoice INV-1: invoice.totalamount.negative.error"));
     }
 
     @Test

@@ -9,6 +9,7 @@ import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Function;
 
 /**
@@ -39,9 +41,11 @@ public class CspSubmissionController implements CspSubmissionApi {
     private static final Logger log = LoggerFactory.getLogger(CspSubmissionController.class);
 
     private final SubmissionValidationService validationService;
+    private final MessageSource messageSource;
 
-    public CspSubmissionController(SubmissionValidationService validationService) {
+    public CspSubmissionController(SubmissionValidationService validationService, MessageSource messageSource) {
         this.validationService = validationService;
+        this.messageSource = messageSource;
     }
 
     @Override
@@ -123,9 +127,20 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     private ValidationMessageResponse toMessageResponse(SubmissionValidationError err) {
-        Object[] args = err.path() == null ? null : new Object[]{err.path()};
         // Carry the message's own severity (ERROR / WARNING) through to the response.
         String type = err.severity() == null ? MessageType.ERROR.name() : err.severity().name();
+        if (err.args() != null) {
+            // Rule on the messages.properties strategy (refactor doc §3.5): resolve
+            // the key + template args against the bundle, prefixed with the invoice
+            // locator so multi-invoice submissions stay attributable. Falls back to
+            // the bare key when the bundle has no entry.
+            String text = messageSource.getMessage(err.code(), err.args(), err.code(), Locale.getDefault());
+            String message = err.path() == null ? text : err.path() + ": " + text;
+            return new ValidationMessageResponse(err.code(), err.args(), type, message);
+        }
+        // Pre-rendered message (structural phase + rules not yet converted): the
+        // locator rides in args, matching the historical response shape.
+        Object[] args = err.path() == null ? null : new Object[]{err.path()};
         return new ValidationMessageResponse(err.code(), args, type, err.message());
     }
 

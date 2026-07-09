@@ -1,147 +1,78 @@
 package ca.bc.gov.nrs.csp.backend.submission.business.rule.line;
 
+import ca.bc.gov.nrs.csp.backend.invoice.rules.Finding;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.InvoiceLine;
+import ca.bc.gov.nrs.csp.backend.invoice.rules.InvoiceLineRuleSet;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.LineItemRule;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.LineItemRuleContext;
+import ca.bc.gov.nrs.csp.backend.submission.generated.CSPLineItemType;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-
 /**
- * All line-item-level business rules (catalogue §3, L1–L9), one method per rule.
- * Several checks are relaxed for parent invoice type {@code ADJ} (adjustment).
- *
- * <p><b>How to add a rule:</b> write a package-private
- * {@code void xxx(LineItemRuleContext ctx)} method (header-commented with its
- * catalogue ID), then add a call to it in {@link #validate} in catalogue order.
- * Report via {@code ctx.error(...)} (blocking) or {@code ctx.warning(...)}
- * (non-blocking) using the message key from
- * {@code docs/submission-validation-business-rules.md}; never throw. Unit-test
- * each method directly (see {@code LineItemRulesTest}).
+ * Line-item business rules (catalogue §3, L1–L9). The reference-data rules
+ * (L1–L2) live here — they need {@code ctx.referenceData()} and stay
+ * channel-side. The pure value rules (L3–L9) are delegated to the shared
+ * channel-agnostic {@link InvoiceLineRuleSet} (refactor doc §5) — the same core
+ * the manual path runs, so the two channels cannot drift; each {@link Finding}
+ * is forwarded as a message key + template args (resolved at the HTTP boundary,
+ * doc §3.5).
  */
 @Component
 public class LineItemRules implements LineItemRule {
-
-  /** Parent invoice type for which the value checks (L5–L9) are relaxed. */
-  private static final String ADJUSTMENT = "ADJ";
 
   @Override
   public void validate(LineItemRuleContext ctx) {
     secondarySortCodeValid(ctx); // L1
     speciesGradeCombinationValid(ctx); // L2
-    gradeRequired(ctx); // L3
-    gradeZWarning(ctx); // L4
-    numberOfPiecesPositive(ctx); // L5
-    volumeNotNegative(ctx); // L6
-    volumeZeroWarning(ctx); // L7
-    priceNotNegative(ctx); // L8
-    priceZeroWarning(ctx); // L9
-  }
-
-  /** L1 — secondary sort code must be a recognised code active on the invoice date. */
-  void secondarySortCodeValid(LineItemRuleContext ctx) {
-    String sortCode = ctx.line().getSecondarySortCode();
-    if (isBlank(sortCode) || !ctx.referenceData().sortCodeValidOn(sortCode, ctx.invoiceDate())) {
-      ctx.error(
-          "invoice.secondry.sortcode.invalid.error",
-          "secondarySortCode " + sortCode + " on line " + ctx.lineNumber()
-              + " is not a recognized code active on the invoice date.");
+    for (Finding f : InvoiceLineRuleSet.validate(toLine(ctx))) { // L3–L9
+      // NB: f.severity() is invoice.rules.Severity — NOT submission.shared.Severity.
+      if (f.severity() == ca.bc.gov.nrs.csp.backend.invoice.rules.Severity.ERROR) {
+        ctx.error(f.code(), f.args());
+      } else {
+        ctx.warning(f.code(), f.args());
+      }
     }
   }
 
-  /** L2 — the species + grade combination must exist in CSP_SPECIES_GRADE_XREF. */
+  /**
+   * L1 — secondary sort code must be a recognised code active on the invoice
+   * date. Template: code, date, line label.
+   */
+  void secondarySortCodeValid(LineItemRuleContext ctx) {
+    String sortCode = ctx.line().getSecondarySortCode();
+    if (isBlank(sortCode) || !ctx.referenceData().sortCodeValidOn(sortCode, ctx.invoiceDate())) {
+      ctx.error("invoice.secondry.sortcode.invalid.error",
+          new Object[] {sortCode, ctx.invoiceDate(), lineLabel(ctx)});
+    }
+  }
+
+  /**
+   * L2 — the species + grade combination must exist in CSP_SPECIES_GRADE_XREF.
+   * Template: species, grade, line label.
+   */
   void speciesGradeCombinationValid(LineItemRuleContext ctx) {
     String species = ctx.line().getSpecies();
     String grade = ctx.line().getGrade();
     if (!ctx.referenceData().speciesGradeCombinationExists(species, grade)) {
-      ctx.error(
-          "invoice.species.grade.combination.error",
-          "species " + species + " / grade " + grade + " combination on line "
-              + ctx.lineNumber() + " does not exist in CSP.");
+      ctx.error("invoice.species.grade.combination.error",
+          new Object[] {species, grade, lineLabel(ctx)});
     }
   }
 
-  /** L3 — grade is required (non-null). */
-  void gradeRequired(LineItemRuleContext ctx) {
-    if (ctx.line().getGrade() == null) {
-      ctx.error(
-          "invoice.grade.invalid.required.error",
-          "grade is required on line " + ctx.lineNumber() + ".");
-    }
+  private static InvoiceLine toLine(LineItemRuleContext ctx) {
+    CSPLineItemType line = ctx.line();
+    return new InvoiceLine(
+        ctx.invoiceType(),
+        lineLabel(ctx),
+        line.getGrade(),
+        line.getNumberOfPieces(),
+        line.getVolume(),
+        line.getPrice());
   }
 
-  /** L4 — grade {@code "Z"} raises a non-blocking warning. */
-  void gradeZWarning(LineItemRuleContext ctx) {
-    if ("Z".equals(ctx.line().getGrade())) {
-      ctx.warning("invoice.grade.z.warning", "Grade Z is used.");
-    }
-  }
-
-  /** L5 — number of pieces must be &gt; 0 (unless the parent invoice is ADJ). */
-  void numberOfPiecesPositive(LineItemRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    if (ctx.line().getNumberOfPieces() <= 0) {
-      ctx.error(
-          "invoice.numberof.pieces.negative.or.zero.error",
-          "numberOfPieces on line " + ctx.lineNumber() + " must be greater than zero.");
-    }
-  }
-
-  /** L6 — volume cannot be negative (unless the parent invoice is ADJ). */
-  void volumeNotNegative(LineItemRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    BigDecimal volume = ctx.line().getVolume();
-    if (volume != null && volume.signum() < 0) {
-      ctx.error(
-          "invoice.volume.negative.value.error",
-          "volume on line " + ctx.lineNumber() + " cannot be negative.");
-    }
-  }
-
-  /** L7 — a volume of zero raises a non-blocking warning (unless the parent invoice is ADJ). */
-  void volumeZeroWarning(LineItemRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    BigDecimal volume = ctx.line().getVolume();
-    if (volume != null && volume.signum() == 0) {
-      ctx.warning(
-          "invoice.volume.zero.value.warning",
-          "volume on line " + ctx.lineNumber() + " is zero.");
-    }
-  }
-
-  /** L8 — price cannot be negative (unless the parent invoice is ADJ). */
-  void priceNotNegative(LineItemRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    BigDecimal price = ctx.line().getPrice();
-    if (price != null && price.signum() < 0) {
-      ctx.error(
-          "invoice.price.negative.value.error",
-          "price on line " + ctx.lineNumber() + " cannot be negative.");
-    }
-  }
-
-  /** L9 — a price of zero raises a non-blocking warning (unless the parent invoice is ADJ). */
-  void priceZeroWarning(LineItemRuleContext ctx) {
-    if (isAdjustment(ctx)) {
-      return;
-    }
-    BigDecimal price = ctx.line().getPrice();
-    if (price != null && price.signum() == 0) {
-      ctx.warning(
-          "invoice.price.zero.value.warning",
-          "price on line " + ctx.lineNumber() + " is zero.");
-    }
-  }
-
-  private static boolean isAdjustment(LineItemRuleContext ctx) {
-    return ADJUSTMENT.equals(ctx.invoiceType());
+  /** Channel-formatted line reference the templates render as {@code {0}} (or the last arg). */
+  private static String lineLabel(LineItemRuleContext ctx) {
+    return "Line " + ctx.lineNumber();
   }
 
   private static boolean isBlank(String s) {

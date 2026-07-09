@@ -36,13 +36,27 @@ public final class SubmissionRuleContext {
     return referenceData;
   }
 
-  /** Record a blocking error against the submission. */
+  /** Record a blocking error against the submission, with pre-rendered text. */
   public void error(String code, String message) {
     collector.add(null, SubmissionValidationError.error(LOCATOR, code, message));
   }
 
-  /** Record a non-blocking warning against the submission. */
+  /** Record a non-blocking warning against the submission, with pre-rendered text. */
   public void warning(String code, String message) {
     collector.add(null, SubmissionValidationError.warning(LOCATOR, code, message));
+  }
+
+  /**
+   * Record a blocking error against the submission as a message key + its
+   * {@code messages.properties} template args; the text is resolved at the HTTP
+   * boundary (refactor doc §3.5).
+   */
+  public void error(String code, Object[] args) {
+    collector.add(null, SubmissionValidationError.error(LOCATOR, code, args));
+  }
+
+  /** Warning counterpart of {@link #error(String, Object[])}. */
+  public void warning(String code, Object[] args) {
+    collector.add(null, SubmissionValidationError.warning(LOCATOR, code, args));
   }
 }

@@ -12,14 +12,12 @@ public class InvoiceLineItemPresenceRules implements InvoiceRule {
     lineItemExists(ctx);
   }
 
-  /** An invoice must have at least one line item. */
+  /** An invoice must have at least one line item (0-arg template). */
   void lineItemExists(InvoiceRuleContext ctx) {
     boolean hasLineItems = ctx.invoice().getCSPLineItem() != null && !ctx.invoice().getCSPLineItem().isEmpty();
 
     if (!hasLineItems) {
-      ctx.error(
-        "invoice.noline.item.error",
-        "invoice with invoiceNumber " + ctx.invoiceNumber() + " must have at least one line item.");
+      ctx.error("invoice.noline.item.error", new Object[0]);
     }
   }
 }
