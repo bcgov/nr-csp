@@ -6,18 +6,14 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequ
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for the I31 source-document de-duplication applied in
- * {@link InvoiceMapper#toDetails}: tokens are trimmed, blanks dropped, and
- * duplicates removed keeping first-seen order — mirroring the electronic
- * path's {@code InvoiceSourceDocumentRules#deduplicateCsv} and the legacy
- * {@code ignoreCSVForDuplicates}, so the validator and the persisted log
- * sources both see the de-duplicated values.
+ * Thin call-through tests: {@code toDetails} routes every source-document list
+ * through {@code invoice.shared.rules.SourceDocuments#dedup} (I31). The exhaustive
+ * dedup matrix lives in {@code SourceDocumentsTest} (refactor doc §12.4).
  */
 class InvoiceMapperTest {
 
@@ -25,27 +21,14 @@ class InvoiceMapperTest {
     private final InvoiceMapper mapper = new InvoiceMapper(null);
 
     @Test
-    void i31_create_dedupsBoomNumbers_keepingFirstSeenOrder() {
+    void i31_create_dedupsAllThreeSourceDocumentLists() {
         InvoiceDetails details = mapper.toDetails(
-                createRequest(List.of("B1", "B2", "B1", "B3", "B2"), null, null), "user");
-
-        assertThat(details.boomNumbers()).containsExactly("B1", "B2", "B3");
-    }
-
-    @Test
-    void i31_create_trimsTokensAndDedupsOnTrimmedValue() {
-        InvoiceDetails details = mapper.toDetails(
-                createRequest(List.of(" B1 ", "B1", "B2 "), null, null), "user");
+                createRequest(List.of("B1", " B1", "B2"), List.of("T1", "T1"), List.of("W1", "W1")),
+                "user");
 
         assertThat(details.boomNumbers()).containsExactly("B1", "B2");
-    }
-
-    @Test
-    void i31_create_dropsBlankAndNullTokens() {
-        InvoiceDetails details = mapper.toDetails(
-                createRequest(Arrays.asList("B1", "  ", null, "B2"), null, null), "user");
-
-        assertThat(details.boomNumbers()).containsExactly("B1", "B2");
+        assertThat(details.timberMarks()).containsExactly("T1");
+        assertThat(details.weightSlips()).containsExactly("W1");
     }
 
     @Test
@@ -58,15 +41,6 @@ class InvoiceMapperTest {
     }
 
     @Test
-    void i31_create_dedupsTimberMarksAndWeighSlipsToo() {
-        InvoiceDetails details = mapper.toDetails(
-                createRequest(null, List.of("T1", "T1"), List.of("W1", " W1", "W2")), "user");
-
-        assertThat(details.timberMarks()).containsExactly("T1");
-        assertThat(details.weightSlips()).containsExactly("W1", "W2");
-    }
-
-    @Test
     void i31_update_dedupsAllThreeSourceDocumentLists() {
         InvoiceDetails details = mapper.toDetails(
                 updateRequest(List.of("B1", "B1"), List.of("T1", "T1"), List.of("W1", "W1")),
@@ -76,14 +50,6 @@ class InvoiceMapperTest {
         assertThat(details.timberMarks()).containsExactly("T1");
         assertThat(details.weightSlips()).containsExactly("W1");
         assertThat(details.invID()).isEqualTo(7L);
-    }
-
-    @Test
-    void i31_distinctValuesPassThroughUnchanged() {
-        InvoiceDetails details = mapper.toDetails(
-                createRequest(List.of("B1", "B2", "B3"), null, null), "user");
-
-        assertThat(details.boomNumbers()).containsExactly("B1", "B2", "B3");
     }
 
     private static CreateInvoiceRequest createRequest(

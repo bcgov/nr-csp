@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.ValidationMessageResponse;
+import ca.bc.gov.nrs.csp.backend.invoice.shared.rules.SourceDocuments;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.springframework.context.MessageSource;
@@ -15,10 +16,8 @@ import org.springframework.context.NoSuchMessageException;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 @Component
 public class InvoiceMapper {
@@ -100,29 +99,12 @@ public class InvoiceMapper {
     }
 
     /**
-     * De-duplicates a source-document list (Boom Numbers / Timber Marks / Weigh
-     * Slips) on the way into the domain model (catalogue I31): tokens are
-     * trimmed, blanks dropped, and duplicates removed keeping first-seen order.
-     * A null list maps to an empty list. Mirrors the electronic path's
-     * {@code InvoiceSourceDocumentRules#deduplicateCsv} and the legacy
-     * {@code ignoreCSVForDuplicates}, so the validator's count checks and the
-     * persisted log sources both see the de-duplicated values.
+     * I31 de-duplication at the domain-model boundary, delegated to the shared
+     * {@link SourceDocuments#dedup(List)} in {@code invoice.shared.rules} so the logic
+     * lives with the other invoice rules.
      */
     private static List<String> dedupSourceDocuments(List<String> values) {
-        if (values == null) {
-            return List.of();
-        }
-        Set<String> unique = new LinkedHashSet<>();
-        for (String value : values) {
-            if (value == null) {
-                continue;
-            }
-            String trimmed = value.trim();
-            if (!trimmed.isEmpty()) {
-                unique.add(trimmed);
-            }
-        }
-        return List.copyOf(unique);
+        return SourceDocuments.dedup(values);
     }
 
     public LineItem toLineItem(LineItemRequest req, Long invoiceId) {
