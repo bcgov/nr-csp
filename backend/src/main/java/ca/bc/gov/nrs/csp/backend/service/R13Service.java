@@ -94,7 +94,7 @@ public class R13Service {
                 }
                 return compileReport(jrxml);
             } catch (Exception e) {
-                throw new ReportGenerationException("Failed to compile JRXML: " + templatePath, e);
+                throw new ReportGenerationException("Failed to compile JRXML template.", e);
             }
         });
 
