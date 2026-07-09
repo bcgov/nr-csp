@@ -1,51 +1,87 @@
 package ca.bc.gov.nrs.csp.backend.invoice.submission.business.referencedata;
 
+import ca.bc.gov.nrs.csp.backend.repository.FlatPriceConversionRepository;
+import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository;
+import ca.bc.gov.nrs.csp.backend.repository.ValidationLookupRepository;
+import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Facade over all reference-data (DB) lookups the business rules need. Rules
- * depend only on this interface, never on repositories directly — so a rule
- * stays a small, easily-unit-tested class (mock this in rule tests), and any
- * lookup is reusable by a rule at any level (submission / invoice / line).
+ * All reference-data (DB) lookups the business rules need — one concrete class,
+ * each rule-shaped lookup delegates to the app's existing repositories
  *
- * <p>Each method maps to a lookup called out in
- * {@code docs/submission-validation-business-rules.md}. The implementation
- * ({@link DefaultReferenceDataService}) is a thin router that delegates to the
- * app's existing repositories, which already encapsulate the SQL and the
- * date-effective ("active on the invoice date") semantics.
+ * <p>The only business logic living at this layer is the small ESF-shaped
+ * adaptation some lookups need: the C3 "maturity M → O" substitution and the
+ * "ESF submissions are always new" null-invoice exclusions.
  */
-public interface ReferenceDataService {
+@Component
+@RequiredArgsConstructor
+public class ReferenceDataService {
 
-  /** S1 / I15 / I16 / I19 — client number + location exists in CLIENT_LOCATION. */
-  boolean clientLocationExists(String clientNumber, String locnCode);
+  private final ValidationLookupRepository validationLookups;
+  private final InvoiceRepository invoices;
+  private final FlatPriceConversionRepository flatPriceConversions;
 
-  /** I1 — invoice type code recognised and active on the invoice date. */
-  boolean invoiceTypeValidOn(String invoiceTypeCode, LocalDate date);
+  /** Client number + location exists in CLIENT_LOCATION. */
+  public boolean clientLocationExists(String clientNumber, String locnCode) {
+    return validationLookups.existsClientLocation(clientNumber, locnCode);
+  }
 
-  /** I22 — maturity code recognised and active on the invoice date. */
-  boolean maturityValidOn(String maturityCode, LocalDate date);
+  /** Invoice type code recognised and active on the invoice date. */
+  public boolean invoiceTypeValidOn(String invoiceTypeCode, LocalDate date) {
+    return validationLookups.existsActiveInvoiceTypeCode(invoiceTypeCode, date);
+  }
 
-  /** I23 / L1 — sort code recognised and active on the invoice date. */
-  boolean sortCodeValidOn(String sortCode, LocalDate date);
+  /** Maturity code recognised and active on the invoice date. */
+  public boolean maturityValidOn(String maturityCode, LocalDate date) {
+    return validationLookups.existsActiveMaturityCode(maturityCode, date);
+  }
 
-  /** L2 — species + grade combination exists in CSP_SPECIES_GRADE_XREF. */
-  boolean speciesGradeCombinationExists(String species, String grade);
+  /** Sort code recognised and active on the invoice date. */
+  public boolean sortCodeValidOn(String sortCode, LocalDate date) {
+    return validationLookups.existsActiveSortCode(sortCode, date);
+  }
 
-  /** C3 — flat-price conversion factor for the maturity/sort/species/grade on a date (maturity 'M' treated as 'O' by the impl). */
-  Optional<Integer> conversionFactor(
-      String maturity, String sortCode, String species, String grade, LocalDate date);
+  /** Species + grade combination exists in CSP_SPECIES_GRADE_XREF. */
+  public boolean speciesGradeCombinationExists(String species, String grade) {
+    return validationLookups.existsSpeciesGradeCombination(species, grade);
+  }
 
-  /** C5 — whether any conversion factor is defined for a sort code at all. */
-  boolean conversionFactorsExistForSortCode(String sortCode);
+  /** Flat-price conversion factor for the maturity/sort/species/grade on a date. */
+  public Optional<Integer> conversionFactor(
+      String maturity, String sortCode, String species, String grade, LocalDate date) {
+    // Maturity 'M' (Mixed growth) uses the 'O' (Old growth) conversion factor.
+    String effectiveMaturity = "M".equals(maturity) ? "O" : maturity;
+    return flatPriceConversions.findApplicableFactor(effectiveMaturity, sortCode, species, grade, date);
+  }
 
-  /** I5 / I8 / I9 — invoices for this client matching a number (for replace/adjust + status checks). */
-  List<InvoiceRef> findInvoices(String invoiceNumber, String clientNumber, String locnCode);
+  /** Whether any conversion factor is defined for a sort code at all. */
+  public boolean conversionFactorsExistForSortCode(String sortCode) {
+    return flatPriceConversions.existsForSortCode(sortCode);
+  }
 
-  /** I40 — whether the invoice date falls in a month already flagged Complete for the client. */
-  boolean isMonthComplete(LocalDate invoiceDate, String clientNumber, String locnCode);
+  /** Invoices for this client matching a number (for replace/adjust + status checks). */
+  public List<InvoiceRef> findInvoices(String invoiceNumber, String clientNumber, String locnCode) {
+    return invoices.findByInvoiceNoAndClient(invoiceNumber, clientNumber, locnCode).stream()
+        .map(related -> new InvoiceRef(invoiceNumber, related.invoiceStatusCode()))
+        .toList();
+  }
 
-  /** I38 — whether a boom number is already recorded as a source document on another invoice. */
-  boolean boomNumberUsedByAnotherInvoice(String boomNumber);
+  /** Whether the invoice date falls in a month already flagged Complete for the client. */
+  public boolean isMonthComplete(LocalDate invoiceDate, String clientNumber, String locnCode) {
+    // ESF submissions are always new, so there is no current invoice to exclude.
+    return invoices.isMonthCompleted(invoiceDate, clientNumber, locnCode, null);
+  }
+
+  /** Whether a boom number is already recorded as a source document on another invoice. */
+  public boolean boomNumberUsedByAnotherInvoice(String boomNumber) {
+    // ESF submissions are always new, so there is no current invoice to exclude.
+    return invoices.countBoomNumberDuplicates(
+        null, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, boomNumber) > 0;
+  }
 }

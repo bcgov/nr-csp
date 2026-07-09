@@ -23,13 +23,13 @@ import static org.mockito.BDDMockito.given;
  * RelatedInvoice → InvoiceRef mapping. Simple delegations are spot-checked.
  */
 @ExtendWith(MockitoExtension.class)
-class DefaultReferenceDataServiceTest {
+class ReferenceDataServiceTest {
 
   @Mock ValidationLookupRepository validationLookups;
   @Mock InvoiceRepository invoices;
   @Mock FlatPriceConversionRepository flatPriceConversions;
 
-  @InjectMocks DefaultReferenceDataService service;
+  @InjectMocks ReferenceDataService service;
 
   private static final LocalDate DATE = LocalDate.of(2024, Month.JANUARY, 15);
 
