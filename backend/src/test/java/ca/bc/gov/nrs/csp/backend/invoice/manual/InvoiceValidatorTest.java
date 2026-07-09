@@ -141,6 +141,43 @@ class InvoiceValidatorTest {
         assertNoWarning(result, "invoice.number.duplicate.same.type.warning");
     }
 
+    @Test
+    void validate_manualBuyerPurchaseDuplicate_sameOtherParty_addsWarning() {
+        // Legacy PUR branch (doc §7.4.3 N2): same submitter + type AND the existing
+        // invoice's seller matches this purchase's other party → duplicate warning.
+        InvoiceDetails purchase = invWith(i -> { i.invType = "PUR"; i.submittedBy = "Buyer"; });
+        InvoiceMatch existing = matchBuilder()
+                .invoiceTypeCode(ConstantsCode.INVTYPE_PURCHASE)
+                .submitterClientNumber("00001234")
+                .submitterClientLocnCode("01")
+                .sellerClientNumber("00005678")  // = purchase.otherClientNum
+                .sellerClientLocnCode("01")      // = purchase.otherClientLocation
+                .build();
+        given(invoiceRepo.findByClientInvoiceNo("INV-001")).willReturn(List.of(existing));
+
+        ValidationResult result = validator.validate(purchase, List.of(), true, ActionType.OTHER);
+
+        assertHasWarning(result, "invoice.number.duplicate.same.type.warning");
+    }
+
+    @Test
+    void validate_manualPurchaseDuplicate_differentOtherParty_noWarning() {
+        // Same submitter + type, but the existing invoice's seller differs → not a duplicate.
+        InvoiceDetails purchase = invWith(i -> { i.invType = "PUR"; i.submittedBy = "Buyer"; });
+        InvoiceMatch existing = matchBuilder()
+                .invoiceTypeCode(ConstantsCode.INVTYPE_PURCHASE)
+                .submitterClientNumber("00001234")
+                .submitterClientLocnCode("01")
+                .sellerClientNumber("00009999")
+                .sellerClientLocnCode("02")
+                .build();
+        given(invoiceRepo.findByClientInvoiceNo("INV-001")).willReturn(List.of(existing));
+
+        ValidationResult result = validator.validate(purchase, List.of(), true, ActionType.OTHER);
+
+        assertNoWarning(result, "invoice.number.duplicate.same.type.warning");
+    }
+
     // ---------------------------------------------------------------
     // checkMonthComplete
     // ---------------------------------------------------------------
@@ -758,6 +795,8 @@ class InvoiceValidatorTest {
         MatchBuilder invoiceTypeCode(String v) { this.invoiceTypeCode = v; return this; }
         MatchBuilder submitterClientNumber(String v) { this.submitterClientNumber = v; return this; }
         MatchBuilder submitterClientLocnCode(String v) { this.submitterClientLocnCode = v; return this; }
+        MatchBuilder sellerClientNumber(String v) { this.sellerClientNumber = v; return this; }
+        MatchBuilder sellerClientLocnCode(String v) { this.sellerClientLocnCode = v; return this; }
 
         InvoiceMatch build() {
             return new InvoiceMatch(coastalLogSaleId, invoiceStatusCode, invoiceTypeCode,

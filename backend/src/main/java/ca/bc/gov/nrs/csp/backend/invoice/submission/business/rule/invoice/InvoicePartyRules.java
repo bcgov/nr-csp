@@ -20,8 +20,8 @@ public class InvoicePartyRules implements InvoiceRule {
     invalidSellerSubmissionCombination(ctx);
     buyerClientLocationExists(ctx);
     sellerClientLocationExists(ctx);
-    submissionNumberEqualsSellerNumber(ctx);
-    submissionLocationEqualsSellerLocation(ctx);
+    submissionNumberEqualsSubmitterNumber(ctx);
+    submissionLocationEqualsSubmitterLocation(ctx);
     otherPartyClientLocationExists(ctx);
     otherPartyFreeTextRequired(ctx);
     sellerAndBuyerNotSame(ctx);
@@ -120,25 +120,25 @@ public class InvoicePartyRules implements InvoiceRule {
     }
   }
 
-  /** Submission client number must equal seller client number (ERROR) */
-  void submissionNumberEqualsSellerNumber(InvoiceRuleContext ctx) {
+  /**
+   * Submission client number must equal the submitting party's client number
+   * (ERROR). Legacy enforced this for BOTH seller and buyer submissions — the
+   * invoice-level clientNumber it compared was the submission client — while
+   * emitting the seller-worded message key in both directions; matched here
+   * exactly (refactor doc §7.4.3 P2).
+   */
+  void submissionNumberEqualsSubmitterNumber(InvoiceRuleContext ctx) {
     SubmitterInfo submitter = ctx.submitter();
-    if (submitter.submittedBy() != SubmitterInfo.SubmittedBy.SELLER) {
-      return;
-    }
     if (!Objects.equals(submitter.submissionClientNumber(), submitter.submitterClientNumber())) {
-      // Template: submission client number, seller client number.
+      // Template: submission client number, submitter-side client number.
       ctx.error("invoice.submitter.not.equal.seller.client.number.error",
           new Object[] {submitter.submissionClientNumber(), submitter.submitterClientNumber()});
     }
   }
 
-  /** Submission client location must equal seller client location (ERROR) */
-  void submissionLocationEqualsSellerLocation(InvoiceRuleContext ctx) {
+  /** Location counterpart of {@link #submissionNumberEqualsSubmitterNumber} (ERROR). */
+  void submissionLocationEqualsSubmitterLocation(InvoiceRuleContext ctx) {
     SubmitterInfo submitter = ctx.submitter();
-    if (submitter.submittedBy() != SubmitterInfo.SubmittedBy.SELLER) {
-      return;
-    }
     if (!Objects.equals(submitter.submissionLocnCode(), submitter.submitterLocnCode())) {
       ctx.error("invoice.submitter.not.equal.seller.client.location.error",
           new Object[] {submitter.submissionLocnCode(), submitter.submitterLocnCode()});

@@ -245,7 +245,7 @@ class InvoicePartyRulesTest {
         .submission("100", "00")
         .build();
 
-    rules.submissionNumberEqualsSellerNumber(context(collector, submitter));
+    rules.submissionNumberEqualsSubmitterNumber(context(collector, submitter));
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code())
@@ -261,13 +261,15 @@ class InvoicePartyRulesTest {
         .submission("100", "00")
         .build();
 
-    rules.submissionNumberEqualsSellerNumber(context(collector, submitter));
+    rules.submissionNumberEqualsSubmitterNumber(context(collector, submitter));
 
     assertThat(collector.entries()).isEmpty();
   }
 
   @Test
-  void i17_skipped_on_buyer_submission() {
+  void i17_enforced_on_buyer_submissions_too() {
+    // Legacy parity (refactor doc §7.4.3 P2): the submission client must match
+    // the submitting party — the buyer, here — not only on seller submissions.
     ValidationCollector collector = new ValidationCollector();
     SubmitterInfo submitter = party()
         .by(SubmittedBy.BUYER)
@@ -275,9 +277,11 @@ class InvoicePartyRulesTest {
         .submission("100", "00")
         .build();
 
-    rules.submissionNumberEqualsSellerNumber(context(collector, submitter));
+    rules.submissionNumberEqualsSubmitterNumber(context(collector, submitter));
 
-    assertThat(collector.entries()).isEmpty();
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code())
+        .isEqualTo("invoice.submitter.not.equal.seller.client.number.error");
   }
 
   // ---------------------------------------------------------------- I18
@@ -291,7 +295,7 @@ class InvoicePartyRulesTest {
         .submission("100", "00")
         .build();
 
-    rules.submissionLocationEqualsSellerLocation(context(collector, submitter));
+    rules.submissionLocationEqualsSubmitterLocation(context(collector, submitter));
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code())
@@ -307,13 +311,13 @@ class InvoicePartyRulesTest {
         .submission("100", "00")
         .build();
 
-    rules.submissionLocationEqualsSellerLocation(context(collector, submitter));
+    rules.submissionLocationEqualsSubmitterLocation(context(collector, submitter));
 
     assertThat(collector.entries()).isEmpty();
   }
 
   @Test
-  void i18_skipped_on_buyer_submission() {
+  void i18_enforced_on_buyer_submissions_too() {
     ValidationCollector collector = new ValidationCollector();
     SubmitterInfo submitter = party()
         .by(SubmittedBy.BUYER)
@@ -321,9 +325,11 @@ class InvoicePartyRulesTest {
         .submission("100", "00")
         .build();
 
-    rules.submissionLocationEqualsSellerLocation(context(collector, submitter));
+    rules.submissionLocationEqualsSubmitterLocation(context(collector, submitter));
 
-    assertThat(collector.entries()).isEmpty();
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code())
+        .isEqualTo("invoice.submitter.not.equal.seller.client.location.error");
   }
 
   // ---------------------------------------------------------------- I19

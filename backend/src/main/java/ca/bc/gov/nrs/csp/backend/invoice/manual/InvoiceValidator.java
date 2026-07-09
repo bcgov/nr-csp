@@ -148,6 +148,10 @@ public class InvoiceValidator {
             addError("invoice.details.missing.error", null);
             return new ValidationResult(messages);
         }
+        // Exact legacy parity (isValidForChangeStatus; refactor doc §7.4.3 N4):
+        // only the approve-by-entry-user and reject-needs-comment checks apply at
+        // status change. The comment-must-change rule runs on SAVE only
+        // (isReviewerCommentUpdate), as it did in legacy.
         if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(newStatus)
                 && Objects.equals(details.entryUserID(), userID)) {
             addError("invoice.entry.user.cannot.approve.it.error", null);
@@ -155,30 +159,20 @@ public class InvoiceValidator {
                 && isBlank(details.reviewComments())) {
             addError("invoice.reject.need.reviewer.comment.error", null);
         }
-        // For REJ/CAN/UNA, parity with the legacy isReviewerCommentUpdate rule:
-        // the reviewer comments on the new request must differ from what's currently saved.
-        boolean reviewChangeRequired =
-                ConstantsCode.INVENTRYSTATUS_REJECTED.equals(newStatus)
-                || ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(newStatus)
-                || ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(newStatus);
-        if (reviewChangeRequired && details.invID() != null) {
-            String submittedComments = details.reviewComments() == null ? "" : details.reviewComments();
-            String savedComments = invoiceRepo.findReviewCommentsById(details.invID());
-            String saved = savedComments == null ? "" : savedComments;
-            if (submittedComments.equals(saved)) {
-                log.debug("InvoiceValidator: reviewer comments unchanged for status {}", newStatus);
-                addError("invoice.reviewer.notes.update.warning", null);
-            }
-        }
         return new ValidationResult(messages);
     }
 
     private boolean checkForInvoiceNumDuplicate(InvoiceDetails details) {
         if (!manual) return true;
-        // Duplicate detection applies to Sale invoices only: warn when another
-        // (non-rejected) Sale invoice with the same number exists for the same
-        // submitter client number + location.
-        if (!ConstantsCode.INVTYPE_SALE.equals(details.invType())) return true;
+        // Duplicate detection (legacy checkForInvoiceNumDuplicate; refactor doc
+        // §7.4.3 N2): warn when another non-rejected invoice with the same number
+        // exists for the same submitter client number + location and the same
+        // type. SAL matches on the submitter alone; PUR additionally requires the
+        // other party's client number + location to match (a buyer duplicating an
+        // invoice the seller already entered).
+        boolean sale = ConstantsCode.INVTYPE_SALE.equals(details.invType());
+        boolean purchase = ConstantsCode.INVTYPE_PURCHASE.equals(details.invType());
+        if (!sale && !purchase) return true;
         String newSubmitterNum = details.submitterClientNum();
         String newSubmitterLoc = details.submitterLocation();
         try {
@@ -187,10 +181,14 @@ public class InvoiceValidator {
                 if (Objects.equals(m.coastalLogSaleId(), details.invID())) continue;
                 if (ConstantsCode.INVENTRYSTATUS_REJECTED.equals(m.invoiceStatusCode())) continue;
 
-                if (Objects.equals(newSubmitterNum, m.submitterClientNumber())
+                boolean sameSubmitterAndType =
+                        Objects.equals(newSubmitterNum, m.submitterClientNumber())
                         && Objects.equals(newSubmitterLoc, m.submitterClientLocnCode())
-                        && Objects.equals(details.invType(), m.invoiceTypeCode())) {
-                    log.debug("InvoiceValidator: duplicate seller invoice detected");
+                        && Objects.equals(details.invType(), m.invoiceTypeCode());
+                if (!sameSubmitterAndType) continue;
+
+                if (sale || purchaseOtherPartyMatches(details, m)) {
+                    log.debug("InvoiceValidator: duplicate {} invoice detected", details.invType());
                     addWarning("invoice.number.duplicate.same.type.warning",
                             new Object[]{details.invNumber(), m.invoiceTypeCode()});
                     break;
@@ -200,6 +198,25 @@ public class InvoiceValidator {
             log.error("InvoiceValidator - checkForInvoiceNumDuplicate failed", e);
         }
         return true;
+    }
+
+    /**
+     * PUR duplicate condition (legacy "Buyer duplicate invoice from seller"): the
+     * existing invoice's other party — the seller when this invoice is submitted
+     * by the buyer — must carry the same client number + location as this
+     * invoice's other party. Legacy also had a participant name/city/province
+     * branch, but its guard required the other-party name to be blank AND equal
+     * the participant's name, so it could never fire — intentionally not ported
+     * (refactor doc §7.4.3).
+     */
+    private boolean purchaseOtherPartyMatches(InvoiceDetails details, InvoiceMatch m) {
+        boolean submittedBySeller =
+                ConstantsCode.INVOICE_SUBMITTEDBY_SELLER.equals(details.submittedBy());
+        String existingOtherNum = submittedBySeller ? m.buyerClientNumber() : m.sellerClientNumber();
+        String existingOtherLoc = submittedBySeller ? m.buyerClientLocnCode() : m.sellerClientLocnCode();
+        return !isBlank(details.otherClientNum())
+                && Objects.equals(details.otherClientNum(), existingOtherNum)
+                && Objects.equals(details.otherClientLocation(), existingOtherLoc);
     }
 
     private boolean checkMonthComplete(InvoiceDetails details) {
