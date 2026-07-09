@@ -670,6 +670,159 @@ class InvoiceValidatorTest {
     }
 
     // ---------------------------------------------------------------
+    // checkForInvoiceNumDuplicate — loop fall-through and repo failure
+    // ---------------------------------------------------------------
+
+    @Test
+    void validate_manualDuplicateWithDifferentSubmitter_noWarning() {
+        // Match exists but for another submitter → loop completes without a hit
+        given(invoiceRepo.findByClientInvoiceNo("INV-001"))
+                .willReturn(List.of(saleMatchBySubmitter("00007777", "01")));
+
+        ValidationResult result = validator.validate(validInvoice(), List.of(), true, ActionType.OTHER);
+
+        assertNoWarning(result, "invoice.number.duplicate.same.type.warning");
+    }
+
+    @Test
+    void validate_manualDuplicateCheckRepoThrows_swallowedWithoutWarning() {
+        // The duplicate check must never break validation: exceptions are logged
+        // and swallowed, and no duplicate warning is raised.
+        given(invoiceRepo.findByClientInvoiceNo("INV-001"))
+                .willThrow(new RuntimeException("db down"));
+
+        ValidationResult result = validator.validate(validInvoice(), List.of(), true, ActionType.OTHER);
+
+        assertNoWarning(result, "invoice.number.duplicate.same.type.warning");
+        assertThat(result.hasErrors()).isFalse();
+    }
+
+    // ---------------------------------------------------------------
+    // checkSubmiterClient — blank submitter client number (manual)
+    // ---------------------------------------------------------------
+
+    @Test
+    void validate_manualBlankSubmitterClientNum_addsManualSubmitterNameError() {
+        InvoiceDetails details = invWith(i -> i.submitterClientNum = null);
+
+        ValidationResult result = validator.validate(details, List.of(), true, ActionType.OTHER);
+
+        assertHasError(result, "invoice.manual.submitter.name.error");
+    }
+
+    // ---------------------------------------------------------------
+    // checkOtherPartyClient — manual with partial other-party info
+    // ---------------------------------------------------------------
+
+    @Test
+    void validate_manualOtherPartyNameOnly_noManualOtherPartyError() {
+        // Manual: no client number, but a name is enough — no error
+        InvoiceDetails details = invWith(i -> {
+            i.otherClientNum = null;
+            i.otherClientLocation = null;
+            i.otherClientName = "ABC Logging";
+            i.otherClientCity = null;
+            i.otherClientProvState = null;
+        });
+
+        ValidationResult result = validator.validate(details, List.of(), true, ActionType.OTHER);
+
+        assertNoError(result, "invoice.manual.other.party.name.error");
+    }
+
+    @Test
+    void validate_esfBuyerSubmittedMissingSellerNameCityProv_addsSellerRequiredErrors() {
+        // Buyer submits → the other party is the seller → expect seller.* keys
+        InvoiceDetails details = invWith(i -> {
+            i.submittedBy = ConstantsCode.INVOICE_SUBMITTEDBY_BUYER;
+            i.invType = ConstantsCode.INVTYPE_PURCHASE;
+            i.otherClientNum = null;
+            i.otherClientLocation = null;
+        });
+
+        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
+
+        assertHasError(result, "invoice.otherparty.seller.name.required.error");
+        assertHasError(result, "invoice.otherparty.seller.city.required.error");
+        assertHasError(result, "invoice.otherparty.seller.province.required.error");
+    }
+
+    // ---------------------------------------------------------------
+    // isFobProvided
+    // ---------------------------------------------------------------
+
+    @Test
+    void validate_blankFobCode_addsError() {
+        InvoiceDetails details = invWith(i -> i.fobCode = null);
+
+        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
+
+        assertHasError(result, "invoice.fob.required.error");
+    }
+
+    // ---------------------------------------------------------------
+    // checkElectronicOtherPartySubmitter — buyer/seller submission errors
+    // and submitter-vs-seller client mismatch
+    // ---------------------------------------------------------------
+
+    @Test
+    void validate_esfSellerSubmitsBuyerClientAndFullOtherPartyInfo_addsBuyerSubmissionError() {
+        // Seller submission with no submitter client, but the buyer's client
+        // number+location AND full name/city/province are all supplied
+        InvoiceDetails details = invWith(i -> {
+            i.submitterClientNum = null;
+            i.otherClientName = "Buyer Co";
+            i.otherClientCity = "Victoria";
+            i.otherClientProvState = "BC";
+        });
+
+        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
+
+        assertHasError(result, "invoice.otherparty.buyer.submission.error");
+    }
+
+    @Test
+    void validate_esfBuyerSubmitsSellerClientAndFullOtherPartyInfo_addsSellerSubmissionError() {
+        // Buyer submission with no submitter client, but the seller's client
+        // number+location AND full name/city/province are all supplied
+        InvoiceDetails details = invWith(i -> {
+            i.submittedBy = ConstantsCode.INVOICE_SUBMITTEDBY_BUYER;
+            i.invType = ConstantsCode.INVTYPE_PURCHASE;
+            i.submitterClientNum = null;
+            i.otherClientName = "Seller Co";
+            i.otherClientCity = "Nanaimo";
+            i.otherClientProvState = "BC";
+        });
+
+        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
+
+        assertHasError(result, "invoice.otherparty.seller.submission.error");
+    }
+
+    @Test
+    void validate_esfSellerSubmitterMismatchesSellerClient_addsMismatchErrors() {
+        // C-07 / C-08: when the seller submits, the submitter's client number
+        // and location must match the seller's (clientNumber / clientLocation)
+        InvoiceDetails details = invWith(i -> {
+            i.clientNumber = "00009999";
+            i.clientLocation = "99";
+        });
+
+        ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
+
+        assertHasError(result, "invoice.submitter.not.equal.seller.client.number.error");
+        assertHasError(result, "invoice.submitter.not.equal.seller.client.location.error");
+    }
+
+    @Test
+    void validate_esfSellerSubmitterMatchesSellerClient_noMismatchErrors() {
+        ValidationResult result = validator.validate(validInvoice(), List.of(), false, ActionType.OTHER);
+
+        assertNoError(result, "invoice.submitter.not.equal.seller.client.number.error");
+        assertNoError(result, "invoice.submitter.not.equal.seller.client.location.error");
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 

@@ -24,6 +24,30 @@ class InvoiceTotalsRulesTest {
 
   private final InvoiceTotalsRules rules = new InvoiceTotalsRules();
 
+  // --- validate: runs every totals rule ---
+
+  @Test
+  void validate_runs_all_rules_and_passes_for_consistent_totals() {
+    ValidationCollector collector = new ValidationCollector();
+    CSPInvoiceDetailsType details = new CSPInvoiceDetailsType();
+    details.setTotalAmount(new BigDecimal("100.00"));
+    details.setTotalVolume(new BigDecimal("10.000"));
+    details.setTotalPieces(3);
+
+    CSPInvoiceType invoice = new CSPInvoiceType();
+    invoice.setInvoiceNumber("INV-1");
+    invoice.setInvoiceType("SAL");
+    invoice.setCSPInvoiceDetails(details);
+    // 10.000 × 10 = 100.00 amount, 10.000 volume and 3 pieces all match the submitted totals.
+    CSPLineItemType line = line("10.000", "10");
+    line.setNumberOfPieces(3);
+    invoice.getCSPLineItem().add(line);
+
+    rules.validate(new InvoiceRuleContext(new CSPSubmissionType(), invoice, 0, null, null, collector));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
   @Test
   void totalAmount_errors_when_negative() {
     ValidationCollector collector = new ValidationCollector();
@@ -147,6 +171,40 @@ class InvoiceTotalsRulesTest {
   }
 
   @Test
+  void totalAmount_variance_keeps_negative_volume_positive_price_negative_for_ADJ() {
+    ValidationCollector collector = new ValidationCollector();
+    // ADJ: only a both-negative product needs the sign fix; -10 × 10 = -100.00 already negative.
+    rules.totalAmountWithinVariance(
+        context(collector, "ADJ", new BigDecimal("-100.00"), line("-10", "10")));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void totalAmount_variance_leaves_positive_lines_untouched_for_ADJ() {
+    ValidationCollector collector = new ValidationCollector();
+    // ADJ with a non-negative volume: no sign adjustment, 10 × 10 = 100.00.
+    rules.totalAmountWithinVariance(
+        context(collector, "ADJ", new BigDecimal("100.00"), line("10", "10")));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void totalAmount_variance_ignores_lines_missing_volume_or_price() {
+    ValidationCollector collector = new ValidationCollector();
+    CSPLineItemType volumeOnly = new CSPLineItemType();
+    volumeOnly.setVolume(new BigDecimal("999"));
+    CSPLineItemType priceOnly = new CSPLineItemType();
+    priceOnly.setPrice(new BigDecimal("999"));
+    // Only the complete line contributes: 10 × 10 = 100.00 calculated.
+    rules.totalAmountWithinVariance(
+        context(collector, "SAL", new BigDecimal("100.00"), line("10", "10"), volumeOnly, priceOnly));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
   void totalAmount_variance_is_skipped_when_submitted_absent() {
     ValidationCollector collector = new ValidationCollector();
 
@@ -232,6 +290,19 @@ class InvoiceTotalsRulesTest {
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.totalvolume.dismatch.warning");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.WARNING);
+  }
+
+  @Test
+  void totalVolume_variance_ignores_lines_missing_volume() {
+    ValidationCollector collector = new ValidationCollector();
+    // The line without a volume contributes nothing: calculated stays 10.000.
+    InvoiceRuleContext ctx =
+        volumeVarianceContext(collector, "SAL", new BigDecimal("10.000"), "10.000");
+    ctx.invoice().getCSPLineItem().add(new CSPLineItemType());
+
+    rules.totalVolumeWithinVariance(ctx);
+
+    assertThat(collector.entries()).isEmpty();
   }
 
   @Test

@@ -49,6 +49,8 @@ class SortCodeControllerTest {
     MockMvc mockMvc;
     ObjectMapper objectMapper;
 
+    private static final LocalDate FIXED_DATE = LocalDate.of(2024, Month.JULY, 22);
+
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
@@ -62,7 +64,7 @@ class SortCodeControllerTest {
 
     private SortCodeResponse sampleResponse(String code) {
         return new SortCodeResponse(code, "Lumber - Cedar",
-                LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now());
+                LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), FIXED_DATE);
     }
 
     // ---------------------------------------------------------------
@@ -155,10 +157,6 @@ class SortCodeControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // ---------------------------------------------------------------
-    // PUT /api/sort-codes/{code}
-    // ---------------------------------------------------------------
-
     @Test
     void update_validRequest_returns200() throws Exception {
         String body = """
@@ -166,7 +164,7 @@ class SortCodeControllerTest {
                 """;
         given(sortCodeService.update(eq("A"), any())).willReturn(null);
         given(sortCodeMapper.toResponse(any())).willReturn(
-                new SortCodeResponse("A", "Updated", LocalDate.of(2000, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now()));
+                new SortCodeResponse("A", "Updated", LocalDate.of(2000, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), FIXED_DATE));
 
         mockMvc.perform(put("/api/sort-codes/A")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -204,10 +202,6 @@ class SortCodeControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
     }
-
-    // ---------------------------------------------------------------
-    // DELETE /api/sort-codes/{code}
-    // ---------------------------------------------------------------
 
     @Test
     void delete_found_returns204() throws Exception {

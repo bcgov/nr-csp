@@ -12,6 +12,9 @@ import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.StaticMessageSource;
@@ -24,11 +27,16 @@ import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpMethod;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.BDDMockito.given;
@@ -39,6 +47,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(MockitoExtension.class)
 class GlobalApiExceptionHandlerTest {
+
+    private static Stream<Arguments> validationMessageFallbackCases() {
+        return Stream.of(
+                Arguments.of("no.such.key", "no.such.key"),
+                Arguments.of(null, ""),
+                Arguments.of("   ", "")
+        );
+    }
 
     @Mock HealthService healthService;
     @Mock HealthMapper healthMapper;
@@ -210,13 +226,109 @@ class GlobalApiExceptionHandlerTest {
         assertEquals("invoice.amount.required", body.errors().get(0).messageKey());
     }
 
-    @Test
-    void validationException_resolvesMessageText_fallingBackToKeyWhenMissing() {
-        var msg = new ValidationMessage("no.such.key", new Object[]{}, MessageType.ERROR);
+    @ParameterizedTest
+    @MethodSource("validationMessageFallbackCases")
+    void validationException_resolvesMessageText_withFallbacks(String messageKey, String expectedMessage) {
+        var msg = new ValidationMessage(messageKey, new Object[]{}, MessageType.ERROR);
         var result = new ValidationResult(List.of(msg));
 
         var response = handler.handleValidationException(new ValidationException("err", result));
 
-        assertEquals("no.such.key", response.getBody().errors().get(0).message());
+        assertNotNull(response.getBody());
+        assertEquals(expectedMessage, response.getBody().errors().getFirst().message());
+    }
+
+    @Test
+    void validationException_resolvesMessageText_whenKeyExistsInBundle() {
+        var messageSource = new StaticMessageSource();
+        messageSource.addMessage("invoice.amount.required", Locale.getDefault(), "Amount is required");
+        var localHandler = new GlobalApiExceptionHandler(messageSource);
+
+        var msg = new ValidationMessage("invoice.amount.required", new Object[]{}, MessageType.ERROR);
+        var result = new ValidationResult(List.of(msg));
+
+        var response = localHandler.handleValidationException(new ValidationException("err", result));
+
+        assertEquals("Amount is required", response.getBody().errors().get(0).message());
+    }
+
+
+    // ── MethodArgumentTypeMismatchException ───────────────────────────────────
+
+    @SuppressWarnings("unused")
+    private static void dummyEndpoint(LocalDate dateParam, Integer intParam) {
+        // used only to build a MethodParameter for MethodArgumentTypeMismatchException
+    }
+
+    private static MethodParameter methodParameter(int index) throws NoSuchMethodException {
+        return new MethodParameter(
+                GlobalApiExceptionHandlerTest.class.getDeclaredMethod(
+                        "dummyEndpoint", LocalDate.class, Integer.class),
+                index);
+    }
+
+    @Test
+    void typeMismatch_returns400_withDateFormatHint_forLocalDateParam() throws Exception {
+        var ex = new MethodArgumentTypeMismatchException(
+                "not-a-date", LocalDate.class, "startDate", methodParameter(0),
+                new IllegalArgumentException("bad date"));
+
+        var response = handler.handleTypeMismatch(ex, servletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("BAD_REQUEST", response.getBody().code());
+        assertEquals("Invalid value for parameter 'startDate': 'not-a-date'. Expected format: yyyy-MM-dd.",
+                response.getBody().message());
+    }
+
+    @Test
+    void typeMismatch_returns400_withoutDateHint_forNonDateParam() throws Exception {
+        var ex = new MethodArgumentTypeMismatchException(
+                "abc", Integer.class, "count", methodParameter(1),
+                new NumberFormatException("abc"));
+
+        var response = handler.handleTypeMismatch(ex, servletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("BAD_REQUEST", response.getBody().code());
+        assertEquals("Invalid value for parameter 'count': 'abc'.", response.getBody().message());
+    }
+
+    @Test
+    void typeMismatch_returns400_withoutDateHint_whenRequiredTypeIsNull() throws Exception {
+        var ex = new MethodArgumentTypeMismatchException(
+                "abc", null, "filter", methodParameter(1), null);
+
+        var response = handler.handleTypeMismatch(ex, servletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Invalid value for parameter 'filter': 'abc'.", response.getBody().message());
+    }
+
+    @Test
+    void dataIntegrityViolation_returns400_whenMostSpecificCauseIsNull() {
+        var ex = new DataIntegrityViolationException("FK violation") {
+            @Override
+            public Throwable getMostSpecificCause() {
+                return null;
+            }
+        };
+
+        var response = handler.handleDataIntegrity(ex, servletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("DATA_INTEGRITY_ERROR", response.getBody().code());
+    }
+
+    @Test
+    void dataIntegrityViolation_returns400_whenRootCausePresent() {
+        var ex = new DataIntegrityViolationException(
+                "wrapper", new java.sql.SQLException("ORA-02291: integrity constraint violated"));
+
+        var response = handler.handleDataIntegrity(ex, servletRequest);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("DATA_INTEGRITY_ERROR", response.getBody().code());
     }
 }

@@ -1,5 +1,6 @@
 package ca.bc.gov.nrs.csp.backend.submission.business;
 
+import ca.bc.gov.nrs.csp.backend.submission.business.rule.SubmissionRule;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.invoice.InvoiceDateRules;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.line.LineItemRules;
 import ca.bc.gov.nrs.csp.backend.submission.business.rule.submission.SubmissionRules;
@@ -165,6 +166,31 @@ class BusinessValidationServiceTest {
     assertThat(outcome.valid()).isTrue();
     assertThat(outcome.messages()).anyMatch(m -> m.severity() == Severity.WARNING
         && m.code().equals("invoice.grade.z.warning"));
+  }
+
+  @Test
+  void submission_level_warning_does_not_invalidate_the_submission() {
+    given(referenceData.sortCodeValidOn(any(), any())).willReturn(true);
+    given(referenceData.speciesGradeCombinationExists(any(), any())).willReturn(true);
+
+    // A submission-level WARNING must not trip the submission-level ERROR check:
+    // only an ERROR with a null invoice index rejects the whole submission.
+    SubmissionRule warnOnlyRule = ctx -> ctx.warning("submission.test.warning", "informational only");
+    BusinessValidationService service = new BusinessValidationService(
+        List.of(warnOnlyRule),
+        List.of(new InvoiceDateRules(CLOCK)),
+        List.of(new LineItemRules()),
+        new SubmitterResolver(),
+        new IdentifierNormalizer(),
+        referenceData);
+
+    BusinessValidationOutcome outcome =
+        service.validate(submissionWith(invoice("INV-1", TODAY.minusDays(1), "A")));
+
+    assertThat(outcome.acceptance().accepted()).containsExactly("INV-1");
+    assertThat(outcome.valid()).isTrue();
+    assertThat(outcome.messages()).anyMatch(m -> m.severity() == Severity.WARNING
+        && m.code().equals("submission.test.warning"));
   }
 
   // -------- fixture builders --------

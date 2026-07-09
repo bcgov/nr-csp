@@ -38,13 +38,16 @@ class SortCodeServiceTest {
 
     SortCodeService sortCodeService;
 
+    private static final LocalDate FIXED_DATE = LocalDate.of(2024, Month.JULY, 22);
+
     @BeforeEach
     void setUp() {
         sortCodeService = new SortCodeService(sortCodeRepository, new CommonValidation(validationLookupRepository));
     }
 
-    private SortCode sampleSortCode(String code) {
-        return new SortCode(code, "Lumber - Cedar", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now());
+    // helper returns a canonical sample sort code used by tests
+    private SortCode sampleSortCode() {
+        return new SortCode("A", "Lumber - Cedar", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), FIXED_DATE);
     }
 
     // ---------------------------------------------------------------
@@ -53,24 +56,24 @@ class SortCodeServiceTest {
 
     @Test
     void listAll_delegatesToRepository() {
-        given(sortCodeRepository.findAll()).willReturn(List.of(sampleSortCode("A")));
+        given(sortCodeRepository.findAll()).willReturn(List.of(sampleSortCode()));
 
         List<SortCode> results = sortCodeService.listAll();
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).sortCode()).isEqualTo("A");
+        assertThat(results.getFirst().sortCode()).isEqualTo("A");
     }
 
     @Test
     void listAll_paged_delegatesToRepository() {
         PageRequest pageable = PageRequest.of(0, 10);
-        Page<SortCode> page = new PageImpl<>(List.of(sampleSortCode("A")), pageable, 1);
+        Page<SortCode> page = new PageImpl<>(List.of(sampleSortCode()), pageable, 1);
         given(sortCodeRepository.findAll(pageable)).willReturn(page);
 
         Page<SortCode> result = sortCodeService.listAll(pageable);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
-        assertThat(result.getContent().get(0).sortCode()).isEqualTo("A");
+        assertThat(result.getContent().getFirst().sortCode()).isEqualTo("A");
     }
 
     // ---------------------------------------------------------------
@@ -82,7 +85,7 @@ class SortCodeServiceTest {
         CreateSortCodeRequest request = new CreateSortCodeRequest(
                 "a", "Lumber", LocalDate.of(1990, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31));
         given(sortCodeRepository.existsByCode("A")).willReturn(false);
-        given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode("A")));
+        given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode()));
 
         sortCodeService.create(request);
 
@@ -117,7 +120,7 @@ class SortCodeServiceTest {
         LocalDate same = LocalDate.of(2024, Month.JUNE, 1);
         CreateSortCodeRequest request = new CreateSortCodeRequest("A", "Lumber", same, same);
         given(sortCodeRepository.existsByCode("A")).willReturn(false);
-        given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode("A")));
+        given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(sampleSortCode()));
 
         sortCodeService.create(request);
 
@@ -160,7 +163,7 @@ class SortCodeServiceTest {
 
     @Test
     void update_validRequest_returnsUpdatedRecord() {
-        SortCode updated = new SortCode("A", "Updated", LocalDate.of(2000, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), LocalDate.now());
+        SortCode updated = new SortCode("A", "Updated", LocalDate.of(2000, Month.JANUARY, 1), LocalDate.of(9999, Month.DECEMBER, 31), FIXED_DATE);
         given(sortCodeRepository.existsByCode("A")).willReturn(true);
         given(sortCodeRepository.findByCode("A")).willReturn(Optional.of(updated));
 

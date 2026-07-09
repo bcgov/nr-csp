@@ -10,8 +10,13 @@ import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.submission.shared.Severity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -30,6 +35,36 @@ class InvoicePartyRulesTest {
   ReferenceDataService referenceData;
 
   private final InvoicePartyRules rules = new InvoicePartyRules();
+
+  private static Stream<Arguments> i21NonErrorCases() {
+    return Stream.of(
+        Arguments.of("client numbers differ", party().submitter("100", "00").other("200", "00").build()),
+        Arguments.of("locations differ", party().submitter("100", "00").other("100", "01").build()),
+        Arguments.of("other party not identified", party().submitter("100", "00").build()),
+        Arguments.of("submitter number blank", party().other("200", "01").build()),
+        Arguments.of("submitter location blank", party().submitter("100", null).other("200", "01").build()),
+        Arguments.of("other party location blank", party().submitter("100", "00").other("200", null).build())
+    );
+  }
+
+  // ---------------------------------------------------------------- validate
+
+  @Test
+  void validate_runs_all_rules_and_passes_for_a_clean_invoice() {
+    given(referenceData.clientLocationExists("100", "00")).willReturn(true);
+    given(referenceData.clientLocationExists("200", "01")).willReturn(true);
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.SELLER)
+        .submitter("100", "00")
+        .other("200", "01")
+        .submission("100", "00")
+        .build();
+
+    rules.validate(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
 
   // ---------------------------------------------------------------- I12
 
@@ -63,6 +98,74 @@ class InvoicePartyRulesTest {
   void i12_passes_when_other_party_not_identified() {
     ValidationCollector collector = new ValidationCollector();
     SubmitterInfo submitter = party().submitter("100", "00").freeText("Acme", "Van", "BC").build();
+
+    rules.otherPartyFieldEmpty(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i12_errors_when_only_city_free_text_present() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .submitter("100", "00")
+        .other("200", "01")
+        .freeText(null, "Van", null)
+        .build();
+
+    rules.otherPartyFieldEmpty(context(collector, submitter));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.otherparty.error");
+  }
+
+  @Test
+  void i12_errors_when_only_province_free_text_present() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .submitter("100", "00")
+        .other("200", "01")
+        .freeText(null, null, "BC")
+        .build();
+
+    rules.otherPartyFieldEmpty(context(collector, submitter));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.otherparty.error");
+  }
+
+  @Test
+  void i12_passes_when_submitter_number_blank() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party().other("200", "01").freeText("Acme", "Van", "BC").build();
+
+    rules.otherPartyFieldEmpty(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i12_passes_when_submitter_location_blank() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .submitter("100", "  ")
+        .other("200", "01")
+        .freeText("Acme", "Van", "BC")
+        .build();
+
+    rules.otherPartyFieldEmpty(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i12_passes_when_other_party_location_blank() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .submitter("100", "00")
+        .other("200", null)
+        .freeText("Acme", "Van", "BC")
+        .build();
 
     rules.otherPartyFieldEmpty(context(collector, submitter));
 
@@ -115,6 +218,61 @@ class InvoicePartyRulesTest {
     assertThat(collector.entries()).isEmpty();
   }
 
+  @Test
+  void i13_passes_when_buyer_not_identified() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.SELLER)
+        .freeText("Acme", "Van", "BC")
+        .build();
+
+    rules.invalidBuyerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i13_passes_when_buyer_location_blank() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.SELLER)
+        .other("200", null)
+        .freeText("Acme", "Van", "BC")
+        .build();
+
+    rules.invalidBuyerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i13_passes_when_name_missing() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.SELLER)
+        .other("200", "01")
+        .freeText(null, "Van", "BC")
+        .build();
+
+    rules.invalidBuyerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i13_passes_when_city_missing() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.SELLER)
+        .other("200", "01")
+        .freeText("Acme", null, "BC")
+        .build();
+
+    rules.invalidBuyerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
   // ---------------------------------------------------------------- I14
 
   @Test
@@ -140,6 +298,75 @@ class InvoicePartyRulesTest {
         .by(SubmittedBy.SELLER)
         .other("200", "01")
         .freeText("Acme", "Van", "BC")
+        .build();
+
+    rules.invalidSellerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i14_passes_when_seller_not_identified() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.BUYER)
+        .freeText("Acme", "Van", "BC")
+        .build();
+
+    rules.invalidSellerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i14_passes_when_seller_location_blank() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.BUYER)
+        .other("200", null)
+        .freeText("Acme", "Van", "BC")
+        .build();
+
+    rules.invalidSellerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i14_passes_when_name_missing() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.BUYER)
+        .other("200", "01")
+        .freeText(null, "Van", "BC")
+        .build();
+
+    rules.invalidSellerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i14_passes_when_city_missing() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.BUYER)
+        .other("200", "01")
+        .freeText("Acme", null, "BC")
+        .build();
+
+    rules.invalidSellerSubmissionCombination(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void i14_passes_when_province_missing() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party()
+        .by(SubmittedBy.BUYER)
+        .other("200", "01")
+        .freeText("Acme", "Van", null)
         .build();
 
     rules.invalidSellerSubmissionCombination(context(collector, submitter));
@@ -197,6 +424,17 @@ class InvoicePartyRulesTest {
     verifyNoInteractions(referenceData);
   }
 
+  @Test
+  void i15_skips_lookup_when_buyer_location_blank() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party().by(SubmittedBy.SELLER).other("200", null).build();
+
+    rules.buyerClientLocationExists(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+    verifyNoInteractions(referenceData);
+  }
+
   // ---------------------------------------------------------------- I16
 
   @Test
@@ -227,6 +465,30 @@ class InvoicePartyRulesTest {
   void i16_skips_lookup_when_seller_blank() {
     ValidationCollector collector = new ValidationCollector();
     SubmitterInfo submitter = party().by(SubmittedBy.SELLER).build();
+
+    rules.sellerClientLocationExists(context(collector, submitter));
+
+    assertThat(collector.entries()).isEmpty();
+    verifyNoInteractions(referenceData);
+  }
+
+  @Test
+  void i16_reads_seller_from_other_party_on_buyer_submission() {
+    given(referenceData.clientLocationExists("400", "03")).willReturn(false);
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party().by(SubmittedBy.BUYER).other("400", "03").build();
+
+    rules.sellerClientLocationExists(context(collector, submitter));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code())
+        .isEqualTo("invoice.seller.client.location.invalid.error");
+  }
+
+  @Test
+  void i16_skips_lookup_when_seller_location_blank() {
+    ValidationCollector collector = new ValidationCollector();
+    SubmitterInfo submitter = party().by(SubmittedBy.SELLER).submitter("100", null).build();
 
     rules.sellerClientLocationExists(context(collector, submitter));
 
@@ -428,30 +690,10 @@ class InvoicePartyRulesTest {
         .isEqualTo("invoice.submitter.equal.other.client.error");
   }
 
-  @Test
-  void i21_passes_when_client_numbers_differ() {
+  @ParameterizedTest(name = "i21 non-error case: {0}")
+  @MethodSource("i21NonErrorCases")
+  void i21_passes_or_is_skipped_for_non_error_cases(String caseName, SubmitterInfo submitter) {
     ValidationCollector collector = new ValidationCollector();
-    SubmitterInfo submitter = party().submitter("100", "00").other("200", "00").build();
-
-    rules.sellerAndBuyerNotSame(context(collector, submitter));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i21_passes_when_locations_differ() {
-    ValidationCollector collector = new ValidationCollector();
-    SubmitterInfo submitter = party().submitter("100", "00").other("100", "01").build();
-
-    rules.sellerAndBuyerNotSame(context(collector, submitter));
-
-    assertThat(collector.entries()).isEmpty();
-  }
-
-  @Test
-  void i21_skipped_when_other_party_not_identified() {
-    ValidationCollector collector = new ValidationCollector();
-    SubmitterInfo submitter = party().submitter("100", "00").build();
 
     rules.sellerAndBuyerNotSame(context(collector, submitter));
 

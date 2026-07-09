@@ -137,6 +137,33 @@ class StructuralValidationServiceTest {
   }
 
   @Test
+  void detects_xml_after_carriage_return() {
+    // '\r' is the one whitespace kind the other tests never lead with; it must
+    // also be skipped by the sniff.
+    byte[] raw = "\r\n<csp:CSPSubmission xmlns:csp=\"http://www.for.gov.bc.ca/schema/csp\"/>"
+        .getBytes();
+
+    SubmissionValidationResult result = service.validate(raw);
+
+    assertThat(result.errors())
+        .noneMatch(e -> e.code().equals("FORMAT_UNRECOGNIZED"));
+  }
+
+  @Test
+  void rejects_payload_with_partial_bom_prefix() {
+    // 0xEF not followed by the full 0xBB 0xBF sequence is not a BOM: the sniff
+    // must not skip it, and the leading byte is not '<', so the format is
+    // unrecognized.
+    SubmissionValidationResult first = service.validate(new byte[]{(byte) 0xEF, 'x', 'y'});
+    assertThat(first.valid()).isFalse();
+    assertThat(first.errors().get(0).code()).isEqualTo("FORMAT_UNRECOGNIZED");
+
+    SubmissionValidationResult second = service.validate(new byte[]{(byte) 0xEF, (byte) 0xBB, 'z'});
+    assertThat(second.valid()).isFalse();
+    assertThat(second.errors().get(0).code()).isEqualTo("FORMAT_UNRECOGNIZED");
+  }
+
+  @Test
   void rejects_unknown_root_element() {
     byte[] junk = ("<?xml version=\"1.0\"?>"
         + "<somethingElse xmlns=\"http://example.com/other\"/>")
