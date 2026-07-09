@@ -81,8 +81,7 @@ public final class LineItemRuleContext {
   /**
    * Record a blocking error against this line (rejects the parent invoice) as a
    * message key + its {@code messages.properties} template args; the text is
-   * resolved at the HTTP boundary (refactor doc §3.5 — there is deliberately no
-   * rendered-text sink).
+   * resolved at the HTTP boundary.
    */
   public void error(String code, Object[] args) {
     collector.add(invoiceIndex, SubmissionValidationError.error(locator, code, args));

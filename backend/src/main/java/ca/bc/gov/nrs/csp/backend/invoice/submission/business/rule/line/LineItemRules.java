@@ -9,13 +9,12 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
 import org.springframework.stereotype.Component;
 
 /**
- * Line-item business rules (catalogue §3, L1–L9). The reference-data rules
- * (L1–L2) live here — they need {@code ctx.referenceData()} and stay
- * channel-side. The pure value rules (L3–L9) are delegated to the shared
- * channel-agnostic {@link InvoiceLineRuleSet} (refactor doc §5) — the same core
+ * Line-item business rules. The reference-data rules
+ * live here — they need {@code ctx.referenceData()} and stay
+ * channel-side. The pure value rules are delegated to the shared
+ * channel-agnostic {@link InvoiceLineRuleSet} — the same core
  * the manual path runs, so the two channels cannot drift; each {@link Finding}
- * is forwarded as a message key + template args (resolved at the HTTP boundary,
- * doc §3.5).
+ * is forwarded as a message key + template args.
  */
 @Component
 public class LineItemRules implements LineItemRule {
@@ -35,7 +34,7 @@ public class LineItemRules implements LineItemRule {
   }
 
   /**
-   * L1 — secondary sort code must be a recognised code active on the invoice
+   * Secondary sort code must be a recognised code active on the invoice
    * date. Template: code, date, line label.
    */
   void secondarySortCodeValid(LineItemRuleContext ctx) {
@@ -47,7 +46,7 @@ public class LineItemRules implements LineItemRule {
   }
 
   /**
-   * L2 — the species + grade combination must exist in CSP_SPECIES_GRADE_XREF.
+   * The species + grade combination must exist in CSP_SPECIES_GRADE_XREF.
    * Template: species, grade, line label.
    */
   void speciesGradeCombinationValid(LineItemRuleContext ctx) {

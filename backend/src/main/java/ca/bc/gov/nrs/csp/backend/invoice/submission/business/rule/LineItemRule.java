@@ -1,7 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule;
 
 /**
- * Line-item-level business rules (catalogue §3, L1–L9). Implemented by a
+ * Line-item-level business rules. Implemented by a
  * {@code @Component} under {@code rule.line} — normally the single
  * {@code LineItemRules} class, with one method per rule. Auto-discovered and run
  * once per line item. Emit findings via {@code ctx.error(...)} /

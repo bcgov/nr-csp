@@ -12,11 +12,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Electronic-path glue for the totals rules (catalogue §2.5, I24–I29). The
- * logic lives in the channel-agnostic {@link InvoiceTotalsRuleSet} (refactor
- * doc §3–§4); this adapter maps the JAXB invoice onto {@link InvoiceTotals},
+ * Electronic-path glue for the totals rules. The
+ * logic lives in the channel-agnostic {@link InvoiceTotalsRuleSet}.
+ * This adapter maps the JAXB invoice onto {@link InvoiceTotals},
  * runs the shared rule set, and forwards each {@link Finding} to the collector
- * as a message key + template args (resolved at the HTTP boundary, doc §3.5).
+ * as a message key + template args.
  */
 @Component
 public class InvoiceTotalsRules implements InvoiceRule {

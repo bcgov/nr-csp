@@ -148,10 +148,6 @@ public class InvoiceValidator {
             addError("invoice.details.missing.error", null);
             return new ValidationResult(messages);
         }
-        // Exact legacy parity (isValidForChangeStatus; refactor doc §7.4.3 N4):
-        // only the approve-by-entry-user and reject-needs-comment checks apply at
-        // status change. The comment-must-change rule runs on SAVE only
-        // (isReviewerCommentUpdate), as it did in legacy.
         if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(newStatus)
                 && Objects.equals(details.entryUserID(), userID)) {
             addError("invoice.entry.user.cannot.approve.it.error", null);
@@ -164,12 +160,6 @@ public class InvoiceValidator {
 
     private boolean checkForInvoiceNumDuplicate(InvoiceDetails details) {
         if (!manual) return true;
-        // Duplicate detection (legacy checkForInvoiceNumDuplicate; refactor doc
-        // §7.4.3 N2): warn when another non-rejected invoice with the same number
-        // exists for the same submitter client number + location and the same
-        // type. SAL matches on the submitter alone; PUR additionally requires the
-        // other party's client number + location to match (a buyer duplicating an
-        // invoice the seller already entered).
         boolean sale = ConstantsCode.INVTYPE_SALE.equals(details.invType());
         boolean purchase = ConstantsCode.INVTYPE_PURCHASE.equals(details.invType());
         if (!sale && !purchase) return true;
@@ -201,13 +191,11 @@ public class InvoiceValidator {
     }
 
     /**
-     * PUR duplicate condition (legacy "Buyer duplicate invoice from seller"): the
-     * existing invoice's other party — the seller when this invoice is submitted
+     * Existing invoice's other party — the seller when this invoice is submitted
      * by the buyer — must carry the same client number + location as this
      * invoice's other party. Legacy also had a participant name/city/province
      * branch, but its guard required the other-party name to be blank AND equal
-     * the participant's name, so it could never fire — intentionally not ported
-     * (refactor doc §7.4.3).
+     * the participant's name, so it could never fire.
      */
     private boolean purchaseOtherPartyMatches(InvoiceDetails details, InvoiceMatch m) {
         boolean submittedBySeller =
@@ -452,13 +440,6 @@ public class InvoiceValidator {
         return true;
     }
 
-    /**
-     * Totals rules I24–I29, delegated to the shared channel-agnostic
-     * {@link InvoiceTotalsRuleSet} (refactor doc §5) — the same core the
-     * electronic path runs, so the two channels cannot drift. Each
-     * {@link Finding} surfaces as a {@link ValidationMessage} whose key + args
-     * resolve from {@code messages.properties} downstream (InvoiceMapper).
-     */
     private boolean checkTotals(InvoiceDetails details, List<LineItem> lines) {
         List<InvoiceTotals.Line> coreLines = new ArrayList<>();
         for (LineItem line : lines) {
@@ -546,11 +527,11 @@ public class InvoiceValidator {
         }
 
         // Validate BOTH the seller and buyer client number + location exist in CSP
-        // (C-03 / C-04). Both are foreign keys on coastal_log_sale, so an invalid
+        // Both are foreign keys on coastal_log_sale, so an invalid
         // value must be caught here with a clear message instead of failing at the
         // database. When the seller submits, the seller IS the submitter, so the
-        // submitter's location is effectively validated too — C-02's "no error"
-        // therefore holds only for valid data, which is the normal ESF case.
+        // submitter's location is effectively validated too.
+        // Therefore holds only for valid data, which is the normal ESF case.
         boolean ok = true;
         if (!isBlank(sellerClientNum) && !isBlank(sellerClientLoc)) {
             if (!checkSubmiterClient(sellerClientNum, sellerClientLoc, "invoice.seller.client.location.invalid.error")) {
@@ -562,7 +543,7 @@ public class InvoiceValidator {
                 ok = false;
             }
         }
-        // C-07 / C-08: only when the seller submits (sellerSubmission = 'Y') must
+        // Only when the seller submits (sellerSubmission = 'Y') must
         // the submitter's (submission's) client number + location match the
         // seller's. The message reads "submission... must match seller...", so the
         // args are {submitter, seller}.

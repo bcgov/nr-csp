@@ -11,17 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Pure, channel-agnostic totals rules (catalogue §2.5, I24–I29). No Spring, no
+ * Pure, channel-agnostic totals rules. No Spring, no
  * DB. Fed an {@link InvoiceTotals}, returns the list of {@link Finding}s — each
- * a message key plus its {@code messages.properties} args, never rendered text
- * (refactor doc §3.5).
- *
- * <p>The behaviour is reconciled against the legacy system of record
- * ({@code ca.bc.gov.mof.csp} {@code InvoiceValidator}) — see the refactor doc
- * §7.1: the variance check mirrors legacy {@code checkValues} (double
- * comparison, always run, null submitted treated as zero) and the calculated
- * amount mirrors legacy {@code bigDecimalMultiplication[ForAdj]} (per-line
- * HALF_UP to 2dp, ADJ keeps a neg×neg product negative).
+ * a message key plus its {@code messages.properties} args, never rendered text.
  */
 public final class InvoiceTotalsRuleSet {
 
@@ -32,16 +24,16 @@ public final class InvoiceTotalsRuleSet {
 
   public static List<Finding> validate(InvoiceTotals t) {
     List<Finding> out = new ArrayList<>();
-    totalAmountNotNegative(t, out);       // I24
-    totalAmountWithinVariance(t, out);    // I25
-    totalVolumeNotNegative(t, out);       // I26
-    totalVolumeWithinVariance(t, out);    // I27
-    totalPiecesNotNegative(t, out);       // I28
-    totalPiecesMatchesCalculated(t, out); // I29
+    totalAmountNotNegative(t, out);
+    totalAmountWithinVariance(t, out);
+    totalVolumeNotNegative(t, out);
+    totalVolumeWithinVariance(t, out);
+    totalPiecesNotNegative(t, out);
+    totalPiecesMatchesCalculated(t, out);
     return out;
   }
 
-  /** I24 — total amount cannot be negative (except ADJ) (ERROR). */
+  /** Total amount cannot be negative (except ADJ) (ERROR). */
   private static void totalAmountNotNegative(InvoiceTotals t, List<Finding> out) {
     if (isAdjustment(t)) {
       return;
@@ -52,7 +44,7 @@ public final class InvoiceTotalsRuleSet {
     }
   }
 
-  /** I25 — submitted total amount within ±$5.00 of calculated (WARNING). Applies to all types. */
+  /** Submitted total amount within ±$5.00 of calculated (WARNING). Applies to all types. */
   private static void totalAmountWithinVariance(InvoiceTotals t, List<Finding> out) {
     BigDecimal submitted = t.submittedAmount();
     BigDecimal calculated = calculatedTotalAmount(t);
@@ -62,7 +54,7 @@ public final class InvoiceTotalsRuleSet {
     }
   }
 
-  /** I26 — total volume cannot be negative (except ADJ) (ERROR). */
+  /** Total volume cannot be negative (except ADJ) (ERROR). */
   private static void totalVolumeNotNegative(InvoiceTotals t, List<Finding> out) {
     if (isAdjustment(t)) {
       return;
@@ -73,7 +65,7 @@ public final class InvoiceTotalsRuleSet {
     }
   }
 
-  /** I27 — submitted total volume within ±5.00 of calculated (WARNING). */
+  /** Submitted total volume within ±5.00 of calculated (WARNING). */
   private static void totalVolumeWithinVariance(InvoiceTotals t, List<Finding> out) {
     BigDecimal submitted = t.submittedVolume();
     BigDecimal calculated = calculatedTotalVolume(t);
@@ -83,7 +75,7 @@ public final class InvoiceTotalsRuleSet {
     }
   }
 
-  /** I28 — total pieces cannot be negative (except ADJ) (ERROR). */
+  /** Total pieces cannot be negative (except ADJ) (ERROR). */
   private static void totalPiecesNotNegative(InvoiceTotals t, List<Finding> out) {
     if (isAdjustment(t)) {
       return;
@@ -95,7 +87,7 @@ public final class InvoiceTotalsRuleSet {
   }
 
   /**
-   * I29 — submitted total pieces must match calculated (WARNING). The permitted
+   * Submitted total pieces must match calculated (WARNING). The permitted
    * variance constant is 0, so the window collapses to an exact match; an absent
    * submitted total defaults to 0 (pieces is the one optional total).
    */

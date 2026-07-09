@@ -8,13 +8,12 @@ import java.util.Locale;
 
 /**
  * Trims and upper-cases the free-text identifiers on a submission so that
- * downstream reference-data lookups compare against the canonical stored form
- * (the legacy app stores these upper-cased — see rule-doc §0B). Run by
- * {@code BusinessValidationService} on each invoice before the rules execute.
+ * downstream reference-data lookups compare against the canonical stored form.
+ * Run by {@code BusinessValidationService} on each invoice before the rules execute.
  *
  * <p>Normalises the invoice-level identifiers carried on {@link CSPInvoiceType}
  * and the detail-level source-document identifiers (boom numbers, timber marks,
- * weigh slips) — the latter so the I38 boom-number duplicate lookup matches the
+ * weigh slips) — the latter so the boom-number duplicate lookup matches the
  * upper-cased stored references.
  */
 @Component

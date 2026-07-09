@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Pure source-document helpers shared by both channels (catalogue I31). The
+ * Pure source-document helpers shared by both channels. The
  * electronic path de-duplicates its CSV strings in
  * {@code InvoiceSourceDocumentRules#deduplicateCsv}; the manual path
  * de-duplicates its lists here (called from {@code InvoiceMapper} at the

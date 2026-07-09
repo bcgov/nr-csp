@@ -51,13 +51,6 @@ public class InvoiceLineValidator {
         return new ValidationResult(messages);
     }
 
-    /**
-     * Value rules L3–L9 (grade / pieces / volume / price), delegated to the
-     * shared channel-agnostic {@link InvoiceLineRuleSet} (refactor doc §5) —
-     * the same core the electronic path runs, so the two channels cannot
-     * drift. Each {@link Finding} surfaces as a {@code ValidationMessage}
-     * whose key + args resolve from {@code messages.properties} downstream.
-     */
     private void checkLineValues(LineItem line) {
         InvoiceLine coreLine = new InvoiceLine(invType, lineLabel,
                 line.grade(), line.numOfPieces(), line.volume(), line.price());

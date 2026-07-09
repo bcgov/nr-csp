@@ -11,27 +11,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * §2.6 Source-document reference rules (Boom Numbers / Timber Marks / Weigh
- * Slips). All three fields are comma-separated values carried on the invoice
- * details. Most rules are pure CSV checks; I38 uses {@code ctx.referenceData()}.
- * The de-duplication transform (I31) runs first and rewrites the details in
- * place, so the count (I32–I34), token-length (I35–I37) and duplicate (I38)
- * checks all see the de-duplicated list — matching the legacy ordering (see
- * {@code docs/submission-validation-business-rules.md}).
- *
- * <ul>
- *   <li>I30 — at least one of boom / timber / weigh must be present (ERROR)</li>
- *   <li>I31 — duplicate values within a CSV are de-duplicated (transform, not a finding)</li>
- *   <li>I32 — at most 10 boom numbers (ERROR)</li>
- *   <li>I33 — at most 10 timber marks (ERROR)</li>
- *   <li>I34 — at most 10 weigh slips (ERROR)</li>
- *   <li>I35 — each boom-number token ≤ 20 chars (ERROR)</li>
- *   <li>I36 — each timber-mark token ≤ 6 chars (ERROR)</li>
- *   <li>I37 — each weigh-slip token ≤ 100 chars (ERROR)</li>
- *   <li>I38 — boom number already used by another invoice (WARNING)</li>
- * </ul>
- */
 @Component
 public class InvoiceSourceDocumentRules implements InvoiceRule {
 
@@ -44,15 +23,15 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
 
   @Override
   public void validate(InvoiceRuleContext ctx) {
-    atLeastOneSourceDocument(ctx);            // I30
-    deduplicateSourceDocuments(ctx);          // I31 (transform — rewrites the details)
-    boomNumbersWithinMax(ctx);                // I32
-    timberMarksWithinMax(ctx);                // I33
-    weighSlipsWithinMax(ctx);                 // I34
-    boomTokensWithinMaxLength(ctx);           // I35
-    timberTokensWithinMaxLength(ctx);         // I36
-    weighTokensWithinMaxLength(ctx);          // I37
-    boomNumbersNotUsedByAnotherInvoice(ctx);  // I38
+    atLeastOneSourceDocument(ctx);
+    deduplicateSourceDocuments(ctx);
+    boomNumbersWithinMax(ctx);
+    timberMarksWithinMax(ctx);
+    weighSlipsWithinMax(ctx);
+    boomTokensWithinMaxLength(ctx);
+    timberTokensWithinMaxLength(ctx);
+    weighTokensWithinMaxLength(ctx);
+    boomNumbersNotUsedByAnotherInvoice(ctx);
   }
 
   /** At least one of Boom Number / Timber Mark / Weigh Slip must be present (ERROR). */
@@ -63,7 +42,7 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
   }
 
   /**
-   * Silently de-duplicates each source-document CSV in place (I31). Duplicate
+   * Silently de-duplicates each source-document CSV in place. Duplicate
    * tokens are dropped, not rejected; the remaining tokens keep their order.
    * Runs before the count / length / duplicate checks so they see the reduced
    * list.
@@ -78,19 +57,19 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
     details.setWeighSlipNumbers(deduplicateCsv(details.getWeighSlipNumbers()));
   }
 
-  /** At most 10 Boom Numbers (ERROR). */
+  /** At most 5 Boom Numbers (ERROR). */
   void boomNumbersWithinMax(InvoiceRuleContext ctx) {
     csvWithinMax(ctx, boomNumbers(ctx), ConstantsCode.MAXOFCSVFORBOOMNUMBERS,
         "invoice.morethan.Max.boomnumbers.error", BOOM_LABEL);
   }
 
-  /** At most 10 Timber Marks (ERROR). */
+  /** At most 5 Timber Marks (ERROR). */
   void timberMarksWithinMax(InvoiceRuleContext ctx) {
     csvWithinMax(ctx, timberMarks(ctx), ConstantsCode.MAXOFCSVFORTIMBERMARKS,
         "invoice.morethan.Max.timbermarks.error", TIMBER_LABEL);
   }
 
-  /** At most 10 Weigh Slips (ERROR). */
+  /** At most 5 Weigh Slips (ERROR). */
   void weighSlipsWithinMax(InvoiceRuleContext ctx) {
     csvWithinMax(ctx, weighSlips(ctx), ConstantsCode.MAXOFCSVFORWEIGHSLIPS,
         "invoice.morethan.Max.weighslips.error", WEIGH_LABEL);
@@ -113,7 +92,7 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
 
   /**
    * A Boom Number already recorded on another invoice raises a duplicate
-   * warning (I38). Every token is checked — the legacy loop skipped the last
+   * warning. Every token is checked — the legacy loop skipped the last
    * token (an off-by-one bug); the new implementation reports all of them.
    */
   void boomNumbersNotUsedByAnotherInvoice(InvoiceRuleContext ctx) {

@@ -125,7 +125,7 @@ public class InvoicePartyRules implements InvoiceRule {
    * (ERROR). Legacy enforced this for BOTH seller and buyer submissions — the
    * invoice-level clientNumber it compared was the submission client — while
    * emitting the seller-worded message key in both directions; matched here
-   * exactly (refactor doc §7.4.3 P2).
+   * exactly.
    */
   void submissionNumberEqualsSubmitterNumber(InvoiceRuleContext ctx) {
     SubmitterInfo submitter = ctx.submitter();

@@ -14,7 +14,7 @@ public class SubmissionEnvelopeException extends Exception {
   /**
    * @param message rendered diagnostic detail — used for logs / stack traces only.
    * @param args the {@code messages.properties} template args for {@code code};
-   *     this is what reaches the user-facing response (refactor doc §3.5).
+   *     this is what reaches the user-facing response.
    */
   public SubmissionEnvelopeException(String code, String message, Object[] args) {
     super(message);

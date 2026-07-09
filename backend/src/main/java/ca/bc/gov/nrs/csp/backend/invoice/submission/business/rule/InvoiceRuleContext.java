@@ -112,7 +112,7 @@ public final class InvoiceRuleContext {
   /**
    * Record a blocking error against this invoice as a message key + its
    * {@code messages.properties} template args; the text is resolved at the HTTP
-   * boundary (refactor doc §3.5 — there is deliberately no rendered-text sink).
+   * boundary.
    */
   public void error(String code, Object[] args) {
     collector.add(invoiceIndex, SubmissionValidationError.error(locator, code, args));

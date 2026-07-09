@@ -16,7 +16,7 @@ import java.util.Optional;
  * each rule-shaped lookup delegates to the app's existing repositories
  *
  * <p>The only business logic living at this layer is the small ESF-shaped
- * adaptation some lookups need: the C3 "maturity M → O" substitution and the
+ * adaptation some lookups need: the "maturity M → O" substitution and the
  * "ESF submissions are always new" null-invoice exclusions.
  */
 @Component

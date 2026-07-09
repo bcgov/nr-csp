@@ -1,8 +1,8 @@
 package ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule;
 
 /**
- * Invoice-level business rules (catalogue §2, I1–I41). Implemented by one
- * {@code @Component} per §2 sub-section under {@code rule.invoice}
+ * Invoice-level business rules. Implemented by one
+ * {@code @Component} sub-section under {@code rule.invoice}
  * ({@code InvoiceTypeRules}, {@code InvoiceReferenceRules}, {@code InvoicePartyRules},
  * {@code InvoiceCodeRules}, {@code InvoiceTotalsRules}, {@code InvoiceSourceDocumentRules},
  * {@code InvoiceDateRules}, {@code InvoiceLineItemPresenceRules}). Each is a
