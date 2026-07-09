@@ -103,4 +103,16 @@ class DefaultReferenceDataServiceTest {
     given(invoices.isMonthCompleted(DATE, "100", "00", null)).willReturn(true);
     assertThat(service.isMonthComplete(DATE, "100", "00")).isTrue();
   }
+
+  @Test
+  void boom_number_duplicate_counts_other_invoices_excluding_none() {
+    given(invoices.countBoomNumberDuplicates(null, "BOOM", "B1")).willReturn(2);
+    assertThat(service.boomNumberUsedByAnotherInvoice("B1")).isTrue();
+  }
+
+  @Test
+  void boom_number_duplicate_is_false_when_not_used_elsewhere() {
+    given(invoices.countBoomNumberDuplicates(null, "BOOM", "B1")).willReturn(0);
+    assertThat(service.boomNumberUsedByAnotherInvoice("B1")).isFalse();
+  }
 }

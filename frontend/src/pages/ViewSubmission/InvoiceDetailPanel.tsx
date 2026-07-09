@@ -27,22 +27,16 @@ const lineItemColumns: ResultsTableColumn<LineItemRow>[] = [
   {
     key: 'pieces',
     header: '# Pieces',
-    headerAlign: 'right',
-    cellAlign: 'right',
     renderCell: (r) => formatNumber(r.pieces),
   },
   {
     key: 'volume',
     header: 'Volume',
-    headerAlign: 'right',
-    cellAlign: 'right',
     renderCell: (r) => formatNumber(r.volume == null ? null : Number(r.volume), 3),
   },
   {
     key: 'price',
     header: 'Price',
-    headerAlign: 'right',
-    cellAlign: 'right',
     renderCell: (r) => formatNumber(r.price == null ? null : Number(r.price), 2),
   },
 ];

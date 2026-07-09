@@ -45,4 +45,7 @@ public interface ReferenceDataService {
 
   /** I40 — whether the invoice date falls in a month already flagged Complete for the client. */
   boolean isMonthComplete(LocalDate invoiceDate, String clientNumber, String locnCode);
+
+  /** I38 — whether a boom number is already recorded as a source document on another invoice. */
+  boolean boomNumberUsedByAnotherInvoice(String boomNumber);
 }
