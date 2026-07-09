@@ -88,6 +88,18 @@
     padding: $spacing-05;
   }
 
+  // Detail label/value sizing for the top-level cards (not the invoice detail
+  // panel, which keeps its own Figma sizing): 14px labels, 16px values.
+  .detail-section:not(.invoice-detail-panel__details) {
+    .detail-section__label {
+      font-size: 0.875rem; // 14px
+    }
+
+    .detail-section__value {
+      font-size: 1rem; // 16px
+    }
+  }
+
   // The invoices band carries the title + summary on the left and the
   // expand/collapse actions on the right.
   &__invoices-header {
@@ -96,8 +108,8 @@
     justify-content: space-between;
     gap: $spacing-05;
     flex-wrap: wrap;
-    // The invoices card keeps a white header band.
-    background: theme.$layer-01;
+    // Light-grey header band, matching the detail cards.
+    background: theme.$background;
   }
 
   &__section-title {
@@ -108,6 +120,7 @@
 
   &__section-count {
     @include type.type-style('label-01');
+    font-size: 0.875rem; // 14px
     color: theme.$text-secondary;
     margin: 0;
   }
@@ -118,6 +131,11 @@
     gap: $spacing-03;
     color: theme.$text-secondary;
     white-space: nowrap;
+    font-size: 1rem; // 16px separator + links
+
+    .cds--link {
+      font-size: 1rem; // 16px, overriding Carbon's 14px link size
+    }
   }
 
   // Parent invoice rows read as a light-grey band ($background → #f4f4f4). The
