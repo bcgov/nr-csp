@@ -34,6 +34,20 @@ class InvoiceReferenceRulesTest {
 
   private final InvoiceReferenceRules rules = new InvoiceReferenceRules();
 
+  // ---------------------------------------------------------------- validate
+
+  @Test
+  void validate_runs_all_rules_and_passes_when_no_references_are_populated() {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(context(collector, null, null));
+
+    assertThat(collector.entries()).isEmpty();
+    verifyNoInteractions(referenceData);
+  }
+
+  // ---------------------------------------------------------------- I4
+
   @Test
   void i4_errors_when_both_replaces_and_adjusts_are_populated() {
     ValidationCollector collector = new ValidationCollector();
@@ -289,6 +303,17 @@ class InvoiceReferenceRulesTest {
 
     assertThat(collector.entries()).isEmpty();
     verifyNoInteractions(referenceData);
+  }
+
+  @Test
+  void i9_trims_tokens_and_skips_blank_entries() {
+    given(referenceData.findInvoices("INV-2", "100", "00"))
+        .willReturn(List.of(new InvoiceRef("INV-2", "APP")));
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.adjustedInvoiceNotCancelled(adjustContext(collector, " INV-2 , ", "100", "00"));
+
+    assertThat(collector.entries()).isEmpty();
   }
 
   // ---------------------------------------------------------------- I10

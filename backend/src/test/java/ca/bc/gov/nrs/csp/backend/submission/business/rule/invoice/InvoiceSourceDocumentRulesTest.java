@@ -50,7 +50,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.validate(context(collector, null, null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
+    assertThat(collector.entries().getFirst().error().code())
         .isEqualTo("invoice.oneofthe.boom.timber.wiegh.requiered.error");
   }
 
@@ -63,9 +63,9 @@ class InvoiceSourceDocumentRulesTest {
     rules.atLeastOneSourceDocument(context(collector, null, null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
+    assertThat(collector.entries().getFirst().error().code())
         .isEqualTo("invoice.oneofthe.boom.timber.wiegh.requiered.error");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
+    assertThat(collector.entries().getFirst().error().severity()).isEqualTo(Severity.ERROR);
   }
 
   @Test
@@ -75,7 +75,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.atLeastOneSourceDocument(contextWithoutDetails(collector));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
+    assertThat(collector.entries().getFirst().error().code())
         .isEqualTo("invoice.oneofthe.boom.timber.wiegh.requiered.error");
   }
 
@@ -148,9 +148,9 @@ class InvoiceSourceDocumentRulesTest {
     rules.boomNumbersWithinMax(context(collector, elevenTokens(), null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
+    assertThat(collector.entries().getFirst().error().code())
         .isEqualTo("invoice.morethan.Max.boomnumbers.error");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
+    assertThat(collector.entries().getFirst().error().severity()).isEqualTo(Severity.ERROR);
   }
 
   @Test
@@ -160,7 +160,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.timberMarksWithinMax(context(collector, null, elevenTokens(), null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
+    assertThat(collector.entries().getFirst().error().code())
         .isEqualTo("invoice.morethan.Max.timbermarks.error");
   }
 
@@ -171,7 +171,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.weighSlipsWithinMax(context(collector, null, null, elevenTokens()));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code())
+    assertThat(collector.entries().getFirst().error().code())
         .isEqualTo("invoice.morethan.Max.weighslips.error");
   }
 
@@ -195,9 +195,9 @@ class InvoiceSourceDocumentRulesTest {
     rules.boomTokensWithinMaxLength(context(collector, "OK," + tooLong, null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.tokennumber.lenght.error");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-    assertThat(collector.entries().get(0).error().message()).contains(tooLong).doesNotContain("OK,");
+    assertThat(collector.entries().getFirst().error().code()).isEqualTo("invoice.tokennumber.lenght.error");
+    assertThat(collector.entries().getFirst().error().severity()).isEqualTo(Severity.ERROR);
+    assertThat(collector.entries().getFirst().error().message()).contains(tooLong).doesNotContain("OK,");
   }
 
   @Test
@@ -207,7 +207,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.timberTokensWithinMaxLength(context(collector, null, "TOOLONG", null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.tokennumber.lenght.error");
+    assertThat(collector.entries().getFirst().error().code()).isEqualTo("invoice.tokennumber.lenght.error");
   }
 
   @Test
@@ -228,8 +228,6 @@ class InvoiceSourceDocumentRulesTest {
     assertThat(collector.entries()).isEmpty();
   }
 
-  // ---------------------------------------------------------------- I38
-
   @Test
   void i38_warns_listing_boom_numbers_already_used_by_another_invoice() {
     given(referenceData.boomNumberUsedByAnotherInvoice("B1")).willReturn(true);
@@ -239,9 +237,9 @@ class InvoiceSourceDocumentRulesTest {
     rules.boomNumbersNotUsedByAnotherInvoice(context(collector, "B1,B2", null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.boomnumber.duplicate.warning");
-    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.WARNING);
-    assertThat(collector.entries().get(0).error().message()).contains("B1").doesNotContain("B2");
+    assertThat(collector.entries().getFirst().error().code()).isEqualTo("invoice.boomnumber.duplicate.warning");
+    assertThat(collector.entries().getFirst().error().severity()).isEqualTo(Severity.WARNING);
+    assertThat(collector.entries().getFirst().error().message()).contains("B1").doesNotContain("B2");
   }
 
   @Test
@@ -253,7 +251,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.boomNumbersNotUsedByAnotherInvoice(context(collector, "B1,B2", null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().message()).contains("B2");
+    assertThat(collector.entries().getFirst().error().message()).contains("B2");
   }
 
   @Test
@@ -264,7 +262,7 @@ class InvoiceSourceDocumentRulesTest {
     rules.boomNumbersNotUsedByAnotherInvoice(context(collector, "B1, ,", null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().message()).contains("B1");
+    assertThat(collector.entries().getFirst().error().message()).contains("B1");
   }
 
   @Test

@@ -231,20 +231,18 @@ class InvoiceLineValidatorTest {
     }
 
     private void assertHasError(ValidationResult r, String key) {
-        assertThat(r.errors().stream().map(ValidationMessage::messageKey).toList())
+        assertThat(r.errors()).extracting(ValidationMessage::messageKey)
                 .as("expected error with key %s", key)
                 .contains(key);
     }
 
     private void assertHasWarning(ValidationResult r, String key) {
-        assertThat(r.warnings().stream().map(ValidationMessage::messageKey).toList())
+        assertThat(r.warnings()).extracting(ValidationMessage::messageKey)
                 .as("expected warning with key %s", key)
                 .contains(key);
     }
 
     private void assertNoError(ValidationResult r, String key) {
-        assertThat(r.errors().stream().map(ValidationMessage::messageKey).toList())
-                .as("expected no error with key %s", key)
-                .doesNotContain(key);
+        assertThat(r.errors()).filteredOn(m -> m.messageKey().equals(key)).isEmpty();
     }
 }

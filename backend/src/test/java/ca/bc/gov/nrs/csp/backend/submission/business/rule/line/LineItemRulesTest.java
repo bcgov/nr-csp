@@ -20,6 +20,7 @@ import java.time.Month;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * Template for testing a line rule: call the rule's method directly and assert
@@ -68,6 +69,16 @@ class LineItemRulesTest {
     rules.secondarySortCodeValid(lineContext(collector, line -> line.setSecondarySortCode("")));
 
     assertThat(collector.entries()).hasSize(1);
+  }
+
+  @Test
+  void secondarySortCode_errors_when_null_without_hitting_the_db() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.secondarySortCodeValid(lineContext(collector, line -> line.setSecondarySortCode(null)));
+
+    assertThat(collector.entries()).hasSize(1);
+    verifyNoInteractions(referenceData);
   }
 
   // --- L2 species + grade combination -----------------------------------------
@@ -193,6 +204,24 @@ class LineItemRulesTest {
   }
 
   @Test
+  void volume_passes_when_positive() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.volumeNotNegative(lineContext(collector, "SAL", line -> line.setVolume(BigDecimal.ONE)));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void volume_passes_when_null() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.volumeNotNegative(lineContext(collector, "SAL", line -> line.setVolume(null)));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
   void volume_negative_relaxed_for_adjustment() throws Exception {
     ValidationCollector collector = new ValidationCollector();
 
@@ -222,6 +251,24 @@ class LineItemRulesTest {
     assertThat(collector.entries()).isEmpty();
   }
 
+  @Test
+  void volume_zero_warning_silent_when_volume_positive() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.volumeZeroWarning(lineContext(collector, "SAL", line -> line.setVolume(BigDecimal.ONE)));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void volume_zero_warning_silent_when_volume_null() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.volumeZeroWarning(lineContext(collector, "SAL", line -> line.setVolume(null)));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
   // --- L8 / L9 price ----------------------------------------------------------
 
   @Test
@@ -234,6 +281,24 @@ class LineItemRulesTest {
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.price.negative.value.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
+  }
+
+  @Test
+  void price_passes_when_positive() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.priceNotNegative(lineContext(collector, "SAL", line -> line.setPrice(BigDecimal.ONE)));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void price_passes_when_null() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.priceNotNegative(lineContext(collector, "SAL", line -> line.setPrice(null)));
+
+    assertThat(collector.entries()).isEmpty();
   }
 
   @Test
@@ -262,6 +327,24 @@ class LineItemRulesTest {
     ValidationCollector collector = new ValidationCollector();
 
     rules.priceZeroWarning(lineContext(collector, "ADJ", line -> line.setPrice(BigDecimal.ZERO)));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void price_zero_warning_silent_when_price_positive() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.priceZeroWarning(lineContext(collector, "SAL", line -> line.setPrice(BigDecimal.ONE)));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void price_zero_warning_silent_when_price_null() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.priceZeroWarning(lineContext(collector, "SAL", line -> line.setPrice(null)));
 
     assertThat(collector.entries()).isEmpty();
   }

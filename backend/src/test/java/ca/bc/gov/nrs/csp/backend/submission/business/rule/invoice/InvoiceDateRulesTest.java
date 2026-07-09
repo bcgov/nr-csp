@@ -64,6 +64,19 @@ class InvoiceDateRulesTest {
   }
 
   @Test
+  void dateNotInFuture_is_skipped_when_date_absent() {
+    ValidationCollector collector = new ValidationCollector();
+    CSPInvoiceType invoice = new CSPInvoiceType();
+    invoice.setInvoiceNumber("INV-1");
+    InvoiceRuleContext ctx = new InvoiceRuleContext(
+        new CSPSubmissionType(), invoice, 0, submitterInfo("100", "00"), referenceData, collector);
+
+    rules.dateNotInFuture(ctx);
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
   void invoiceMonthCompleted_warns_when_month_is_complete() throws Exception {
     given(referenceData.isMonthComplete(TODAY, "100", "00")).willReturn(true);
     ValidationCollector collector = new ValidationCollector();

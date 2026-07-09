@@ -8,6 +8,8 @@ import ca.bc.gov.nrs.csp.backend.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.submission.shared.Severity;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -18,6 +20,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InvoiceLineItemPresenceRulesTest {
 
   private final InvoiceLineItemPresenceRules rules = new InvoiceLineItemPresenceRules();
+
+  @Test
+  void validate_runs_the_line_item_check() {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(context(collector, false));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.noline.item.error");
+  }
+
+  @Test
+  void lineItemExists_errors_when_the_line_item_list_is_null() {
+    ValidationCollector collector = new ValidationCollector();
+    CSPInvoiceType invoice = new CSPInvoiceType() {
+      @Override
+      public List<CSPLineItemType> getCSPLineItem() {
+        return null;
+      }
+    };
+    invoice.setInvoiceNumber("INV-1");
+
+    rules.lineItemExists(
+        new InvoiceRuleContext(new CSPSubmissionType(), invoice, 0, null, null, collector));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.noline.item.error");
+  }
 
   @Test
   void lineItemExists_errors_when_there_are_no_line_items() {
