@@ -1,5 +1,8 @@
 package ca.bc.gov.nrs.csp.backend.invoice.submission.shared;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * A single validation message, shared by both validation phases.
  *
@@ -22,9 +25,33 @@ package ca.bc.gov.nrs.csp.backend.invoice.submission.shared;
  *
  * <p>The controller maps these onto the app's {@code ValidationMessageResponse}
  * at the HTTP boundary.
+ *
+ * <p>equals/hashCode/toString are overridden because the record default compares the
+ * {@code Object[]} component by reference; errors with identical args must be equal.
  */
 public record SubmissionValidationError(
     String path, String code, Object[] args, Severity severity) {
+
+  @Override
+  public boolean equals(Object o) {
+    return o instanceof SubmissionValidationError(
+            String otherPath, String otherCode, Object[] otherArgs, Severity otherSeverity)
+        && Objects.equals(path, otherPath)
+        && Objects.equals(code, otherCode)
+        && Arrays.deepEquals(args, otherArgs)
+        && severity == otherSeverity;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(path, code, Arrays.deepHashCode(args), severity);
+  }
+
+  @Override
+  public String toString() {
+    return "SubmissionValidationError[path=" + path + ", code=" + code
+        + ", args=" + Arrays.deepToString(args) + ", severity=" + severity + "]";
+  }
 
   // ── Structural factories (always ERROR) ─────────────────────────────
 

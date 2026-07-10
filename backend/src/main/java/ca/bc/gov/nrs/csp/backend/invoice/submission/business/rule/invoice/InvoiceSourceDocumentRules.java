@@ -60,19 +60,19 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
   /** At most 5 Boom Numbers (ERROR). */
   void boomNumbersWithinMax(InvoiceRuleContext ctx) {
     csvWithinMax(ctx, boomNumbers(ctx), ConstantsCode.MAXOFCSVFORBOOMNUMBERS,
-        "invoice.morethan.Max.boomnumbers.error", BOOM_LABEL);
+        "invoice.morethan.Max.boomnumbers.error");
   }
 
   /** At most 5 Timber Marks (ERROR). */
   void timberMarksWithinMax(InvoiceRuleContext ctx) {
     csvWithinMax(ctx, timberMarks(ctx), ConstantsCode.MAXOFCSVFORTIMBERMARKS,
-        "invoice.morethan.Max.timbermarks.error", TIMBER_LABEL);
+        "invoice.morethan.Max.timbermarks.error");
   }
 
   /** At most 5 Weigh Slips (ERROR). */
   void weighSlipsWithinMax(InvoiceRuleContext ctx) {
     csvWithinMax(ctx, weighSlips(ctx), ConstantsCode.MAXOFCSVFORWEIGHSLIPS,
-        "invoice.morethan.Max.weighslips.error", WEIGH_LABEL);
+        "invoice.morethan.Max.weighslips.error");
   }
 
   /** Each Boom Number token ≤ 20 chars (ERROR). */
@@ -118,8 +118,7 @@ public class InvoiceSourceDocumentRules implements InvoiceRule {
   }
 
   /** Reports an ERROR when a CSV holds more than {@code max} items. Template: the max. */
-  private void csvWithinMax(
-      InvoiceRuleContext ctx, String csv, int max, String code, String label) {
+  private void csvWithinMax(InvoiceRuleContext ctx, String csv, int max, String code) {
     if (isBlank(csv)) {
       return;
     }

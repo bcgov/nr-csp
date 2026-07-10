@@ -9,7 +9,7 @@ package ca.bc.gov.nrs.csp.backend.invoice.submission.structural.parser;
 public class SubmissionEnvelopeException extends Exception {
 
   private final String code;
-  private final Object[] args;
+  private final transient Object[] args;
 
   /**
    * @param message rendered diagnostic detail — used for logs / stack traces only.

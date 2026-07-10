@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Locale;
 
@@ -151,7 +152,7 @@ class CspSubmissionControllerTest {
     void business_invalid_returns422WithErrors() throws Exception {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.error("invoice INV-1", "invoice.date.in.future.error",
-                        new Object[]{"INV-1", LocalDate.of(2026, 1, 1)})));
+                        new Object[]{"INV-1", LocalDate.of(2026, Month.JANUARY, 1)})));
         given(validationService.validateBusiness(any())).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
@@ -218,7 +219,7 @@ class CspSubmissionControllerTest {
                 true,
                 List.of(SubmissionValidationError.error("invoice INV-BAD",
                         "invoice.date.in.future.error",
-                        new Object[]{"INV-BAD", LocalDate.of(2026, 1, 1)})),
+                        new Object[]{"INV-BAD", LocalDate.of(2026, Month.JANUARY, 1)})),
                 new SubmissionAcceptance(List.of("INV-GOOD"), List.of("INV-BAD")));
         given(validationService.validateBusiness(any())).willReturn(partial);
 

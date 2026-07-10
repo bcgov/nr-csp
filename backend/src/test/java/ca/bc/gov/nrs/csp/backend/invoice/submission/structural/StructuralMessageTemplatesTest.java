@@ -35,8 +35,6 @@ class StructuralMessageTemplatesTest {
       "ENVELOPE_NO_BODY", "ENVELOPE_EXTRACTION_FAILED"
   })
   void every_structural_code_has_a_bundle_entry(String code) {
-    // getMessage with a null default would throw if the key were missing;
-    // resolving against the key-as-default and comparing proves presence.
     String resolved = messageSource.getMessage(code, new Object[] {"d1", "d2"}, code, Locale.getDefault());
     assertThat(resolved).isNotEqualTo(code);
   }

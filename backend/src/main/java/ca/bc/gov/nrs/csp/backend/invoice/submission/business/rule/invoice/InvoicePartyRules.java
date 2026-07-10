@@ -167,15 +167,14 @@ public class InvoicePartyRules implements InvoiceRule {
     String otherParty =
         submitter.submittedBy() == SubmitterInfo.SubmittedBy.SELLER ? "buyer" : "seller";
 
-    requireOtherPartyField(ctx, otherParty, submitter.otherPartyName(), "name", "otherPartyName");
-    requireOtherPartyField(ctx, otherParty, submitter.otherPartyCity(), "city", "otherPartyCity");
-    requireOtherPartyField(
-        ctx, otherParty, submitter.otherPartyProvState(), "province", "otherPartyProvinceState");
+    requireOtherPartyField(ctx, otherParty, submitter.otherPartyName(), "name");
+    requireOtherPartyField(ctx, otherParty, submitter.otherPartyCity(), "city");
+    requireOtherPartyField(ctx, otherParty, submitter.otherPartyProvState(), "province");
   }
 
   /** Records the "other-party field required" error for one free-text field (0-arg templates). */
   private static void requireOtherPartyField(
-      InvoiceRuleContext ctx, String otherParty, String value, String keySegment, String label) {
+      InvoiceRuleContext ctx, String otherParty, String value, String keySegment) {
     if (isBlank(value)) {
       ctx.error("invoice.otherparty." + otherParty + "." + keySegment + ".required.error", NO_ARGS);
     }
