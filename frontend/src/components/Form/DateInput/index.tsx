@@ -189,12 +189,10 @@ const DateInput: FC<DateInputProps> = ({
         datePickerType="single"
         dateFormat={dateFormat}
         className="date-input"
-        style={{ width: '100%' }}
         value={normalisedValue}
         invalid={invalid}
         warn={!invalid && inputInvalid}
         onChange={handleCalendarChange}
-        disabled={disabled}
       >
         <DatePickerInput
           id={id}

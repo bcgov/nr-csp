@@ -58,10 +58,19 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
+      globals: true,
+      // happy-dom is the installed DOM environment (jsdom is not a dependency);
+      // the node project overrides this anyway and the browser project uses
+      // real Chromium, so this only serves as the default.
+      environment: 'happy-dom',
+      setupFiles: './src/test-setup.ts',
       coverage: {
         provider: 'v8',
         reportsDirectory: './coverage',
         reporter: ['text', 'json', 'html', 'clover', 'lcov'],
+        // Only measure source files; without this, compiled output in build/
+        // and static scripts in public/ show up as 0%-covered files.
+        include: ['src/**'],
       },
       projects: [
         {

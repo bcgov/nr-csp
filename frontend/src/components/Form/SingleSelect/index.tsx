@@ -8,6 +8,14 @@ import './index.scss';
 // when the parent's state is null/undefined.
 const BLANK_SENTINEL: unique symbol = Symbol('single-select-blank');
 
+// Carbon requires `label`, but this wrapper supplies a 'Select...' default,
+// so callers may omit it. `selectedItem` additionally accepts null: the
+// wrapper maps null/undefined to the blank sentinel.
+type SingleSelectProps<ItemType> = Omit<DropdownProps<ItemType>, 'label' | 'selectedItem'> & {
+  label?: DropdownProps<ItemType>['label'];
+  selectedItem?: ItemType | null;
+};
+
 /**
  * SingleSelect is a thin wrapper around Carbon's Dropdown that prevents
  * menu items from truncating. The dropdown list expands to the longest
@@ -32,7 +40,7 @@ const SingleSelect = <ItemType,>({
   selectedItem,
   onChange,
   ...props
-}: DropdownProps<ItemType>): React.ReactElement => {
+}: SingleSelectProps<ItemType>): React.ReactElement => {
   const blankItem = BLANK_SENTINEL as unknown as ItemType;
   const itemsWithBlank = [blankItem, ...items];
 

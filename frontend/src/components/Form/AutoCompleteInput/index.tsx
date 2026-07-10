@@ -39,6 +39,12 @@ type AutoCompleteProps<T> = {
    */
   onSelect: (data: T | null | undefined) => void;
   /**
+   * Visually hide the label while keeping it available to screen readers.
+   * Carbon's ComboBox has no native `hideLabel`, so this wraps `titleText`
+   * in a visually-hidden span instead of leaking an unknown prop to the DOM.
+   */
+  hideLabel?: boolean;
+  /**
    * Optional callback fired as the user types in the input. Lets consumers
    * track free text that has not (yet) been resolved to a selection, e.g. to
    * validate that a typed client name was actually picked from the list.
@@ -52,7 +58,7 @@ type AutoCompleteProps<T> = {
    * @param item The item to render in the dropdown
    */
   renderItem?: (item: T) => ReactNode;
-} & Omit<ComboBoxProps<T>, 'items' | 'onChange' | 'onInputChange'>;
+} & Omit<ComboBoxProps<T>, 'items' | 'onChange' | 'onInputChange' | 'onSelect'>;
 
 /**
  * A reusable autocomplete input component that uses Carbon's ComboBox.
@@ -79,6 +85,8 @@ const AutoCompleteInput = <T,>({
   onTypedChange,
   itemToString: consumerItemToString,
   renderItem,
+  hideLabel,
+  titleText,
   ...props
 }: AutoCompleteProps<T>) => {
   const [typedValue, setTypedValue] = useState<string>('');
@@ -165,6 +173,7 @@ const AutoCompleteInput = <T,>({
       itemToString={resolvedItemToString}
       itemToElement={itemToElement}
       className="autocomplete-combobox"
+      titleText={hideLabel ? <span className="cds--visually-hidden">{titleText}</span> : titleText}
       {...props}
       items={items}
       onChange={({ selectedItem }) => onSelect(selectedItem as T | null | undefined)}

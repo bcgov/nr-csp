@@ -5,6 +5,7 @@ import { createElement } from 'react';
 import { AuthContext } from './AuthContext';
 import type { AuthContextValue } from './types';
 import {
+  type Role,
   TABLE_MAINTENANCE,
   ESF_SUBMIT,
   INVOICE_DETAILS_APPROVE,
@@ -16,7 +17,7 @@ import {
 import { usePermission } from './usePermission';
 import { usePageAccess } from './usePageAccess';
 
-function makeWrapper(privileges: string[]) {
+function makeWrapper(privileges: Role[]) {
   const value: AuthContextValue = {
     user: {
       username: 'test-user',
