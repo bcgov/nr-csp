@@ -61,6 +61,16 @@ class SubmissionRulesTest {
     verifyNoInteractions(referenceData);
   }
 
+  @Test
+  void clientLocation_errors_when_locn_code_null_without_hitting_the_db() {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.clientLocationExists(context(collector, "100", null));
+
+    assertThat(collector.entries()).hasSize(1);
+    verifyNoInteractions(referenceData);
+  }
+
   private SubmissionRuleContext context(ValidationCollector collector, String number, String locn) {
     CSPSubmitterType submitter = new CSPSubmitterType();
     submitter.setSubmissionClientNumber(number);

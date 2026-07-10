@@ -38,6 +38,17 @@ class InvoiceCodeRulesTest {
   private final InvoiceCodeRules rules = new InvoiceCodeRules();
 
   @Test
+  void validate_runs_all_rules_and_passes_for_valid_codes() throws Exception {
+    given(referenceData.maturityValidOn("O", INVOICE_DATE)).willReturn(true);
+    given(referenceData.sortCodeValidOn("X1", INVOICE_DATE)).willReturn(true);
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(context(collector, "O", "X1"));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
   void maturity_errors_when_not_active_on_invoice_date() throws Exception {
     given(referenceData.maturityValidOn("O", INVOICE_DATE)).willReturn(false);
     ValidationCollector collector = new ValidationCollector();
@@ -66,6 +77,17 @@ class InvoiceCodeRulesTest {
     rules.maturityValid(context(collector, "", null));
 
     assertThat(collector.entries()).hasSize(1);
+    verifyNoInteractions(referenceData);
+  }
+
+  @Test
+  void maturity_errors_on_null_without_hitting_the_db() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.maturityValid(context(collector, null, null));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.maturity.invalid.error");
     verifyNoInteractions(referenceData);
   }
 

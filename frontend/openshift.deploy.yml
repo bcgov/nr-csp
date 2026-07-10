@@ -1,8 +1,9 @@
 # Frontend deploy template — consumed by `oc process` in reusable-deploy.yml.
 #
 # Cognito / Vite config is baked into the image at build time (Docker ARGs),
-# so no VITE_* runtime parameters are needed here.  The only runtime wiring
-# is BACKEND_URL, which tells Caddy where to proxy /api/* traffic.
+# so no VITE_* runtime parameters are needed here. Runtime wiring is limited to
+# BACKEND_URL (tells Caddy where to proxy /api/* traffic) and COGNITO_DOMAIN
+# (feeds the CSP connect-src directive in Caddyfile).
 apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
@@ -113,6 +114,10 @@ objects:
                 # Caddy reverse-proxies /api/* to the same-zone backend Service.
                 - name: BACKEND_URL
                   value: ${NAME}-backend-${ZONE}:8080
+                # Caddy's Content-Security-Policy connect-src needs the Cognito
+                # domain to allow the SPA's OAuth token-exchange fetch.
+                - name: COGNITO_DOMAIN
+                  value: ${COGNITO_DOMAIN}
               volumeMounts:
                 - name: caddy-data
                   mountPath: /data
@@ -187,6 +192,12 @@ objects:
       labels:
         app: ${NAME}-frontend-${ZONE}
         app.kubernetes.io/instance: ${ZONE}
+      annotations:
+        # The frontend is a stateless static server + reverse proxy, so it needs no
+        # session affinity. Without this, the HAProxy router injects a balancing
+        # cookie on every response — flagged by security scans as a SameSite=None
+        # cookie. Disabling it removes the cookie at the source.
+        haproxy.router.openshift.io/disable_cookies: "true"
     spec:
       host: ${NAME}-${ZONE}.${DOMAIN}
       to:

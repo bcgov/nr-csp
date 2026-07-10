@@ -40,9 +40,39 @@ class ReferenceDataServiceTest {
   }
 
   @Test
+  void delegates_invoice_type_lookup() {
+    given(validationLookups.existsActiveInvoiceTypeCode("A", DATE)).willReturn(true);
+    assertThat(service.invoiceTypeValidOn("A", DATE)).isTrue();
+  }
+
+  @Test
+  void delegates_maturity_lookup() {
+    given(validationLookups.existsActiveMaturityCode("O", DATE)).willReturn(true);
+    assertThat(service.maturityValidOn("O", DATE)).isTrue();
+  }
+
+  @Test
+  void delegates_sort_code_lookup() {
+    given(validationLookups.existsActiveSortCode("SC", DATE)).willReturn(false);
+    assertThat(service.sortCodeValidOn("SC", DATE)).isFalse();
+  }
+
+  @Test
+  void delegates_species_grade_combination_lookup() {
+    given(validationLookups.existsSpeciesGradeCombination("SP", "G")).willReturn(true);
+    assertThat(service.speciesGradeCombinationExists("SP", "G")).isTrue();
+  }
+
+  @Test
+  void delegates_conversion_factors_exist_for_sort_code() {
+    given(flatPriceConversions.existsForSortCode("SC")).willReturn(true);
+    assertThat(service.conversionFactorsExistForSortCode("SC")).isTrue();
+  }
+
+  @Test
   void conversion_factor_substitutes_M_with_O() {
     given(flatPriceConversions.findApplicableFactor("O", "SC", "SP", "G", DATE))
-        .willReturn(Optional.of(42));
+      .willReturn(Optional.of(42));
 
     assertThat(service.conversionFactor("M", "SC", "SP", "G", DATE)).contains(42);
   }
@@ -50,7 +80,7 @@ class ReferenceDataServiceTest {
   @Test
   void conversion_factor_passes_other_maturities_through() {
     given(flatPriceConversions.findApplicableFactor("S", "SC", "SP", "G", DATE))
-        .willReturn(Optional.empty());
+      .willReturn(Optional.empty());
 
     assertThat(service.conversionFactor("S", "SC", "SP", "G", DATE)).isEmpty();
   }
@@ -58,14 +88,14 @@ class ReferenceDataServiceTest {
   @Test
   void findInvoices_maps_number_and_status() {
     given(invoices.findByInvoiceNoAndClient("INV-1", "100", "00"))
-        .willReturn(List.of(new InvoiceRepository.RelatedInvoice(1L, "CAN")));
+      .willReturn(List.of(new InvoiceRepository.RelatedInvoice(1L, "CAN")));
 
     assertThat(service.findInvoices("INV-1", "100", "00"))
-        .singleElement()
-        .satisfies(ref -> {
-          assertThat(ref.invoiceNumber()).isEqualTo("INV-1");
-          assertThat(ref.statusCode()).isEqualTo("CAN");
-        });
+      .singleElement()
+      .satisfies(ref -> {
+        assertThat(ref.invoiceNumber()).isEqualTo("INV-1");
+        assertThat(ref.statusCode()).isEqualTo("CAN");
+      });
   }
 
   @Test

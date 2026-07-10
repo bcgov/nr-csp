@@ -3,8 +3,12 @@ package ca.bc.gov.nrs.csp.backend.invoice.submission.structural.parser;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.SubmissionValidationProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,6 +30,14 @@ class SubmissionEnvelopeStripperTest {
 
   private static byte[] xml(String s) {
     return s.getBytes(StandardCharsets.UTF_8);
+  }
+
+  private static Stream<Arguments> unrecognizedRootInputs() {
+    return Stream.of(
+        Arguments.of("<CSPSubmission/>"),
+        Arguments.of("<csp:Other xmlns:csp=\"http://www.for.gov.bc.ca/schema/csp\"/>"),
+        Arguments.of("<esf:Other xmlns:esf=\"http://www.for.gov.bc.ca/schema/esf\"/>")
+    );
   }
 
   @Test
@@ -89,5 +101,27 @@ class SubmissionEnvelopeStripperTest {
     SubmissionEnvelopeException ex = assertThrows(SubmissionEnvelopeException.class,
         () -> stripper.toBareSubmission(xml("%%% not xml at all %%%")));
     assertThat(ex.getCode()).isEqualTo("ENVELOPE_PARSE_ERROR");
+  }
+
+  @ParameterizedTest
+  @MethodSource("unrecognizedRootInputs")
+  void unrecognized_roots_are_rejected(String payload) {
+    SubmissionEnvelopeException ex = assertThrows(SubmissionEnvelopeException.class,
+        () -> stripper.toBareSubmission(xml(payload)));
+    assertThat(ex.getCode()).isEqualTo("ENVELOPE_UNRECOGNIZED");
+  }
+
+  @Test
+  void envelope_content_with_wrong_body_local_name_is_no_body() {
+    // The content child is in the body namespace but has the wrong local
+    // name, so the body scan must reject it.
+    byte[] raw = xml(
+        "<esf:ESFSubmission xmlns:esf=\"http://www.for.gov.bc.ca/schema/esf\""
+            + " xmlns:csp=\"http://www.for.gov.bc.ca/schema/csp\">"
+            + "<esf:submissionContent><csp:NotTheBody/></esf:submissionContent>"
+            + "</esf:ESFSubmission>");
+    SubmissionEnvelopeException ex = assertThrows(SubmissionEnvelopeException.class,
+        () -> stripper.toBareSubmission(raw));
+    assertThat(ex.getCode()).isEqualTo("ENVELOPE_NO_BODY");
   }
 }
