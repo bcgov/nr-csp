@@ -298,8 +298,12 @@
   // `var(--row-bg, …)`, inheriting the parent row's stripe colour — override
   // `--row-bg` to white here (a closer ancestor than the outer expanded cell
   // that stamps it) so every line-item row renders white.
+  // The whole line-items block (title band + table) sits in a bordered card,
+  // exact to the Figma (div.border.border-[#e0e0e0]): a single 1px #e0e0e0
+  // border all around.
   &__line-items {
     --row-bg: #{theme.$layer-01};
+    border: 1px solid #e0e0e0;
   }
 
   // "Line items for…" title band, exact to the Figma
