@@ -278,7 +278,7 @@
                             <schemaIncludes>
                                 <include>mof-csp.xsd</include>
                             </schemaIncludes>
-                            <generatePackage>ca.bc.gov.nrs.csp.backend.submission.generated</generatePackage>
+                            <generatePackage>ca.bc.gov.nrs.csp.backend.invoice.submission.generated</generatePackage>
                             <generateDirectory>${project.build.directory}/generated-sources/jaxb</generateDirectory>
                             <!-- Pin to JAXB 4 / Jakarta namespace to match the
                                  jakarta.xml.bind-api + glassfish jaxb-runtime

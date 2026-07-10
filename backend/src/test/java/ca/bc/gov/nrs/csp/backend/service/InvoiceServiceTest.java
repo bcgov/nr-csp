@@ -26,7 +26,7 @@ import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
-import ca.bc.gov.nrs.csp.backend.util.validation.invoiceDetails.InvoiceValidator;
+import ca.bc.gov.nrs.csp.backend.invoice.manual.InvoiceValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

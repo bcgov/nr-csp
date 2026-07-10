@@ -2,10 +2,10 @@ package ca.bc.gov.nrs.csp.backend.controller;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionValidationResponse;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
-import ca.bc.gov.nrs.csp.backend.submission.SubmissionValidationService;
-import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionAcceptance;
-import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationError;
-import ca.bc.gov.nrs.csp.backend.submission.shared.SubmissionValidationResult;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.SubmissionValidationService;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionAcceptance;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationError;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +19,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,12 +38,15 @@ class CspSubmissionControllerTest {
 
     @Mock SubmissionValidationService validationService;
 
+    // Real (in-memory) bundle so args-carrying messages resolve like production.
+    StaticMessageSource messageSource = new StaticMessageSource();
+
     MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new CspSubmissionController(validationService))
+                .standaloneSetup(new CspSubmissionController(validationService, messageSource))
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .build();
     }
@@ -64,9 +71,13 @@ class CspSubmissionControllerTest {
 
     @Test
     void structural_invalid_returns422WithErrors() throws Exception {
+        // Structural errors follow the same (code, args) + bundle format as business
+        // ones (refactor doc §3.5 Step B): the parser detail rides in args and the
+        // resolved message is locator-prefixed.
+        messageSource.addMessage("XSD", Locale.getDefault(), "{0}");
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.of("line 5, col 30", "XSD",
-                        "cvc-enumeration-valid: Value 'MAYBE' is not facet-valid")));
+                        new Object[]{"cvc-enumeration-valid: Value 'MAYBE' is not facet-valid"})));
         given(validationService.validateStructural(any())).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/structural")
@@ -76,13 +87,18 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("XSD"))
                 .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
-                .andExpect(jsonPath("$.errors[0].args[0]").value("line 5, col 30"));
+                .andExpect(jsonPath("$.errors[0].args[0]")
+                        .value("cvc-enumeration-valid: Value 'MAYBE' is not facet-valid"))
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "line 5, col 30: cvc-enumeration-valid: Value 'MAYBE' is not facet-valid"));
     }
 
     @Test
     void structural_errorWithNullPath_mapsToMessageWithoutLocationArgs() throws Exception {
+        messageSource.addMessage("FORMAT_UNRECOGNIZED", Locale.getDefault(),
+                "could not detect format");
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
-                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", "could not detect format")));
+                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", new Object[0])));
         given(validationService.validateStructural(any())).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/structural")
@@ -90,7 +106,8 @@ class CspSubmissionControllerTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("FORMAT_UNRECOGNIZED"))
-                .andExpect(jsonPath("$.errors[0].type").value("ERROR"));
+                .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
+                .andExpect(jsonPath("$.errors[0].message").value("could not detect format"));
     }
 
     @Test
@@ -110,7 +127,7 @@ class CspSubmissionControllerTest {
         given(file.getBytes()).willThrow(new IOException("boom"));
 
         ResponseEntity<SubmissionValidationResponse> resp =
-                new CspSubmissionController(validationService).validateStructural(file);
+                new CspSubmissionController(validationService, messageSource).validateStructural(file);
 
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
         assertThat(resp.getBody()).isNotNull();
@@ -135,7 +152,7 @@ class CspSubmissionControllerTest {
     void business_invalid_returns422WithErrors() throws Exception {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.error("invoice INV-1", "invoice.date.in.future.error",
-                        "invoiceDate for invoiceNumber INV-1 cannot be in the future.")));
+                        new Object[]{"INV-1", LocalDate.of(2026, Month.JANUARY, 1)})));
         given(validationService.validateBusiness(any())).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
@@ -145,7 +162,46 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"))
                 .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
-                .andExpect(jsonPath("$.errors[0].args[0]").value("invoice INV-1"));
+                .andExpect(jsonPath("$.errors[0].args[0]").value("INV-1"));
+    }
+
+    @Test
+    void business_argsCarryingMessage_resolvesTextFromBundleAndKeepsTemplateArgs() throws Exception {
+        // A rule on the messages.properties strategy (refactor doc §3.5) emits
+        // code + template args; the controller resolves the text and prefixes the
+        // invoice locator so multi-invoice submissions stay attributable.
+        messageSource.addMessage("invoice.totalamount.dismatch.warning", Locale.getDefault(),
+                "The Total Amount of {0} does not match with the calculated total amount.");
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.warning("invoice INV-1",
+                        "invoice.totalamount.dismatch.warning", new Object[]{new BigDecimal("90.00")})));
+        given(validationService.validateBusiness(any())).willReturn(failed);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.totalamount.dismatch.warning"))
+                .andExpect(jsonPath("$.errors[0].type").value("WARNING"))
+                .andExpect(jsonPath("$.errors[0].args[0]").value(90.00))
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "invoice INV-1: The Total Amount of 90 does not match with the calculated total amount."));
+    }
+
+    @Test
+    void business_argsCarryingMessage_fallsBackToTheKeyWhenNoBundleEntry() throws Exception {
+        // No template registered for the key → the resolved text falls back to the
+        // bare key (locator-prefixed) instead of throwing.
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.error("invoice INV-1",
+                        "invoice.totalamount.negative.error", new Object[0])));
+        given(validationService.validateBusiness(any())).willReturn(failed);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.totalamount.negative.error"))
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "invoice INV-1: invoice.totalamount.negative.error"));
     }
 
     @Test
@@ -163,7 +219,7 @@ class CspSubmissionControllerTest {
                 true,
                 List.of(SubmissionValidationError.error("invoice INV-BAD",
                         "invoice.date.in.future.error",
-                        "invoiceDate for invoiceNumber INV-BAD cannot be in the future.")),
+                        new Object[]{"INV-BAD", LocalDate.of(2026, Month.JANUARY, 1)})),
                 new SubmissionAcceptance(List.of("INV-GOOD"), List.of("INV-BAD")));
         given(validationService.validateBusiness(any())).willReturn(partial);
 
