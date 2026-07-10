@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.InvoiceRule;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.InvoiceRuleContext;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.SubmitterInfo;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceType;
+import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -12,12 +13,6 @@ import java.util.List;
 
 @Component
 public class InvoiceReferenceRules implements InvoiceRule {
-
-  /** Max numbers permitted in a Replaces / Adjusts CSV. */
-  private static final int MAX_REPLACE_ADJUST_INVOICE_NUMBERS = 5;
-
-  /** Entry-status code for a cancelled/deleted invoice. */
-  private static final String CANCELLED_STATUS = "CAN";
 
   /** For keys whose messages.properties template takes no placeholders. */
   private static final Object[] NO_ARGS = new Object[0];
@@ -96,10 +91,10 @@ public class InvoiceReferenceRules implements InvoiceRule {
     if (isBlank(replaces)) {
       return;
     }
-    if (replaces.split(",").length > MAX_REPLACE_ADJUST_INVOICE_NUMBERS) {
+    if (replaces.split(",").length > ConstantsCode.MAXOFCSVFORREPLACEINVOICENUM) {
       // Template: the maximum permitted count.
       ctx.error("invoice.morethanmax.replace.invoicenum.error",
-          new Object[] {MAX_REPLACE_ADJUST_INVOICE_NUMBERS});
+          new Object[] {ConstantsCode.MAXOFCSVFORREPLACEINVOICENUM});
     }
   }
 
@@ -143,7 +138,7 @@ public class InvoiceReferenceRules implements InvoiceRule {
       }
       for (InvoiceRef ref : ctx.referenceData()
           .findInvoices(invoiceNumber, submitter.submitterClientNumber(), submitter.submitterLocnCode())) {
-        if (CANCELLED_STATUS.equals(ref.statusCode())) {
+        if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(ref.statusCode())) {
           ctx.error("invoice.validation.adjustedInvoiceCancelled", NO_ARGS);
           return;
         }
@@ -172,9 +167,9 @@ public class InvoiceReferenceRules implements InvoiceRule {
     if (isBlank(adjusts)) {
       return;
     }
-    if (adjusts.split(",").length > MAX_REPLACE_ADJUST_INVOICE_NUMBERS) {
+    if (adjusts.split(",").length > ConstantsCode.MAXOFCSVFORADJUSTINVOICENUM) {
       ctx.error("invoice.morethanmax.adjust.invoicenum.error",
-          new Object[] {MAX_REPLACE_ADJUST_INVOICE_NUMBERS});
+          new Object[] {ConstantsCode.MAXOFCSVFORADJUSTINVOICENUM});
     }
   }
 

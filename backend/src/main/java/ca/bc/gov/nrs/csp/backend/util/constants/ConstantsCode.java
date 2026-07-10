@@ -35,9 +35,9 @@ public final class ConstantsCode {
 
     public static final int MAXOFCSVFORREPLACEINVOICENUM = 5;
     public static final int MAXOFCSVFORADJUSTINVOICENUM = 5;
-    public static final int MAXOFCSVFORBOOMNUMBERS = 5;
-    public static final int MAXOFCSVFORTIMBERMARKS = 5;
-    public static final int MAXOFCSVFORWEIGHSLIPS = 5;
+    public static final int MAXOFCSVFORBOOMNUMBERS = 10;
+    public static final int MAXOFCSVFORTIMBERMARKS = 10;
+    public static final int MAXOFCSVFORWEIGHSLIPS = 10;
     public static final int MAXTOKENLENGTHFORBOOMNUMBERS = 20;
     public static final int MAXTOKENLENGTHFORTIMBERMARKS = 6;
     public static final int MAXTOKENLENGTHFORWEIGHSLIPS = 100;
