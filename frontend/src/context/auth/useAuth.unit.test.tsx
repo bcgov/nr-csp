@@ -19,7 +19,7 @@ describe('useAuth', () => {
 
   it('returns context value when inside provider', () => {
     const value = {
-      user: { username: 'u', email: 'u@x.com', roles: [] },
+      user: { username: 'u', email: 'u@x.com', roles: [], privileges: [] },
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,
