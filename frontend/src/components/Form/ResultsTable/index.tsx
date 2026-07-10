@@ -140,7 +140,7 @@ const ResultsTable = <T extends { id: string }>({
   emptyDescription,
 }: ResultsTableProps<T>): ReactElement => {
   const headers = columns.map((col) => ({ key: col.key, header: col.header }));
-  const sortableKeys = new Set<string>(columns.filter((col) => col.sortable !== false).map((col) => col.key));
+  const sortableKeys = new Set(columns.filter((col) => col.sortable !== false).map((col) => col.key));
 
   const [inputValue, setInputValue] = useState(searchKeyword ?? '');
 
@@ -274,16 +274,10 @@ const ResultsTable = <T extends { id: string }>({
                 ) : null}
                 {tableHeaders.map((header) => {
                   const colDef = columns.find((c) => c.key === header.key);
-                  // getHeaderProps includes a `key`; React requires keys passed
-                  // directly to JSX rather than via spread.
-                  const { key: _headerKey, ...headerProps } = getHeaderProps({
-                    header,
-                    isSortable: isSortable && sortableKeys.has(header.key),
-                  });
                   return (
                     <TableHeader
                       key={header.key}
-                      {...headerProps}
+                      {...getHeaderProps({ header, isSortable: isSortable && sortableKeys.has(header.key) })}
                       isSortHeader={isSortable && sortableKeys.has(header.key) && header.key === sortKey}
                       sortDirection={
                         isSortable && sortableKeys.has(header.key)
@@ -321,9 +315,6 @@ const ResultsTable = <T extends { id: string }>({
                 tableRows.map((tableRow) => {
                   const dataRow = rows.find((r) => r.id === tableRow.id);
                   if (!dataRow) return null;
-                  // getRowProps includes a `key`; React requires keys passed
-                  // directly to JSX rather than via spread.
-                  const { key: _rowKey, ...rowProps } = getRowProps({ row: tableRow });
                   const cells = tableRow.cells.map((cell) => {
                     const column = columns.find((c) => c.key === cell.info.header);
                     return (
@@ -336,7 +327,7 @@ const ResultsTable = <T extends { id: string }>({
                     return (
                       <React.Fragment key={tableRow.id}>
                         <TableExpandRow
-                          {...rowProps}
+                          {...getRowProps({ row: tableRow })}
                           isExpanded={expandedIds.has(tableRow.id)}
                           onExpand={() => toggleExpanded(tableRow.id)}
                         >
@@ -351,7 +342,7 @@ const ResultsTable = <T extends { id: string }>({
                     );
                   }
                   return (
-                    <TableRow key={tableRow.id} {...rowProps}>
+                    <TableRow {...getRowProps({ row: tableRow })} key={tableRow.id}>
                       {cells}
                     </TableRow>
                   );

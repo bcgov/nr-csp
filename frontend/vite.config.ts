@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from 'vite';
+import { coverageConfigDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -71,6 +72,8 @@ export default defineConfig(({ mode }) => {
         // Only measure source files; without this, compiled output in build/
         // and static scripts in public/ show up as 0%-covered files.
         include: ['src/**'],
+        // Test scaffolding is not product code.
+        exclude: [...coverageConfigDefaults.exclude, 'src/config/tests/**'],
       },
       projects: [
         {
