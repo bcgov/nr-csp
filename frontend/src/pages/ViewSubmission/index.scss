@@ -54,6 +54,13 @@
 
   &__summary-text {
     @include type.type-style('body-01');
+    font-size: 1rem; // 16px
+
+    // Bold the submitter name and client name values (the <strong> tags),
+    // in case a global reset flattens the tag's default weight.
+    strong {
+      font-weight: 600;
+    }
   }
 
   &__section {
@@ -72,7 +79,7 @@
   .detail-section__title,
   &__invoices-header {
     margin: 0;
-    padding: $spacing-04 $spacing-05;
+    padding: $spacing-05; // 16px all around
     border-bottom: 1px solid theme.$border-subtle-02;
   }
 
@@ -88,9 +95,17 @@
     padding: $spacing-05;
   }
 
-  // Detail label/value sizing for the top-level cards (not the invoice detail
-  // panel, which keeps its own Figma sizing): 14px labels, 16px values.
+  // Body grid + label/value sizing for the top-level cards only (the invoice
+  // detail panel keeps its own Figma sizing / 3-column layout). Exact to the
+  // Figma (div.p-4.grid.grid-cols-2.gap-4): a fixed 2-column layout and a
+  // uniform 16px gap, overriding the base DetailSection's auto-fill columns and
+  // 32px column gap.
   .detail-section:not(.invoice-detail-panel__details) {
+    .detail-section__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: $spacing-05;
+    }
+
     .detail-section__label {
       font-size: 0.875rem; // 14px
     }

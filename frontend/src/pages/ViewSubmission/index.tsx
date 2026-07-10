@@ -24,6 +24,9 @@ type InvoiceRow = SubmissionInvoiceResponse & { id: string; lineItemCount: numbe
 /** Strips a leading "mailto:" so the email displays as a plain address. */
 const cleanEmail = (email: string | null): string | null => (email ? email.replace(/^mailto:/i, '') : email);
 
+/** Strips a leading domain qualifier (e.g. "IDIR\") so only the name shows. */
+const submitterName = (submittedBy: string | null): string => submittedBy?.split('\\').pop()?.trim() || '—';
+
 /** "n thing" / "n things" — keeps the summary line grammatical. */
 const pluralize = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
@@ -126,11 +129,17 @@ export function ViewSubmissionPage() {
         <Column lg={16} md={8} sm={4} className="view-submission-page__summary">
           <SubmissionStatusTag status={data.submissionStatus} />
           <span className="view-submission-page__summary-text">
-            Submission by <strong>{data.submittedBy ?? '—'}</strong> — Client Name{' '}
+            Submission by <strong>{submitterName(data.submittedBy)}</strong> — Client Name{' '}
             <strong>
               {data.clientName ?? '—'}
               {data.clientNumber ? ` (${data.clientNumber})` : ''}
             </strong>
+            {data.submissionId ? (
+              <>
+                {' · '}
+                Submission ID {data.submissionId}
+              </>
+            ) : null}
             {' · '}
             {formatShortDate(data.submissionDate)}
           </span>
