@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.csp.backend.filter;
 
 import ca.bc.gov.nrs.csp.backend.exception.JwtSigningKeyException;
 import ca.bc.gov.nrs.csp.backend.service.JwtService;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -45,10 +46,13 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String username;
 
         try {
-            username = jwtUtil.extractUsername(jwt);
+            // Parse and verify once; derive both username and authorities from the
+            // single Claims instance rather than parsing/verifying the token twice.
+            Claims claims = jwtUtil.extractAllClaims(jwt);
+            username = jwtUtil.extractUsername(claims);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                Collection<? extends GrantedAuthority> authorities = jwtUtil.extractAuthorities(jwt);
+                Collection<? extends GrantedAuthority> authorities = jwtUtil.extractAuthorities(claims);
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(username, null, authorities);
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -62,7 +66,10 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             log.warn("JWT expired: {}", e.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has expired.");
             return;
-        } catch (JwtException e) {
+        } catch (JwtException | IllegalArgumentException e) {
+            // JJWT throws IllegalArgumentException (not a JwtException) for an empty or
+            // structurally junk token, e.g. a bare "Bearer " header — treat it as 401,
+            // not an unhandled 500.
             log.warn("JWT invalid: {}", e.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token.");
             return;

@@ -35,7 +35,10 @@ public class JwtService {
     }
 
     public String extractUsername(String token) {
-        Claims claims = extractAllClaims(token);
+        return extractUsername(extractAllClaims(token));
+    }
+
+    public String extractUsername(Claims claims) {
         String idpUsername = claims.get("custom:idp_username", String.class);
         return (idpUsername != null && !idpUsername.isBlank()) ? idpUsername : claims.getSubject();
     }
@@ -67,9 +70,12 @@ public class JwtService {
                 .getPayload();
     }
 
-    @SuppressWarnings("unchecked")
     public List<GrantedAuthority> extractAuthorities(String token) {
-        Claims claims = extractAllClaims(token);
+        return extractAuthorities(extractAllClaims(token));
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<GrantedAuthority> extractAuthorities(Claims claims) {
         List<GrantedAuthority> authorities = new ArrayList<>();
 
         List<String> groups = claims.get("cognito:groups", List.class);
@@ -87,9 +93,11 @@ public class JwtService {
      */
     private boolean matchesRole(List<String> groups, String role) {
         String roleSuffix = "_" + role.toUpperCase();
-        return groups.stream().anyMatch(g -> {
-            String upper = g.toUpperCase();
-            return upper.equals(role.toUpperCase()) || upper.endsWith(roleSuffix);
-        });
+        return groups.stream()
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(g -> {
+                    String upper = g.toUpperCase();
+                    return upper.equals(role.toUpperCase()) || upper.endsWith(roleSuffix);
+                });
     }
 }

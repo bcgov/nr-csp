@@ -120,16 +120,31 @@ public class GlobalApiExceptionHandler {
     public ResponseEntity<ApiError> handleDatabaseProcedure(DatabaseProcedureException ex, HttpServletRequest request) {
         clearProducibleMediaTypes(request);
         log.error("Database procedure error [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        // Do not echo raw Oracle/procedure text (ORA codes, object names) to the client —
+        // it leaks backend topology. The full message is logged for diagnostics.
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("DATABASE_ERROR", ex.getMessage()));
+                .body(new ApiError("DATABASE_ERROR", "A database error occurred while processing the request."));
     }
 
     @ExceptionHandler(ReportGenerationException.class)
     public ResponseEntity<ApiError> handleReportGeneration(ReportGenerationException ex, HttpServletRequest request) {
         clearProducibleMediaTypes(request);
         log.error("Report generation failed.", ex);
+        // Report-server URIs and upstream HTTP status text are internal detail — logged,
+        // not returned to the client.
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("REPORT_ERROR", ex.getMessage()));
+                .body(new ApiError("REPORT_ERROR", "The report could not be generated."));
+    }
+
+    @ExceptionHandler({java.time.format.DateTimeParseException.class, NumberFormatException.class})
+    public ResponseEntity<ApiError> handleUnparseableInput(RuntimeException ex, HttpServletRequest request) {
+        clearProducibleMediaTypes(request);
+        // Report parameters that pass a coarse @Pattern (e.g. ^\d{8}$) but are not a real
+        // calendar date ("20241332") or overflow a numeric parse reach the service layer and
+        // throw here. That is bad client input — a 400, not a 500 server fault.
+        log.warn("Unparseable request parameter: {}", ex.getMessage());
+        return ResponseEntity.badRequest()
+                .body(new ApiError("BAD_REQUEST", "A request parameter has an invalid value."));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

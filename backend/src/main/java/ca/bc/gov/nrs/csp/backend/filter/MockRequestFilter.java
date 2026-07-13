@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,8 +21,14 @@ import java.util.List;
 /**
  * Local-dev-only filter that injects a mock authenticated user into the SecurityContext.
  * Active only when {@code auth.mock.enabled=true} (set automatically in the local profile).
+ *
+ * <p>{@code @Profile("!prod")} is a hard guard: OS environment variables outrank profile
+ * YAML in Spring's property precedence, so a stray {@code AUTH_MOCK_ENABLED=true} could
+ * otherwise re-enable full mock auth in production. The profile exclusion cannot be
+ * overridden by a property, so mock auth can never activate under the prod profile.
  */
 @Component
+@Profile("!prod")
 @ConditionalOnProperty(name = "auth.mock.enabled", havingValue = "true")
 public class MockRequestFilter extends OncePerRequestFilter {
 

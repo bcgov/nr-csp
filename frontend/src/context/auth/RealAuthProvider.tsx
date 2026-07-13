@@ -1,6 +1,6 @@
 import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth';
 import { Hub } from 'aws-amplify/utils';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
@@ -35,7 +35,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  async function loadUser() {
+  const loadUser = useCallback(async () => {
     try {
       const session = await fetchAuthSession();
       const payload = session.tokens?.idToken?.payload;
@@ -61,31 +61,51 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadUser();
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
-      if (payload.event === 'signedIn' || payload.event === 'signedOut') loadUser();
+      // tokenRefresh_failure means the session is dead (refresh token expired/revoked).
+      // Without handling it the user stays isAuthenticated with a token that 401s every
+      // request; treat it as a sign-out so the UI reflects reality.
+      if (payload.event === 'signedIn' || payload.event === 'signedOut') {
+        loadUser();
+      } else if (payload.event === 'tokenRefresh_failure') {
+        setUser(null);
+      }
     });
     return unsubscribe;
+  }, [loadUser]);
+
+  const signIn = useCallback(() => {
+    const idpName = window.amplifyConfig?.idpName ?? 'DEV-IDIR';
+    return signInWithRedirect({ provider: { custom: idpName } });
   }, []);
 
-  const value: AuthContextValue = {
-    user,
-    isAuthenticated: user !== null,
-    isLoading,
-    isSigningOut,
-    signIn: () => {
-      const idpName = window.amplifyConfig?.idpName ?? 'DEV-IDIR';
-      return signInWithRedirect({ provider: { custom: idpName } });
-    },
-    signOut: async () => {
-      setIsSigningOut(true);
+  const doSignOut = useCallback(async () => {
+    setIsSigningOut(true);
+    try {
       await signOut();
+    } finally {
+      // Always clear local state and release the signing-out flag, even if the
+      // Cognito sign-out call rejects — otherwise the app is stuck on LoadingScreen.
       setUser(null);
-    },
-  };
+      setIsSigningOut(false);
+    }
+  }, []);
+
+  const value: AuthContextValue = useMemo(
+    () => ({
+      user,
+      isAuthenticated: user !== null,
+      isLoading,
+      isSigningOut,
+      signIn,
+      signOut: doSignOut,
+    }),
+    [user, isLoading, isSigningOut, signIn, doSignOut],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -17,9 +17,17 @@ import java.util.List;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    // Hard ceiling on client-supplied page size: without this a caller can request
+    // ?size=1000000 and force an unbounded Oracle fetch. @PageableDefault only sets
+    // the default, not the maximum, so the cap must live on the resolver.
+    private static final int MAX_PAGE_SIZE = 200;
+
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(new SortHandlerMethodArgumentResolver());
-        resolvers.add(new PageableHandlerMethodArgumentResolver(new SortHandlerMethodArgumentResolver()));
+        PageableHandlerMethodArgumentResolver pageableResolver =
+                new PageableHandlerMethodArgumentResolver(new SortHandlerMethodArgumentResolver());
+        pageableResolver.setMaxPageSize(MAX_PAGE_SIZE);
+        resolvers.add(pageableResolver);
     }
 }

@@ -15,11 +15,15 @@ export const formatYearMonth = (date: Date): string => {
   return `${y}${m}`;
 };
 
+/** Strip any path separators so a server-supplied filename can't steer the download path. */
+const sanitizeFilename = (filename: string): string =>
+  filename.replace(/[/\\]/g, '_').replace(/^\.+/, '') || 'download';
+
 export const downloadBlob = (blob: Blob, filename: string): void => {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename;
+  a.download = sanitizeFilename(filename);
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

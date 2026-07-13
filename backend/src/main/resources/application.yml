@@ -124,3 +124,11 @@ spring:
 auth:
   mock:
     enabled: false
+
+# API documentation is disabled entirely in production — it is a
+# development/admin aid, not a public-facing endpoint.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

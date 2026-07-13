@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.config;
 import ca.bc.gov.nrs.csp.backend.filter.JwtRequestFilter;
 import ca.bc.gov.nrs.csp.backend.filter.MockRequestFilter;
 import ca.bc.gov.nrs.csp.backend.service.JwtService;
+import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,11 +50,15 @@ public class SecurityConfig {
                         .authenticationEntryPoint((req, res, e) ->
                                 res.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/health").permitAll()
+                        // API docs are an authenticated, admin-only surface — never anonymous.
+                        // In prod they are additionally disabled entirely (application.yml prod
+                        // profile sets springdoc.api-docs.enabled / swagger-ui.enabled=false),
+                        // so these matchers only ever apply in non-prod environments.
                         .requestMatchers(
-                                "/api/health",
                                 "/api/swagger-ui/**", "/api/swagger-ui.html",
                                 "/api/v3/api-docs/**"
-                        ).permitAll()
+                        ).hasAuthority(Roles.ADMIN)
                         .requestMatchers(API_PATH).authenticated()
                         .anyRequest().authenticated()
                 );
