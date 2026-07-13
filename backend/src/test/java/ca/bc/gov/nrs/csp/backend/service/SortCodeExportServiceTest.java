@@ -117,8 +117,9 @@ class SortCodeExportServiceTest {
         ReportResult result = service.exportCsv();
 
         String csv = new String(result.data(), StandardCharsets.UTF_8);
-        assertThat(csv).contains("SC2");
-        assertThat(csv).contains("2020-01-01,");
+        assertThat(csv)
+                .contains("SC2")
+                .contains("2020-01-01,");
     }
 
     @Test

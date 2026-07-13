@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.util.validation.reports;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R12ReportRequest;
+import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,7 +94,7 @@ class R12ValidatorTest {
     }
 
     private void assertHasError(ValidationResult r, String key) {
-        assertThat(r.errors().stream().map(m -> m.messageKey()).toList())
+        assertThat(r.errors()).extracting(ValidationMessage::messageKey)
                 .as("expected error key '%s'", key)
                 .contains(key);
     }

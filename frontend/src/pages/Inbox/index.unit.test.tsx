@@ -62,7 +62,7 @@ describe('InboxPage', () => {
 
   it('renders the Search button', () => {
     renderInboxPage();
-    expect(screen.getByRole('button', { name: 'Search', exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
   });
 
   it('renders the Clear filters button', () => {

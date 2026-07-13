@@ -2,11 +2,27 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { useAuth } from '@/context/auth/useAuth';
+import type { AuthContextValue, AuthUser } from '@/context/auth/types';
 
 import { HeaderPanelProfile } from './index';
 
 const mockSignOut = vi.fn();
-const mockUser = { username: 'jdoe', displayName: 'Jane Doe', email: 'jane@example.com', roles: [] };
+const mockUser: AuthUser = {
+  username: 'jdoe',
+  displayName: 'Jane Doe',
+  email: 'jane@example.com',
+  roles: [],
+  privileges: [],
+};
+
+const makeAuthValue = (user: AuthUser): AuthContextValue => ({
+  user,
+  isAuthenticated: true,
+  isLoading: false,
+  isSigningOut: false,
+  signIn: vi.fn(),
+  signOut: mockSignOut,
+});
 
 vi.mock('@/context/auth/useAuth', () => ({
   useAuth: vi.fn(),
@@ -15,7 +31,7 @@ vi.mock('@/context/auth/useAuth', () => ({
 describe('HeaderPanelProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAuth).mockReturnValue({ signOut: mockSignOut, user: mockUser });
+    vi.mocked(useAuth).mockReturnValue(makeAuthValue(mockUser));
   });
 
   it('renders the display name', () => {
@@ -35,10 +51,9 @@ describe('HeaderPanelProfile', () => {
   });
 
   it('falls back to username when displayName is absent', () => {
-    vi.mocked(useAuth).mockReturnValue({
-      signOut: mockSignOut,
-      user: { username: 'fallback-user', email: 'x@x.com', roles: [] },
-    });
+    vi.mocked(useAuth).mockReturnValue(
+      makeAuthValue({ username: 'fallback-user', email: 'x@x.com', roles: [], privileges: [] }),
+    );
     render(<HeaderPanelProfile />);
     expect(screen.getByText('fallback-user')).toBeInTheDocument();
   });

@@ -21,6 +21,7 @@ services:
     container_name: csp-frontend
     environment:
       BACKEND_URL: backend:8080
+      COGNITO_DOMAIN: ${COGNITO_DOMAIN}
     ports:
       - "3000:3000"
     depends_on:

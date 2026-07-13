@@ -27,7 +27,7 @@ class ReferenceDataWarmupServiceTest {
     }
 
     @Test
-    void run_warmsGlobalAndPerSpeciesLookups() throws Exception {
+    void run_warmsGlobalAndPerSpeciesLookups() {
         List<LookupItem> species = List.of(
                 new LookupItem("FIR", "Fir"),
                 new LookupItem("CED", "Cedar")

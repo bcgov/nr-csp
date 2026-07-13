@@ -3,9 +3,6 @@ package ca.bc.gov.nrs.csp.backend.controller;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
 import ca.bc.gov.nrs.csp.backend.service.R06Service;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,7 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.context.support.StaticMessageSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -34,14 +31,9 @@ class R06ControllerTest {
     R06Service r06Service;
 
     MockMvc mockMvc;
-    ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
-        objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
@@ -50,7 +42,7 @@ class R06ControllerTest {
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .setValidator(validator)
                 .setMessageConverters(
-                        new MappingJackson2HttpMessageConverter(objectMapper),
+                        new JacksonJsonHttpMessageConverter(),
                         new ResourceHttpMessageConverter(),
                         new ByteArrayHttpMessageConverter())
                 .build();

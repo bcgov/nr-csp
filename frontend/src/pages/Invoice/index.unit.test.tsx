@@ -21,7 +21,7 @@ const h = vi.hoisted(() => {
     downloadBlob: vi.fn(),
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
-    usePermission: vi.fn(() => true),
+    usePermission: vi.fn((_action: string) => true),
     params: { id: undefined as string | undefined },
     invoiceQuery: { data: undefined as unknown, isLoading: false },
     mutations: {

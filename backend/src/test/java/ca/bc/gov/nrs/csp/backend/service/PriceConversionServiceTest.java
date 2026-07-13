@@ -99,7 +99,7 @@ class PriceConversionServiceTest {
         service.apply(List.of(line(1, "SORT01", "FIR", "1", "5", "100")), "M", INV_DATE);
 
         // 'M' must be translated to 'O' for the factor lookup.
-        verify(factorRepo).findApplicableFactor(eq("O"), eq("SORT01"), eq("FIR"), eq("1"), eq(INV_DATE));
+        verify(factorRepo).findApplicableFactor("O", "SORT01", "FIR", "1", INV_DATE);
     }
 
     @Test
