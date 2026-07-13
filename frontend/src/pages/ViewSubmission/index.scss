@@ -153,6 +153,14 @@
     }
   }
 
+  // Keep the invoices table's column headers on a single line. This full-width
+  // table has 11 columns, so it gets tight enough that Carbon wraps labels like
+  // "Total Pieces" across two lines — pin them to one line instead. (The nested
+  // line-item headers are all short single words, so this is a no-op for them.)
+  &__invoices-body .cds--data-table thead th {
+    white-space: nowrap;
+  }
+
   // Parent invoice rows read as a light-grey band ($background → #f4f4f4). The
   // expanded panel below sits on a white surface ($layer-01 → #ffffff in this
   // project's g10 theme), with the detail fields as a bordered white card and
