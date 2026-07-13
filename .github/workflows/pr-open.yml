@@ -10,8 +10,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  # ZONE for OpenShift objects is the PR number mod 50, capping how many PR
-  # environments can exist at once. Container images keep the real PR number.
+  # ZONE for OpenShift objects is the PR number mapped into 1-50, capping how
+  # many PR environments can exist at once. Images keep the real PR number.
   init:
     name: Initialize
     runs-on: ubuntu-slim
@@ -20,7 +20,7 @@ jobs:
       zone: ${{ steps.zone.outputs.zone }}
     steps:
       - id: zone
-        run: echo "zone=$(( ${{ github.event.number }} % 50 ))" >> $GITHUB_OUTPUT
+        run: echo "zone=$(( (${{ github.event.number }} - 1) % 50 + 1 ))" >> $GITHUB_OUTPUT
 
   # https://github.com/bcgov/action-builder-ghcr
   builds:

@@ -12,8 +12,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  # ZONE for OpenShift objects is the PR number mod 50 (see pr-open.yml), so
-  # cleanup must target the modded zone, not the raw PR number.
+  # ZONE for OpenShift objects is the PR number mapped into 1-50 (see
+  # pr-open.yml), so cleanup must target that zone, not the raw PR number.
   init:
     name: Initialize
     runs-on: ubuntu-slim
@@ -22,7 +22,7 @@ jobs:
       zone: ${{ steps.zone.outputs.zone }}
     steps:
       - id: zone
-        run: echo "zone=$(( ${{ github.event.number }} % 50 ))" >> $GITHUB_OUTPUT
+        run: echo "zone=$(( (${{ github.event.number }} - 1) % 50 + 1 ))" >> $GITHUB_OUTPUT
 
   cleanup:
     name: Cleanup and Image Promotion
