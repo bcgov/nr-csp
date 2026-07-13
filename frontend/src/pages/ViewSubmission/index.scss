@@ -364,11 +364,6 @@
     padding-inline-start: $spacing-06;
   }
 
-  &__line-items .cds--data-table th:last-child,
-  &__line-items .cds--data-table td:last-child {
-    padding-inline-end: $spacing-06;
-  }
-
   // Make Price's right margin match Species' left margin. The numeric values are
   // left-positioned in their column, so the full-width (1/7) last column leaves
   // a big trailing gap on the right. Shrink the last column to just fit its
@@ -377,6 +372,7 @@
   // The freed width is redistributed evenly across the other columns.
   &__line-items .cds--data-table th:last-child,
   &__line-items .cds--data-table td:last-child {
+    padding-inline-end: $spacing-06;
     inline-size: 9.5rem;
   }
 }

@@ -278,6 +278,16 @@ const ResultsTable = <T extends { id: string }>({
                 ) : null}
                 {tableHeaders.map((header) => {
                   const colDef = columns.find((c) => c.key === header.key);
+                  let headerContent: ReactNode;
+                  if (colDef?.renderHeader) {
+                    headerContent = colDef.renderHeader();
+                  } else if (colDef?.headerAlign) {
+                    headerContent = (
+                      <span style={{ display: 'block', textAlign: colDef.headerAlign }}>{header.header}</span>
+                    );
+                  } else {
+                    headerContent = header.header;
+                  }
                   return (
                     <TableHeader
                       key={header.key}
@@ -294,13 +304,7 @@ const ResultsTable = <T extends { id: string }>({
                         isSortable && sortableKeys.has(header.key) ? () => handleHeaderClick(header.key) : undefined
                       }
                     >
-                      {colDef?.renderHeader ? (
-                        colDef.renderHeader()
-                      ) : colDef?.headerAlign ? (
-                        <span style={{ display: 'block', textAlign: colDef.headerAlign }}>{header.header}</span>
-                      ) : (
-                        header.header
-                      )}
+                      {headerContent}
                     </TableHeader>
                   );
                 })}
