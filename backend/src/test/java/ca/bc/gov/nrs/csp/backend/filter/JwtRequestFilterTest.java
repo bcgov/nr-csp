@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.csp.backend.filter;
 
 import ca.bc.gov.nrs.csp.backend.exception.JwtSigningKeyException;
 import ca.bc.gov.nrs.csp.backend.service.JwtService;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -27,6 +28,7 @@ class JwtRequestFilterTest {
 
     @Mock JwtService jwtService;
     @Mock FilterChain filterChain;
+    @Mock Claims claims;
 
     JwtRequestFilter filter;
     MockHttpServletRequest request;
@@ -66,8 +68,9 @@ class JwtRequestFilterTest {
     @Test
     void validBearerToken_setsAuthenticationAndPassesThrough() throws Exception {
         request.addHeader("Authorization", "Bearer valid.jwt.token");
-        when(jwtService.extractUsername("valid.jwt.token")).thenReturn("TESTUSER");
-        when(jwtService.extractAuthorities("valid.jwt.token"))
+        when(jwtService.extractAllClaims("valid.jwt.token")).thenReturn(claims);
+        when(jwtService.extractUsername(claims)).thenReturn("TESTUSER");
+        when(jwtService.extractAuthorities(claims))
                 .thenReturn(List.of(new SimpleGrantedAuthority("ADMIN")));
 
         filter.doFilter(request, response, filterChain);
@@ -82,7 +85,7 @@ class JwtRequestFilterTest {
     @Test
     void expiredToken_returns401_andHaltsChain() throws Exception {
         request.addHeader("Authorization", "Bearer expired.token");
-        when(jwtService.extractUsername("expired.token"))
+        when(jwtService.extractAllClaims("expired.token"))
                 .thenThrow(new ExpiredJwtException(null, null, "Token expired"));
 
         filter.doFilter(request, response, filterChain);
@@ -95,7 +98,7 @@ class JwtRequestFilterTest {
     @Test
     void invalidToken_returns401_andHaltsChain() throws Exception {
         request.addHeader("Authorization", "Bearer bad.token");
-        when(jwtService.extractUsername("bad.token"))
+        when(jwtService.extractAllClaims("bad.token"))
                 .thenThrow(new JwtException("Malformed token"));
 
         filter.doFilter(request, response, filterChain);
@@ -107,7 +110,7 @@ class JwtRequestFilterTest {
     @Test
     void signingKeyException_returns401_andHaltsChain() throws Exception {
         request.addHeader("Authorization", "Bearer key.error.token");
-        when(jwtService.extractUsername("key.error.token"))
+        when(jwtService.extractAllClaims("key.error.token"))
                 .thenThrow(new JwtSigningKeyException("Key error", new RuntimeException("cause")));
 
         filter.doFilter(request, response, filterChain);
@@ -119,7 +122,8 @@ class JwtRequestFilterTest {
     @Test
     void existingAuthentication_isNotOverwritten() throws Exception {
         request.addHeader("Authorization", "Bearer another.token");
-        when(jwtService.extractUsername("another.token")).thenReturn("OTHER");
+        when(jwtService.extractAllClaims("another.token")).thenReturn(claims);
+        when(jwtService.extractUsername(claims)).thenReturn("OTHER");
         // extractAuthorities is NOT called when auth is already set in the context
 
         var existingAuth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(

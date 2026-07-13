@@ -85,7 +85,14 @@ class SecurityConfigTest {
     }
 
     @Test
-    void unauthenticatedRequestToSwaggerUi_isOk() throws Exception {
+    void unauthenticatedRequestToSwaggerUi_isUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/swagger-ui/index.html"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(authorities = "ADMIN")
+    void adminRequestToSwaggerUi_isOk() throws Exception {
         mockMvc.perform(get("/api/swagger-ui/index.html"))
                 .andExpect(status().isOk());
     }
