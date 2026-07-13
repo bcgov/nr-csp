@@ -227,4 +227,15 @@
   tbody tr:nth-child(even) td {
     background-color: var(--cds-background, #f4f4f4) !important;
   }
+
+  // Carbon's `.cds--data-table th:last-of-type { position: static }` leaks in
+  // from the parent DataTable and un-sticks the last header cell (Comment), so
+  // it scrolls away with the rows while Invoice # / Status stay pinned. This
+  // selector out-specifies Carbon's, re-asserting the sticky header on every th.
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--cds-layer-accent, #e0e0e0);
+  }
 }

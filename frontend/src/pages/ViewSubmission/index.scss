@@ -327,9 +327,56 @@
   &__line-items-title {
     @include type.type-style('heading-compact-01');
     margin: 0;
-    padding: $spacing-03 $spacing-05;
+    // Horizontal padding matches the table's first/last-cell gutters below so
+    // the title lines up with the Species column and both edges are even.
+    padding: $spacing-03 $spacing-06;
     background: theme.$background;
     border: none;
     border-bottom: 1px solid #e0e0e0;
+  }
+
+  // Spread the columns evenly across the full-width card. `table-layout: fixed`
+  // divides the available width equally between all columns, so the extra
+  // whitespace is shared as even gaps rather than pooling into one big gap
+  // between the text columns and the numeric group. The numeric columns are
+  // left-positioned (default alignment) with a decimal-aligned inner box (see
+  // `numeric` in InvoiceDetailPanel) so their values sit right after the text
+  // columns and the content reads as evenly spaced across the whole table.
+  &__line-items .cds--data-table {
+    table-layout: fixed;
+  }
+
+  // The numeric header + cell boxes (# Pieces, Volume, Price — the last three)
+  // must sit at the SAME left edge for their right-aligned content to line up.
+  // A <th> and <td> don't share a default text-align, so pin both to the left:
+  // equal-width boxes from one origin ⇒ the header text lands directly above the
+  // digits/decimals.
+  &__line-items .cds--data-table th:nth-last-child(-n + 3),
+  &__line-items .cds--data-table td:nth-last-child(-n + 3) {
+    text-align: left;
+  }
+
+  // Equal, comfortable gutters on both edges of the table so the first column
+  // (Species) isn't jammed against the card border. Carbon defaults to 1rem on
+  // the outer cells; bump both to 1.5rem.
+  &__line-items .cds--data-table th:first-child,
+  &__line-items .cds--data-table td:first-child {
+    padding-inline-start: $spacing-06;
+  }
+
+  &__line-items .cds--data-table th:last-child,
+  &__line-items .cds--data-table td:last-child {
+    padding-inline-end: $spacing-06;
+  }
+
+  // Make Price's right margin match Species' left margin. The numeric values are
+  // left-positioned in their column, so the full-width (1/7) last column leaves
+  // a big trailing gap on the right. Shrink the last column to just fit its
+  // content — 1rem start pad + 7rem Price box + 1.5rem end gutter = 9.5rem — so
+  // the trailing gap collapses to the same 1.5rem gutter as the first column.
+  // The freed width is redistributed evenly across the other columns.
+  &__line-items .cds--data-table th:last-child,
+  &__line-items .cds--data-table td:last-child {
+    inline-size: 9.5rem;
   }
 }

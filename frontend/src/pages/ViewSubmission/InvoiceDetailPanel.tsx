@@ -15,6 +15,35 @@ type LineItemRow = SubmissionLineItemResponse & { id: string };
 
 const hasComment = (comment: string | null): boolean => !!comment && comment.trim().length > 0;
 
+/**
+ * Wraps a formatted numeric value in a fixed-width, right-aligned, tabular-figure
+ * box. The box is left-positioned in its (left-aligned) column so the numbers
+ * sit right after the text columns for even spacing across the table, while the
+ * right-aligned content + fixed decimals keeps every row's decimal point (and
+ * ones/tens/…) lined up down the column. Both the header and the cells use this
+ * same box (same `rem` width) so the header lines up directly above the values.
+ *
+ * Width is in `rem` (NOT `ch`) on purpose: the header is bold and the cells are
+ * regular weight, and a `ch` is font-relative, so a bold `ch` is wider than a
+ * regular one — a `rem` width renders identically in both.
+ *
+ * @param value - The pre-formatted string (e.g. from `formatNumber`).
+ * @param rem - Box width in `rem`; must be >= the column's widest value (in the
+ *   BOLD header weight too, since the header uses the same box).
+ */
+const numeric = (value: string, rem: number): ReactNode => (
+  <span
+    style={{
+      display: 'inline-block',
+      width: `${rem}rem`,
+      textAlign: 'right',
+      fontVariantNumeric: 'tabular-nums',
+    }}
+  >
+    {value}
+  </span>
+);
+
 /** Renders an italic "(empty)" placeholder for blank fields, mirroring the design. */
 const orEmpty = (value: string | null | undefined): ReactNode =>
   value && value.trim().length > 0 ? value : <em className="invoice-detail-panel__empty">(empty)</em>;
@@ -27,21 +56,25 @@ const lineItemColumns: ResultsTableColumn<LineItemRow>[] = [
   {
     key: 'pieces',
     header: '# Pieces',
-    // Number/decimal values are right-aligned; headers stay left-aligned.
-    cellAlign: 'right',
-    renderCell: (r) => formatNumber(r.pieces),
+    // Numeric columns: header + each value share the same fixed-width, right-
+    // aligned box (see `numeric`), left-positioned in the column — so the
+    // columns stay evenly spaced, the header sits directly above the values, and
+    // the decimals line up down each column. Header + cell must share the same
+    // `rem` width.
+    renderHeader: () => numeric('# Pieces', 5),
+    renderCell: (r) => numeric(formatNumber(r.pieces), 5),
   },
   {
     key: 'volume',
     header: 'Volume',
-    cellAlign: 'right',
-    renderCell: (r) => formatNumber(r.volume == null ? null : Number(r.volume), 3),
+    renderHeader: () => numeric('Volume', 6),
+    renderCell: (r) => numeric(formatNumber(r.volume == null ? null : Number(r.volume), 3), 6),
   },
   {
     key: 'price',
     header: 'Price',
-    cellAlign: 'right',
-    renderCell: (r) => formatNumber(r.price == null ? null : Number(r.price), 2),
+    renderHeader: () => numeric('Price', 7),
+    renderCell: (r) => numeric(formatNumber(r.price == null ? null : Number(r.price), 2), 7),
   },
 ];
 
@@ -68,7 +101,7 @@ const InvoiceDetailPanel: FC<InvoiceDetailPanelProps> = ({ invoice, lineItems })
     { label: 'Boom Numbers', value: orEmpty(invoice.boomNumbers) },
     { label: 'Timber Marks', value: orEmpty(invoice.timberMarks) },
     { label: 'Weigh Slip Numbers', value: orEmpty(invoice.weighSlips) },
-    { label: 'Submitter Notes', value: orEmpty(invoice.submitterNotes) },
+    { label: 'Submitter Notes', value: orEmpty(invoice.submitterNotes), fullWidth: true },
   ];
 
   const lineItemRows: LineItemRow[] = lineItems.map((li, i) => ({
