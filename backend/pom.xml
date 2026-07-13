@@ -191,7 +191,9 @@
                     <groupId>com.lowagie</groupId>
                     <artifactId>itext</artifactId>
                 </exclusion>
-                <!-- exclude openpdf from core; jasperreports-pdf brings its own version -->
+                <!-- Exclude the transitive openpdf so the single explicit version below
+                     is the only copy on the classpath (avoids a duplicate/conflicting
+                     transitive pull-in from jasperreports core). -->
                 <exclusion>
                     <groupId>com.github.librepdf</groupId>
                     <artifactId>openpdf</artifactId>
@@ -204,6 +206,10 @@
             <artifactId>jasperreports-pdf</artifactId>
             <version>${jasperreports.version}</version>
         </dependency>
+        <!-- OpenPDF is a DIRECT dependency: the export services build PDFs via com.lowagie.text.*
+             (InvoiceService, SortCodeExportService, FlatPriceConversionExportService). Pinned
+             explicitly so the hand-built PDFs and Jasper-rendered PDFs share one openpdf version;
+             keep this in sync with the version jasperreports-pdf ${jasperreports.version} expects. -->
         <dependency>
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>

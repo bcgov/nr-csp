@@ -15,6 +15,8 @@ import net.sf.jasperreports.engine.export.JRCsvExporter;
 import net.sf.jasperreports.export.SimpleCsvExporterConfiguration;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleWriterExporterOutput;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.dom4j.Document;
@@ -31,6 +33,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -39,7 +42,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -54,8 +56,15 @@ public class R13Service {
     private final LookupService lookupService;
     private final SearchService searchService;
 
-    /** Cache of compiled JasperReport objects keyed by {@code templatePath:showOptionsBitmask}. */
-    private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
+    /**
+     * Cache of compiled JasperReport objects keyed by {@code templatePath:showOptionsBitmask}.
+     * Bounded: each entry is a fully compiled report and the show-options bitmask has a large
+     * permutation space, so an unbounded map would grow monotonically for the life of the JVM.
+     */
+    private final Cache<String, JasperReport> compiledReportCache = Caffeine.newBuilder()
+            .maximumSize(64)
+            .expireAfterAccess(Duration.ofHours(6))
+            .build();
 
     @Value("${jasper.report.r13.template:/reports/R13.jrxml}")
     private String r13TemplatePath;
@@ -85,7 +94,7 @@ public class R13Service {
         String templatePath = "CSV".equalsIgnoreCase(format) ? r13CsvTemplatePath : r13TemplatePath;
         String cacheKey = templatePath + ":" + showOptions.toCacheKey();
 
-        JasperReport jasperReport = compiledReportCache.computeIfAbsent(cacheKey, key -> {
+        JasperReport jasperReport = compiledReportCache.get(cacheKey, key -> {
             try {
                 log.info("Compiling JRXML for cache key: {}", key);
                 String jrxml = loadTemplate(templatePath);
