@@ -240,24 +240,28 @@ export function ViewSubmissionPage() {
     {
       key: 'totalAmount',
       header: 'Total Amount',
+      headerAlign: 'right',
       cellAlign: 'right',
       renderCell: (r) => formatNumber(r.totalAmount, 2),
     },
     {
       key: 'totalVolume',
       header: 'Total Volume',
+      headerAlign: 'right',
       cellAlign: 'right',
       renderCell: (r) => formatNumber(r.totalVolume, 3),
     },
     {
       key: 'totalPieces',
       header: 'Total Pieces',
+      headerAlign: 'right',
       cellAlign: 'right',
       renderCell: (r) => formatNumber(r.totalPieces),
     },
     {
       key: 'lineItemCount',
       header: 'Line Items',
+      headerAlign: 'right',
       cellAlign: 'right',
       renderCell: (r) => formatNumber(r.lineItemCount),
     },
