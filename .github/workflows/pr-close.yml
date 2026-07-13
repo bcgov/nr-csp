@@ -12,8 +12,21 @@ concurrency:
 permissions: {}
 
 jobs:
+  # ZONE for OpenShift objects is the PR number mod 50 (see pr-open.yml), so
+  # cleanup must target the modded zone, not the raw PR number.
+  init:
+    name: Initialize
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    outputs:
+      zone: ${{ steps.zone.outputs.zone }}
+    steps:
+      - id: zone
+        run: echo "zone=$(( ${{ github.event.number }} % 50 ))" >> $GITHUB_OUTPUT
+
   cleanup:
     name: Cleanup and Image Promotion
+    needs: [init]
     uses: bcgov/quickstart-openshift-helpers/.github/workflows/.pr-close.yml@a11ad3d1b9288fb40757c4314a62eb86ff227931 # v1.2.1
     permissions:
       packages: write
@@ -27,7 +40,7 @@ jobs:
       # ${NAME}-backend-${ZONE} and ${NAME}-frontend-${ZONE} (deploys).
       # The default cleanup only deletes app=<repo>-<PR#>, so list all three.
       cleanup_name: >-
-        ${{ github.event.repository.name }}-${{ github.event.number }}
-        ${{ github.event.repository.name }}-backend-${{ github.event.number }}
-        ${{ github.event.repository.name }}-frontend-${{ github.event.number }}
+        ${{ github.event.repository.name }}-${{ needs.init.outputs.zone }}
+        ${{ github.event.repository.name }}-backend-${{ needs.init.outputs.zone }}
+        ${{ github.event.repository.name }}-frontend-${{ needs.init.outputs.zone }}
       packages: backend frontend

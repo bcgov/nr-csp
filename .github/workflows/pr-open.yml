@@ -10,6 +10,18 @@ concurrency:
 permissions: {}
 
 jobs:
+  # ZONE for OpenShift objects is the PR number mod 50, capping how many PR
+  # environments can exist at once. Container images keep the real PR number.
+  init:
+    name: Initialize
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    outputs:
+      zone: ${{ steps.zone.outputs.zone }}
+    steps:
+      - id: zone
+        run: echo "zone=$(( ${{ github.event.number }} % 50 ))" >> $GITHUB_OUTPUT
+
   # https://github.com/bcgov/action-builder-ghcr
   builds:
     name: Builds
@@ -35,7 +47,7 @@ jobs:
 
   deploys:
     name: Deploys (${{ github.event.number }})
-    needs: [builds]
+    needs: [builds, init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
       oc_namespace: ${{ secrets.oc_namespace }}
@@ -56,14 +68,16 @@ jobs:
       jasper_server_put_url: ${{ secrets.jasper_server_put_url }}
       jasper_server_report_uri_base: ${{ secrets.jasper_server_report_uri_base }}
     with:
-      target: ${{ github.event.number }}
+      target: ${{ needs.init.outputs.zone }}
       triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/')
 
   tests:
      name: Tests
      if: needs.deploys.outputs.triggered == 'true'
-     needs: [deploys]
+     needs: [deploys, init]
      uses: ./.github/workflows/reusable-tests.yml
+     with:
+       target: ${{ needs.init.outputs.zone }}
 
   # ==========================================================================
   # WARNING: This job acts as the required merge gate for this workflow.
@@ -72,7 +86,7 @@ jobs:
   # ==========================================================================
   results:
     name: PR Results
-    needs: [builds, deploys, tests]
+    needs: [init, builds, deploys, tests]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 1
