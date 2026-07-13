@@ -34,7 +34,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -437,7 +436,7 @@ class FlatPriceConversionServiceTest {
 
         service.copy(request);
 
-        verify(repository).copy(eq("P"), eq("M1"), eq("TESTUSER"));
+        verify(repository).copy("P", "M1", "TESTUSER");
     }
 
     @Test

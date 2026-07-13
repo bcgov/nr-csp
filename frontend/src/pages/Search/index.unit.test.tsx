@@ -113,7 +113,7 @@ describe('SearchPage', () => {
   it('renders the Search button', () => {
     renderSearchPage();
     // Use exact string to avoid matching the keyword search bar's "Clear search input" button
-    expect(screen.getByRole('button', { name: 'Search', exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
   });
 
   it('renders the Clear filters button', () => {

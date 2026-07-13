@@ -123,6 +123,7 @@ export function SubmissionHistoryPage() {
       renderCell: (row) =>
         row.cspSubmissionId == null ? null : (
           <IconButton
+            className="submission-history-page__view-btn"
             kind="ghost"
             size="sm"
             label="View submission"
@@ -140,7 +141,7 @@ export function SubmissionHistoryPage() {
       <Grid fullWidth>
         <PageTitle
           title="Submission History"
-          subtitle="View your previous CSP submissions."
+          subtitle="View your previous CSP submissions. Expand a row to see invoice-level comments."
           breadCrumbs={[{ name: 'Submission history', path: ROUTES.SUBMISSION_HISTORY }]}
         />
 

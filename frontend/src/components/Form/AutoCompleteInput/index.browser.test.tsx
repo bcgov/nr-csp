@@ -77,7 +77,7 @@ describe('AutoCompleteInput', () => {
   });
 
   it('handles loading state', async () => {
-    let resolve: (v: any) => void;
+    let resolve: ((v: any) => void) | undefined;
     const onAutoCompleteChange = vi.fn(() => new Promise((r) => (resolve = r)));
     const extractItems = (raw: any) => raw;
     await renderWithProps({ onAutoCompleteChange, extractItems });

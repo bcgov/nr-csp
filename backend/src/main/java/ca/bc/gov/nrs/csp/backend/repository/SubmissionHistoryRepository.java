@@ -228,7 +228,8 @@ public class SubmissionHistoryRepository {
             """;
 
     private static final String DETAIL_LINE_ITEMS_QUERY = """
-            SELECT inv.client_invoice_no                                    AS invoice_number,
+            SELECT inv.coastal_log_sale_id                                  AS coastal_log_sale_id,
+                   inv.client_invoice_no                                    AS invoice_number,
                    sgx.log_sale_species_code                                AS species,
                    sgx.log_sale_grade_code                                  AS grade,
                    d.log_sale_sort_code                                     AS sort_code,
@@ -340,6 +341,7 @@ public class SubmissionHistoryRepository {
 
         List<SubmissionLineItemResponse> lineItems = jdbc.query(DETAIL_LINE_ITEMS_QUERY, params, (rs, rowNum) ->
                 new SubmissionLineItemResponse(
+                        RepositoryUtils.getLongNullable(rs, "coastal_log_sale_id"),
                         rs.getString(COL_INVOICE_NUMBER),
                         rs.getString("species"),
                         rs.getString("grade"),

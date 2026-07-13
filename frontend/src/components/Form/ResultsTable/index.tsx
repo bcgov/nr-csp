@@ -30,6 +30,10 @@ export interface ResultsTableColumn<T> {
   key: keyof T & string;
   header: string;
   renderCell?: (row: T) => ReactNode;
+  /** Optional custom header renderer, e.g. to wrap the label in the same
+   * fixed-width box as the cells so the header lines up with the values. Takes
+   * precedence over `headerAlign`. */
+  renderHeader?: () => ReactNode;
   sortable?: boolean;
   headerAlign?: 'left' | 'center' | 'right';
   cellAlign?: 'left' | 'center' | 'right';
@@ -274,6 +278,16 @@ const ResultsTable = <T extends { id: string }>({
                 ) : null}
                 {tableHeaders.map((header) => {
                   const colDef = columns.find((c) => c.key === header.key);
+                  let headerContent: ReactNode;
+                  if (colDef?.renderHeader) {
+                    headerContent = colDef.renderHeader();
+                  } else if (colDef?.headerAlign) {
+                    headerContent = (
+                      <span style={{ display: 'block', textAlign: colDef.headerAlign }}>{header.header}</span>
+                    );
+                  } else {
+                    headerContent = header.header;
+                  }
                   return (
                     <TableHeader
                       key={header.key}
@@ -290,11 +304,7 @@ const ResultsTable = <T extends { id: string }>({
                         isSortable && sortableKeys.has(header.key) ? () => handleHeaderClick(header.key) : undefined
                       }
                     >
-                      {colDef?.headerAlign ? (
-                        <span style={{ display: 'block', textAlign: colDef.headerAlign }}>{header.header}</span>
-                      ) : (
-                        header.header
-                      )}
+                      {headerContent}
                     </TableHeader>
                   );
                 })}

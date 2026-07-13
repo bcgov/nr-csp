@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["@tanstack/react-query", "axios", "vitest/globals"]
+  },
+  "include": ["src"],
+  "exclude": []
+}

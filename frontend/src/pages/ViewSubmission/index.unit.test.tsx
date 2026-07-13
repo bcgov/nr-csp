@@ -100,6 +100,7 @@ const sampleDetail = {
   ],
   lineItems: [
     {
+      coastalLogSaleId: 100,
       invoiceNumber: 'INV-100',
       species: 'FI',
       grade: 'J',
@@ -110,6 +111,7 @@ const sampleDetail = {
       price: 1,
     },
     {
+      coastalLogSaleId: 100,
       invoiceNumber: 'INV-100',
       species: 'CE',
       grade: 'J',
@@ -120,6 +122,7 @@ const sampleDetail = {
       price: 1,
     },
     {
+      coastalLogSaleId: 101,
       invoiceNumber: 'INV-101',
       species: 'HE',
       grade: 'J',
@@ -175,6 +178,34 @@ describe('ViewSubmissionPage', () => {
     // The "Expand all" control is available and clickable.
     fireEvent.click(screen.getByRole('link', { name: /expand all/i }));
     expect(screen.getByRole('link', { name: /collapse all/i })).toBeInTheDocument();
+  });
+
+  it('groups line items by coastal log sale id, not invoice number', () => {
+    // Two invoices sharing the same invoice number: line items must still be
+    // attributed to the correct invoice by its coastal_log_sale_id. Grouping by
+    // invoice number would merge all three lines under one invoice.
+    const duplicateNumbers = {
+      ...sampleDetail,
+      invoices: [
+        { ...sampleDetail.invoices[0], coastalLogSaleId: 200, invoiceNumber: 'DUP' },
+        { ...sampleDetail.invoices[1], coastalLogSaleId: 201, invoiceNumber: 'DUP' },
+      ],
+      lineItems: [
+        { ...sampleDetail.lineItems[0], coastalLogSaleId: 200, invoiceNumber: 'DUP' },
+        { ...sampleDetail.lineItems[1], coastalLogSaleId: 200, invoiceNumber: 'DUP' },
+        { ...sampleDetail.lineItems[2], coastalLogSaleId: 201, invoiceNumber: 'DUP' },
+      ],
+    };
+    useSubmissionDetailQuery.mockReturnValue({
+      data: duplicateNumbers,
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderPage();
+    // Invoice 200 owns 2 lines, invoice 201 owns 1 — despite identical numbers.
+    expect(screen.getByText('Line items for DUP (2)')).toBeInTheDocument();
+    expect(screen.getByText('Line items for DUP (1)')).toBeInTheDocument();
   });
 
   it('renders an error message when the request fails', () => {

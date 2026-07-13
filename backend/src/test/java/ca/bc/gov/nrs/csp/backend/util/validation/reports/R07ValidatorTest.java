@@ -4,6 +4,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.report.R07ReportRequest;
 import ca.bc.gov.nrs.csp.backend.repository.CspSubmissionRepository;
 import ca.bc.gov.nrs.csp.backend.service.SearchService;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
+import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -154,7 +154,7 @@ class R07ValidatorTest {
     }
 
     private void assertHasError(ValidationResult r, String key) {
-        assertThat(r.errors().stream().map(m -> m.messageKey()).toList())
+        assertThat(r.errors()).extracting(ValidationMessage::messageKey)
                 .as("expected error key '%s'", key)
                 .contains(key);
     }

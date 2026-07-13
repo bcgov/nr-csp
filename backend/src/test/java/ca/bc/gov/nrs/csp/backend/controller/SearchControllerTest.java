@@ -24,7 +24,6 @@ import java.time.Month;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -105,7 +104,7 @@ class SearchControllerTest {
         ClientLocationResponse client = new ClientLocationResponse(
                 "00014963", "ACME LOGGING LTD", "00", "HEAD OFFICE", "VICTORIA", "BC"
         );
-        given(searchService.findClientsByName(eq("acme"))).willReturn(List.of());
+        given(searchService.findClientsByName("acme")).willReturn(List.of());
         given(searchMapper.toClientLocationResponseList(any())).willReturn(List.of(client));
 
         mockMvc.perform(get("/api/clients").param("name", "acme"))
@@ -117,7 +116,7 @@ class SearchControllerTest {
         ClientLocationResponse client = new ClientLocationResponse(
                 "00014963", "ACME LOGGING LTD", "00", "HEAD OFFICE", "VICTORIA", "BC"
         );
-        given(searchService.findClientsByNumber(eq("14963"))).willReturn(List.of());
+        given(searchService.findClientsByNumber("14963")).willReturn(List.of());
         given(searchMapper.toClientLocationResponseList(any())).willReturn(List.of(client));
 
         mockMvc.perform(get("/api/clients").param("number", "14963"))

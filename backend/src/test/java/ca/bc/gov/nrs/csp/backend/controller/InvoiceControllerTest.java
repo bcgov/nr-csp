@@ -81,10 +81,6 @@ class InvoiceControllerTest {
             {"secondSort":"SORT01","species":"SP1","grade":"G1","numOfPieces":50,"price":25.00,"volume":6.25}
             """;
 
-    // ---------------------------------------------------------------
-    // GET /api/invoices/{id}
-    // ---------------------------------------------------------------
-
     @Test
     void getById_returns200WithInvoice() throws Exception {
         given(invoiceService.getById(1L)).willReturn(sampleResponse());
@@ -146,10 +142,6 @@ class InvoiceControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // ---------------------------------------------------------------
-    // PUT /api/invoices/{id}
-    // ---------------------------------------------------------------
-
     @Test
     void update_validRequest_returns200() throws Exception {
         given(invoiceService.update(eq(1L), any())).willReturn(sampleResponse());
@@ -190,10 +182,6 @@ class InvoiceControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CONFLICT"));
     }
-
-    // ---------------------------------------------------------------
-    // DELETE /api/invoices/{id}
-    // ---------------------------------------------------------------
 
     @Test
     void delete_returns204() throws Exception {
@@ -336,10 +324,6 @@ class InvoiceControllerTest {
                 .andExpect(status().isConflict());
     }
 
-    // ---------------------------------------------------------------
-    // PATCH /api/invoices/{id}/line-items/{lineId}
-    // ---------------------------------------------------------------
-
     @Test
     void updateLineItem_validRequest_returns200() throws Exception {
         given(invoiceService.updateLineItem(eq(1L), eq(5L), any())).willReturn(sampleResponse());
@@ -371,10 +355,6 @@ class InvoiceControllerTest {
                         .content(VALID_LINE_ITEM_BODY))
                 .andExpect(status().isConflict());
     }
-
-    // ---------------------------------------------------------------
-    // DELETE /api/invoices/{id}/line-items/{lineId}
-    // ---------------------------------------------------------------
 
     @Test
     void deleteLineItem_returns200() throws Exception {

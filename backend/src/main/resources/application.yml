@@ -18,7 +18,7 @@ csp:
     validation:
       schema-classpath-root: schemas/csp/
       entry-schema: schemas/csp/mof-csp.xsd
-      jaxb-context-path: ca.bc.gov.nrs.csp.backend.submission.generated
+      jaxb-context-path: ca.bc.gov.nrs.csp.backend.invoice.submission.generated
       envelope-namespace: http://www.for.gov.bc.ca/schema/esf
       envelope-root: ESFSubmission
       envelope-content-element: submissionContent
