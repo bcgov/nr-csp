@@ -203,3 +203,4 @@ The following secrets and variables must be configured on the repository for the
 | `APP_ENV` | Application environment label injected into the frontend config (`dev`, `test`, `prod`) |
 | `COGNITO_IDP_NAME` | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
 | `FAM_CLIENT_ID` | FAM application client ID for role-group mapping (injected at runtime via `amplify-config.js`) |
+
