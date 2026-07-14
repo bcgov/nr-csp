@@ -239,7 +239,7 @@ export function SortCodePage() {
           paginationItemsPerPageText="Results per page:"
           paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} results`}
           onPaginationChange={
-            rows.length > 0
+            (data?.totalElements ?? 0) > 0
               ? ({ page: newPage, pageSize: newPageSize }) => {
                   setPage(newPage);
                   setPageSize(newPageSize);

@@ -125,4 +125,34 @@ describe('ResultsTable - page clamping', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onPaginationChange).not.toHaveBeenCalled();
   });
+
+  it('stops clamping once the parent feeds the clamped page back in (no infinite loop)', async () => {
+    const onPaginationChange = vi.fn();
+    const makeElement = (page: number) => (
+      <ResultsTable
+        rows={[]}
+        columns={columns}
+        hasSearched
+        page={page}
+        pageSize={10}
+        totalItems={30}
+        isLoading={false}
+        onPaginationChange={onPaginationChange}
+      />
+    );
+
+    const { rerender } = render(makeElement(5));
+
+    await waitFor(() => {
+      expect(onPaginationChange).toHaveBeenCalledWith({ page: 3, pageSize: 10 });
+    });
+    expect(onPaginationChange).toHaveBeenCalledTimes(1);
+
+    // Simulate the parent applying the clamp by feeding the corrected page back in.
+    rerender(makeElement(3));
+
+    // Give any (incorrect) re-fire a chance to happen before asserting it didn't.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onPaginationChange).toHaveBeenCalledTimes(1);
+  });
 });
