@@ -123,6 +123,7 @@ export function SearchPage() {
   const [autoCompleteKey, setAutoCompleteKey] = useState(0);
   const [dateKey, setDateKey] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
   // Snapshot of filters at the moment Search is clicked (the criteria part — page/size/sort/keyword
   // are tracked separately so changing them re-queries without re-snapshotting filter inputs).
@@ -159,7 +160,16 @@ export function SearchPage() {
     maturity: maturityInput?.code || undefined,
   });
 
+  const validateDateRange = (start: string, end: string) => {
+    if (start && end && start > end) {
+      setDateRangeError('Start date must be before or equal to End date.');
+    } else {
+      setDateRangeError(null);
+    }
+  };
+
   const executeSearch = () => {
+    if (dateRangeError) return;
     setAppliedFilters(buildSearchParams());
     setHasSearched(true);
     setCurrentPage(1);
@@ -177,6 +187,7 @@ export function SearchPage() {
     setSellerBuyerLocNum('');
     setSellerSubmitterInput(null);
     setMaturityInput(null);
+    setDateRangeError(null);
     setAutoCompleteKey((k) => k + 1);
     setDateKey((k) => k + 1);
   };
@@ -202,7 +213,11 @@ export function SearchPage() {
                 key={`start-date-${dateKey}`}
                 id="start-date"
                 labelText="Start date (invoice)"
-                onChange={(dates) => setStartDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
+                onChange={(dates) => {
+                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
+                  setStartDateInput(val);
+                  validateDateRange(val, endDateInput);
+                }}
               />
             </div>
             <div className="search-page__filter-item">
@@ -210,7 +225,13 @@ export function SearchPage() {
                 key={`end-date-${dateKey}`}
                 id="end-date"
                 labelText="End date (invoice)"
-                onChange={(dates) => setEndDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
+                invalid={!!dateRangeError}
+                invalidText={dateRangeError ?? undefined}
+                onChange={(dates) => {
+                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
+                  setEndDateInput(val);
+                  validateDateRange(startDateInput, val);
+                }}
               />
             </div>
             <div className="search-page__filter-item">
