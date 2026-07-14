@@ -88,6 +88,7 @@ const setDate = (label: RegExp, value: string) => {
 describe('SearchPage interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     mockGetClientsByName.mockResolvedValue([]);
     mockUseSearchQuery.mockReturnValue({ data: emptyPage, isLoading: false, isError: false } as never);
     vi.mocked(useInvoiceStatusesQuery).mockReturnValue({ data: mockStatusItems, isLoading: false } as never);
