@@ -11,6 +11,7 @@ import ResultsTable, { type ResultsTableColumn } from '@/components/Form/Results
 import { formatDisplayDate, formatIsoDate } from '@/utils/format';
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
+import { usePersistentState } from '@/hooks/usePersistentState';
 
 import './index.scss';
 
@@ -54,25 +55,35 @@ function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
   };
 }
 
+const NS = 'csp.table.inbox.v1';
+
 export function InboxPage() {
-  const [hasSearched, setHasSearched] = useState(false);
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortParam, setSortParam] = useState<string | undefined>(undefined);
-  const [keyword, setKeyword] = useState('');
+  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 10);
+  const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
+  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
+  const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
 
   // Filter inputs
-  const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
-  const [submitterClient, setSubmitterClient] = useState<ClientLocationResponse | null>(null);
-  const [startDateInput, setStartDateInput] = useState('');
-  const [endDateInput, setEndDateInput] = useState('');
-  const [submittedBy, setSubmittedBy] = useState<SelectItem | null>(null);
-  const [selectedType, setSelectedType] = useState<SelectItem | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<LookupItemResponse | null>(null);
+  const [invoiceNumberInput, setInvoiceNumberInput] = usePersistentState(NS, 'invoiceNumberInput', '');
+  const [submitterClient, setSubmitterClient] = usePersistentState<ClientLocationResponse | null>(
+    NS,
+    'submitterClient',
+    null,
+  );
+  const [startDateInput, setStartDateInput] = usePersistentState(NS, 'startDateInput', '');
+  const [endDateInput, setEndDateInput] = usePersistentState(NS, 'endDateInput', '');
+  const [submittedBy, setSubmittedBy] = usePersistentState<SelectItem | null>(NS, 'submittedBy', null);
+  const [selectedType, setSelectedType] = usePersistentState<SelectItem | null>(NS, 'selectedType', null);
+  const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(
+    NS,
+    'selectedStatus',
+    null,
+  );
   const [dateKey, setDateKey] = useState(0);
 
   // Snapshot of filter criteria at the moment Search is clicked.
-  const [appliedFilters, setAppliedFilters] = useState<InboxSearchParams>({});
+  const [appliedFilters, setAppliedFilters] = usePersistentState<InboxSearchParams>(NS, 'appliedFilters', {});
 
   const { data: statusItems = [], isLoading: statusLoading } = useSubmissionStatusesQuery();
 
@@ -192,6 +203,7 @@ export function InboxPage() {
                 key={`start-date-${dateKey}`}
                 id="date-start"
                 labelText="Date start"
+                value={startDateInput}
                 onChange={(dates) => {
                   const val = dates[0] ? formatIsoDate(dates[0]) : '';
                   setStartDateInput(val);
@@ -204,6 +216,7 @@ export function InboxPage() {
                 key={`end-date-${dateKey}`}
                 id="date-end"
                 labelText="Date end"
+                value={endDateInput}
                 invalid={!!dateRangeError}
                 invalidText={dateRangeError ?? undefined}
                 onChange={(dates) => {
