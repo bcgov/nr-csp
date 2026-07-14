@@ -137,9 +137,14 @@ describe('SubmissionHistoryPage', () => {
     window.sessionStorage.setItem('csp.table.submissionHistory.v1.pageSize', '20');
     window.sessionStorage.setItem('csp.table.submissionHistory.v1.expanded', '["101"]');
 
-    setListData([{ ...sampleRow, cspSubmissionId: 101 }]);
     mockListQuery.mockReturnValue({
-      data: { content: [{ ...sampleRow, cspSubmissionId: 101 }], totalElements: 60 },
+      data: {
+        content: [
+          { ...sampleRow, cspSubmissionId: 101 },
+          { ...sampleRow, cspSubmissionId: 102 },
+        ],
+        totalElements: 60,
+      },
       isLoading: false,
       isError: false,
       error: null,
@@ -154,5 +159,14 @@ describe('SubmissionHistoryPage', () => {
     expect((pageSelect as HTMLSelectElement).value).toBe('2');
 
     expect(screen.getByTestId('invoice-comments-panel-101')).toBeInTheDocument();
+
+    // Row 101 was seeded in the restored `expanded` Set; row 102 was not. Assert the
+    // actual aria-expanded state of each row's expand toggle (tied to the row via
+    // aria-controls="...-expanded-row-<id>") so the test genuinely exercises the
+    // restored `expandedRowIds` Set rather than the always-rendered expanded-content row.
+    const toggle101 = document.querySelector('button[aria-controls$="-101"]');
+    const toggle102 = document.querySelector('button[aria-controls$="-102"]');
+    expect(toggle101).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle102).toHaveAttribute('aria-expanded', 'false');
   });
 });
