@@ -248,7 +248,14 @@ export function InboxPage() {
               <span className="inbox-page__search-btn-spacer" aria-hidden="true">
                 &nbsp;
               </span>
-              <Button kind="primary" size="md" renderIcon={SearchIcon} iconDescription="Search" onClick={executeSearch}>
+              <Button
+                kind="primary"
+                size="md"
+                renderIcon={SearchIcon}
+                iconDescription="Search"
+                onClick={executeSearch}
+                disabled={!!dateRangeError}
+              >
                 Search
               </Button>
             </div>
