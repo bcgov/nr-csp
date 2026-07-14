@@ -203,7 +203,7 @@ export function InboxPage() {
                 key={`start-date-${dateKey}`}
                 id="date-start"
                 labelText="Date start"
-                value={startDateInput}
+                value={startDateInput || undefined}
                 onChange={(dates) => {
                   const val = dates[0] ? formatIsoDate(dates[0]) : '';
                   setStartDateInput(val);
@@ -216,7 +216,7 @@ export function InboxPage() {
                 key={`end-date-${dateKey}`}
                 id="date-end"
                 labelText="Date end"
-                value={endDateInput}
+                value={endDateInput || undefined}
                 invalid={!!dateRangeError}
                 invalidText={dateRangeError ?? undefined}
                 onChange={(dates) => {
