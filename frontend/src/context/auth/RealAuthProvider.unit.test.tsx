@@ -71,6 +71,7 @@ describe('RealAuthProvider', () => {
 
   afterEach(() => {
     window.amplifyConfig = undefined;
+    window.sessionStorage.clear();
   });
 
   it('renders children and starts in the loading state', () => {
@@ -306,5 +307,20 @@ describe('RealAuthProvider', () => {
     expect(getCtx()?.isSigningOut).toBe(true);
     expect(getCtx()?.user).toBeNull();
     expect(getCtx()?.isAuthenticated).toBe(false);
+  });
+
+  it('clears persisted table state on signOut', async () => {
+    window.sessionStorage.setItem('csp.table.search.v1.page', '3');
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+
+    const { getCtx } = await renderAndSettle();
+
+    await act(async () => {
+      await getCtx()?.signOut();
+    });
+
+    expect(window.sessionStorage.getItem('csp.table.search.v1.page')).toBeNull();
   });
 });
