@@ -69,7 +69,7 @@ export function clearPersistedTableState(): void {
     const toRemove: string[] = [];
     for (let i = 0; i < window.sessionStorage.length; i += 1) {
       const k = window.sessionStorage.key(i);
-      if (k && k.startsWith(PREFIX)) toRemove.push(k);
+      if (k?.startsWith(PREFIX)) toRemove.push(k);
     }
     toRemove.forEach((k) => window.sessionStorage.removeItem(k));
   } catch {
