@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import {
   Button,
   Column,
@@ -101,9 +102,10 @@ function SortCodeFormFields({ form, mode }: { form: ReturnType<typeof useSortCod
 }
 
 export function SortCodePage() {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [sortParam, setSortParam] = useState<string | undefined>(undefined);
+  const NS = 'csp.table.sortCode.v1';
+  const [page, setPage] = usePersistentState(NS, 'page', 1);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 20);
+  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
 
   const { addNotification } = useNotification();

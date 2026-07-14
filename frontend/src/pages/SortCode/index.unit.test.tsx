@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import * as service from '@/services/sortcode.service';
@@ -51,6 +51,7 @@ const renderPage = () => {
 
 describe('SortCodePage', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     vi.mocked(service.useListSortCodesQuery).mockReturnValue({
       data: { content: SAMPLE_ROWS, totalElements: SAMPLE_ROWS.length },
       isLoading: false,
@@ -61,6 +62,10 @@ describe('SortCodePage', () => {
     vi.mocked(service.useUpdateSortCodeMutation).mockReturnValue(mockMutation() as any);
     vi.mocked(service.useDeleteSortCodeMutation).mockReturnValue(mockMutation() as any);
     vi.mocked(service.useExportSortCodesMutation).mockReturnValue(mockMutation() as any);
+  });
+
+  afterEach(() => {
+    window.sessionStorage.clear();
   });
 
   it('renders the page title', () => {
@@ -144,5 +149,21 @@ describe('SortCodePage', () => {
     renderPage();
     fireEvent.click(screen.getAllByRole('button', { name: /delete/i })[0]);
     expect(screen.getByRole('heading', { name: /delete sort code/i })).toBeInTheDocument();
+  });
+
+  it('restores page and page size from sessionStorage on mount', async () => {
+    window.sessionStorage.setItem('csp.table.sortCode.v1.page', '3');
+    window.sessionStorage.setItem('csp.table.sortCode.v1.pageSize', '40');
+    vi.mocked(service.useListSortCodesQuery).mockReturnValue({
+      data: { content: SAMPLE_ROWS, totalElements: 200 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as any);
+
+    renderPage();
+
+    const pageSelect = await screen.findByLabelText(/page of \d+ pages/i);
+    expect((pageSelect as HTMLSelectElement).value).toBe('3');
   });
 });
