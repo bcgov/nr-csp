@@ -21,6 +21,12 @@
     display: flex;
     flex-direction: column;
     gap: $spacing-02;
+
+    // Span the full grid width so long free-text values run all the way across
+    // instead of wrapping inside a single column.
+    &--full {
+      grid-column: 1 / -1;
+    }
   }
 
   &__label {

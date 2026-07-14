@@ -6,6 +6,10 @@ import './index.scss';
 export interface DetailItem {
   label: string;
   value: ReactNode;
+  /** When true, the item spans every grid column instead of a single cell —
+   * useful for long free-text values (notes, descriptions) that should run the
+   * full width rather than wrap inside one narrow column. */
+  fullWidth?: boolean;
 }
 
 interface DetailSectionProps {
@@ -33,7 +37,10 @@ const DetailSection: FC<DetailSectionProps> = ({ title, items, children, classNa
     {title ? <h2 className="detail-section__title">{title}</h2> : null}
     <dl className="detail-section__grid">
       {items.map((item) => (
-        <div key={item.label} className="detail-section__item">
+        <div
+          key={item.label}
+          className={item.fullWidth ? 'detail-section__item detail-section__item--full' : 'detail-section__item'}
+        >
           <dt className="detail-section__label">{item.label}</dt>
           <dd className="detail-section__value">
             {item.value === null || item.value === undefined || item.value === '' ? '—' : item.value}

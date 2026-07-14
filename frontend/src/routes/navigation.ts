@@ -28,17 +28,6 @@ export const NAVIGATION_ITEMS = [
     icon: Receipt,
   },
   {
-    name: 'Submissions',
-    icon: RecentlyViewed,
-    children: [
-      {
-        name: 'Submission History',
-        path: ROUTES.SUBMISSION_HISTORY,
-        icon: RecentlyViewed,
-      },
-    ],
-  },
-  {
     name: 'Table maintenance',
     icon: TableOfContents,
     children: [
@@ -92,6 +81,17 @@ export const NAVIGATION_ITEMS = [
         name: 'R13 - Ad hoc',
         path: ROUTES.R13_AD_HOC,
         icon: TextLinkAnalysis,
+      },
+    ],
+  },
+  {
+    name: 'Submissions',
+    icon: RecentlyViewed,
+    children: [
+      {
+        name: 'Submission History',
+        path: ROUTES.SUBMISSION_HISTORY,
+        icon: RecentlyViewed,
       },
     ],
   },

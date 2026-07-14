@@ -38,7 +38,7 @@ import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
-import ca.bc.gov.nrs.csp.backend.util.validation.invoiceDetails.InvoiceValidator;
+import ca.bc.gov.nrs.csp.backend.invoice.manual.InvoiceValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

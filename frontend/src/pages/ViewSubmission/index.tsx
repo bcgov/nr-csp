@@ -24,6 +24,9 @@ type InvoiceRow = SubmissionInvoiceResponse & { id: string; lineItemCount: numbe
 /** Strips a leading "mailto:" so the email displays as a plain address. */
 const cleanEmail = (email: string | null): string | null => (email ? email.replace(/^mailto:/i, '') : email);
 
+/** Strips a leading domain qualifier (e.g. "IDIR\") so only the name shows. */
+const submitterName = (submittedBy: string | null): string => submittedBy?.split('\\').pop()?.trim() || '—';
+
 /** "n thing" / "n things" — keeps the summary line grammatical. */
 const pluralize = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
@@ -63,12 +66,14 @@ export function ViewSubmissionPage() {
       ]
     : [];
 
-  // Line items grouped by their parent invoice number, so each expanded row
-  // can render only its own lines and the table can show a per-invoice count.
+  // Line items grouped by their parent invoice id (coastal_log_sale_id), so
+  // each expanded row can render only its own lines and the table can show a
+  // per-invoice count. Keyed on the id rather than the invoice number because
+  // invoice numbers can be blank or duplicated within a submission.
   const lineItemsByInvoice = useMemo(() => {
-    const map = new Map<string, SubmissionLineItemResponse[]>();
+    const map = new Map<number | null, SubmissionLineItemResponse[]>();
     (data?.lineItems ?? []).forEach((li) => {
-      const key = li.invoiceNumber ?? '';
+      const key = li.coastalLogSaleId;
       const group = map.get(key) ?? [];
       group.push(li);
       map.set(key, group);
@@ -79,7 +84,7 @@ export function ViewSubmissionPage() {
   const invoiceRows: InvoiceRow[] = (data?.invoices ?? []).map((inv, i) => ({
     ...inv,
     id: inv.coastalLogSaleId?.toString() ?? `inv-${i}`,
-    lineItemCount: (lineItemsByInvoice.get(inv.invoiceNumber ?? '') ?? []).length,
+    lineItemCount: (lineItemsByInvoice.get(inv.coastalLogSaleId) ?? []).length,
   }));
 
   // Summary line totals across the submission's invoices.
@@ -124,11 +129,17 @@ export function ViewSubmissionPage() {
         <Column lg={16} md={8} sm={4} className="view-submission-page__summary">
           <SubmissionStatusTag status={data.submissionStatus} />
           <span className="view-submission-page__summary-text">
-            Submission by <strong>{data.submittedBy ?? '—'}</strong> — Client Name{' '}
+            Submission by <strong>{submitterName(data.submittedBy)}</strong> — Client Name{' '}
             <strong>
               {data.clientName ?? '—'}
               {data.clientNumber ? ` (${data.clientNumber})` : ''}
             </strong>
+            {data.submissionId ? (
+              <>
+                {' · '}
+                Submission ID {data.submissionId}
+              </>
+            ) : null}
             {' · '}
             {formatShortDate(data.submissionDate)}
           </span>
@@ -184,7 +195,7 @@ export function ViewSubmissionPage() {
                 expandedRowIds={expandedRowIds}
                 onExpandedRowIdsChange={setExpandedRowIds}
                 renderExpandedContent={(row) => (
-                  <InvoiceDetailPanel invoice={row} lineItems={lineItemsByInvoice.get(row.invoiceNumber ?? '') ?? []} />
+                  <InvoiceDetailPanel invoice={row} lineItems={lineItemsByInvoice.get(row.coastalLogSaleId) ?? []} />
                 )}
                 emptyTitle="No invoices"
                 emptyDescription="This submission has no invoices."
@@ -229,21 +240,29 @@ export function ViewSubmissionPage() {
     {
       key: 'totalAmount',
       header: 'Total Amount',
+      headerAlign: 'right',
+      cellAlign: 'right',
       renderCell: (r) => formatNumber(r.totalAmount, 2),
     },
     {
       key: 'totalVolume',
       header: 'Total Volume',
+      headerAlign: 'right',
+      cellAlign: 'right',
       renderCell: (r) => formatNumber(r.totalVolume, 3),
     },
     {
       key: 'totalPieces',
       header: 'Total Pieces',
+      headerAlign: 'right',
+      cellAlign: 'right',
       renderCell: (r) => formatNumber(r.totalPieces),
     },
     {
       key: 'lineItemCount',
       header: 'Line Items',
+      headerAlign: 'right',
+      cellAlign: 'right',
       renderCell: (r) => formatNumber(r.lineItemCount),
     },
   ];

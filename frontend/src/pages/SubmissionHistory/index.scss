@@ -81,6 +81,19 @@
     margin-top: $spacing-05;
   }
 
+  // Keep the paired-zebra striping, but lighten the grey stripe on this list
+  // page — a little lighter than ResultsTable's default `--rt-zebra-grey`.
+  &__table-col .results-table--expandable {
+    --rt-zebra-grey: var(--cds-background, #f4f4f4);
+  }
+
+  // Actions "view" eyeball: blue icon to match the blue invoice-count links.
+  // Carbon paints the ghost icon-only button's <path> fill (not the <svg>), so
+  // target the path with !important to override it.
+  &__view-btn svg path {
+    fill: var(--cds-link-primary, #0f62fe) !important;
+  }
+
   // "Invoices" column: count link + comment-count badge.
   &__invoices-cell {
     display: inline-flex;
@@ -171,11 +184,18 @@
       z-index: 1;
     }
 
-    // No zebra — every body row sits on the white layer with a subtle divider
-    // between rows, matching the design.
+    // Zebra striping — odd rows on the white layer, even rows on a light grey,
+    // with a subtle divider between rows.
     tbody tr {
-      background-color: var(--cds-layer, #ffffff);
       border-top: 1px solid var(--cds-border-subtle, #e0e0e0);
+    }
+
+    tbody tr:nth-child(odd) {
+      background-color: var(--cds-layer, #ffffff);
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: var(--cds-background, #f4f4f4);
     }
   }
 
@@ -188,9 +208,9 @@
 // expanded row), so Carbon's own `.cds--data-table` cell rules and the parent's
 // `!important` paired-zebra both leak onto it — the former shifts the body cells
 // right of the header cells, the latter repaints the rows grey. Pin left-aligned
-// text, identical header/body padding, and the flat white row background on the
-// panel's own cells, with enough specificity to beat both, so the columns line
-// up and the rows stay white with subtle dividers (matching the design).
+// text, identical header/body padding, and the panel's own zebra (odd white /
+// even light-grey) on its cells, with enough specificity to beat both, so the
+// columns line up and the inner table keeps its own striping.
 .results-table--expandable
   .cds--child-row-inner-container
   .invoice-comments-panel__table {
@@ -200,7 +220,22 @@
     padding: $spacing-03 $spacing-05 !important;
   }
 
-  tbody tr:nth-child(n) td {
+  tbody tr:nth-child(odd) td {
     background-color: var(--cds-layer, #ffffff) !important;
+  }
+
+  tbody tr:nth-child(even) td {
+    background-color: var(--cds-background, #f4f4f4) !important;
+  }
+
+  // Carbon's `.cds--data-table th:last-of-type { position: static }` leaks in
+  // from the parent DataTable and un-sticks the last header cell (Comment), so
+  // it scrolls away with the rows while Invoice # / Status stay pinned. This
+  // selector out-specifies Carbon's, re-asserting the sticky header on every th.
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--cds-layer-accent, #e0e0e0);
   }
 }
