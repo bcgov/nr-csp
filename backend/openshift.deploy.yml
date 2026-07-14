@@ -225,26 +225,3 @@ objects:
         requests:
           storage: 50Mi
       storageClassName: netapp-file-standard
-
-  # ── NetworkPolicy: ingress from same-zone frontend + cluster monitoring ──
-  - apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: ${NAME}-backend-${ZONE}-ingress
-      labels:
-        app: ${NAME}-backend-${ZONE}
-        app.kubernetes.io/instance: ${ZONE}
-    spec:
-      podSelector:
-        matchLabels:
-          app: ${NAME}-backend-${ZONE}
-      ingress:
-        - from:
-            - podSelector:
-                matchLabels:
-                  app: ${NAME}-frontend-${ZONE}
-            - namespaceSelector:
-                matchLabels:
-                  network.openshift.io/policy-group: monitoring
-      policyTypes:
-        - Ingress

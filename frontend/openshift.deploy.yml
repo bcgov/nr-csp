@@ -208,23 +208,3 @@ objects:
       tls:
         termination: edge
         insecureEdgeTerminationPolicy: Redirect
-
-  # ── NetworkPolicy: ingress from OpenShift router ──────────
-  - apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: ${NAME}-frontend-${ZONE}-ingress
-      labels:
-        app: ${NAME}-frontend-${ZONE}
-        app.kubernetes.io/instance: ${ZONE}
-    spec:
-      podSelector:
-        matchLabels:
-          app: ${NAME}-frontend-${ZONE}
-      ingress:
-        - from:
-            - namespaceSelector:
-                matchLabels:
-                  network.openshift.io/policy-group: ingress
-      policyTypes:
-        - Ingress
