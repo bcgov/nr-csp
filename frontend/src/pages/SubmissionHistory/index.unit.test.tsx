@@ -149,9 +149,7 @@ describe('SubmissionHistoryPage', () => {
       isError: false,
       error: null,
     } as unknown as ReturnType<typeof useSubmissionHistoryListQuery>);
-    setComments([
-      { invoiceNumber: 'INV-2025-08-0001', status: 'Approved', comment: 'All good.' },
-    ]);
+    setComments([{ invoiceNumber: 'INV-2025-08-0001', status: 'Approved', comment: 'All good.' }]);
 
     renderPage();
 

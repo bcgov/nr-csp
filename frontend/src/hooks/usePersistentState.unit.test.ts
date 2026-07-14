@@ -52,11 +52,9 @@ describe('usePersistentState', () => {
   });
 
   it('does not throw and stays in-memory when sessionStorage.setItem throws', () => {
-    const spy = vi
-      .spyOn(Storage.prototype, 'setItem')
-      .mockImplementation(() => {
-        throw new Error('denied');
-      });
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
     const { result } = renderHook(() => usePersistentState('csp.table.test.v1', 'page', 1));
     expect(() => act(() => result.current[1](2))).not.toThrow();
     expect(result.current[0]).toBe(2);

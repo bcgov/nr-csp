@@ -75,11 +75,7 @@ export function InboxPage() {
   const [endDateInput, setEndDateInput] = usePersistentState(NS, 'endDateInput', '');
   const [submittedBy, setSubmittedBy] = usePersistentState<SelectItem | null>(NS, 'submittedBy', null);
   const [selectedType, setSelectedType] = usePersistentState<SelectItem | null>(NS, 'selectedType', null);
-  const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(
-    NS,
-    'selectedStatus',
-    null,
-  );
+  const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(NS, 'selectedStatus', null);
   const [dateKey, setDateKey] = useState(0);
 
   // Snapshot of filter criteria at the moment Search is clicked.

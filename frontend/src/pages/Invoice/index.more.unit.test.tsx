@@ -291,7 +291,9 @@ describe('InvoicePage — header field handlers', () => {
   it('shows "Seller" as the other party when submitted by is Buyer', async () => {
     await renderLoaded({ submittedBy: 'Buyer' });
     expect(
-      screen.getByText((_content, el) => el?.tagName === 'H3' && /Other party \(\s*Seller\s*\)/.test(el.textContent ?? '')),
+      screen.getByText(
+        (_content, el) => el?.tagName === 'H3' && /Other party \(\s*Seller\s*\)/.test(el.textContent ?? ''),
+      ),
     ).toBeInTheDocument();
   });
 

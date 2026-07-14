@@ -134,9 +134,7 @@ describe('RealAuthProvider', () => {
   });
 
   it('defaults to no roles when the token has no cognito:groups claim', async () => {
-    mockFetchAuthSession.mockResolvedValue(
-      sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }),
-    );
+    mockFetchAuthSession.mockResolvedValue(sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }));
 
     const { getCtx } = await renderAndSettle();
     expect(getCtx()?.user?.roles).toEqual([]);
@@ -168,9 +166,7 @@ describe('RealAuthProvider', () => {
   });
 
   it('leaves displayName undefined when no name claims are present', async () => {
-    mockFetchAuthSession.mockResolvedValue(
-      sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }),
-    );
+    mockFetchAuthSession.mockResolvedValue(sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }));
 
     const { getCtx } = await renderAndSettle();
     expect(getCtx()?.user?.displayName).toBeUndefined();
@@ -225,9 +221,7 @@ describe('RealAuthProvider', () => {
   });
 
   it('reloads the user when a Hub signedOut event fires', async () => {
-    mockFetchAuthSession.mockResolvedValueOnce(
-      sessionWith({ 'cognito:username': 'u', email: 'u@x' }),
-    );
+    mockFetchAuthSession.mockResolvedValueOnce(sessionWith({ 'cognito:username': 'u', email: 'u@x' }));
     const { getCtx } = await renderAndSettle();
     expect(getCtx()?.isAuthenticated).toBe(true);
 
