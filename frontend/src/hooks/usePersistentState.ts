@@ -20,14 +20,17 @@ export const setSerializer: Serializer<Set<string>> = {
   deserialize: (raw) => new Set(JSON.parse(raw) as string[]),
 };
 
-function readStored<T>(storageKey: string, deserialize: (raw: string) => T): T | undefined {
+function readStored<T>(storageKey: string, deserialize: (raw: string) => T, fallback: T): T {
   try {
     const raw = window.sessionStorage.getItem(storageKey);
-    if (raw === null) return undefined;
+    // getItem returns null ONLY when the key is absent; a *stored* null value
+    // is the string "null", which deserialize() turns back into null. This keeps
+    // "not stored" (use fallback) distinct from a legitimately stored null.
+    if (raw === null) return fallback;
     return deserialize(raw);
   } catch {
-    // storage unavailable or corrupt JSON — caller falls back to initial value
-    return undefined;
+    // storage unavailable or corrupt JSON — fall back to the initial value
+    return fallback;
   }
 }
 
@@ -45,10 +48,9 @@ export function usePersistentState<T>(
   const storageKey = `${namespace}.${key}`;
   const serializerRef = useRef(serializer);
 
-  const [value, setValue] = useState<T>(() => {
-    const stored = readStored(storageKey, serializerRef.current.deserialize);
-    return stored === undefined ? initialValue : stored;
-  });
+  const [value, setValue] = useState<T>(() =>
+    readStored(storageKey, serializerRef.current.deserialize, initialValue),
+  );
 
   useEffect(() => {
     try {
