@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -68,7 +68,12 @@ function renderPage() {
 describe('SubmissionHistoryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     setComments([]);
+  });
+
+  afterEach(() => {
+    window.sessionStorage.clear();
   });
 
   it('renders the page title', () => {
@@ -125,5 +130,41 @@ describe('SubmissionHistoryPage', () => {
     const panel = rejectedCell.closest('.invoice-comments-panel') as HTMLElement;
     expect(within(panel).getByText('Approved')).toBeInTheDocument();
     expect(within(panel).getByText('Rejected')).toBeInTheDocument();
+  });
+
+  it('restores page, page size, and expanded rows from sessionStorage on mount', async () => {
+    window.sessionStorage.setItem('csp.table.submissionHistory.v1.page', '2');
+    window.sessionStorage.setItem('csp.table.submissionHistory.v1.pageSize', '20');
+    window.sessionStorage.setItem('csp.table.submissionHistory.v1.expanded', '["101"]');
+
+    mockListQuery.mockReturnValue({
+      data: {
+        content: [
+          { ...sampleRow, cspSubmissionId: 101 },
+          { ...sampleRow, cspSubmissionId: 102 },
+        ],
+        totalElements: 60,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useSubmissionHistoryListQuery>);
+    setComments([{ invoiceNumber: 'INV-2025-08-0001', status: 'Approved', comment: 'All good.' }]);
+
+    renderPage();
+
+    const pageSelect = await screen.findByLabelText(/page of \d+ pages/i);
+    expect((pageSelect as HTMLSelectElement).value).toBe('2');
+
+    expect(screen.getByTestId('invoice-comments-panel-101')).toBeInTheDocument();
+
+    // Row 101 was seeded in the restored `expanded` Set; row 102 was not. Assert the
+    // actual aria-expanded state of each row's expand toggle (tied to the row via
+    // aria-controls="...-expanded-row-<id>") so the test genuinely exercises the
+    // restored `expandedRowIds` Set rather than the always-rendered expanded-content row.
+    const toggle101 = document.querySelector('button[aria-controls$="-101"]');
+    const toggle102 = document.querySelector('button[aria-controls$="-102"]');
+    expect(toggle101).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle102).toHaveAttribute('aria-expanded', 'false');
   });
 });

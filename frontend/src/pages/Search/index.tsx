@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
 
+import { usePersistentState } from '@/hooks/usePersistentState';
 import AutoCompleteInput from '@/components/Form/AutoCompleteInput';
 import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
 import PageTitle from '@/components/core/PageTitle';
@@ -61,9 +62,10 @@ function toInvoiceRow(r: SearchResultResponse): InvoiceRow {
 
 export function SearchPage() {
   const navigate = useNavigate();
-  const [hasSearched, setHasSearched] = useState(false);
-  const [pageSize, setPageSize] = useState(20);
-  const [currentPage, setCurrentPage] = useState(1);
+  const NS = 'csp.table.search.v1';
+  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 20);
+  const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
 
   const invoiceColumns: ResultsTableColumn<InvoiceRow>[] = [
     {
@@ -107,30 +109,37 @@ export function SearchPage() {
     .map((item) => (item.description === 'Cants / Export' ? { ...item, description: 'Cants' } : item));
 
   // Row 1 filter inputs
-  const [invoiceDateInput, setInvoiceDateInput] = useState('');
-  const [startDateInput, setStartDateInput] = useState('');
-  const [endDateInput, setEndDateInput] = useState('');
-  const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<LookupItemResponse | null>(null);
-  const [selectedType, setSelectedType] = useState<LookupItemResponse | null>(null);
+  const [invoiceDateInput, setInvoiceDateInput] = usePersistentState(NS, 'invoiceDateInput', '');
+  const [startDateInput, setStartDateInput] = usePersistentState(NS, 'startDateInput', '');
+  const [endDateInput, setEndDateInput] = usePersistentState(NS, 'endDateInput', '');
+  const [invoiceNumberInput, setInvoiceNumberInput] = usePersistentState(NS, 'invoiceNumberInput', '');
+  const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(NS, 'selectedStatus', null);
+  const [selectedType, setSelectedType] = usePersistentState<LookupItemResponse | null>(NS, 'selectedType', null);
 
   // Row 2 filter inputs
-  const [submitterClientNumInput, setSubmitterClientNumInput] = useState('');
-  const [sellerBuyerClientNum, setSellerBuyerClientNum] = useState('');
-  const [sellerBuyerLocNum, setSellerBuyerLocNum] = useState('');
-  const [sellerSubmitterInput, setSellerSubmitterInput] = useState<SellerSubmitterItem | null>(null);
-  const [maturityInput, setMaturityInput] = useState<LookupItemResponse | null>(null);
+  const [submitterClientNumInput, setSubmitterClientNumInput] = usePersistentState(NS, 'submitterClientNumInput', '');
+  const [selectedSellerBuyer, setSelectedSellerBuyer] = usePersistentState<ClientLocationResponse | null>(
+    NS,
+    'selectedSellerBuyer',
+    null,
+  );
+  const [sellerSubmitterInput, setSellerSubmitterInput] = usePersistentState<SellerSubmitterItem | null>(
+    NS,
+    'sellerSubmitterInput',
+    null,
+  );
+  const [maturityInput, setMaturityInput] = usePersistentState<LookupItemResponse | null>(NS, 'maturityInput', null);
   const [autoCompleteKey, setAutoCompleteKey] = useState(0);
   const [dateKey, setDateKey] = useState(0);
-  const [keyword, setKeyword] = useState('');
+  const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
   // Snapshot of filters at the moment Search is clicked (the criteria part — page/size/sort/keyword
   // are tracked separately so changing them re-queries without re-snapshotting filter inputs).
-  const [appliedFilters, setAppliedFilters] = useState<SearchParams>({});
+  const [appliedFilters, setAppliedFilters] = usePersistentState<SearchParams>(NS, 'appliedFilters', {});
 
   // Spring-style "field,direction" sort string, or undefined when unsorted.
-  const [sortParam, setSortParam] = useState<string | undefined>(undefined);
+  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
 
   const queryParams: SearchParams = {
     ...appliedFilters,
@@ -153,8 +162,8 @@ export function SearchPage() {
     invStatus: selectedStatus?.code || undefined,
     invType: selectedType?.code || undefined,
     submitterClientNum: submitterClientNumInput.trim() || undefined,
-    sellerBuyerClientNum: sellerBuyerClientNum || undefined,
-    sellerBuyerLocNum: sellerBuyerLocNum || undefined,
+    sellerBuyerClientNum: selectedSellerBuyer?.clientNumber || undefined,
+    sellerBuyerLocNum: selectedSellerBuyer?.clientLocnCode || undefined,
     sellerSubmitter:
       sellerSubmitterInput?.id === 'true' ? true : sellerSubmitterInput?.id === 'false' ? false : undefined,
     maturity: maturityInput?.code || undefined,
@@ -183,8 +192,7 @@ export function SearchPage() {
     setSelectedStatus(null);
     setSelectedType(null);
     setSubmitterClientNumInput('');
-    setSellerBuyerClientNum('');
-    setSellerBuyerLocNum('');
+    setSelectedSellerBuyer(null);
     setSellerSubmitterInput(null);
     setMaturityInput(null);
     setDateRangeError(null);
@@ -205,6 +213,7 @@ export function SearchPage() {
                 key={`invoice-date-${dateKey}`}
                 id="invoice-date"
                 labelText="Invoice date"
+                value={invoiceDateInput || undefined}
                 onChange={(dates) => setInvoiceDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
               />
             </div>
@@ -213,6 +222,7 @@ export function SearchPage() {
                 key={`start-date-${dateKey}`}
                 id="start-date"
                 labelText="Start date (invoice)"
+                value={startDateInput || undefined}
                 onChange={(dates) => {
                   const val = dates[0] ? formatIsoDate(dates[0]) : '';
                   setStartDateInput(val);
@@ -225,6 +235,7 @@ export function SearchPage() {
                 key={`end-date-${dateKey}`}
                 id="end-date"
                 labelText="End date (invoice)"
+                value={endDateInput || undefined}
                 invalid={!!dateRangeError}
                 invalidText={dateRangeError ?? undefined}
                 onChange={(dates) => {
@@ -293,15 +304,13 @@ export function SearchPage() {
                 id="seller-buyer-name"
                 titleText="Seller or buyer name"
                 placeholder="Search by name..."
+                selectedItem={selectedSellerBuyer}
                 onAutoCompleteChange={(value) => getClientsByName(value)}
                 extractItems={(raw) => raw as ClientLocationResponse[]}
                 itemToString={(item) =>
                   item ? `${item.clientName}${item.clientLocnName ? ` – ${item.clientLocnName}` : ''}` : ''
                 }
-                onSelect={(item) => {
-                  setSellerBuyerClientNum(item?.clientNumber ?? '');
-                  setSellerBuyerLocNum(item?.clientLocnCode ?? '');
-                }}
+                onSelect={(item) => setSelectedSellerBuyer(item ?? null)}
               />
             </div>
             <div className="search-page__filter-item">

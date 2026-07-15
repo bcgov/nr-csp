@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -73,6 +73,7 @@ function renderSearchPage() {
 
 describe('SearchPage', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     vi.mocked(useSearchQuery).mockReturnValue({
       data: { content: [], totalElements: 0, totalPages: 0, size: 10, number: 0 },
       isLoading: false,
@@ -90,6 +91,10 @@ describe('SearchPage', () => {
       data: mockMaturityItems,
       isLoading: false,
     } as any);
+  });
+
+  afterEach(() => {
+    window.sessionStorage.clear();
   });
 
   it('renders the page title', () => {
@@ -230,5 +235,46 @@ describe('SearchPage', () => {
     renderSearchPage();
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(screen.getByText(/1\s*[–-]\s*1 of 1 items/i)).toBeInTheDocument();
+  });
+
+  it('restores filters, page, and the seller/buyer autocomplete text from sessionStorage on mount', async () => {
+    window.sessionStorage.setItem('csp.table.search.v1.hasSearched', 'true');
+    window.sessionStorage.setItem('csp.table.search.v1.page', '2');
+    window.sessionStorage.setItem('csp.table.search.v1.invoiceNumberInput', JSON.stringify('INV-9'));
+    window.sessionStorage.setItem(
+      'csp.table.search.v1.selectedSellerBuyer',
+      JSON.stringify({
+        clientNumber: '00012345',
+        clientLocnCode: '01',
+        clientName: 'Acme Logging',
+        clientLocnName: '',
+        city: '',
+        province: '',
+      }),
+    );
+    window.sessionStorage.setItem(
+      'csp.table.search.v1.appliedFilters',
+      JSON.stringify({ invNumber: 'INV-9', sellerBuyerClientNum: '00012345', sellerBuyerLocNum: '01' }),
+    );
+
+    const content = Array.from({ length: 20 }, (_, i) => ({
+      ...mockSearchResult,
+      coastalLogSaleId: 300000 + i,
+      invoiceNumber: `INV-${i}`,
+    }));
+    vi.mocked(useSearchQuery).mockReturnValue({
+      data: { content, totalElements: 40, totalPages: 2, size: 20, number: 1 },
+      isLoading: false,
+      isError: false,
+    } as any);
+
+    renderSearchPage();
+
+    expect(await screen.findByDisplayValue('INV-9')).toBeInTheDocument();
+
+    const pageSelect = await screen.findByLabelText(/page of \d+ pages/i);
+    expect((pageSelect as HTMLSelectElement).value).toBe('2');
+
+    expect(await screen.findByDisplayValue(/Acme Logging/i)).toBeInTheDocument();
   });
 });
