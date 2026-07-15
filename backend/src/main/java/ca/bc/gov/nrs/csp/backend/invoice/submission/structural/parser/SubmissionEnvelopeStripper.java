@@ -78,6 +78,42 @@ public class SubmissionEnvelopeStripper {
     };
   }
 
+  /** Optional submitter contact metadata carried by the ESF envelope. */
+  public record SubmissionMetadata(String email, String telephone) {
+    public static final SubmissionMetadata EMPTY = new SubmissionMetadata(null, null);
+  }
+
+  /**
+   * Extracts the optional submitter contact metadata (email, telephone) from the
+   * ESF envelope. The bare CSP body carries no such fields, and any parse trouble
+   * is non-fatal here (the caller already has a valid parsed body), so this
+   * returns {@link SubmissionMetadata#EMPTY} rather than throwing.
+   */
+  public SubmissionMetadata extractMetadata(byte[] raw) {
+    try {
+      DocumentBuilder db = newSecureDocumentBuilderFactory().newDocumentBuilder();
+      Document doc = db.parse(new ByteArrayInputStream(raw));
+      String email = firstElementText(doc, props.getEnvelopeNamespace(), props.getEnvelopeEmailElement());
+      String telephone = firstElementText(doc, props.getEnvelopeNamespace(), props.getEnvelopeTelephoneElement());
+      return new SubmissionMetadata(stripMailto(email), telephone);
+    } catch (ParserConfigurationException | SAXException | IOException e) {
+      log.debug("Could not extract submission metadata: {}", e.getMessage());
+      return SubmissionMetadata.EMPTY;
+    }
+  }
+
+  private static String firstElementText(Document doc, String namespace, String localName) {
+    NodeList nodes = doc.getElementsByTagNameNS(namespace, localName);
+    if (nodes.getLength() == 0) return null;
+    String text = nodes.item(0).getTextContent();
+    return text == null || text.isBlank() ? null : text.trim();
+  }
+
+  /** Strips a leading "mailto:" so the email is a plain address. */
+  private static String stripMailto(String email) {
+    return email == null ? null : email.replaceFirst("(?i)^mailto:", "");
+  }
+
   // ── XXE-hardened factory helpers ─────────────────────────────────────
   // Submissions are arbitrary user-uploaded XML, so every parser we
   // instantiate against them must explicitly disable DTDs, external

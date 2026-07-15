@@ -35,6 +35,16 @@ public class SubmissionValidationService {
   }
 
   /**
+   * Structural validation that also returns the parsed JAXB tree, so a caller
+   * can both report structural errors and surface the parsed content (e.g. to
+   * populate the upload form). On a parse/schema failure the outcome's
+   * submission is null and its result carries the structural errors.
+   */
+  public StructuralValidationService.ValidationOutcome parse(byte[] xml) {
+    return structuralValidationService.validateAndParse(xml);
+  }
+
+  /**
    * Phase 2 — business-rule validation. Parses the submission first (the rules
    * operate on the JAXB tree); on a parse/schema failure, returns those
    * structural errors since business rules cannot run on an unparseable document.

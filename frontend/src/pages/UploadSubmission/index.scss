@@ -1,0 +1,163 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+@use '@carbon/react/scss/theme' as theme;
+
+.upload-submission-page {
+  padding-top: $spacing-05;
+  padding-bottom: $spacing-07;
+
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Inset every section to one shared left/right page gutter. Cards sit at this
+  // gutter; their own title band / body padding insets the content further.
+  .page-title-col,
+  &__section {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  .page-title-col {
+    margin-bottom: $spacing-05;
+
+    // Compact page heading — the full-size heading reads as oversized here.
+    .title-container h1 {
+      @include type.type-style('heading-03');
+      font-size: 1rem; // 16px per design
+    }
+  }
+
+  &__section {
+    margin-bottom: $spacing-06;
+  }
+
+  // ── Cards ─────────────────────────────────────────────────────────────────
+  // Upload / invoice / line-item blocks render as bordered cards with a grey
+  // title band, matching the detail-section cards below.
+  &__card {
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$background;
+  }
+
+  &__card-title {
+    @include type.type-style('heading-03');
+    font-size: 1rem; // 16px per design
+    font-weight: 400; // regular weight per design (heading-03 is otherwise 600)
+    margin: 0;
+    padding: $spacing-05; // 16px all around
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
+
+    // When the title shares its band with a count line, drop the band styling
+    // (the wrapping header carries it) so the two lines group together.
+    &--flush {
+      padding: 0;
+      border-bottom: none;
+    }
+  }
+
+  // Title + entry-count band for the invoice / line-item tables. Carries the
+  // Clear / Submit actions on the right for the invoice card.
+  &__card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-05;
+    flex-wrap: wrap;
+    padding: $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-04;
+  }
+
+  &__card-count {
+    @include type.type-style('label-01');
+    font-size: 0.875rem; // 14px
+    color: theme.$text-secondary;
+    margin: $spacing-02 0 0;
+  }
+
+  // Upload card body: sits on the white surface so the dashed drop zone reads
+  // against it.
+  &__card-body {
+    padding: $spacing-05;
+    background: theme.$layer-01;
+  }
+
+  &__card-table {
+    background: theme.$layer-01;
+  }
+
+  &__notification {
+    max-inline-size: 100%;
+
+    .cds--inline-notification {
+      max-inline-size: 100%;
+    }
+  }
+
+  // Upload progress / selected-file line inside the upload card body.
+  &__upload-status {
+    margin-top: $spacing-04;
+  }
+
+  &__file-name {
+    @include type.type-style('label-01');
+    color: theme.$text-secondary;
+  }
+
+  // Bulleted list of structural errors / submission-level messages beneath the
+  // status banner.
+  &__issue-list {
+    @include type.type-style('body-01');
+    margin: $spacing-03 0 0;
+    padding-left: $spacing-06;
+    list-style: disc;
+
+    li {
+      margin-bottom: $spacing-02;
+    }
+
+    li.is-error {
+      color: theme.$text-error;
+    }
+
+    li.is-warning {
+      color: theme.$support-warning;
+    }
+  }
+
+  // ── Editable metadata cards (Metadata / Details / Submitter) ───────────────
+  // A fixed 2-column grid of Carbon inputs inside the card body, autofilled from
+  // the parsed submission and editable by the user.
+  &__field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $spacing-05;
+    padding: $spacing-05;
+
+    // Stack to a single column on narrow viewports.
+    @media (max-width: 42rem) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    min-width: 0;
+  }
+}
+
+// The global g10 (light) theme forces every .cds--text-input to grey (#f4f4f4).
+// These editable metadata inputs read as white against the card. Scoped to g10
+// and given higher specificity than the global rule so it wins; the g100 dark
+// theme keeps Carbon's default dark field.
+:root[data-carbon-theme='g10'] .upload-submission-page__field .cds--text-input {
+  background-color: var(--cds-field-02) !important; // #ffffff in the light theme
+}

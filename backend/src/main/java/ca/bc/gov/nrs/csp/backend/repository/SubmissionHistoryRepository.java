@@ -33,11 +33,13 @@ import java.util.Optional;
  *       flattened list of all their line items.</li>
  * </ul>
  *
- * <p>Submitter name and contact details come from the related electronic
- * submission and client location: {@code submitted_by}/{@code email_id} from
- * {@code electronic_submission}, phone/email from {@code client_location}. The
- * admin comment is the first non-null {@code reviewer_notes} across the
- * submission's invoices.</p>
+ * <p>Submitter name comes from {@code forest_client} and {@code submitted_by}
+ * from {@code electronic_submission} (falling back to the submission's entry
+ * user). The submission's own email and telephone are not yet columns on
+ * {@code csp_submission} (a planned addition); until they exist the detail
+ * returns them as null rather than borrowing the client's contact info from
+ * {@code client_location}. The admin comment is the first non-null
+ * {@code reviewer_notes} across the submission's invoices.</p>
  */
 @Repository
 public class SubmissionHistoryRepository {
@@ -94,8 +96,12 @@ public class SubmissionHistoryRepository {
                    sub.client_number                                                           AS client_number,
                    fc.client_name                                                              AS client_name,
                    sub.client_locn_code                                                        AS client_locn_code,
-                   COALESCE(es.email_id, cl.email_address)                                     AS email,
-                   COALESCE(cl.business_phone, cl.cell_phone, cl.home_phone)                   AS telephone,
+                   -- email/telephone are not yet columns on csp_submission (planned addition);
+                   -- source them from sub.* once those columns exist. Null until then — do NOT
+                   -- fall back to client_location, which holds the client's contact info, not
+                   -- the submission's.
+                   NULL                                                                        AS email,
+                   NULL                                                                        AS telephone,
                    sub.month_complete_ind                                                      AS month_complete_ind,
                    CASE WHEN EXISTS (
                             SELECT 1 FROM THE.coastal_log_sale s
@@ -115,9 +121,6 @@ public class SubmissionHistoryRepository {
                     ON sub.client_number = fc.client_number
             LEFT JOIN THE.electronic_submission es
                     ON sub.submission_id = es.submission_id
-            LEFT JOIN THE.client_location cl
-                    ON sub.client_number = cl.client_number
-                   AND sub.client_locn_code = cl.client_locn_code
             WHERE  sub.csp_submission_id = :id
             """;
 

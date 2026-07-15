@@ -27,6 +27,9 @@ const SubmissionHistoryPage = lazy(() =>
 const ViewSubmissionPage = lazy(() =>
   import('@/pages/ViewSubmission').then((m) => ({ default: m.ViewSubmissionPage })),
 );
+const UploadSubmissionPage = lazy(() =>
+  import('@/pages/UploadSubmission').then((m) => ({ default: m.UploadSubmissionPage })),
+);
 const NotFoundPage = lazy(() => import('@/pages/NotFound').then((m) => ({ default: m.NotFoundPage })));
 const SortCodePage = lazy(() => import('@/pages/SortCode').then((m) => ({ default: m.SortCodePage })));
 const R06InvoicePrintOutPage = lazy(() =>
@@ -96,6 +99,14 @@ export default function App() {
                         element={
                           <ProtectedRoute>
                             <ViewSubmissionPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path={ROUTES.UPLOAD_SUBMISSION}
+                        element={
+                          <ProtectedRoute>
+                            <UploadSubmissionPage />
                           </ProtectedRoute>
                         }
                       />
