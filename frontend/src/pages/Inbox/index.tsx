@@ -59,7 +59,7 @@ const NS = 'csp.table.inbox.v1';
 
 export function InboxPage() {
   const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 10);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 100);
   const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
   const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
   const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
@@ -295,7 +295,7 @@ export function InboxPage() {
             page={currentPage}
             pageSize={pageSize}
             totalItems={totalElements}
-            pageSizes={[10, 20, 30, 40, 50]}
+            pageSizes={[10, 20, 30, 40, 50, 100]}
             paginationItemsPerPageText="Invoice per page:"
             paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} invoices`}
             searchKeyword={keyword}

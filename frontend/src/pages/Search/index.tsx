@@ -64,7 +64,7 @@ export function SearchPage() {
   const navigate = useNavigate();
   const NS = 'csp.table.search.v1';
   const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 20);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 100);
   const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
 
   const invoiceColumns: ResultsTableColumn<InvoiceRow>[] = [

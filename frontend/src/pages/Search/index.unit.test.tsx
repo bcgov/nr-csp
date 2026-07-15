@@ -54,6 +54,12 @@ const mockSearchResult = {
 
 // ── Render helper ─────────────────────────────────────────────────────────────
 
+const lastQueryParams = () =>
+  vi.mocked(useSearchQuery).mock.calls[vi.mocked(useSearchQuery).mock.calls.length - 1][0] as Record<
+    string,
+    unknown
+  >;
+
 function renderSearchPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -237,9 +243,16 @@ describe('SearchPage', () => {
     expect(screen.getByText(/1\s*[–-]\s*1 of 1 items/i)).toBeInTheDocument();
   });
 
+  it('defaults to 100 results per page when no prior state exists', () => {
+    renderSearchPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(lastQueryParams()).toMatchObject({ size: 100 });
+  });
+
   it('restores filters, page, and the seller/buyer autocomplete text from sessionStorage on mount', async () => {
     window.sessionStorage.setItem('csp.table.search.v1.hasSearched', 'true');
     window.sessionStorage.setItem('csp.table.search.v1.page', '2');
+    window.sessionStorage.setItem('csp.table.search.v1.pageSize', '20');
     window.sessionStorage.setItem('csp.table.search.v1.invoiceNumberInput', JSON.stringify('INV-9'));
     window.sessionStorage.setItem(
       'csp.table.search.v1.selectedSellerBuyer',
