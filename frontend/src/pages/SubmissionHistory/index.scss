@@ -211,9 +211,7 @@
 // text, identical header/body padding, and the panel's own zebra (odd white /
 // even light-grey) on its cells, with enough specificity to beat both, so the
 // columns line up and the inner table keeps its own striping.
-.results-table--expandable
-  .cds--child-row-inner-container
-  .invoice-comments-panel__table {
+.results-table--expandable .cds--child-row-inner-container .invoice-comments-panel__table {
   th,
   td {
     text-align: left !important;

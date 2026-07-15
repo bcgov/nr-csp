@@ -85,8 +85,7 @@ function renderInboxPage() {
 const lastQueryParams = () =>
   mockUseInboxSearchQuery.mock.calls[mockUseInboxSearchQuery.mock.calls.length - 1][0] as Record<string, unknown>;
 
-const lastQueryEnabled = () =>
-  mockUseInboxSearchQuery.mock.calls[mockUseInboxSearchQuery.mock.calls.length - 1][1];
+const lastQueryEnabled = () => mockUseInboxSearchQuery.mock.calls[mockUseInboxSearchQuery.mock.calls.length - 1][1];
 
 const setDate = (label: RegExp, value: string) => {
   const input = screen.getByLabelText(label);

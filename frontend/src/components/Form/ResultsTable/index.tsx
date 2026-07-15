@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@carbon/react';
 import { Summit, UserSearch } from '@carbon/pictograms-react';
-import React, { useState, useMemo, type ReactElement, type ReactNode } from 'react';
+import React, { useState, useMemo, useEffect, type ReactElement, type ReactNode } from 'react';
 
 import './index.scss';
 
@@ -184,6 +184,22 @@ const ResultsTable = <T extends { id: string }>({
     !serverSide && page !== undefined && pageSize
       ? sortedRows.slice((page - 1) * pageSize, page * pageSize)
       : sortedRows;
+
+  // Guard against a controlled `page` that exceeds the available pages — e.g. a
+  // persisted/restored page whose underlying data has since shrunk. Without this
+  // the table would render an empty page even though valid rows exist on earlier
+  // pages. Only acts when pagination is controlled and data has finished loading;
+  // it notifies the parent (which owns `page`) to snap back to the last real page.
+  useEffect(() => {
+    if (!onPaginationChange || isLoading) return;
+    if (page === undefined || !pageSize) return;
+    const total = totalItems ?? 0;
+    if (total <= 0) return; // no data (or unknown) — leave the empty-state alone
+    const lastPage = Math.max(1, Math.ceil(total / pageSize));
+    if (page > lastPage) {
+      onPaginationChange({ page: lastPage, pageSize });
+    }
+  }, [page, pageSize, totalItems, isLoading, onPaginationChange]);
 
   // Drives the header "expand all" chevron and toggle.
   const allExpanded = expandable && pageRows.length > 0 && pageRows.every((r) => expandedIds.has(r.id));
