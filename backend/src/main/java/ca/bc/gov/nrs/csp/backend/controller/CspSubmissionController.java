@@ -12,6 +12,7 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmitterType;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.SellerSubmissionType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationError;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationResult;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidationService;
@@ -120,7 +121,9 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     @Override
-    public ResponseEntity<SubmissionSubmitResponse> submit(MultipartFile file) {
+    public ResponseEntity<SubmissionSubmitResponse> submit(MultipartFile file,
+            String submissionClientNumber, String submissionClientLocnCode,
+            String monthComplete, String sellerSubmission) {
         log.info("POST /api/submissions/submit received file part: present={} size={}",
                 file != null && !file.isEmpty(),
                 file == null ? 0 : file.getSize());
@@ -139,10 +142,27 @@ public class CspSubmissionController implements CspSubmissionApi {
                     submitError("UPLOAD_UNREADABLE", "uploaded file could not be read"));
         }
 
+        // Parse once: the submission tree is what the user's edits are applied to, what
+        // business validation checks, and what gets persisted — so validated == saved.
+        StructuralValidationService.ValidationOutcome outcome = validationService.parse(xml);
+        if (!outcome.result().valid() || outcome.submission() == null) {
+            List<ValidationMessageResponse> messages = outcome.result().errors().stream()
+                    .map(this::toMessageResponse)
+                    .toList();
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
+                    new SubmissionSubmitResponse(false, "VALIDATION_ERROR",
+                            "Submission failed structural validation", null,
+                            List.of(), List.of(), messages));
+        }
+
+        CSPSubmissionType submission = (CSPSubmissionType) outcome.submission();
+        applyMetadataEdits(submission, submissionClientNumber, submissionClientLocnCode,
+                monthComplete, sellerSubmission);
+
         // Gate on business validation: only a fully accepted submission (no rejected
         // invoices) is persisted. A "partial acceptance" reports result.valid()==true
         // but still carries rejected invoices, so block on either condition.
-        SubmissionValidationResult result = validationService.validateBusiness(xml);
+        SubmissionValidationResult result = validationService.validateBusiness(submission);
         List<String> rejected = result.acceptance().rejected();
         if (!result.valid() || !rejected.isEmpty()) {
             List<ValidationMessageResponse> messages = result.errors().stream()
@@ -155,10 +175,44 @@ public class CspSubmissionController implements CspSubmissionApi {
                             null, result.acceptance().accepted(), rejected, messages));
         }
 
-        Long submissionId = persistenceService.persist(xml);
+        Long submissionId = persistenceService.persist(submission);
         return ResponseEntity.ok(new SubmissionSubmitResponse(
                 true, "OK", "Submission saved.", submissionId,
                 result.acceptance().accepted(), List.of(), List.of()));
+    }
+
+    /**
+     * Overlays the user's editable submission metadata onto the parsed tree. Only
+     * non-blank fields override the parsed value; Email/Telephone live in the ESF
+     * envelope (not this tree) and have no persisted home yet, so they are not
+     * applied here. An out-of-range sellerSubmission (schema allows only Y/N) is
+     * ignored, leaving the already-valid parsed value in place.
+     */
+    private void applyMetadataEdits(CSPSubmissionType submission, String submissionClientNumber,
+            String submissionClientLocnCode, String monthComplete, String sellerSubmission) {
+        if (hasText(monthComplete)) {
+            submission.setMonthComplete(monthComplete.trim());
+        }
+        CSPSubmitterType submitter = submission.getCSPSubmitter();
+        if (submitter == null) {
+            return;
+        }
+        if (hasText(submissionClientNumber)) {
+            submitter.setSubmissionClientNumber(submissionClientNumber.trim());
+        }
+        if (hasText(submissionClientLocnCode)) {
+            submitter.setSubmissionClientLocnCode(submissionClientLocnCode.trim());
+        }
+        if (hasText(sellerSubmission)) {
+            String normalized = sellerSubmission.trim().toUpperCase(Locale.ROOT);
+            if ("Y".equals(normalized) || "N".equals(normalized)) {
+                submitter.setSellerSubmission(SellerSubmissionType.fromValue(normalized));
+            }
+        }
+    }
+
+    private static boolean hasText(String s) {
+        return s != null && !s.isBlank();
     }
 
     /**

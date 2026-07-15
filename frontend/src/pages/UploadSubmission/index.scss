@@ -97,9 +97,39 @@
 
   &__notification {
     max-inline-size: 100%;
+    margin-bottom: $spacing-05;
 
     .cds--inline-notification {
       max-inline-size: 100%;
+    }
+  }
+
+  // "line N, col N" source location in the validation-issues table. code-02 is
+  // the 14px monospace style, matching the body text size of the other columns.
+  &__issue-location {
+    @include type.type-style('code-02');
+    white-space: nowrap;
+    color: theme.$text-secondary;
+  }
+
+  // The structural issues table's "Detail" column can be long prose, so let the
+  // cells wrap and top-align (overriding the data-preview cell's inline-flex,
+  // which is meant for short values + an issue marker). Scoped so the invoice /
+  // line-item tables keep their single-line layout.
+  &__issues-table {
+    .data-preview-table__cell {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    .cds--data-table td {
+      vertical-align: middle;
+    }
+
+    // Bold the column headers (Issue / File location / Detail).
+    .cds--data-table thead th,
+    .cds--data-table thead .cds--table-header-label {
+      font-weight: 700;
     }
   }
 
@@ -155,9 +185,27 @@
 }
 
 // The global g10 (light) theme forces every .cds--text-input to grey (#f4f4f4).
-// These editable metadata inputs read as white against the card. Scoped to g10
-// and given higher specificity than the global rule so it wins; the g100 dark
-// theme keeps Carbon's default dark field.
+// Give these editable metadata inputs a plain white fill so they read as active
+// fields against the card. Uses an explicit #ffffff rather than var(--cds-field-02):
+// that token is layer-relative and resolves to grey (#f4f4f4) inside a layer
+// context, which is why the earlier attempt still rendered grey. Scoped to g10
+// (higher specificity than the global rule so it wins); g100 keeps Carbon's dark
+// field.
 :root[data-carbon-theme='g10'] .upload-submission-page__field .cds--text-input {
-  background-color: var(--cds-field-02) !important; // #ffffff in the light theme
+  background-color: #ffffff !important;
+}
+
+// Carbon text inputs default to a bottom underline only (no box), so a white
+// field on the white card is indistinguishable from its surface. Add a full
+// border so every metadata input reads as an editable box in both themes.
+// Excludes the invalid/warning states: Carbon draws its own red error / amber
+// warning outline there (the same treatment the report pages use), which must
+// stand on its own without a competing grey border.
+:root[data-carbon-theme='g10']
+  .upload-submission-page__field
+  .cds--text-input:not(.cds--text-input--invalid, .cds--text-input--warning),
+:root[data-carbon-theme='g100']
+  .upload-submission-page__field
+  .cds--text-input:not(.cds--text-input--invalid, .cds--text-input--warning) {
+  border: 1px solid var(--cds-border-strong-01) !important;
 }

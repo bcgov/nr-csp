@@ -2,9 +2,7 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceDetails;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
-import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.invoice.shared.rules.SourceDocuments;
-import ca.bc.gov.nrs.csp.backend.invoice.submission.SubmissionValidationService;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.IdentifierNormalizer;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.SubmitterInfo;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.SubmitterResolver;
@@ -13,7 +11,6 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmitterType;
-import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidationService;
 import ca.bc.gov.nrs.csp.backend.repository.CspSubmissionRepository;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository;
 import ca.bc.gov.nrs.csp.backend.repository.LineItemRepository;
@@ -46,7 +43,6 @@ import java.util.List;
 @Slf4j
 public class CspSubmissionPersistenceService {
 
-  private final SubmissionValidationService validationService;
   private final SubmitterResolver submitterResolver;
   private final IdentifierNormalizer identifierNormalizer;
   private final CspSubmissionRepository submissionRepo;
@@ -55,20 +51,15 @@ public class CspSubmissionPersistenceService {
   private final LogSaleParticipantRepository participantRepo;
 
   /**
-   * Parses the submission and persists it in a single transaction.
+   * Persists an already-parsed, already-validated submission in a single
+   * transaction. The caller (the submit endpoint) parses the upload, applies the
+   * user's metadata edits, and runs business validation before invoking this, so
+   * the tree passed here is exactly what gets saved.
    *
    * @return the new {@code csp_submission_id}.
-   * @throws BadRequestException if the bytes are not structurally valid (a
-   *     validated caller should never hit this).
    */
   @Transactional
-  public Long persist(byte[] xml) {
-    StructuralValidationService.ValidationOutcome outcome = validationService.parse(xml);
-    if (!outcome.result().valid() || outcome.submission() == null) {
-      throw new BadRequestException("Submission is not structurally valid and cannot be saved.");
-    }
-
-    CSPSubmissionType submission = (CSPSubmissionType) outcome.submission();
+  public Long persist(CSPSubmissionType submission) {
     CSPSubmitterType submitter = submission.getCSPSubmitter();
     String user = SecurityContextUtils.requireUsername();
     List<CSPInvoiceType> invoices = submission.getCSPInvoice();

@@ -70,19 +70,26 @@ public interface CspSubmissionApi {
             @RequestParam(value = "file", required = false) MultipartFile file);
 
     @Operation(summary = "Submit: business-validate and persist the submission",
-            description = "Accepts the same multipart file part named 'file'. Runs business "
-                    + "validation and, only when the submission is fully accepted (no rejected "
-                    + "invoices), persists it — a csp_submission row plus one invoice per parsed "
-                    + "invoice with its line items — and returns the new submissionId. If any "
-                    + "invoice is rejected the submission is NOT saved and the validation messages "
-                    + "are returned (422).")
+            description = "Accepts the multipart file part named 'file' plus the user's editable "
+                    + "submission metadata (submissionClientNumber, submissionClientLocnCode, "
+                    + "monthComplete, sellerSubmission) as optional form fields. Any field supplied "
+                    + "overrides the parsed value before business validation runs, so the submission "
+                    + "is validated and persisted exactly as edited. Only when the submission is "
+                    + "fully accepted (no rejected invoices) is it saved — a csp_submission row plus "
+                    + "one invoice per parsed invoice with its line items — and the new submissionId "
+                    + "returned. If any invoice is rejected the submission is NOT saved and the "
+                    + "validation messages are returned (422).")
     @ApiResponse(responseCode = "200", description = "Submission saved; submissionId returned",
             content = @Content(schema = @Schema(implementation = SubmissionSubmitResponse.class)))
-    @ApiResponse(responseCode = "422", description = "Submission failed business rules and was not saved",
+    @ApiResponse(responseCode = "422", description = "Submission failed validation and was not saved",
             content = @Content(schema = @Schema(implementation = SubmissionSubmitResponse.class)))
     @ApiResponse(responseCode = "400", description = "Missing or unreadable file part",
             content = @Content(schema = @Schema(implementation = SubmissionSubmitResponse.class)))
     @PostMapping(value = "/submit", consumes = "multipart/form-data")
     ResponseEntity<SubmissionSubmitResponse> submit(
-            @RequestParam(value = "file", required = false) MultipartFile file);
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "submissionClientNumber", required = false) String submissionClientNumber,
+            @RequestParam(value = "submissionClientLocnCode", required = false) String submissionClientLocnCode,
+            @RequestParam(value = "monthComplete", required = false) String monthComplete,
+            @RequestParam(value = "sellerSubmission", required = false) String sellerSubmission);
 }

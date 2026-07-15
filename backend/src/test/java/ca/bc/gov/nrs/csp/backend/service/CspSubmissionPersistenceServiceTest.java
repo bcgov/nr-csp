@@ -2,7 +2,6 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceDetails;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
-import ca.bc.gov.nrs.csp.backend.invoice.submission.SubmissionValidationService;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.IdentifierNormalizer;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.SubmitterResolver;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceDetailsType;
@@ -11,8 +10,6 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmitterType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.SellerSubmissionType;
-import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationResult;
-import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidationService;
 import ca.bc.gov.nrs.csp.backend.repository.CspSubmissionRepository;
 import ca.bc.gov.nrs.csp.backend.repository.InvoiceRepository;
 import ca.bc.gov.nrs.csp.backend.repository.LineItemRepository;
@@ -45,7 +42,6 @@ class CspSubmissionPersistenceServiceTest {
 
   private static final String USER = "tester";
 
-  @Mock SubmissionValidationService validationService;
   @Mock CspSubmissionRepository submissionRepo;
   @Mock InvoiceRepository invoiceRepo;
   @Mock LineItemRepository lineItemRepo;
@@ -60,7 +56,7 @@ class CspSubmissionPersistenceServiceTest {
   @BeforeEach
   void setUp() {
     service = new CspSubmissionPersistenceService(
-        validationService, submitterResolver, identifierNormalizer,
+        submitterResolver, identifierNormalizer,
         submissionRepo, invoiceRepo, lineItemRepo, participantRepo);
     SecurityContextHolder.getContext().setAuthentication(
         new UsernamePasswordAuthenticationToken(USER, null, List.of()));
@@ -74,13 +70,11 @@ class CspSubmissionPersistenceServiceTest {
   @Test
   void persist_insertsOneSubmissionAndMapsInvoiceAndLine() throws Exception {
     CSPSubmissionType submission = sampleSubmission();
-    given(validationService.parse(any())).willReturn(
-        new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), submission));
     given(submissionRepo.insertSubmission(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), any()))
         .willReturn(555L);
     given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(900L);
 
-    Long submissionId = service.persist("<xml/>".getBytes());
+    Long submissionId = service.persist(submission);
 
     assertThat(submissionId).isEqualTo(555L);
 

@@ -1,6 +1,63 @@
 import { type CellIssue, type RowIssues } from '@/components/core/DataPreviewTable';
 import { type ValidationMessageResponse } from '@/services/invoice.service';
 
+/** A structural (schema) error flattened into a row for the issues table. */
+export interface StructuralIssueRow {
+  id: string;
+  /** Human category of the problem (Issue column). */
+  issue: string;
+  /** "line N, col N" source location, or '' when the error has no location. */
+  location: string;
+  /** The specific problem text (Detail column). */
+  detail: string;
+}
+
+// Maps a structural error code to a human "Issue" category. Schema/JAXB content
+// problems dominate; the rest are format / envelope / IO failures.
+const STRUCTURAL_ISSUE_LABEL: Record<string, string> = {
+  XSD: 'XML content error',
+  JAXB: 'XML content error',
+  XML_PARSE: 'XML parse error',
+  XML_READ: 'File read error',
+  FORMAT_UNRECOGNIZED: 'Unrecognized format',
+  ENVELOPE_PARSE_ERROR: 'Envelope error',
+  ENVELOPE_UNRECOGNIZED: 'Envelope error',
+  ENVELOPE_MISSING_CONTENT: 'Envelope error',
+  ENVELOPE_NO_BODY: 'Envelope error',
+  ENVELOPE_EXTRACTION_FAILED: 'Envelope error',
+};
+
+// Structural messages are rendered by the backend as "line N, col N: <detail>"
+// (schema errors) or just "<detail>" (format/envelope errors). Split the
+// leading location off so it can sit in its own column.
+const LOCATION_RE = /^(line \d+, col \d+):\s*([\s\S]*)$/;
+
+// Xerces schema messages are prefixed with an error code like "cvc-type.3.1.3: "
+// or "cvc-fractionDigits-valid: ". Drop it so the Detail column reads as plain
+// prose — the Issue column already says it is an XML content error.
+const SCHEMA_CODE_RE = /^cvc-[\w.-]+:\s*/;
+
+/** Flattens structural validation errors into rows for the issues table. */
+export const toStructuralIssueRows = (errors: ValidationMessageResponse[]): StructuralIssueRow[] =>
+  errors.map((e, i) => {
+    const match = LOCATION_RE.exec(e.message);
+    const detail = (match ? match[2] : e.message).replace(SCHEMA_CODE_RE, '');
+    return {
+      id: `structural-${i}`,
+      issue: STRUCTURAL_ISSUE_LABEL[e.messageKey] ?? 'XML content error',
+      location: match ? match[1] : '',
+      detail,
+    };
+  });
+
+const csvCell = (value: string): string => (/[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+
+/** Serialises the issues table to CSV (Issue, File location, Detail). */
+export const structuralIssuesToCsv = (rows: StructuralIssueRow[]): string =>
+  [['Issue', 'File location', 'Detail'], ...rows.map((r) => [r.issue, r.location, r.detail])]
+    .map((cols) => cols.map(csvCell).join(','))
+    .join('\r\n');
+
 /**
  * Maps a business-validation message key to the invoice-table column it should
  * highlight. Best-effort: keys not listed here attach at the row level instead.
@@ -43,9 +100,14 @@ export const LINE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.price.zero.value.warning': 'price',
 };
 
-/** Maps a submission-level message key to a metadata field. */
-export const SUBMISSION_KEY_TO_FIELD: Record<string, string> = {
+/**
+ * Maps a submission-level message key to the metadata field(s) it should
+ * highlight. A key may target more than one field (e.g. the submitter
+ * client-number + location combination is one message about two fields).
+ */
+export const SUBMISSION_KEY_TO_FIELD: Record<string, string | string[]> = {
   'invoice.month.completed.warning': 'monthComplete',
+  'invoice.submitter.client.location.invalid.error': ['submissionClientNumber', 'submissionClientLocnCode'],
 };
 
 /** The result of attributing every validation message to a row / field / form. */
@@ -85,7 +147,13 @@ const parseLocator = (message: string): Located => {
   const prefix = message.slice(0, sep).trim();
   const body = message.slice(sep + 2);
   const match = LOCATOR_RE.exec(prefix);
-  if (!match) return { body: message };
+  if (!match) {
+    // A submission-level message carries a bare "submission" locator (no invoice
+    // index). Strip it so the field/banner text reads cleanly; it stays
+    // unlocated so it routes via SUBMISSION_KEY_TO_FIELD.
+    if (prefix.toLowerCase() === 'submission') return { body };
+    return { body: message };
+  }
   return {
     invoiceIndex: Number(match[1]),
     lineIndex: match[2] ? Number(match[2]) : undefined,
@@ -127,9 +195,13 @@ export const mapSubmissionIssues = (messages: ValidationMessageResponse[]): Mapp
       const rowIssues = (result.invoices[invoiceIndex] ??= emptyRowIssues());
       addToRow(rowIssues, INVOICE_KEY_TO_FIELD[m.messageKey], issue);
     } else {
-      const field = SUBMISSION_KEY_TO_FIELD[m.messageKey];
-      if (field) (result.submissionFields[field] ??= []).push(issue);
-      else result.formIssues.push(issue);
+      const mapped = SUBMISSION_KEY_TO_FIELD[m.messageKey];
+      if (mapped) {
+        const fields = Array.isArray(mapped) ? mapped : [mapped];
+        for (const field of fields) (result.submissionFields[field] ??= []).push(issue);
+      } else {
+        result.formIssues.push(issue);
+      }
     }
   }
 

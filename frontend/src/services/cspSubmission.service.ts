@@ -79,6 +79,19 @@ const buildFormData = (file: File): FormData => {
 };
 
 /**
+ * The submission metadata the user can edit before submitting. Sent alongside the
+ * file so the backend overrides the parsed values before validating and saving.
+ * Email/telephone are omitted — they live only in the ESF envelope and have no
+ * persisted home yet.
+ */
+export interface SubmissionEdits {
+  submissionClientNumber: string;
+  submissionClientLocnCode: string;
+  monthComplete: string;
+  sellerSubmission: string;
+}
+
+/**
  * Parse (and structurally validate) an uploaded XML file. On a structural
  * failure the backend responds 422; the response body is still a
  * {@link SubmissionParseResponse} (with `valid: false` and populated `errors`),
@@ -102,8 +115,14 @@ export const validateSubmissionBusiness = (file: File): Promise<SubmissionValida
  * `submissionId` when saved, or 422 (thrown) when any invoice is rejected — the
  * error body is a {@link SubmissionSubmitResponse}.
  */
-export const submitSubmission = (file: File): Promise<SubmissionSubmitResponse> =>
-  apiClient.post<SubmissionSubmitResponse>('/submissions/submit', buildFormData(file)).then(({ data }) => data);
+export const submitSubmission = (file: File, edits: SubmissionEdits): Promise<SubmissionSubmitResponse> => {
+  const form = buildFormData(file);
+  form.append('submissionClientNumber', edits.submissionClientNumber);
+  form.append('submissionClientLocnCode', edits.submissionClientLocnCode);
+  form.append('monthComplete', edits.monthComplete);
+  form.append('sellerSubmission', edits.sellerSubmission);
+  return apiClient.post<SubmissionSubmitResponse>('/submissions/submit', form).then(({ data }) => data);
+};
 
 /**
  * Extracts a {@link SubmissionParseResponse} / {@link SubmissionValidationResponse}

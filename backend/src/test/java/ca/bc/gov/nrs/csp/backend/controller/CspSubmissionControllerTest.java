@@ -19,6 +19,7 @@ import ca.bc.gov.nrs.csp.backend.service.CspSubmissionPersistenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.StaticMessageSource;
@@ -378,7 +379,11 @@ class CspSubmissionControllerTest {
 
     @Test
     void submit_valid_persistsAndReturnsSubmissionId() throws Exception {
-        given(validationService.validateBusiness(any())).willReturn(SubmissionValidationResult.ok());
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
         given(persistenceService.persist(any())).willReturn(98765L);
 
         mockMvc.perform(multipart("/api/submissions/submit")
@@ -392,10 +397,43 @@ class CspSubmissionControllerTest {
     }
 
     @Test
+    void submit_appliesEditedMetadataBeforeValidatingAndPersisting() throws Exception {
+        // Parsed tree carries the original values; the form fields carry the user's edits.
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any())).willReturn(42L);
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes()))
+                        .param("submissionClientNumber", "00999999")
+                        .param("submissionClientLocnCode", "01")
+                        .param("monthComplete", "N")
+                        .param("sellerSubmission", "N"))
+                .andExpect(status().isOk());
+
+        // The exact tree that is persisted reflects the edits (validate == save).
+        ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
+        verify(persistenceService).persist(captor.capture());
+        CSPSubmissionType saved = captor.getValue();
+        assertThat(saved.getMonthComplete()).isEqualTo("N");
+        assertThat(saved.getCSPSubmitter().getSubmissionClientNumber()).isEqualTo("00999999");
+        assertThat(saved.getCSPSubmitter().getSubmissionClientLocnCode()).isEqualTo("01");
+        assertThat(saved.getCSPSubmitter().getSellerSubmission()).isEqualTo(SellerSubmissionType.N);
+        // The same tree was the one business-validated.
+        verify(validationService).validateBusiness(saved);
+    }
+
+    @Test
     void submit_invalid_returns422AndDoesNotPersist() throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.error("invoice #1 (INV-1)", "invoice.fob.required.error", new Object[0])));
-        given(validationService.validateBusiness(any())).willReturn(failed);
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/submit")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -410,12 +448,15 @@ class CspSubmissionControllerTest {
 
     @Test
     void submit_partialAcceptance_returns422NotSaved() throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
         SubmissionValidationResult partial = new SubmissionValidationResult(
                 true,
                 List.of(SubmissionValidationError.error("invoice #2 (INV-BAD)",
                         "invoice.fob.required.error", new Object[0])),
                 new SubmissionAcceptance(List.of("INV-GOOD"), List.of("INV-BAD")));
-        given(validationService.validateBusiness(any())).willReturn(partial);
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(partial);
 
         mockMvc.perform(multipart("/api/submissions/submit")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -424,6 +465,25 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("PARTIALLY_ACCEPTED"))
                 .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"));
 
+        verify(persistenceService, never()).persist(any());
+    }
+
+    @Test
+    void submit_structuralInvalid_returns422AndDoesNotValidateOrPersist() throws Exception {
+        messageSource.addMessage("FORMAT_UNRECOGNIZED", Locale.getDefault(), "could not detect format");
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", new Object[0])));
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(failed, null));
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("x.txt", "{".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("FORMAT_UNRECOGNIZED"));
+
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
         verify(persistenceService, never()).persist(any());
     }
 

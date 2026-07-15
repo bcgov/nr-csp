@@ -55,8 +55,18 @@ public class SubmissionValidationService {
     if (!structural.result().valid() || structural.submission() == null) {
       return structural.result();
     }
-    BusinessValidationOutcome business =
-        businessValidationService.validate(structural.submission());
+    return validateBusiness(structural.submission());
+  }
+
+  /**
+   * Phase 2 on an already-parsed submission tree. Used by the submit path, which
+   * parses once, applies the user's metadata edits, then validates the exact tree
+   * it is about to persist — so what is validated is what is saved. The tree is
+   * passed as {@code Object} to keep this module decoupled from the generated
+   * types; {@link BusinessValidationService} casts at its own boundary.
+   */
+  public SubmissionValidationResult validateBusiness(Object parsedSubmission) {
+    BusinessValidationOutcome business = businessValidationService.validate(parsedSubmission);
     return new SubmissionValidationResult(
         business.valid(), business.messages(), business.acceptance());
   }

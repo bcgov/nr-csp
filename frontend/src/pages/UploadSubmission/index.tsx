@@ -1,3 +1,4 @@
+import { Download } from '@carbon/icons-react';
 import { Button, Column, Grid, InlineLoading, InlineNotification, TextInput } from '@carbon/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,8 +21,17 @@ import {
 } from '@/services/cspSubmission.service';
 import { type ValidationMessageResponse } from '@/services/invoice.service';
 import { formatCurrency, formatNumber } from '@/utils/format';
+import { downloadBlob } from '@/utils/report';
+import { SUBMISSION_METADATA_KEY_TO_FIELD, validateSubmissionMetadata } from '@/validations/submission';
+import { splitMessages } from '@/validations/validationResult';
 
-import { mapSubmissionIssues, type MappedIssues } from './submissionErrors';
+import {
+  mapSubmissionIssues,
+  structuralIssuesToCsv,
+  toStructuralIssueRows,
+  type MappedIssues,
+  type StructuralIssueRow,
+} from './submissionErrors';
 
 import './index.scss';
 
@@ -77,6 +87,10 @@ export function UploadSubmissionPage() {
   const [businessResult, setBusinessResult] = useState<SubmissionValidationResponse | null>(null);
   const [issues, setIssues] = useState<MappedIssues | null>(null);
   const [notificationVisible, setNotificationVisible] = useState(true);
+  // Client-side (required/pattern) errors on the editable metadata fields, keyed
+  // by EditableFields key. Drives the inline red highlight the same way the
+  // report filters do; cleared per field as the user edits.
+  const [clientFieldErrors, setClientFieldErrors] = useState<Record<string, string>>({});
 
   const resetResults = () => {
     setSubmission(null);
@@ -84,6 +98,7 @@ export function UploadSubmissionPage() {
     setStructuralErrors([]);
     setBusinessResult(null);
     setIssues(null);
+    setClientFieldErrors({});
     setNotificationVisible(true);
   };
 
@@ -108,9 +123,27 @@ export function UploadSubmissionPage() {
 
   const handleSubmit = async () => {
     if (!selectedFile) return;
+
+    // Client-side field checks first: on failure, mark the offending fields and
+    // stay on the page (red inline errors) without calling the API.
+    const clientResult = validateSubmissionMetadata({
+      submissionClientNumber: fields.submissionClientNumber,
+      submissionClientLocnCode: fields.submissionClientLocnCode,
+      monthComplete: fields.monthComplete,
+      sellerSubmission: fields.sellerSubmission,
+    });
+    const { fieldErrors } = splitMessages(clientResult.messages, SUBMISSION_METADATA_KEY_TO_FIELD);
+    setClientFieldErrors(fieldErrors);
+    if (clientResult.hasErrors()) return;
+
     setStatus('submitting');
     try {
-      const result = await submitSubmission(selectedFile);
+      const result = await submitSubmission(selectedFile, {
+        submissionClientNumber: fields.submissionClientNumber,
+        submissionClientLocnCode: fields.submissionClientLocnCode,
+        monthComplete: fields.monthComplete,
+        sellerSubmission: fields.sellerSubmission,
+      });
       if (result.valid && result.submissionId != null) {
         navigate(`${ROUTES.SUBMISSION_HISTORY}/${result.submissionId}`);
         return;
@@ -176,10 +209,12 @@ export function UploadSubmissionPage() {
   };
 
   const isBusy = status === 'parsing' || status === 'validating' || status === 'submitting';
-  // Submit is allowed once a submission has parsed and business validation
-  // produced no blocking errors (warnings are fine).
-  const canSubmit = status === 'done' && !!businessResult && !issues?.hasErrors;
   const hasSubmission = submission != null;
+  // Submit is allowed whenever a submission has parsed and we're not mid-request.
+  // A prior validation error must NOT lock the button — the whole point is to
+  // correct the highlighted fields and resubmit; the submit endpoint re-validates
+  // the edited values authoritatively and re-surfaces any remaining issues.
+  const canSubmit = hasSubmission && !isBusy;
 
   // Metadata field issues (submission-level messages that map to a field).
   const fieldIssue = (key: string): { errorText?: string; warningText?: string } => {
@@ -196,15 +231,31 @@ export function UploadSubmissionPage() {
     return { errorText: errorText || undefined, warningText: warningText || undefined };
   };
 
-  const setField = (key: keyof EditableFields, value: string) => setFields((prev) => ({ ...prev, [key]: value }));
+  const setField = (key: keyof EditableFields, value: string) => {
+    setFields((prev) => ({ ...prev, [key]: value }));
+    // Clear this field's stale errors as soon as the user edits it (both the
+    // client-side check and any server issue routed to it), so the red highlight
+    // lifts while they correct it — matching the report pages. The submit
+    // endpoint re-validates and re-surfaces anything still wrong.
+    setClientFieldErrors((prev) => (prev[key] ? { ...prev, [key]: '' } : prev));
+    setIssues((prev) => {
+      if (!prev || !prev.submissionFields[key]) return prev;
+      const submissionFields = { ...prev.submissionFields };
+      delete submissionFields[key];
+      return { ...prev, submissionFields };
+    });
+  };
 
   /**
    * Renders one editable metadata field. Autofilled from the parsed submission
-   * and disabled until a file has parsed; any submission-level validation
-   * message mapped to `issueKey` is surfaced inline (error → warning).
+   * and disabled until a file has parsed. A client-side (required/pattern) error
+   * takes precedence and shows inline red; otherwise any submission-level
+   * validation message mapped to `issueKey` is surfaced (error → warning).
    */
   const editableField = (id: string, label: string, key: keyof EditableFields, issueKey?: string) => {
-    const { errorText, warningText } = issueKey ? fieldIssue(issueKey) : {};
+    const serverIssue = issueKey ? fieldIssue(issueKey) : {};
+    const errorText = clientFieldErrors[key] || serverIssue.errorText;
+    const warningText = serverIssue.warningText;
     return (
       <div className="upload-submission-page__field">
         <TextInput
@@ -279,21 +330,52 @@ export function UploadSubmissionPage() {
     }
 
     if (status === 'structural-error') {
+      const issueRows = toStructuralIssueRows(structuralErrors);
+      const issueColumns: DataPreviewColumn<StructuralIssueRow>[] = [
+        { key: 'issue', header: 'Issue', renderCell: (r) => r.issue },
+        {
+          key: 'location',
+          header: 'File location',
+          renderCell: (r) => <span className="upload-submission-page__issue-location">{r.location || '—'}</span>,
+        },
+        { key: 'detail', header: 'Detail', renderCell: (r) => r.detail },
+      ];
+      const count = issueRows.length;
       return (
-        <div className="upload-submission-page__notification">
-          <InlineNotification
-            kind="error"
-            lowContrast
-            title="The uploaded file failed schema validation."
-            subtitle="Fix the issues below and upload the file again."
-            hideCloseButton
-          />
-          <ul className="upload-submission-page__issue-list">
-            {structuralErrors.map((e, i) => (
-              <li key={`${e.messageKey}-${i}`}>{e.message}</li>
-            ))}
-          </ul>
-        </div>
+        <>
+          <div className="upload-submission-page__notification">
+            <InlineNotification
+              kind="error"
+              lowContrast
+              hideCloseButton
+              title={`${count} issue${count === 1 ? '' : 's'} found in submission`}
+              subtitle="Correct the issues in your source file, then replace the file to continue."
+            />
+          </div>
+          <section className="upload-submission-page__card">
+            <div className="upload-submission-page__card-header">
+              <h2 className="upload-submission-page__card-title upload-submission-page__card-title--flush">
+                Validation issues ({count})
+              </h2>
+              <Button
+                kind="ghost"
+                size="sm"
+                renderIcon={Download}
+                onClick={() =>
+                  downloadBlob(
+                    new Blob([structuralIssuesToCsv(issueRows)], { type: 'text/csv;charset=utf-8;' }),
+                    'validation-issues.csv',
+                  )
+                }
+              >
+                Download issues (.csv)
+              </Button>
+            </div>
+            <div className="upload-submission-page__card-table upload-submission-page__issues-table">
+              <DataPreviewTable rows={issueRows} columns={issueColumns} emptyMessage="No issues." />
+            </div>
+          </section>
+        </>
       );
     }
 
