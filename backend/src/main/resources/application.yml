@@ -1,6 +1,24 @@
 spring:
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  # ===================================================================
+  # Hikari connection pool (Oracle, nrcdb03 over TCPS)
+  # Bound in DataSourceConfig; override any knob via
+  # SPRING_DATASOURCE_HIKARI_* env vars. keepalive-time pings idle
+  # connections so network firewalls between OpenShift and the DB
+  # can't silently drop them; max-lifetime recycles connections well
+  # inside any server-side idle limit.
+  # ===================================================================
+  datasource:
+    hikari:
+      pool-name: csp-backend
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      validation-timeout: 5000
+      idle-timeout: 600000
+      keepalive-time: 300000
+      max-lifetime: 1800000
 
 server:
   servlet:

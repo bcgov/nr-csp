@@ -1,3 +1,11 @@
+{
+	# Runtime log verbosity; driven by the LOG_LEVEL env var set in
+	# openshift.deploy.yml (DEBUG, INFO, WARN, ERROR). Defaults to INFO.
+	log {
+		level {$LOG_LEVEL:INFO}
+	}
+}
+
 :3000 {
 	encode zstd gzip
 
