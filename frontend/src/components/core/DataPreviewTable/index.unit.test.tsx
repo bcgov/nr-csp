@@ -1,10 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
-import DataPreviewTable, {
-  type DataPreviewColumn,
-  type RowIssues,
-} from './index';
+import DataPreviewTable, { type DataPreviewColumn, type RowIssues } from './index';
 
 type Row = { id: string; name: string; qty: number };
 
@@ -48,9 +45,7 @@ describe('DataPreviewTable', () => {
   });
 
   it('applies right-align styling to header and cell for align: right columns and not for default columns', () => {
-    const { container } = render(
-      <DataPreviewTable rows={rows} columns={columns} emptyMessage="No data" />,
-    );
+    const { container } = render(<DataPreviewTable rows={rows} columns={columns} emptyMessage="No data" />);
 
     // Header alignment
     const qtyHeader = screen.getByText('Qty').closest('th') as HTMLElement;
@@ -72,9 +67,7 @@ describe('DataPreviewTable', () => {
   });
 
   it('renders the emptyMessage in a single spanning row when rows is empty', () => {
-    const { container } = render(
-      <DataPreviewTable rows={[]} columns={columns} emptyMessage="Nothing here" />,
-    );
+    const { container } = render(<DataPreviewTable rows={[]} columns={columns} emptyMessage="Nothing here" />);
 
     expect(screen.getByText('Nothing here')).toBeTruthy();
 
@@ -97,12 +90,7 @@ describe('DataPreviewTable', () => {
     };
 
     const { container } = render(
-      <DataPreviewTable
-        rows={rows}
-        columns={columns}
-        emptyMessage="No data"
-        issuesByRowId={issuesByRowId}
-      />,
+      <DataPreviewTable rows={rows} columns={columns} emptyMessage="No data" issuesByRowId={issuesByRowId} />,
     );
 
     // Field-level ERROR marker on the name cell with joined-message title.
@@ -139,14 +127,7 @@ describe('DataPreviewTable', () => {
       },
     };
 
-    render(
-      <DataPreviewTable
-        rows={rows}
-        columns={columns}
-        emptyMessage="No data"
-        issuesByRowId={issuesByRowId}
-      />,
-    );
+    render(<DataPreviewTable rows={rows} columns={columns} emptyMessage="No data" issuesByRowId={issuesByRowId} />);
 
     const nameCell = screen.getByText('Alpha').closest('td') as HTMLElement;
     const marker = nameCell.querySelector('.data-preview-table__issue') as HTMLElement;

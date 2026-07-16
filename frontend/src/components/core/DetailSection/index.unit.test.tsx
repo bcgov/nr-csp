@@ -35,9 +35,7 @@ describe('DetailSection', () => {
   });
 
   it('adds the full-width class when fullWidth is true', () => {
-    const { container } = render(
-      <DetailSection items={[{ label: 'Notes', value: 'long', fullWidth: true }]} />,
-    );
+    const { container } = render(<DetailSection items={[{ label: 'Notes', value: 'long', fullWidth: true }]} />);
     const item = container.querySelector('.detail-section__item') as HTMLElement;
     expect(item.classList.contains('detail-section__item--full')).toBe(true);
   });
@@ -57,9 +55,7 @@ describe('DetailSection', () => {
   });
 
   it('prefixes the section class when className is provided', () => {
-    const { container } = render(
-      <DetailSection className="extra" items={[{ label: 'A', value: 'a' }]} />,
-    );
+    const { container } = render(<DetailSection className="extra" items={[{ label: 'A', value: 'a' }]} />);
     const section = container.querySelector('section') as HTMLElement;
     expect(section.className).toBe('extra detail-section');
   });

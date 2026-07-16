@@ -17,9 +17,7 @@ describe('FileDropZone', () => {
   });
 
   it('renders a custom description and button label when passed', () => {
-    render(
-      <FileDropZone onFileSelected={vi.fn()} description="Custom description" buttonLabel="Pick a file" />,
-    );
+    render(<FileDropZone onFileSelected={vi.fn()} description="Custom description" buttonLabel="Pick a file" />);
     expect(screen.getByText('Custom description')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Pick a file' })).toBeTruthy();
   });

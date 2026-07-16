@@ -81,7 +81,9 @@ describe('structuralIssuesToCsv', () => {
 
 describe('mapSubmissionIssues', () => {
   it('attributes a line-level message to lineItems and the mapped field (LINE_KEY_TO_FIELD)', () => {
-    const result = mapSubmissionIssues([msg('invoice.grade.z.warning', 'invoice #2 (INV-1), line 3: grade Z.', 'WARNING')]);
+    const result = mapSubmissionIssues([
+      msg('invoice.grade.z.warning', 'invoice #2 (INV-1), line 3: grade Z.', 'WARNING'),
+    ]);
     expect(result.lineItems['2:3']).toEqual({ fields: { grade: [{ message: 'grade Z.', type: 'WARNING' }] }, row: [] });
     expect(result.hasErrors).toBe(false);
   });
@@ -93,7 +95,10 @@ describe('mapSubmissionIssues', () => {
 
   it('attributes an invoice-level message to invoices and the mapped field (INVOICE_KEY_TO_FIELD)', () => {
     const result = mapSubmissionIssues([msg('invoice.fob.required.error', 'invoice #2 (INV-1): FOB required.')]);
-    expect(result.invoices[2]).toEqual({ fields: { locationFOB: [{ message: 'FOB required.', type: 'ERROR' }] }, row: [] });
+    expect(result.invoices[2]).toEqual({
+      fields: { locationFOB: [{ message: 'FOB required.', type: 'ERROR' }] },
+      row: [],
+    });
   });
 
   it('attaches an unmapped invoice-level key at the row level', () => {
@@ -169,7 +174,12 @@ describe('collectIssueBanners', () => {
       'Invoice #10 (INV-10)',
       'Invoice #2 (INV-1), line 3',
     ]);
-    expect(banners[0]).toEqual({ key: 'inv-2-0', label: 'Invoice #2 (INV-1)', message: 'FOB required.', type: 'ERROR' });
+    expect(banners[0]).toEqual({
+      key: 'inv-2-0',
+      label: 'Invoice #2 (INV-1)',
+      message: 'FOB required.',
+      type: 'ERROR',
+    });
     expect(banners[3]).toEqual({
       key: 'li-2:3-0',
       label: 'Invoice #2 (INV-1), line 3',

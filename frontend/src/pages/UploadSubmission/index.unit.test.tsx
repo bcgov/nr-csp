@@ -1,6 +1,6 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import {
@@ -44,11 +44,12 @@ const mockDownload = vi.mocked(downloadBlob);
 
 // ── Factories ───────────────────────────────────────────────────────────────
 
-const msg = (
-  messageKey: string,
-  message: string,
-  type: 'ERROR' | 'WARNING' = 'ERROR',
-): ValidationMessageResponse => ({ messageKey, args: [], type, message });
+const msg = (messageKey: string, message: string, type: 'ERROR' | 'WARNING' = 'ERROR'): ValidationMessageResponse => ({
+  messageKey,
+  args: [],
+  type,
+  message,
+});
 
 const makeSubmission = (over: Partial<ParsedSubmission> = {}): ParsedSubmission => ({
   email: 'seller@example.com',
@@ -308,10 +309,7 @@ describe('UploadSubmissionPage', () => {
             makeSubmission().invoices[0],
             { ...makeSubmission().invoices[0], index: 2, invoiceNumber: 'INV-002' },
           ],
-          lineItems: [
-            makeSubmission().lineItems[0],
-            { ...makeSubmission().lineItems[0], lineIndex: 2 },
-          ],
+          lineItems: [makeSubmission().lineItems[0], { ...makeSubmission().lineItems[0], lineIndex: 2 }],
         }),
       }),
     );
@@ -340,7 +338,9 @@ describe('UploadSubmissionPage', () => {
     await uploadAndSettle();
 
     expect(
-      await screen.findByText('Submission failed business validation. Correct the highlighted issues and upload again.'),
+      await screen.findByText(
+        'Submission failed business validation. Correct the highlighted issues and upload again.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Everything failed.')).toBeInTheDocument();
   });
@@ -486,9 +486,7 @@ describe('UploadSubmissionPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
-    await waitFor(() =>
-      expect(screen.queryByRole('heading', { name: 'Submission Details' })).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Submission Details' })).not.toBeInTheDocument());
     expect(screen.getByText('No XML file uploaded.')).toBeInTheDocument();
   });
 });
