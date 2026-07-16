@@ -89,9 +89,7 @@ public class R13Service {
             try {
                 log.info("Compiling JRXML for cache key: {}", key);
                 String jrxml = loadTemplate(templatePath);
-                if (showOptions.hasAnyHiddenColumn()) {
-                    jrxml = modifyTemplateContent(jrxml, showOptions.toShowMap());
-                }
+                jrxml = modifyTemplateContent(jrxml, showOptions.toShowMap());
                 return compileReport(jrxml);
             } catch (Exception e) {
                 throw new ReportGenerationException("Failed to compile JRXML: " + templatePath, e);
@@ -202,12 +200,6 @@ public class R13Service {
         }
         pairs.sort((a, b) -> Integer.compare((Integer) a[1], (Integer) b[1]));
 
-        boolean hasPRICE = pairs.stream().anyMatch(p -> "PRICE".equals(p[0]));
-        boolean hasCONVERSION_FACTOR = pairs.stream().anyMatch(p -> "CONVERSION_FACTOR".equals(p[0]));
-        if (hasPRICE && hasCONVERSION_FACTOR) {
-            pairs.removeIf(p -> "CONVERSION_FACTOR".equals(p[0]));
-        }
-
         int m = pairs.isEmpty() ? 1 : pairs.size();
         int colWidth = width / m;
         int index = 0;
@@ -227,10 +219,6 @@ public class R13Service {
                 allNs.addAll(findReportElements(doc, "columnHeader", "staticText", totalKey));
                 allNs.addAll(findReportElements(doc, "detail",       "textField",  totalKey));
                 allNs.addAll(findReportElements(doc, "summary",      "textField",  totalKey));
-            }
-            if ("PRICE".equals(key) && hasCONVERSION_FACTOR) {
-                allNs.addAll(findReportElements(doc, "columnHeader", "staticText", "CONVERSION_FACTOR"));
-                allNs.addAll(findReportElements(doc, "detail",       "textField",  "CONVERSION_FACTOR"));
             }
 
             for (Element n : allNs) {
