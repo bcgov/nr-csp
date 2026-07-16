@@ -92,7 +92,7 @@ public class R13Service {
                 jrxml = modifyTemplateContent(jrxml, showOptions.toShowMap());
                 return compileReport(jrxml);
             } catch (Exception e) {
-                throw new ReportGenerationException("Failed to compile JRXML: " + templatePath, e);
+                throw new ReportGenerationException("Failed to compile JRXML template.", e);
             }
         });
 

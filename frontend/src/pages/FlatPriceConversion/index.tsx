@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import {
   Button,
   Column,
@@ -177,15 +178,16 @@ function FlatPriceConversionFormFields({
 
 export function FlatPriceConversionPage() {
   const modellingCode = 'P';
-  const [filterMaturity, setFilterMaturity] = useState<string | null>(null);
-  const [filterSpecies, setFilterSpecies] = useState<string | null>(null);
-  const [filterGrade, setFilterGrade] = useState<string | null>(null);
-  const [filterSortCode, setFilterSortCode] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const NS = 'csp.table.flatPriceConversion.v1';
+  const [filterMaturity, setFilterMaturity] = usePersistentState<string | null>(NS, 'filterMaturity', null);
+  const [filterSpecies, setFilterSpecies] = usePersistentState<string | null>(NS, 'filterSpecies', null);
+  const [filterGrade, setFilterGrade] = usePersistentState<string | null>(NS, 'filterGrade', null);
+  const [filterSortCode, setFilterSortCode] = usePersistentState<string | null>(NS, 'filterSortCode', null);
+  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', true);
+  const [page, setPage] = usePersistentState(NS, 'page', 1);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 20);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
-  const [searchParams, setSearchParams] = useState<SearchFlatPriceConversionParams>({
+  const [searchParams, setSearchParams] = usePersistentState<SearchFlatPriceConversionParams>(NS, 'searchParams', {
     modellingCode: 'P',
   });
 

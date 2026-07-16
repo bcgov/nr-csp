@@ -85,8 +85,7 @@ function renderInboxPage() {
 const lastQueryParams = () =>
   mockUseInboxSearchQuery.mock.calls[mockUseInboxSearchQuery.mock.calls.length - 1][0] as Record<string, unknown>;
 
-const lastQueryEnabled = () =>
-  mockUseInboxSearchQuery.mock.calls[mockUseInboxSearchQuery.mock.calls.length - 1][1];
+const lastQueryEnabled = () => mockUseInboxSearchQuery.mock.calls[mockUseInboxSearchQuery.mock.calls.length - 1][1];
 
 const setDate = (label: RegExp, value: string) => {
   const input = screen.getByLabelText(label);
@@ -245,8 +244,10 @@ describe('InboxPage interactions', () => {
   });
 
   it('updates page and page size through the pagination bar', () => {
+    // totalElements must exceed the default page size (100) so a second page exists
+    // for the "next page" click below to actually navigate to.
     mockUseInboxSearchQuery.mockReturnValue({
-      data: { content: [fullRow], totalElements: 45 },
+      data: { content: [fullRow], totalElements: 150 },
       isLoading: false,
       isError: false,
       error: null,
@@ -254,7 +255,7 @@ describe('InboxPage interactions', () => {
     renderInboxPage();
 
     fireEvent.click(screen.getByRole('button', { name: /next page/i }));
-    expect(lastQueryParams()).toMatchObject({ page: 1, size: 10 });
+    expect(lastQueryParams()).toMatchObject({ page: 1, size: 100 });
 
     fireEvent.change(screen.getByLabelText('Invoice per page:'), { target: { value: '20' } });
     expect(lastQueryParams()).toMatchObject({ size: 20 });
