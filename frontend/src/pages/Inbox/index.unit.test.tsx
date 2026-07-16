@@ -31,6 +31,9 @@ import { InboxPage } from './index';
 
 // ── Render helper ─────────────────────────────────────────────────────────────
 
+const lastQueryParams = () =>
+  mockInboxSearchQuery.mock.calls[mockInboxSearchQuery.mock.calls.length - 1][0] as Record<string, unknown>;
+
 function renderInboxPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -122,9 +125,16 @@ describe('InboxPage', () => {
     expect(screen.getByText('Manual')).toBeInTheDocument();
   });
 
+  it('defaults to 100 results per page when no prior state exists', () => {
+    renderInboxPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(lastQueryParams()).toMatchObject({ size: 100 });
+  });
+
   it('restores page, keyword, invoice number, applied filters, and start date from sessionStorage on mount', async () => {
     window.sessionStorage.setItem('csp.table.inbox.v1.hasSearched', 'true');
     window.sessionStorage.setItem('csp.table.inbox.v1.page', '2');
+    window.sessionStorage.setItem('csp.table.inbox.v1.pageSize', '10');
     window.sessionStorage.setItem('csp.table.inbox.v1.keyword', JSON.stringify('widget'));
     window.sessionStorage.setItem('csp.table.inbox.v1.invoiceNumberInput', JSON.stringify('INV-123'));
     window.sessionStorage.setItem('csp.table.inbox.v1.startDateInput', JSON.stringify('2026-01-15'));
