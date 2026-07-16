@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { clearPersistedTableState } from '@/hooks/usePersistentState';
+
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
 import type { Role } from './permissions';
@@ -29,7 +31,9 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     isLoading: false,
     isSigningOut: false,
     signIn: async () => {},
-    signOut: async () => {},
+    signOut: async () => {
+      clearPersistedTableState();
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -132,7 +132,14 @@ jobs:
         include:
           - name: backend
             file: backend/openshift.deploy.yml
-            parameters: -p IMAGE_TAG="${{ inputs.tag }}"
+            # Log levels come from GitHub variables, scoped per environment
+            # (test/prod); PR deploys fall back to repo-level variables, then INFO.
+            parameters: >-
+              -p IMAGE_TAG="${{ inputs.tag }}"
+              -p APP_LOG_LEVEL='${{ vars.backend_log_level || 'INFO' }}'
+              -p ROOT_LOG_LEVEL='${{ vars.backend_root_log_level || 'INFO' }}'
+              -p SPRING_LOG_LEVEL='${{ vars.backend_spring_log_level || 'INFO' }}'
+              -p SPRING_SECURITY_LOG_LEVEL='${{ vars.backend_spring_security_log_level || 'WARN' }}'
           - name: frontend
             file: frontend/openshift.deploy.yml
             parameters: >-
@@ -147,6 +154,7 @@ jobs:
               -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca'
               -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca/logout'
               -p FAM_CLIENT_ID='${{ vars.fam_client_id }}'
+              -p LOG_LEVEL='${{ vars.frontend_log_level || 'INFO' }}'
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     steps:

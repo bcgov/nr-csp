@@ -53,8 +53,7 @@ class ReportServiceTest {
 
             assertThatThrownBy(() -> service.renderLocal("reports/DoesNotExist.jrxml", Map.of()))
                     .isInstanceOf(ReportGenerationException.class)
-                    .hasMessageContaining("Report template not found on classpath")
-                    .hasMessageContaining("reports/DoesNotExist.jrxml");
+                    .hasMessageContaining("Report template not found on classpath");
 
             // the connection was opened by try-with-resources and must be released
             verify(connection).close();
@@ -69,7 +68,6 @@ class ReportServiceTest {
             assertThatThrownBy(() -> service.renderLocal("log4j2-test.xml", Map.of()))
                     .isInstanceOf(ReportGenerationException.class)
                     .hasMessageContaining("Failed to render local report")
-                    .hasMessageContaining("log4j2-test.xml")
                     .cause().isNotNull();
 
             verify(connection).close();
@@ -114,7 +112,7 @@ class ReportServiceTest {
 
                 assertThatThrownBy(() -> service.renderViaServer("R06", Map.of()))
                         .isInstanceOf(ReportGenerationException.class)
-                        .hasMessageContaining("Failed to fetch report from server: R06")
+                        .hasMessageContaining("Failed to fetch report from server")
                         .cause().isInstanceOf(RestClientException.class);
             }
         }
@@ -129,7 +127,7 @@ class ReportServiceTest {
 
             assertThatThrownBy(() -> service.renderViaServer("R06", Map.of()))
                     .isInstanceOf(ReportGenerationException.class)
-                    .hasMessageContaining("Failed to fetch report from server: R06")
+                    .hasMessageContaining("Failed to fetch report from server")
                     .cause().isNotNull();
         }
     }

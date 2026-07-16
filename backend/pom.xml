@@ -186,6 +186,13 @@
             <artifactId>jasperreports-pdf</artifactId>
             <version>${jasperreports.version}</version>
         </dependency>
+        <!-- JDT (ecj) compiler split from core in JR7 — required to compile .jrxml reports at runtime
+             on a JRE-only image, since it doesn't need to shell out to the javac binary -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-jdt</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>

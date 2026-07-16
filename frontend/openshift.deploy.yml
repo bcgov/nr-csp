@@ -54,6 +54,9 @@ parameters:
   - name: FAM_CLIENT_ID
     description: FAM application client ID (Cognito group prefix, e.g. CSP)
     required: true
+  - name: LOG_LEVEL
+    description: Caddy runtime log level (DEBUG, INFO, WARN, ERROR)
+    value: INFO
 
 objects:
   # ── Amplify config (runtime-injected, overrides the build-time placeholder) ──
@@ -118,6 +121,9 @@ objects:
                 # domain to allow the SPA's OAuth token-exchange fetch.
                 - name: COGNITO_DOMAIN
                   value: ${COGNITO_DOMAIN}
+                # Caddy runtime log verbosity (see Caddyfile global options)
+                - name: LOG_LEVEL
+                  value: ${LOG_LEVEL}
               volumeMounts:
                 - name: caddy-data
                   mountPath: /data
@@ -208,23 +214,3 @@ objects:
       tls:
         termination: edge
         insecureEdgeTerminationPolicy: Redirect
-
-  # ── NetworkPolicy: ingress from OpenShift router ──────────
-  - apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: ${NAME}-frontend-${ZONE}-ingress
-      labels:
-        app: ${NAME}-frontend-${ZONE}
-        app.kubernetes.io/instance: ${ZONE}
-    spec:
-      podSelector:
-        matchLabels:
-          app: ${NAME}-frontend-${ZONE}
-      ingress:
-        - from:
-            - namespaceSelector:
-                matchLabels:
-                  network.openshift.io/policy-group: ingress
-      policyTypes:
-        - Ingress
