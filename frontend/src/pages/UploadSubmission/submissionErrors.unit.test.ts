@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { type ValidationMessageResponse } from '@/services/invoice.service';
 
-import { mapSubmissionIssues, structuralIssuesToCsv, toStructuralIssueRows } from './submissionErrors';
+import {
+  collectIssueBanners,
+  mapSubmissionIssues,
+  structuralIssuesToCsv,
+  toStructuralIssueRows,
+} from './submissionErrors';
 
 const msg = (messageKey: string, message: string, type: 'ERROR' | 'WARNING' = 'ERROR'): ValidationMessageResponse => ({
   messageKey,
@@ -43,6 +48,32 @@ describe('mapSubmissionIssues', () => {
       message: 'FOB location is required.',
       type: 'ERROR',
     });
+  });
+});
+
+describe('collectIssueBanners', () => {
+  it('labels invoice and line-item issues with their row context', () => {
+    const issues = mapSubmissionIssues([
+      msg('invoice.totalpieces.dismatch.warning', 'invoice #1 (INV-1): total pieces mismatch.', 'WARNING'),
+      msg('invoice.price.negative.value.error', 'invoice #2 (INV-2), line 3: price is negative.'),
+    ]);
+
+    const banners = collectIssueBanners(issues, { 1: 'INV-1', 2: 'INV-2' });
+
+    expect(banners).toEqual([
+      { key: 'inv-1-0', label: 'Invoice #1 (INV-1)', message: 'total pieces mismatch.', type: 'WARNING' },
+      { key: 'li-2:3-0', label: 'Invoice #2 (INV-2), line 3', message: 'price is negative.', type: 'ERROR' },
+    ]);
+  });
+
+  it('falls back to a number-less label when the invoice number is unknown', () => {
+    const issues = mapSubmissionIssues([msg('invoice.fob.required.error', 'invoice #5: FOB is required.')]);
+    expect(collectIssueBanners(issues, {})[0].label).toBe('Invoice #5');
+  });
+
+  it('returns nothing when there are no invoice or line-item issues', () => {
+    const issues = mapSubmissionIssues([msg('some.other.submission.error', 'submission: Something went wrong.')]);
+    expect(collectIssueBanners(issues, {})).toEqual([]);
   });
 });
 

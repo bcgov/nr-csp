@@ -26,6 +26,13 @@
     &--right {
       justify-content: flex-end;
       width: 100%;
+
+      // Keep the number pinned to the column's right edge so it lines up across
+      // rows whether or not a cell has an issue marker; the marker floats to the
+      // number's left instead of pushing it inward.
+      .data-preview-table__issue {
+        order: -1;
+      }
     }
   }
 

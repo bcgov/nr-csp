@@ -161,6 +161,52 @@ const parseLocator = (message: string): Located => {
   };
 };
 
+/** A validation issue flattened for the top-of-page banner list. */
+export interface IssueBanner {
+  key: string;
+  /** Row context, e.g. "Invoice #2 (INV-001)" or "Invoice #2, line 3". */
+  label: string;
+  message: string;
+  type: 'ERROR' | 'WARNING';
+}
+
+/**
+ * Flattens the mapped invoice- and line-item issues into a labelled list so
+ * every inline error/warning is also surfaced as a banner at the top of the
+ * page. `invoiceNumberByIndex` supplies the invoice number for a friendlier
+ * label. Submission-level (form) issues are rendered separately.
+ */
+export const collectIssueBanners = (
+  issues: MappedIssues,
+  invoiceNumberByIndex: Record<number, string | null | undefined>,
+): IssueBanner[] => {
+  const banners: IssueBanner[] = [];
+
+  const invoiceLabel = (index: number): string => {
+    const number = invoiceNumberByIndex[index];
+    return number ? `Invoice #${index} (${number})` : `Invoice #${index}`;
+  };
+
+  const pushRow = (label: string, keyPrefix: string, rowIssues: RowIssues): void => {
+    [...Object.values(rowIssues.fields).flat(), ...rowIssues.row].forEach((issue, i) =>
+      banners.push({ key: `${keyPrefix}-${i}`, label, message: issue.message, type: issue.type }),
+    );
+  };
+
+  for (const index of Object.keys(issues.invoices)
+    .map(Number)
+    .sort((a, b) => a - b)) {
+    pushRow(invoiceLabel(index), `inv-${index}`, issues.invoices[index]);
+  }
+
+  for (const key of Object.keys(issues.lineItems)) {
+    const [invoiceIndex, lineIndex] = key.split(':').map(Number);
+    pushRow(`${invoiceLabel(invoiceIndex)}, line ${lineIndex}`, `li-${key}`, issues.lineItems[key]);
+  }
+
+  return banners;
+};
+
 const emptyRowIssues = (): RowIssues => ({ fields: {}, row: [] });
 
 const addToRow = (rowIssues: RowIssues, field: string | undefined, issue: CellIssue): void => {

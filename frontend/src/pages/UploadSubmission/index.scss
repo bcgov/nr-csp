@@ -143,24 +143,14 @@
     color: theme.$text-secondary;
   }
 
-  // Bulleted list of structural errors / submission-level messages beneath the
-  // status banner.
-  &__issue-list {
-    @include type.type-style('body-01');
-    margin: $spacing-03 0 0;
-    padding-left: $spacing-06;
-    list-style: disc;
+  // Per-issue warning/error banners stacked beneath the status notification,
+  // matching the InlineNotification style used elsewhere in CSP.
+  &__issue-banner {
+    max-inline-size: 100%;
+    margin-top: $spacing-03;
 
-    li {
-      margin-bottom: $spacing-02;
-    }
-
-    li.is-error {
-      color: theme.$text-error;
-    }
-
-    li.is-warning {
-      color: theme.$support-warning;
+    .cds--inline-notification {
+      max-inline-size: 100%;
     }
   }
 

@@ -7,7 +7,7 @@ import {
   TextLinkAnalysis,
   Email,
   RecentlyViewed,
-  DocumentAdd,
+  Upload,
 } from '@carbon/icons-react';
 
 import { ROUTES } from './routePaths';
@@ -92,7 +92,7 @@ export const NAVIGATION_ITEMS = [
       {
         name: 'Upload Submission',
         path: ROUTES.UPLOAD_SUBMISSION,
-        icon: DocumentAdd,
+        icon: Upload,
       },
       {
         name: 'Submission History',

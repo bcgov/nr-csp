@@ -26,6 +26,7 @@ import { SUBMISSION_METADATA_KEY_TO_FIELD, validateSubmissionMetadata } from '@/
 import { splitMessages } from '@/validations/validationResult';
 
 import {
+  collectIssueBanners,
   mapSubmissionIssues,
   structuralIssuesToCsv,
   toStructuralIssueRows,
@@ -392,6 +393,13 @@ export function UploadSubmissionPage() {
         : businessResult.code === 'PARTIALLY_ACCEPTED'
           ? `${accepted} invoice(s) accepted, ${rejected} rejected. Correct the highlighted issues and resubmit.`
           : 'Submission failed business validation. Correct the highlighted issues and upload again.';
+      // Surface every inline invoice / line-item issue as its own banner at the
+      // top, labelled with its row context, alongside the submission-level
+      // messages — matching the per-message InlineNotification style used across
+      // the rest of CSP (e.g. the Invoice page).
+      const invoiceNumberByIndex: Record<number, string | null> = {};
+      for (const inv of submission?.invoices ?? []) invoiceNumberByIndex[inv.index] = inv.invoiceNumber;
+      const rowBanners = issues ? collectIssueBanners(issues, invoiceNumberByIndex) : [];
       return (
         <div className="upload-submission-page__notification">
           <InlineNotification
@@ -401,15 +409,27 @@ export function UploadSubmissionPage() {
             subtitle={summary}
             hideCloseButton
           />
-          {issues && issues.formIssues.length > 0 && (
-            <ul className="upload-submission-page__issue-list">
-              {issues.formIssues.map((issue, i) => (
-                <li key={i} className={issue.type === 'ERROR' ? 'is-error' : 'is-warning'}>
-                  {issue.message}
-                </li>
-              ))}
-            </ul>
-          )}
+          {issues?.formIssues.map((issue, i) => (
+            <InlineNotification
+              key={`form-${i}`}
+              className="upload-submission-page__issue-banner"
+              kind={issue.type === 'ERROR' ? 'error' : 'warning'}
+              lowContrast
+              hideCloseButton
+              title={issue.message}
+            />
+          ))}
+          {rowBanners.map((b) => (
+            <InlineNotification
+              key={b.key}
+              className="upload-submission-page__issue-banner"
+              kind={b.type === 'ERROR' ? 'error' : 'warning'}
+              lowContrast
+              hideCloseButton
+              title={b.label}
+              subtitle={b.message}
+            />
+          ))}
         </div>
       );
     }
