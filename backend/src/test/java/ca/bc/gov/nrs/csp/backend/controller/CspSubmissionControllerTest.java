@@ -19,6 +19,8 @@ import ca.bc.gov.nrs.csp.backend.service.CspSubmissionPersistenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -494,5 +496,219 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("UPLOAD_MISSING"));
 
         verify(persistenceService, never()).persist(any());
+    }
+
+    // ---------- edge branches (direct invocation) ----------
+
+    private CspSubmissionController controller() {
+        return new CspSubmissionController(
+                validationService, envelopeStripper, persistenceService, messageSource);
+    }
+
+    @Test
+    void parse_nullFile_returns400Missing() {
+        var resp = controller().parse(null);
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody()).isNotNull();
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
+    }
+
+    @Test
+    void parse_unreadableFile_returns400Unreadable() throws Exception {
+        MultipartFile file = mock(MultipartFile.class);
+        given(file.isEmpty()).willReturn(false);
+        given(file.getBytes()).willThrow(new IOException("boom"));
+
+        var resp = controller().parse(file);
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_UNREADABLE");
+    }
+
+    @Test
+    void parse_emptyFile_returns400Missing() {
+        var resp = controller().parse(file("empty.xml", new byte[0]));
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
+    }
+
+    @Test
+    void submit_emptyFile_returns400Missing() {
+        var resp = controller().submit(file("empty.xml", new byte[0]), null, null, null, null);
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
+    }
+
+    @Test
+    void validateStructural_emptyFile_returns400Missing() {
+        var resp = controller().validateStructural(file("empty.xml", new byte[0]));
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
+    }
+
+    @Test
+    void parse_validResultButNullSubmission_returns422() {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), null));
+
+        var resp = controller().parse(file("x.xml", "<csp:CSPSubmission/>".getBytes()));
+        assertThat(resp.getStatusCode().value()).isEqualTo(422);
+        assertThat(resp.getBody().code()).isEqualTo("VALIDATION_ERROR");
+    }
+
+    @Test
+    void parse_invoiceWithNullDetailsAndDate_and_nullSellerSubmission_mapsNulls() throws Exception {
+        // Submitter present but seller-submission flag null, one invoice with no
+        // details and no date → every conditional-null mapping arm is exercised.
+        CSPSubmissionType submission = new CSPSubmissionType();
+        submission.setMonthComplete("N");
+        CSPSubmitterType submitter = new CSPSubmitterType();
+        submitter.setSubmissionClientNumber("00012345");
+        submission.setCSPSubmitter(submitter); // sellerSubmission left null
+        CSPInvoiceType invoice = new CSPInvoiceType();
+        invoice.setInvoiceNumber("INV-1"); // no details, no date
+        submission.getCSPInvoice().add(invoice);
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), submission));
+
+        mockMvc.perform(multipart("/api/submissions/parse")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submission.sellerSubmission").value(nullValue()))
+                .andExpect(jsonPath("$.submission.invoices[0].invoiceDate").value(nullValue()))
+                .andExpect(jsonPath("$.submission.invoices[0].maturity").value(nullValue()))
+                .andExpect(jsonPath("$.submission.invoices[0].totalPieces").value(nullValue()));
+    }
+
+    @Test
+    void parse_nullSubmitter_mapsSubmitterFieldsToNull() throws Exception {
+        CSPSubmissionType submission = new CSPSubmissionType();
+        submission.setMonthComplete("Y");
+        submission.setCSPSubmitter(null);
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), submission));
+
+        mockMvc.perform(multipart("/api/submissions/parse")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submission.sellerSubmission").value(nullValue()))
+                .andExpect(jsonPath("$.submission.submissionClientNumber").value(nullValue()))
+                .andExpect(jsonPath("$.submission.submissionClientLocnCode").value(nullValue()));
+    }
+
+    @Test
+    void submit_nullFile_returns400Missing() {
+        var resp = controller().submit(null, null, null, null, null);
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
+        verify(persistenceService, never()).persist(any());
+    }
+
+    @Test
+    void submit_unreadableFile_returns400Unreadable() throws Exception {
+        MultipartFile file = mock(MultipartFile.class);
+        given(file.isEmpty()).willReturn(false);
+        given(file.getBytes()).willThrow(new IOException("boom"));
+
+        var resp = controller().submit(file, null, null, null, null);
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_UNREADABLE");
+        verify(persistenceService, never()).persist(any());
+    }
+
+    @Test
+    void submit_validResultButNullSubmission_returns422() {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), null));
+
+        var resp = controller().submit(
+                file("x.xml", "<csp:CSPSubmission/>".getBytes()), null, null, null, null);
+        assertThat(resp.getStatusCode().value()).isEqualTo(422);
+        assertThat(resp.getBody().code()).isEqualTo("VALIDATION_ERROR");
+        verify(persistenceService, never()).persist(any());
+    }
+
+    @Test
+    void submit_nullSubmitter_skipsMetadataEditsAndPersists() throws Exception {
+        // A parsed tree with no submitter: applyMetadataEdits must short-circuit
+        // rather than NPE, and the submission still flows through to persistence.
+        CSPSubmissionType submission = new CSPSubmissionType();
+        submission.setCSPSubmitter(null);
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), submission));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any())).willReturn(7L);
+
+        var resp = controller().submit(
+                file("x.xml", "<csp:CSPSubmission/>".getBytes()), "00999999", "01", "Y", "Y");
+        assertThat(resp.getStatusCode().value()).isEqualTo(200);
+        // monthComplete edit still applied (it does not depend on the submitter).
+        assertThat(submission.getMonthComplete()).isEqualTo("Y");
+        verify(persistenceService).persist(submission);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Y", "MAYBE"})
+    void submit_sellerSubmissionEdit_onlyAppliesValidYorN(String value) throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any())).willReturn(1L);
+
+        ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
+        controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), null, null, null, value);
+        verify(persistenceService).persist(captor.capture());
+
+        SellerSubmissionType seller = captor.getValue().getCSPSubmitter().getSellerSubmission();
+        if ("Y".equals(value)) {
+            assertThat(seller).isEqualTo(SellerSubmissionType.Y);
+        } else {
+            // Out-of-range value is ignored, leaving the parsed value (Y) untouched.
+            assertThat(seller).isEqualTo(SellerSubmissionType.Y);
+        }
+    }
+
+    @Test
+    void submit_blankMetadataParams_areIgnored() throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any())).willReturn(1L);
+
+        ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
+        controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), "  ", "  ", "  ", "  ");
+        verify(persistenceService).persist(captor.capture());
+
+        // Blank edits do not overwrite the parsed values.
+        CSPSubmissionType saved = captor.getValue();
+        assertThat(saved.getMonthComplete()).isEqualTo("Y");
+        assertThat(saved.getCSPSubmitter().getSubmissionClientNumber()).isEqualTo("00012345");
+    }
+
+    @Test
+    void validateStructural_nullFile_returns400Missing() {
+        var resp = controller().validateStructural(null);
+        assertThat(resp.getStatusCode().value()).isEqualTo(400);
+        assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
+    }
+
+    @Test
+    void business_errorWithNullSeverity_defaultsToErrorType() throws Exception {
+        // A message carrying no explicit severity is reported as an ERROR.
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                new SubmissionValidationError("invoice INV-1", "some.code", new Object[0], null)));
+        given(validationService.validateBusiness(any())).willReturn(failed);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].type").value("ERROR"));
     }
 }

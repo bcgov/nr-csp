@@ -8,13 +8,13 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.transform.OutputKeys;
@@ -106,7 +106,7 @@ public class SubmissionEnvelopeStripper {
     NodeList nodes = doc.getElementsByTagNameNS(namespace, localName);
     if (nodes.getLength() == 0) return null;
     String text = nodes.item(0).getTextContent();
-    return text == null || text.isBlank() ? null : text.trim();
+    return StringUtils.hasText(text) ? text.trim() : null;
   }
 
   /** Strips a leading "mailto:" so the email is a plain address. */
@@ -152,18 +152,16 @@ public class SubmissionEnvelopeStripper {
     XMLInputFactory factory = newSecureXmlInputFactory();
     XMLStreamReader reader = factory.createXMLStreamReader(new ByteArrayInputStream(raw));
     try {
-      while (reader.hasNext()) {
-        if (reader.next() == XMLStreamConstants.START_ELEMENT) {
-          String ns = reader.getNamespaceURI() == null ? "" : reader.getNamespaceURI();
-          String local = reader.getLocalName();
-          if (props.getBodyNamespace().equals(ns) && props.getBodyRoot().equals(local)) {
-            return RootKind.BODY;
-          }
-          if (props.getEnvelopeNamespace().equals(ns) && props.getEnvelopeRoot().equals(local)) {
-            return RootKind.ENVELOPE;
-          }
-          return RootKind.UNKNOWN;
-        }
+      // Skips the prolog (xml declaration, comments, PIs, whitespace) to the root
+      // start element; a rootless/empty document throws, surfacing as a parse error.
+      reader.nextTag();
+      String ns = reader.getNamespaceURI() == null ? "" : reader.getNamespaceURI();
+      String local = reader.getLocalName();
+      if (props.getBodyNamespace().equals(ns) && props.getBodyRoot().equals(local)) {
+        return RootKind.BODY;
+      }
+      if (props.getEnvelopeNamespace().equals(ns) && props.getEnvelopeRoot().equals(local)) {
+        return RootKind.ENVELOPE;
       }
       return RootKind.UNKNOWN;
     } finally {

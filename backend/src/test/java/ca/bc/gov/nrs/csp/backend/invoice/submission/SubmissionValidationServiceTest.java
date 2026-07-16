@@ -46,6 +46,16 @@ class SubmissionValidationServiceTest {
   }
 
   @Test
+  void parse_delegates_to_structural_validate_and_parse() {
+    StructuralValidationService.ValidationOutcome outcome =
+        new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), new Object());
+    given(structuralValidationService.validateAndParse(XML)).willReturn(outcome);
+
+    assertThat(service.parse(XML)).isSameAs(outcome);
+    then(businessValidationService).shouldHaveNoInteractions();
+  }
+
+  @Test
   void validateBusiness_returns_structural_errors_when_parse_fails() {
     SubmissionValidationResult failed = SubmissionValidationResult.failed(
         List.of(SubmissionValidationError.of("XSD", new Object[]{"bad element"})));

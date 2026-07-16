@@ -19,6 +19,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,15 +30,20 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.XMLGregorianCalendar;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -108,6 +116,142 @@ class CspSubmissionPersistenceServiceTest {
     assertThat(line.grade()).isEqualTo("J");
     assertThat(line.numOfPieces()).isEqualTo(1);
     assertThat(line.price()).isEqualByComparingTo("1.00");
+  }
+
+  @Test
+  void buyerSubmission_withManualSeller_insertsSellerParticipantSourceDocsAndMonthN() throws Exception {
+    // Buyer submission: submitter is the buyer (registered); the seller is the
+    // "other party" and unregistered (manual), so it needs a participant row in
+    // the seller slot. monthComplete is not "Y" → the indicator is "N".
+    CSPSubmissionType submission = submission("N", false);
+    CSPInvoiceType invoice = new CSPInvoiceType();
+    invoice.setInvoiceNumber("INV1");
+    invoice.setInvoiceDate(date(2026, 6, 1));
+    invoice.setInvoiceType("SAL");
+    invoice.setBuyerClientNumber("00126920");
+    invoice.setBuyerClientLocnCode("00");
+    invoice.setOtherPartyName("Acme Logs");
+    invoice.setOtherPartyCity("Nanaimo");
+    invoice.setOtherPartyProvState("BC");
+    CSPInvoiceDetailsType details = new CSPInvoiceDetailsType();
+    details.setTotalAmount(new BigDecimal("5.00"));
+    details.setBoomNumbers("B1,B2,B1"); // duplicate is de-duped
+    details.setTimberMarks("T1");
+    details.setWeighSlipNumbers("W1,W2");
+    invoice.setCSPInvoiceDetails(details);
+    submission.getCSPInvoice().add(invoice);
+
+    given(participantRepo.insert(any(), any(), any(), any())).willReturn(777L);
+    given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(901L);
+
+    service.persist(submission);
+
+    verify(submissionRepo).insertSubmission(
+        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "N", 1, USER);
+
+    // Manual seller party lands in the seller slot; the buyer slot stays null.
+    ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);
+    verify(invoiceRepo).insertInvoice(detailsCaptor.capture(), any(),
+        eq(ConstantsCode.INVENTRYSTATUS_DRAFT), isNull(), eq(777L), eq(USER));
+    assertThat(detailsCaptor.getValue().submittedBy())
+        .isEqualTo(ConstantsCode.INVOICE_SUBMITTEDBY_BUYER);
+
+    // Source-document CSV strings are split and de-duplicated per type.
+    verify(invoiceRepo).replaceLogSources(any(), eq(ConstantsCode.LOGSOURCECODE_BOOMNUMBER),
+        eq(List.of("B1", "B2")), eq(USER));
+    verify(invoiceRepo).replaceLogSources(any(), eq(ConstantsCode.LOGSOURCECODE_WEIGHSLIP),
+        eq(List.of("W1", "W2")), eq(USER));
+  }
+
+  @Test
+  void sellerSubmission_withManualBuyer_nullDetailsAndDate_insertsBuyerParticipant() throws Exception {
+    // Seller submission with a manual (unregistered) buyer and no invoice details
+    // or date: the participant lands in the buyer slot and the mapped detail
+    // fields sourced from CSPInvoiceDetails / the date are all null/empty.
+    CSPSubmissionType submission = submission("Y", true);
+    CSPInvoiceType invoice = new CSPInvoiceType();
+    invoice.setInvoiceNumber("INV2");
+    invoice.setSellerClientNumber("00126920");
+    invoice.setSellerClientLocnCode("00");
+    invoice.setOtherPartyName("Manual Buyer");
+    submission.getCSPInvoice().add(invoice);
+
+    given(participantRepo.insert(any(), any(), any(), any())).willReturn(555L);
+    given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(902L);
+
+    service.persist(submission);
+
+    ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);
+    verify(invoiceRepo).insertInvoice(detailsCaptor.capture(), any(),
+        eq(ConstantsCode.INVENTRYSTATUS_DRAFT), eq(555L), isNull(), eq(USER));
+    InvoiceDetails details = detailsCaptor.getValue();
+    assertThat(details.submittedBy()).isEqualTo(ConstantsCode.INVOICE_SUBMITTEDBY_SELLER);
+    assertThat(details.invoiceDate()).isNull();
+    assertThat(details.maturity()).isNull();
+    assertThat(details.totalAmt()).isNull();
+    assertThat(details.boomNumbers()).isEmpty();
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void hasManualOtherParty_evaluatesEachPartyField(
+      String name, String city, String prov, boolean expectParticipant) throws Exception {
+    // A manual other party is one with no client number but at least one of
+    // name/city/provState — exercising each arm of the short-circuit condition.
+    CSPSubmissionType submission = submission("Y", true);
+    CSPInvoiceType invoice = new CSPInvoiceType();
+    invoice.setInvoiceNumber("INV3");
+    invoice.setSellerClientNumber("00126920");
+    invoice.setOtherPartyName(name);
+    invoice.setOtherPartyCity(city);
+    invoice.setOtherPartyProvState(prov);
+    submission.getCSPInvoice().add(invoice);
+
+    service.persist(submission);
+
+    verify(participantRepo, expectParticipant ? times(1) : never())
+        .insert(any(), any(), any(), any());
+  }
+
+  @Test
+  void manualOtherParty_treatsBlankClientNumberAsUnregistered() throws Exception {
+    // A present-but-blank other-party client number is treated as unregistered,
+    // so a manual party (name present) still triggers a participant insert.
+    CSPSubmissionType submission = submission("Y", true);
+    CSPInvoiceType invoice = new CSPInvoiceType();
+    invoice.setInvoiceNumber("INV4");
+    invoice.setSellerClientNumber("00126920");
+    invoice.setBuyerClientNumber("   ");
+    invoice.setOtherPartyName("Manual Buyer");
+    submission.getCSPInvoice().add(invoice);
+
+    service.persist(submission);
+
+    verify(participantRepo).insert(any(), any(), any(), any());
+  }
+
+  static Stream<Arguments> hasManualOtherParty_evaluatesEachPartyField() {
+    return Stream.of(
+        Arguments.of("Acme", null, null, true),
+        Arguments.of(null, "Victoria", null, true),
+        Arguments.of(null, null, "BC", true),
+        Arguments.of(null, null, null, false));
+  }
+
+  private static CSPSubmissionType submission(String monthComplete, boolean sellerSubmission) {
+    CSPSubmissionType submission = new CSPSubmissionType();
+    submission.setMonthComplete(monthComplete);
+    CSPSubmitterType submitter = new CSPSubmitterType();
+    submitter.setSellerSubmission(sellerSubmission ? SellerSubmissionType.Y : SellerSubmissionType.N);
+    submitter.setSubmissionClientNumber("00126920");
+    submitter.setSubmissionClientLocnCode("00");
+    submission.setCSPSubmitter(submitter);
+    return submission;
+  }
+
+  private static XMLGregorianCalendar date(int year, int month, int day) throws Exception {
+    return DatatypeFactory.newInstance()
+        .newXMLGregorianCalendarDate(year, month, day, DatatypeConstants.FIELD_UNDEFINED);
   }
 
   private static CSPSubmissionType sampleSubmission() throws Exception {
