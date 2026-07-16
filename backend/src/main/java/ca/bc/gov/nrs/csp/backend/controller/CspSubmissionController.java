@@ -55,6 +55,13 @@ public class CspSubmissionController implements CspSubmissionApi {
 
     private static final Logger log = LoggerFactory.getLogger(CspSubmissionController.class);
 
+    private static final String CODE_UPLOAD_MISSING = "UPLOAD_MISSING";
+    private static final String CODE_UPLOAD_UNREADABLE = "UPLOAD_UNREADABLE";
+    private static final String CODE_VALIDATION_ERROR = "VALIDATION_ERROR";
+    private static final String MSG_UPLOAD_MISSING = "file part 'file' is missing or empty";
+    private static final String MSG_UPLOAD_UNREADABLE = "uploaded file could not be read";
+    private static final String LOG_UPLOAD_UNREADABLE = "Could not read uploaded submission file: {}";
+
     private final SubmissionValidationService validationService;
     private final SubmissionEnvelopeStripper envelopeStripper;
     private final CspSubmissionPersistenceService persistenceService;
@@ -87,16 +94,16 @@ public class CspSubmissionController implements CspSubmissionApi {
 
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(
-                    parseError("UPLOAD_MISSING", "file part 'file' is missing or empty"));
+                    parseError(CODE_UPLOAD_MISSING, MSG_UPLOAD_MISSING));
         }
 
         byte[] xml;
         try {
             xml = file.getBytes();
         } catch (IOException e) {
-            log.warn("Could not read uploaded submission file: {}", e.getMessage());
+            log.warn(LOG_UPLOAD_UNREADABLE, e.getMessage());
             return ResponseEntity.badRequest().body(
-                    parseError("UPLOAD_UNREADABLE", "uploaded file could not be read"));
+                    parseError(CODE_UPLOAD_UNREADABLE, MSG_UPLOAD_UNREADABLE));
         }
 
         StructuralValidationService.ValidationOutcome outcome = validationService.parse(xml);
@@ -108,7 +115,7 @@ public class CspSubmissionController implements CspSubmissionApi {
                     .map(this::toMessageResponse)
                     .toList();
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
-                    new SubmissionParseResponse(false, "VALIDATION_ERROR",
+                    new SubmissionParseResponse(false, CODE_VALIDATION_ERROR,
                             "Submission failed structural validation", messages, null));
         }
 
@@ -130,16 +137,16 @@ public class CspSubmissionController implements CspSubmissionApi {
 
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(
-                    submitError("UPLOAD_MISSING", "file part 'file' is missing or empty"));
+                    submitError(CODE_UPLOAD_MISSING, MSG_UPLOAD_MISSING));
         }
 
         byte[] xml;
         try {
             xml = file.getBytes();
         } catch (IOException e) {
-            log.warn("Could not read uploaded submission file: {}", e.getMessage());
+            log.warn(LOG_UPLOAD_UNREADABLE, e.getMessage());
             return ResponseEntity.badRequest().body(
-                    submitError("UPLOAD_UNREADABLE", "uploaded file could not be read"));
+                    submitError(CODE_UPLOAD_UNREADABLE, MSG_UPLOAD_UNREADABLE));
         }
 
         // Parse once: the submission tree is what the user's edits are applied to, what
@@ -150,7 +157,7 @@ public class CspSubmissionController implements CspSubmissionApi {
                     .map(this::toMessageResponse)
                     .toList();
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
-                    new SubmissionSubmitResponse(false, "VALIDATION_ERROR",
+                    new SubmissionSubmitResponse(false, CODE_VALIDATION_ERROR,
                             "Submission failed structural validation", null,
                             List.of(), List.of(), messages));
         }
@@ -168,7 +175,7 @@ public class CspSubmissionController implements CspSubmissionApi {
             List<ValidationMessageResponse> messages = result.errors().stream()
                     .map(this::toMessageResponse)
                     .toList();
-            String code = rejected.isEmpty() ? "VALIDATION_ERROR" : "PARTIALLY_ACCEPTED";
+            String code = rejected.isEmpty() ? CODE_VALIDATION_ERROR : "PARTIALLY_ACCEPTED";
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
                     new SubmissionSubmitResponse(false, code,
                             "Submission cannot be saved until all issues are resolved.",
@@ -232,35 +239,12 @@ public class CspSubmissionController implements CspSubmissionApi {
         for (int i = 0; i < parsedInvoices.size(); i++) {
             CSPInvoiceType invoice = parsedInvoices.get(i);
             int invoiceIndex = i + 1;
-            CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
 
-            invoices.add(new SubmissionParseResponse.ParsedInvoice(
-                    invoiceIndex,
-                    invoice.getInvoiceNumber(),
-                    formatDate(invoice.getInvoiceDate()),
-                    invoice.getInvoiceType(),
-                    invoice.getSellerClientNumber(),
-                    invoice.getBuyerClientNumber(),
-                    details == null ? null : details.getMaturity(),
-                    details == null ? null : details.getLocationFOB(),
-                    details == null ? null : details.getTotalAmount(),
-                    details == null ? null : details.getTotalVolume(),
-                    details == null ? null : details.getTotalPieces()));
+            invoices.add(toParsedInvoice(invoice, invoiceIndex));
 
             List<CSPLineItemType> lines = invoice.getCSPLineItem();
             for (int j = 0; j < lines.size(); j++) {
-                CSPLineItemType line = lines.get(j);
-                lineItems.add(new SubmissionParseResponse.ParsedLineItem(
-                        invoiceIndex,
-                        j + 1,
-                        invoice.getInvoiceNumber(),
-                        line.getSpecies(),
-                        line.getGrade(),
-                        line.getSecondarySortCode(),
-                        line.getClientSecondarySortCode(),
-                        line.getNumberOfPieces(),
-                        line.getVolume(),
-                        line.getPrice()));
+                lineItems.add(toParsedLineItem(invoice, lines.get(j), invoiceIndex, j + 1));
             }
         }
 
@@ -274,6 +258,39 @@ public class CspSubmissionController implements CspSubmissionApi {
                 submitter == null ? null : submitter.getSubmissionClientLocnCode(),
                 invoices,
                 lineItems);
+    }
+
+    /** Maps a single parsed invoice onto its form-friendly row. */
+    private SubmissionParseResponse.ParsedInvoice toParsedInvoice(CSPInvoiceType invoice, int invoiceIndex) {
+        CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+        return new SubmissionParseResponse.ParsedInvoice(
+                invoiceIndex,
+                invoice.getInvoiceNumber(),
+                formatDate(invoice.getInvoiceDate()),
+                invoice.getInvoiceType(),
+                invoice.getSellerClientNumber(),
+                invoice.getBuyerClientNumber(),
+                details == null ? null : details.getMaturity(),
+                details == null ? null : details.getLocationFOB(),
+                details == null ? null : details.getTotalAmount(),
+                details == null ? null : details.getTotalVolume(),
+                details == null ? null : details.getTotalPieces());
+    }
+
+    /** Maps a single parsed line item onto its form-friendly row. */
+    private SubmissionParseResponse.ParsedLineItem toParsedLineItem(
+            CSPInvoiceType invoice, CSPLineItemType line, int invoiceIndex, int lineIndex) {
+        return new SubmissionParseResponse.ParsedLineItem(
+                invoiceIndex,
+                lineIndex,
+                invoice.getInvoiceNumber(),
+                line.getSpecies(),
+                line.getGrade(),
+                line.getSecondarySortCode(),
+                line.getClientSecondarySortCode(),
+                line.getNumberOfPieces(),
+                line.getVolume(),
+                line.getPrice());
     }
 
     /** Renders an XSD date as ISO {@code yyyy-MM-dd}, or null when absent. */
@@ -308,16 +325,16 @@ public class CspSubmissionController implements CspSubmissionApi {
 
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(
-                    error("UPLOAD_MISSING", "file part 'file' is missing or empty"));
+                    error(CODE_UPLOAD_MISSING, MSG_UPLOAD_MISSING));
         }
 
         byte[] xml;
         try {
             xml = file.getBytes();
         } catch (IOException e) {
-            log.warn("Could not read uploaded submission file: {}", e.getMessage());
+            log.warn(LOG_UPLOAD_UNREADABLE, e.getMessage());
             return ResponseEntity.badRequest().body(
-                    error("UPLOAD_UNREADABLE", "uploaded file could not be read"));
+                    error(CODE_UPLOAD_UNREADABLE, MSG_UPLOAD_UNREADABLE));
         }
 
         SubmissionValidationResult result = validator.apply(xml);
@@ -343,7 +360,7 @@ public class CspSubmissionController implements CspSubmissionApi {
         if (!result.valid()) {
             // Rejected outright: a submission-level error, or no invoice was accepted.
             return new SubmissionValidationResponse(
-                    false, "VALIDATION_ERROR", "Submission failed validation",
+                    false, CODE_VALIDATION_ERROR, "Submission failed validation",
                     accepted, rejected, messages);
         }
         if (!rejected.isEmpty()) {

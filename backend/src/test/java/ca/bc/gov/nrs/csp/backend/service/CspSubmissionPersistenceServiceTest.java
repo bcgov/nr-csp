@@ -29,6 +29,7 @@ import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.DatatypeFactory;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,7 +81,7 @@ class CspSubmissionPersistenceServiceTest {
 
     // One submission, keyed on the submission-level submitter, month-complete + count from the XML.
     verify(submissionRepo).insertSubmission(
-        eq("00126920"), eq("00"), eq(ConstantsCode.SUBMSTATUS_INBOX), eq("Y"), eq(1), eq(USER));
+        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "Y", 1, USER);
 
     // One invoice, saved under that submission as DRAFT, with the parsed fields mapped through.
     ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);
@@ -88,7 +89,7 @@ class CspSubmissionPersistenceServiceTest {
         detailsCaptor.capture(), eq(555L), eq(ConstantsCode.INVENTRYSTATUS_DRAFT), any(), any(), eq(USER));
     InvoiceDetails details = detailsCaptor.getValue();
     assertThat(details.invNumber()).isEqualTo("BAH101"); // normalised to upper-case
-    assertThat(details.invoiceDate()).isEqualTo(LocalDate.of(2026, 5, 27));
+    assertThat(details.invoiceDate()).isEqualTo(LocalDate.of(2026, Month.MAY, 27));
     assertThat(details.invType()).isEqualTo("SAL");
     assertThat(details.maturity()).isEqualTo("O");
     assertThat(details.fobCode()).isEqualTo("TEST");
