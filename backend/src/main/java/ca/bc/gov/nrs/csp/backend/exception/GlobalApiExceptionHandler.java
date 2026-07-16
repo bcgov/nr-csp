@@ -121,7 +121,7 @@ public class GlobalApiExceptionHandler {
         clearProducibleMediaTypes(request);
         log.error("Database procedure error [{}]: {}", ex.getErrorCode(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("DATABASE_ERROR", ex.getMessage()));
+                .body(new ApiError("DATABASE_ERROR", "A database error occurred while processing the request."));
     }
 
     @ExceptionHandler(ReportGenerationException.class)
@@ -129,7 +129,7 @@ public class GlobalApiExceptionHandler {
         clearProducibleMediaTypes(request);
         log.error("Report generation failed.", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("REPORT_ERROR", ex.getMessage()));
+                .body(new ApiError("REPORT_ERROR", "An error occurred while generating the report."));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

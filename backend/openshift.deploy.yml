@@ -36,6 +36,12 @@ parameters:
     value: "256Mi"
   - name: APP_LOG_LEVEL
     value: INFO
+  - name: ROOT_LOG_LEVEL
+    value: INFO
+  - name: SPRING_LOG_LEVEL
+    value: INFO
+  - name: SPRING_SECURITY_LOG_LEVEL
+    value: WARN
   # Credentials and config are read at runtime from the Secret and ConfigMap
   # created by common/openshift.init.yml (${NAME}-${ZONE}-backend).
 
@@ -115,6 +121,12 @@ objects:
                   value: "8080"
                 - name: LOGGING_LEVEL_CA_BC_GOV_NRS_CSP
                   value: ${APP_LOG_LEVEL}
+                - name: LOGGING_LEVEL_ROOT
+                  value: ${ROOT_LOG_LEVEL}
+                - name: LOGGING_LEVEL_ORG_SPRINGFRAMEWORK
+                  value: ${SPRING_LOG_LEVEL}
+                - name: LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY
+                  value: ${SPRING_SECURITY_LOG_LEVEL}
               volumeMounts:
                 - name: api-cert
                   mountPath: /cert
@@ -225,26 +237,3 @@ objects:
         requests:
           storage: 50Mi
       storageClassName: netapp-file-standard
-
-  # ── NetworkPolicy: ingress from same-zone frontend + cluster monitoring ──
-  - apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: ${NAME}-backend-${ZONE}-ingress
-      labels:
-        app: ${NAME}-backend-${ZONE}
-        app.kubernetes.io/instance: ${ZONE}
-    spec:
-      podSelector:
-        matchLabels:
-          app: ${NAME}-backend-${ZONE}
-      ingress:
-        - from:
-            - podSelector:
-                matchLabels:
-                  app: ${NAME}-frontend-${ZONE}
-            - namespaceSelector:
-                matchLabels:
-                  network.openshift.io/policy-group: monitoring
-      policyTypes:
-        - Ingress

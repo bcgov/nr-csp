@@ -10,6 +10,18 @@ concurrency:
 permissions: {}
 
 jobs:
+  # ZONE for OpenShift objects is the PR number mapped into 1-50, capping how
+  # many PR environments can exist at once. Images keep the real PR number.
+  init:
+    name: Initialize
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    outputs:
+      zone: ${{ steps.zone.outputs.zone }}
+    steps:
+      - id: zone
+        run: echo "zone=$(( (${{ github.event.number }} - 1) % 50 + 1 ))" >> $GITHUB_OUTPUT
+
   # https://github.com/bcgov/action-builder-ghcr
   builds:
     name: Builds
@@ -23,7 +35,7 @@ jobs:
         package: [backend, frontend]
     timeout-minutes: 10
     steps:
-      - uses: bcgov/action-builder-ghcr@cb2629351c87dd1c2130073e4ebb7233a9653a63 # v4.4.1
+      - uses: bcgov/actions/builder-ghcr@v0.4.0 # v0.4.0
         with:
           package: ${{ matrix.package }}
           tags: ${{ github.event.number }}
@@ -35,7 +47,7 @@ jobs:
 
   deploys:
     name: Deploys (${{ github.event.number }})
-    needs: [builds]
+    needs: [builds, init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
       oc_namespace: ${{ secrets.oc_namespace }}
@@ -56,14 +68,16 @@ jobs:
       jasper_server_put_url: ${{ secrets.jasper_server_put_url }}
       jasper_server_report_uri_base: ${{ secrets.jasper_server_report_uri_base }}
     with:
-      target: ${{ github.event.number }}
+      target: ${{ needs.init.outputs.zone }}
       triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/')
 
   tests:
      name: Tests
      if: needs.deploys.outputs.triggered == 'true'
-     needs: [deploys]
+     needs: [deploys, init]
      uses: ./.github/workflows/reusable-tests.yml
+     with:
+       target: ${{ needs.init.outputs.zone }}
 
   # ==========================================================================
   # WARNING: This job acts as the required merge gate for this workflow.
@@ -72,7 +86,7 @@ jobs:
   # ==========================================================================
   results:
     name: PR Results
-    needs: [builds, deploys, tests]
+    needs: [init, builds, deploys, tests]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 1

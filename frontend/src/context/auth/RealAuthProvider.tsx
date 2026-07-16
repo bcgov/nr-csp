@@ -2,6 +2,8 @@ import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils';
 import { type ReactNode, useEffect, useState } from 'react';
 
+import { clearPersistedTableState } from '@/hooks/usePersistentState';
+
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
 import type { Role } from './permissions';
@@ -83,6 +85,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     signOut: async () => {
       setIsSigningOut(true);
       await signOut();
+      clearPersistedTableState();
       setUser(null);
     },
   };

@@ -197,8 +197,10 @@ public class InboxRepository {
 
         // Invoice number: wildcard LIKE match (mirrors SearchRepository.toInvoiceNumberPattern).
         // Value is already trimmed and uppercased by InboxService; wildcards *, %, ? are preserved.
+        // UPPER the column too so the match is case-insensitive regardless of how the invoice
+        // number is stored (the uppercased param alone only matches uppercase-stored values).
         if (criteria.invoiceNum() != null && !criteria.invoiceNum().isBlank()) {
-            sql.append(" AND inv.CLIENT_INVOICE_NO LIKE :invoiceNum ESCAPE '\\'");
+            sql.append(" AND UPPER(inv.CLIENT_INVOICE_NO) LIKE UPPER(:invoiceNum) ESCAPE '\\'");
             params.addValue("invoiceNum", toInvoiceNumberPattern(criteria.invoiceNum()));
         }
 
