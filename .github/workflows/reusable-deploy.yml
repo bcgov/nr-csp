@@ -91,7 +91,7 @@ jobs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: bcgov/action-deployer-openshift@fc51e6a5849eb0fdb9395ceed9c1059aa25b3815 # v4.1.1
+      - uses: bcgov/action-deployer-openshift@1ffe5c65252909912e1dfad2dc7f683587d21da9 # v4.2.0
         id: deploy
         with:
           file: common/openshift.init.yml
@@ -151,14 +151,14 @@ jobs:
               -p COGNITO_USER_POOL_CLIENT_ID='${{ vars.cognito_user_pool_client_id }}'
               -p COGNITO_DOMAIN='${{ vars.cognito_domain }}'
               -p COGNITO_OAUTH_SCOPES='${{ vars.cognito_oauth_scopes }}'
-              -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca'
-              -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.apps.gold.devops.gov.bc.ca/logout'
+              -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}'
+              -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}/logout'
               -p FAM_CLIENT_ID='${{ vars.fam_client_id }}'
               -p LOG_LEVEL='${{ vars.frontend_log_level || 'INFO' }}'
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     steps:
-      - uses: bcgov/action-deployer-openshift@fc51e6a5849eb0fdb9395ceed9c1059aa25b3815 # v4.1.1
+      - uses: bcgov/action-deployer-openshift@1ffe5c65252909912e1dfad2dc7f683587d21da9 # v4.2.0
         id: deploy
         with:
           file: ${{ matrix.file }}
@@ -166,6 +166,8 @@ jobs:
           oc_server: ${{ vars.oc_server }}
           oc_token: ${{ secrets.oc_token }}
           debug: true
+          # Lite mode strips HPA + PDB and scales to 1 replica (Recreate) for PR/sandbox deploys
+          lite_mode: ${{ github.event_name == 'pull_request' }}
           parameters:
             -p ZONE="${{ inputs.target }}"
             -p NAME="${{ github.event.repository.name }}"
