@@ -30,7 +30,7 @@ const STRUCTURAL_ISSUE_LABEL: Record<string, string> = {
 // Structural messages are rendered by the backend as "line N, col N: <detail>"
 // (schema errors) or just "<detail>" (format/envelope errors). Split the
 // leading location off so it can sit in its own column.
-const LOCATION_RE = /^(line \d+, col \d+):\s*([\s\S]*)$/;
+const LOCATION_RE = /^(line \d+, col \d+): ?([\s\S]*)$/;
 
 // Xerces schema messages are prefixed with an error code like "cvc-type.3.1.3: "
 // or "cvc-fractionDigits-valid: ". Drop it so the Detail column reads as plain
@@ -50,7 +50,7 @@ export const toStructuralIssueRows = (errors: ValidationMessageResponse[]): Stru
     };
   });
 
-const csvCell = (value: string): string => (/[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+const csvCell = (value: string): string => (/[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value);
 
 /** Serialises the issues table to CSV (Issue, File location, Detail). */
 export const structuralIssuesToCsv = (rows: StructuralIssueRow[]): string =>
@@ -210,8 +210,43 @@ export const collectIssueBanners = (
 const emptyRowIssues = (): RowIssues => ({ fields: {}, row: [] });
 
 const addToRow = (rowIssues: RowIssues, field: string | undefined, issue: CellIssue): void => {
-  if (field) (rowIssues.fields[field] ??= []).push(issue);
-  else rowIssues.row.push(issue);
+  if (field) {
+    rowIssues.fields[field] ??= [];
+    rowIssues.fields[field].push(issue);
+  } else {
+    rowIssues.row.push(issue);
+  }
+};
+
+/** Routes a submission-level message to its mapped field(s), or the banner list. */
+const addSubmissionIssue = (result: MappedIssues, messageKey: string, issue: CellIssue): void => {
+  const mapped = SUBMISSION_KEY_TO_FIELD[messageKey];
+  if (!mapped) {
+    result.formIssues.push(issue);
+    return;
+  }
+  const fields = Array.isArray(mapped) ? mapped : [mapped];
+  for (const field of fields) {
+    result.submissionFields[field] ??= [];
+    result.submissionFields[field].push(issue);
+  }
+};
+
+/** Attributes a single message to the invoice/line/field/form it concerns. */
+const attributeMessage = (result: MappedIssues, m: ValidationMessageResponse): void => {
+  if (m.type === 'ERROR') result.hasErrors = true;
+  const { invoiceIndex, lineIndex, body } = parseLocator(m.message);
+  const issue: CellIssue = { message: body, type: m.type };
+
+  if (invoiceIndex != null && lineIndex != null) {
+    const rowIssues = (result.lineItems[`${invoiceIndex}:${lineIndex}`] ??= emptyRowIssues());
+    addToRow(rowIssues, LINE_KEY_TO_FIELD[m.messageKey], issue);
+  } else if (invoiceIndex != null) {
+    const rowIssues = (result.invoices[invoiceIndex] ??= emptyRowIssues());
+    addToRow(rowIssues, INVOICE_KEY_TO_FIELD[m.messageKey], issue);
+  } else {
+    addSubmissionIssue(result, m.messageKey, issue);
+  }
 };
 
 /**
@@ -228,28 +263,7 @@ export const mapSubmissionIssues = (messages: ValidationMessageResponse[]): Mapp
     hasErrors: false,
   };
 
-  for (const m of messages) {
-    if (m.type === 'ERROR') result.hasErrors = true;
-    const { invoiceIndex, lineIndex, body } = parseLocator(m.message);
-    const issue: CellIssue = { message: body, type: m.type };
-
-    if (invoiceIndex != null && lineIndex != null) {
-      const key = `${invoiceIndex}:${lineIndex}`;
-      const rowIssues = (result.lineItems[key] ??= emptyRowIssues());
-      addToRow(rowIssues, LINE_KEY_TO_FIELD[m.messageKey], issue);
-    } else if (invoiceIndex != null) {
-      const rowIssues = (result.invoices[invoiceIndex] ??= emptyRowIssues());
-      addToRow(rowIssues, INVOICE_KEY_TO_FIELD[m.messageKey], issue);
-    } else {
-      const mapped = SUBMISSION_KEY_TO_FIELD[m.messageKey];
-      if (mapped) {
-        const fields = Array.isArray(mapped) ? mapped : [mapped];
-        for (const field of fields) (result.submissionFields[field] ??= []).push(issue);
-      } else {
-        result.formIssues.push(issue);
-      }
-    }
-  }
+  for (const m of messages) attributeMessage(result, m);
 
   return result;
 };

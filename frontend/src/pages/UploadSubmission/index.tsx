@@ -217,6 +217,13 @@ export function UploadSubmissionPage() {
   // the edited values authoritatively and re-surfaces any remaining issues.
   const canSubmit = hasSubmission && !isBusy;
 
+  // Progress text shown by the inline loader for each in-flight phase.
+  const loadingDescription = (): string => {
+    if (status === 'parsing') return 'Parsing and validating schema…';
+    if (status === 'submitting') return 'Submitting…';
+    return 'Running business validation…';
+  };
+
   // Metadata field issues (submission-level messages that map to a field).
   const fieldIssue = (key: string): { errorText?: string; warningText?: string } => {
     const list = issues?.submissionFields[key];
@@ -240,7 +247,7 @@ export function UploadSubmissionPage() {
     // endpoint re-validates and re-surfaces anything still wrong.
     setClientFieldErrors((prev) => (prev[key] ? { ...prev, [key]: '' } : prev));
     setIssues((prev) => {
-      if (!prev || !prev.submissionFields[key]) return prev;
+      if (!prev?.submissionFields[key]) return prev;
       const submissionFields = { ...prev.submissionFields };
       delete submissionFields[key];
       return { ...prev, submissionFields };
@@ -316,138 +323,141 @@ export function UploadSubmissionPage() {
     { key: 'price', header: 'Price', align: 'right', renderCell: (r) => formatCurrency(r.price) },
   ];
 
-  const renderStatus = () => {
-    if (status === 'network-error') {
-      return (
-        <InlineNotification
-          kind="error"
-          lowContrast
-          title="Upload failed."
-          subtitle="Could not reach the server. Please try again."
-          onClose={() => setNotificationVisible(false)}
-          className="upload-submission-page__notification"
-        />
-      );
-    }
+  const renderNetworkError = () => (
+    <InlineNotification
+      kind="error"
+      lowContrast
+      title="Upload failed."
+      subtitle="Could not reach the server. Please try again."
+      onClose={() => setNotificationVisible(false)}
+      className="upload-submission-page__notification"
+    />
+  );
 
-    if (status === 'structural-error') {
-      const issueRows = toStructuralIssueRows(structuralErrors);
-      const issueColumns: DataPreviewColumn<StructuralIssueRow>[] = [
-        { key: 'issue', header: 'Issue', renderCell: (r) => r.issue },
-        {
-          key: 'location',
-          header: 'File location',
-          renderCell: (r) => <span className="upload-submission-page__issue-location">{r.location || '—'}</span>,
-        },
-        { key: 'detail', header: 'Detail', renderCell: (r) => r.detail },
-      ];
-      const count = issueRows.length;
-      return (
-        <>
-          <div className="upload-submission-page__notification">
-            <InlineNotification
-              kind="error"
-              lowContrast
-              hideCloseButton
-              title={`${count} issue${count === 1 ? '' : 's'} found in submission`}
-              subtitle="Correct the issues in your source file, then replace the file to continue."
-            />
-          </div>
-          <section className="upload-submission-page__card">
-            <div className="upload-submission-page__card-header">
-              <h2 className="upload-submission-page__card-title upload-submission-page__card-title--flush">
-                Validation issues ({count})
-              </h2>
-              <Button
-                kind="ghost"
-                size="sm"
-                renderIcon={Download}
-                onClick={() =>
-                  downloadBlob(
-                    new Blob([structuralIssuesToCsv(issueRows)], { type: 'text/csv;charset=utf-8;' }),
-                    'validation-issues.csv',
-                  )
-                }
-              >
-                Download issues (.csv)
-              </Button>
-            </div>
-            <div className="upload-submission-page__card-table upload-submission-page__issues-table">
-              <DataPreviewTable rows={issueRows} columns={issueColumns} emptyMessage="No issues." />
-            </div>
-          </section>
-        </>
-      );
-    }
-
-    if (status === 'done' && businessResult) {
-      const rejected = businessResult.rejectedInvoices.length;
-      const accepted = businessResult.acceptedInvoices.length;
-      const kind = businessResult.valid
-        ? 'success'
-        : businessResult.code === 'PARTIALLY_ACCEPTED'
-          ? 'warning'
-          : 'error';
-      const summary = businessResult.valid
-        ? `Submission is valid. ${accepted} invoice(s) accepted.`
-        : businessResult.code === 'PARTIALLY_ACCEPTED'
-          ? `${accepted} invoice(s) accepted, ${rejected} rejected. Correct the highlighted issues and resubmit.`
-          : 'Submission failed business validation. Correct the highlighted issues and upload again.';
-      // Surface every inline invoice / line-item issue as its own banner at the
-      // top, labelled with its row context, alongside the submission-level
-      // messages — matching the per-message InlineNotification style used across
-      // the rest of CSP (e.g. the Invoice page).
-      const invoiceNumberByIndex: Record<number, string | null> = {};
-      for (const inv of submission?.invoices ?? []) invoiceNumberByIndex[inv.index] = inv.invoiceNumber;
-      const rowBanners = issues ? collectIssueBanners(issues, invoiceNumberByIndex) : [];
-      return (
+  const renderStructuralError = () => {
+    const issueRows = toStructuralIssueRows(structuralErrors);
+    const issueColumns: DataPreviewColumn<StructuralIssueRow>[] = [
+      { key: 'issue', header: 'Issue', renderCell: (r) => r.issue },
+      {
+        key: 'location',
+        header: 'File location',
+        renderCell: (r) => <span className="upload-submission-page__issue-location">{r.location || '—'}</span>,
+      },
+      { key: 'detail', header: 'Detail', renderCell: (r) => r.detail },
+    ];
+    const count = issueRows.length;
+    return (
+      <>
         <div className="upload-submission-page__notification">
           <InlineNotification
-            kind={kind}
+            kind="error"
             lowContrast
-            title={businessResult.valid ? 'Validation passed.' : 'Validation issues found.'}
-            subtitle={summary}
             hideCloseButton
+            title={`${count} issue${count === 1 ? '' : 's'} found in submission`}
+            subtitle="Correct the issues in your source file, then replace the file to continue."
           />
-          {issues?.formIssues.map((issue, i) => (
-            <InlineNotification
-              key={`form-${i}`}
-              className="upload-submission-page__issue-banner"
-              kind={issue.type === 'ERROR' ? 'error' : 'warning'}
-              lowContrast
-              hideCloseButton
-              title={issue.message}
-            />
-          ))}
-          {rowBanners.map((b) => (
-            <InlineNotification
-              key={b.key}
-              className="upload-submission-page__issue-banner"
-              kind={b.type === 'ERROR' ? 'error' : 'warning'}
-              lowContrast
-              hideCloseButton
-              title={b.label}
-              subtitle={b.message}
-            />
-          ))}
         </div>
-      );
-    }
+        <section className="upload-submission-page__card">
+          <div className="upload-submission-page__card-header">
+            <h2 className="upload-submission-page__card-title upload-submission-page__card-title--flush">
+              Validation issues ({count})
+            </h2>
+            <Button
+              kind="ghost"
+              size="sm"
+              renderIcon={Download}
+              onClick={() =>
+                downloadBlob(
+                  new Blob([structuralIssuesToCsv(issueRows)], { type: 'text/csv;charset=utf-8;' }),
+                  'validation-issues.csv',
+                )
+              }
+            >
+              Download issues (.csv)
+            </Button>
+          </div>
+          <div className="upload-submission-page__card-table upload-submission-page__issues-table">
+            <DataPreviewTable rows={issueRows} columns={issueColumns} emptyMessage="No issues." />
+          </div>
+        </section>
+      </>
+    );
+  };
 
-    // idle — nothing uploaded yet.
-    if (status === 'idle' && notificationVisible) {
-      return (
+  const businessKind = (result: SubmissionValidationResponse): 'success' | 'warning' | 'error' => {
+    if (result.valid) return 'success';
+    if (result.code === 'PARTIALLY_ACCEPTED') return 'warning';
+    return 'error';
+  };
+
+  const businessSummary = (result: SubmissionValidationResponse): string => {
+    const accepted = result.acceptedInvoices.length;
+    const rejected = result.rejectedInvoices.length;
+    if (result.valid) return `Submission is valid. ${accepted} invoice(s) accepted.`;
+    if (result.code === 'PARTIALLY_ACCEPTED') {
+      return `${accepted} invoice(s) accepted, ${rejected} rejected. Correct the highlighted issues and resubmit.`;
+    }
+    return 'Submission failed business validation. Correct the highlighted issues and upload again.';
+  };
+
+  const renderBusinessResult = (result: SubmissionValidationResponse) => {
+    // Surface every inline invoice / line-item issue as its own banner at the
+    // top, labelled with its row context, alongside the submission-level
+    // messages — matching the per-message InlineNotification style used across
+    // the rest of CSP (e.g. the Invoice page).
+    const invoiceNumberByIndex: Record<number, string | null> = {};
+    for (const inv of submission?.invoices ?? []) invoiceNumberByIndex[inv.index] = inv.invoiceNumber;
+    const rowBanners = issues ? collectIssueBanners(issues, invoiceNumberByIndex) : [];
+    return (
+      <div className="upload-submission-page__notification">
         <InlineNotification
-          kind="info"
+          kind={businessKind(result)}
           lowContrast
-          title="No XML file uploaded."
-          subtitle="Please upload a valid XML file to populate the submission form."
-          onClose={() => setNotificationVisible(false)}
-          className="upload-submission-page__notification"
+          title={result.valid ? 'Validation passed.' : 'Validation issues found.'}
+          subtitle={businessSummary(result)}
+          hideCloseButton
         />
-      );
-    }
+        {issues?.formIssues.map((issue) => (
+          <InlineNotification
+            key={`form-${issue.type}-${issue.message}`}
+            className="upload-submission-page__issue-banner"
+            kind={issue.type === 'ERROR' ? 'error' : 'warning'}
+            lowContrast
+            hideCloseButton
+            title={issue.message}
+          />
+        ))}
+        {rowBanners.map((b) => (
+          <InlineNotification
+            key={b.key}
+            className="upload-submission-page__issue-banner"
+            kind={b.type === 'ERROR' ? 'error' : 'warning'}
+            lowContrast
+            hideCloseButton
+            title={b.label}
+            subtitle={b.message}
+          />
+        ))}
+      </div>
+    );
+  };
 
+  const renderIdle = () => (
+    <InlineNotification
+      kind="info"
+      lowContrast
+      title="No XML file uploaded."
+      subtitle="Please upload a valid XML file to populate the submission form."
+      onClose={() => setNotificationVisible(false)}
+      className="upload-submission-page__notification"
+    />
+  );
+
+  const renderStatus = () => {
+    if (status === 'network-error') return renderNetworkError();
+    if (status === 'structural-error') return renderStructuralError();
+    if (status === 'done' && businessResult) return renderBusinessResult(businessResult);
+    if (status === 'idle' && notificationVisible) return renderIdle();
     return null;
   };
 
@@ -467,15 +477,7 @@ export function UploadSubmissionPage() {
               {(isBusy || fileName) && (
                 <div className="upload-submission-page__upload-status">
                   {isBusy ? (
-                    <InlineLoading
-                      description={
-                        status === 'parsing'
-                          ? 'Parsing and validating schema…'
-                          : status === 'submitting'
-                            ? 'Submitting…'
-                            : 'Running business validation…'
-                      }
-                    />
+                    <InlineLoading description={loadingDescription()} />
                   ) : (
                     <span className="upload-submission-page__file-name">Selected file: {fileName}</span>
                   )}

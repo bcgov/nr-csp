@@ -164,7 +164,7 @@ class CspSubmissionPersistenceServiceTest {
   }
 
   @Test
-  void sellerSubmission_withManualBuyer_nullDetailsAndDate_insertsBuyerParticipant() throws Exception {
+  void sellerSubmission_withManualBuyer_nullDetailsAndDate_insertsBuyerParticipant() {
     // Seller submission with a manual (unregistered) buyer and no invoice details
     // or date: the participant lands in the buyer slot and the mapped detail
     // fields sourced from CSPInvoiceDetails / the date are all null/empty.
@@ -195,7 +195,7 @@ class CspSubmissionPersistenceServiceTest {
   @ParameterizedTest
   @MethodSource
   void hasManualOtherParty_evaluatesEachPartyField(
-      String name, String city, String prov, boolean expectParticipant) throws Exception {
+      String name, String city, String prov, boolean expectParticipant) {
     // A manual other party is one with no client number but at least one of
     // name/city/provState — exercising each arm of the short-circuit condition.
     CSPSubmissionType submission = submission("Y", true);
@@ -214,7 +214,7 @@ class CspSubmissionPersistenceServiceTest {
   }
 
   @Test
-  void manualOtherParty_treatsBlankClientNumberAsUnregistered() throws Exception {
+  void manualOtherParty_treatsBlankClientNumberAsUnregistered() {
     // A present-but-blank other-party client number is treated as unregistered,
     // so a manual party (name present) still triggers a participant insert.
     CSPSubmissionType submission = submission("Y", true);

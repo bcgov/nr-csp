@@ -64,6 +64,62 @@ const IssueMarkers = ({ issues }: { issues: CellIssue[] }): ReactElement | null 
   );
 };
 
+/** Minimal shape of the cells Carbon's DataTable hands to the render prop. */
+interface PreviewCell {
+  id: string;
+  value: unknown;
+  info: { header: string };
+}
+
+/** Minimal shape of the rows Carbon's DataTable hands to the render prop. */
+interface PreviewRow {
+  id: string;
+  cells: PreviewCell[];
+}
+
+/** Renders a single data cell, with its optional alignment and issue markers. */
+const DataPreviewCell = <T,>({
+  cell,
+  column,
+  dataRow,
+  issues,
+}: {
+  cell: PreviewCell;
+  column?: DataPreviewColumn<T>;
+  dataRow: T;
+  issues: CellIssue[];
+}): ReactElement => (
+  <TableCell style={column?.align === 'right' ? { textAlign: 'right' } : undefined}>
+    <span className={`data-preview-table__cell${column?.align === 'right' ? ' data-preview-table__cell--right' : ''}`}>
+      <span>{column?.renderCell ? column.renderCell(dataRow) : String(cell.value)}</span>
+      <IssueMarkers issues={issues} />
+    </span>
+  </TableCell>
+);
+
+/** Renders a single data row, attaching per-cell and row-level issues. */
+const DataPreviewRow = <T,>({
+  tableRow,
+  dataRow,
+  columns,
+  rowIssues,
+}: {
+  tableRow: PreviewRow;
+  dataRow: T;
+  columns: DataPreviewColumn<T>[];
+  rowIssues?: RowIssues;
+}): ReactElement => (
+  <TableRow>
+    {tableRow.cells.map((cell, cellIndex) => {
+      const column = columns.find((c) => c.key === cell.info.header);
+      const cellIssues = rowIssues?.fields[String(cell.info.header)] ?? [];
+      // Surface row-level issues (no specific column) on the first cell.
+      const issues = cellIndex === 0 ? [...cellIssues, ...(rowIssues?.row ?? [])] : cellIssues;
+      return <DataPreviewCell key={cell.id} cell={cell} column={column} dataRow={dataRow} issues={issues} />;
+    })}
+  </TableRow>
+);
+
 /**
  * DataPreviewTable renders a read-only Carbon table for previewing parsed data.
  * When there are no rows it shows a single centered, muted message spanning the
@@ -115,31 +171,14 @@ const DataPreviewTable = <T extends { id: string }>({
                 tableRows.map((tableRow) => {
                   const dataRow = rows.find((r) => r.id === tableRow.id);
                   if (!dataRow) return null;
-                  const rowIssues = issuesByRowId?.[tableRow.id];
                   return (
-                    <TableRow key={tableRow.id}>
-                      {tableRow.cells.map((cell, cellIndex) => {
-                        const column = columns.find((c) => c.key === cell.info.header);
-                        const cellIssues = rowIssues?.fields[String(cell.info.header)] ?? [];
-                        // Surface row-level issues (no specific column) on the first cell.
-                        const issues = cellIndex === 0 ? [...cellIssues, ...(rowIssues?.row ?? [])] : cellIssues;
-                        return (
-                          <TableCell
-                            key={cell.id}
-                            style={column?.align === 'right' ? { textAlign: 'right' } : undefined}
-                          >
-                            <span
-                              className={`data-preview-table__cell${
-                                column?.align === 'right' ? ' data-preview-table__cell--right' : ''
-                              }`}
-                            >
-                              <span>{column?.renderCell ? column.renderCell(dataRow) : String(cell.value)}</span>
-                              <IssueMarkers issues={issues} />
-                            </span>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
+                    <DataPreviewRow
+                      key={tableRow.id}
+                      tableRow={tableRow}
+                      dataRow={dataRow}
+                      columns={columns}
+                      rowIssues={issuesByRowId?.[tableRow.id]}
+                    />
                   );
                 })
               )}

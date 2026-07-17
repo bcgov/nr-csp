@@ -630,7 +630,7 @@ class CspSubmissionControllerTest {
     }
 
     @Test
-    void submit_nullSubmitter_skipsMetadataEditsAndPersists() throws Exception {
+    void submit_nullSubmitter_skipsMetadataEditsAndPersists() {
         // A parsed tree with no submitter: applyMetadataEdits must short-circuit
         // rather than NPE, and the submission still flows through to persistence.
         CSPSubmissionType submission = new CSPSubmissionType();
