@@ -44,6 +44,12 @@ public class SubmissionValidationProperties {
   /** Local name of the ESF element wrapping the application body. */
   private String envelopeContentElement = "submissionContent";
 
+  /** Local name of the ESF element carrying the submitter email address. */
+  private String envelopeEmailElement = "emailAddress";
+
+  /** Local name of the ESF element carrying the submitter telephone number. */
+  private String envelopeTelephoneElement = "telephoneNumber";
+
   /** Namespace of the bare application submission body. */
   private String bodyNamespace = "http://www.for.gov.bc.ca/schema/csp";
 

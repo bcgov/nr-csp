@@ -1,0 +1,53 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+@use '@carbon/react/scss/theme' as theme;
+
+.file-drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-05;
+  padding: $spacing-05;
+  border: 1px dashed theme.$border-strong-01;
+  background: theme.$layer-01;
+
+  &--dragging {
+    border-color: theme.$border-interactive;
+    background: theme.$layer-hover-01;
+  }
+
+  &--disabled {
+    opacity: 0.5;
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: $spacing-05;
+    min-width: 0;
+  }
+
+  // Circular grey icon badge holding the upload glyph.
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-radius: 50%;
+    background: theme.$layer-accent-01;
+    color: theme.$icon-primary;
+  }
+
+  &__text {
+    @include type.type-style('body-01');
+    margin: 0;
+    color: theme.$text-primary;
+  }
+
+  // Visually hidden native input — the button drives it.
+  &__input {
+    display: none;
+  }
+}

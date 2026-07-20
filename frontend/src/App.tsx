@@ -1,14 +1,14 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { QueryClientProvider } from '@tanstack/react-query';
 
+import { LoadingScreen } from '@/components/core/LoadingScreen';
+import Layout from '@/components/Layout';
 import { queryClient } from '@/config/react-query/config';
 import { AuthProvider } from '@/context/auth/AuthProvider';
 import { NotificationProvider } from '@/context/notification/NotificationProvider';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import { ThemeProvider } from '@/context/theme/ThemeProvider';
-import Layout from '@/components/Layout';
-import { LoadingScreen } from '@/components/core/LoadingScreen';
 import { LogoutPage } from '@/pages/Logout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { ROUTES } from '@/routes/routePaths';
@@ -26,6 +26,9 @@ const SubmissionHistoryPage = lazy(() =>
 );
 const ViewSubmissionPage = lazy(() =>
   import('@/pages/ViewSubmission').then((m) => ({ default: m.ViewSubmissionPage })),
+);
+const UploadSubmissionPage = lazy(() =>
+  import('@/pages/UploadSubmission').then((m) => ({ default: m.UploadSubmissionPage })),
 );
 const NotFoundPage = lazy(() => import('@/pages/NotFound').then((m) => ({ default: m.NotFoundPage })));
 const SortCodePage = lazy(() => import('@/pages/SortCode').then((m) => ({ default: m.SortCodePage })));
@@ -96,6 +99,14 @@ export default function App() {
                         element={
                           <ProtectedRoute>
                             <ViewSubmissionPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path={ROUTES.UPLOAD_SUBMISSION}
+                        element={
+                          <ProtectedRoute>
+                            <UploadSubmissionPage />
                           </ProtectedRoute>
                         }
                       />

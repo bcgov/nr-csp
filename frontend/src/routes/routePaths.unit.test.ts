@@ -29,6 +29,7 @@ describe('ROUTES', () => {
       'LOGOUT',
       'SEARCH',
       'SUBMISSION_HISTORY',
+      'UPLOAD_SUBMISSION',
       'INBOX',
       'INVOICE',
       'SORT_CODE',

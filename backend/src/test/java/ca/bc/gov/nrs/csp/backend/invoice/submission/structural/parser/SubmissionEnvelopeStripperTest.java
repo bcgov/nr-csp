@@ -111,6 +111,58 @@ class SubmissionEnvelopeStripperTest {
     assertThat(ex.getCode()).isEqualTo("ENVELOPE_UNRECOGNIZED");
   }
 
+  // ── extractMetadata ─────────────────────────────────────────────────
+
+  @Test
+  void extract_metadata_reads_email_and_telephone_and_strips_mailto() {
+    byte[] raw = xml(
+        "<esf:ESFSubmission xmlns:esf=\"http://www.for.gov.bc.ca/schema/esf\">"
+            + "<esf:emailAddress>mailto:jane@example.com</esf:emailAddress>"
+            + "<esf:telephoneNumber>2501234567</esf:telephoneNumber>"
+            + "</esf:ESFSubmission>");
+    SubmissionEnvelopeStripper.SubmissionMetadata md = stripper.extractMetadata(raw);
+    assertThat(md.email()).isEqualTo("jane@example.com");
+    assertThat(md.telephone()).isEqualTo("2501234567");
+  }
+
+  @Test
+  void extract_metadata_treats_blank_elements_as_absent() {
+    // Present-but-blank elements resolve to null (firstElementText blank guard).
+    byte[] raw = xml(
+        "<esf:ESFSubmission xmlns:esf=\"http://www.for.gov.bc.ca/schema/esf\">"
+            + "<esf:emailAddress>   </esf:emailAddress>"
+            + "<esf:telephoneNumber></esf:telephoneNumber>"
+            + "</esf:ESFSubmission>");
+    SubmissionEnvelopeStripper.SubmissionMetadata md = stripper.extractMetadata(raw);
+    assertThat(md.email()).isNull();
+    assertThat(md.telephone()).isNull();
+  }
+
+  @Test
+  void extract_metadata_from_bare_body_has_no_contact_fields() {
+    // No metadata elements at all (getElementsByTagNameNS length 0) → both null.
+    byte[] raw = xml("<csp:CSPSubmission xmlns:csp=\"http://www.for.gov.bc.ca/schema/csp\"/>");
+    SubmissionEnvelopeStripper.SubmissionMetadata md = stripper.extractMetadata(raw);
+    assertThat(md.email()).isNull();
+    assertThat(md.telephone()).isNull();
+  }
+
+  @Test
+  void extract_metadata_is_non_fatal_on_malformed_xml() {
+    // A parse failure inside extractMetadata is swallowed and returns EMPTY.
+    SubmissionEnvelopeStripper.SubmissionMetadata md = stripper.extractMetadata(xml("<unclosed>"));
+    assertThat(md).isSameAs(SubmissionEnvelopeStripper.SubmissionMetadata.EMPTY);
+  }
+
+  @Test
+  void prolog_only_document_with_no_root_element_is_parse_error() {
+    // A rootless document (prolog + comment, no element) never yields a
+    // START_ELEMENT; the StAX read fails and surfaces as a parse error.
+    SubmissionEnvelopeException ex = assertThrows(SubmissionEnvelopeException.class,
+        () -> stripper.toBareSubmission(xml("<?xml version=\"1.0\"?><!-- only a comment -->")));
+    assertThat(ex.getCode()).isEqualTo("ENVELOPE_PARSE_ERROR");
+  }
+
   @Test
   void envelope_content_with_wrong_body_local_name_is_no_body() {
     // The content child is in the body namespace but has the wrong local

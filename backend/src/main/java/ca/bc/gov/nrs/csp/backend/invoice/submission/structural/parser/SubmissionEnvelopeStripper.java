@@ -8,13 +8,13 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.transform.OutputKeys;
@@ -78,6 +78,42 @@ public class SubmissionEnvelopeStripper {
     };
   }
 
+  /** Optional submitter contact metadata carried by the ESF envelope. */
+  public record SubmissionMetadata(String email, String telephone) {
+    public static final SubmissionMetadata EMPTY = new SubmissionMetadata(null, null);
+  }
+
+  /**
+   * Extracts the optional submitter contact metadata (email, telephone) from the
+   * ESF envelope. The bare CSP body carries no such fields, and any parse trouble
+   * is non-fatal here (the caller already has a valid parsed body), so this
+   * returns {@link SubmissionMetadata#EMPTY} rather than throwing.
+   */
+  public SubmissionMetadata extractMetadata(byte[] raw) {
+    try {
+      DocumentBuilder db = newSecureDocumentBuilderFactory().newDocumentBuilder();
+      Document doc = db.parse(new ByteArrayInputStream(raw));
+      String email = firstElementText(doc, props.getEnvelopeNamespace(), props.getEnvelopeEmailElement());
+      String telephone = firstElementText(doc, props.getEnvelopeNamespace(), props.getEnvelopeTelephoneElement());
+      return new SubmissionMetadata(stripMailto(email), telephone);
+    } catch (ParserConfigurationException | SAXException | IOException e) {
+      log.debug("Could not extract submission metadata: {}", e.getMessage());
+      return SubmissionMetadata.EMPTY;
+    }
+  }
+
+  private static String firstElementText(Document doc, String namespace, String localName) {
+    NodeList nodes = doc.getElementsByTagNameNS(namespace, localName);
+    if (nodes.getLength() == 0) return null;
+    String text = nodes.item(0).getTextContent();
+    return StringUtils.hasText(text) ? text.trim() : null;
+  }
+
+  /** Strips a leading "mailto:" so the email is a plain address. */
+  private static String stripMailto(String email) {
+    return email == null ? null : email.replaceFirst("(?i)^mailto:", "");
+  }
+
   // ── XXE-hardened factory helpers ─────────────────────────────────────
   // Submissions are arbitrary user-uploaded XML, so every parser we
   // instantiate against them must explicitly disable DTDs, external
@@ -116,18 +152,16 @@ public class SubmissionEnvelopeStripper {
     XMLInputFactory factory = newSecureXmlInputFactory();
     XMLStreamReader reader = factory.createXMLStreamReader(new ByteArrayInputStream(raw));
     try {
-      while (reader.hasNext()) {
-        if (reader.next() == XMLStreamConstants.START_ELEMENT) {
-          String ns = reader.getNamespaceURI() == null ? "" : reader.getNamespaceURI();
-          String local = reader.getLocalName();
-          if (props.getBodyNamespace().equals(ns) && props.getBodyRoot().equals(local)) {
-            return RootKind.BODY;
-          }
-          if (props.getEnvelopeNamespace().equals(ns) && props.getEnvelopeRoot().equals(local)) {
-            return RootKind.ENVELOPE;
-          }
-          return RootKind.UNKNOWN;
-        }
+      // Skips the prolog (xml declaration, comments, PIs, whitespace) to the root
+      // start element; a rootless/empty document throws, surfacing as a parse error.
+      reader.nextTag();
+      String ns = reader.getNamespaceURI() == null ? "" : reader.getNamespaceURI();
+      String local = reader.getLocalName();
+      if (props.getBodyNamespace().equals(ns) && props.getBodyRoot().equals(local)) {
+        return RootKind.BODY;
+      }
+      if (props.getEnvelopeNamespace().equals(ns) && props.getEnvelopeRoot().equals(local)) {
+        return RootKind.ENVELOPE;
       }
       return RootKind.UNKNOWN;
     } finally {

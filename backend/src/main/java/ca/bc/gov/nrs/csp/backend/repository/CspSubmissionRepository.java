@@ -54,6 +54,17 @@ public class CspSubmissionRepository {
     }
 
     public Long insertSubmission(String clientNumber, String clientLocnCode, String statusCode, String userId) {
+        // Single manually-entered invoice: month not complete, one invoice.
+        return insertSubmission(clientNumber, clientLocnCode, statusCode, "N", 1, userId);
+    }
+
+    /**
+     * Inserts a submission with an explicit month-complete flag and invoice count.
+     * Used by the CSP XML upload path, where a submission carries many invoices and
+     * the month-complete indicator comes from the uploaded document.
+     */
+    public Long insertSubmission(String clientNumber, String clientLocnCode, String statusCode,
+                                 String monthCompleteInd, int numberInvoicesSubmitted, String userId) {
         String sql = """
                 INSERT INTO THE.csp_submission (
                     csp_submission_id, csp_submission_status_code,
@@ -64,7 +75,7 @@ public class CspSubmissionRepository {
                 ) VALUES (
                     THE.CSP_SUBMISSION_SEQ.NEXTVAL, :status,
                     :clientNumber, :clientLocnCode,
-                    'N', 1,
+                    :monthComplete, :invoiceCount,
                     0,
                     :userId, SYSDATE, :userId, SYSDATE
                 )
@@ -73,6 +84,8 @@ public class CspSubmissionRepository {
                 .addValue("status", statusCode)
                 .addValue("clientNumber", clientNumber)
                 .addValue("clientLocnCode", clientLocnCode)
+                .addValue("monthComplete", monthCompleteInd)
+                .addValue("invoiceCount", numberInvoicesSubmitted)
                 .addValue("userId", userId);
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
