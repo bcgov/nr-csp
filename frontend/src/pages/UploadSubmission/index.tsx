@@ -25,9 +25,11 @@ import { downloadBlob } from '@/utils/report';
 import { SUBMISSION_METADATA_KEY_TO_FIELD, validateSubmissionMetadata } from '@/validations/submission';
 import { splitMessages } from '@/validations/validationResult';
 
+import { InvoiceIssueBadge } from './InvoiceIssues';
 import InvoiceLineItemsPanel from './InvoiceLineItemsPanel';
 import {
-  collectIssueBanners,
+  collectInvoiceIssues,
+  invoiceSeverity,
   mapSubmissionIssues,
   structuralIssuesToCsv,
   toStructuralIssueRows,
@@ -307,12 +309,11 @@ export function UploadSubmissionPage() {
   const expandAllInvoices = () => setExpandedRowIds(new Set(invoiceRows.map((row) => row.id)));
   const collapseAllInvoices = () => setExpandedRowIds(new Set());
 
-  const invoiceIssuesByRowId: Record<string, RowIssues> = {};
+  // Line-item cell markers keyed by line-item row id. Invoice-level issues are
+  // surfaced by the per-invoice badge + the local issue list instead of parent-
+  // row cell markers, so only line-item issues are mapped here.
   const lineIssuesByRowId: Record<string, RowIssues> = {};
   if (issues) {
-    for (const [index, rowIssues] of Object.entries(issues.invoices)) {
-      invoiceIssuesByRowId[`inv-${index}`] = rowIssues;
-    }
     for (const [key, rowIssues] of Object.entries(issues.lineItems)) {
       const [invoiceIndex, lineIndex] = key.split(':');
       lineIssuesByRowId[`li-${invoiceIndex}-${lineIndex}`] = rowIssues;
@@ -320,7 +321,19 @@ export function UploadSubmissionPage() {
   }
 
   const invoiceColumns: DataPreviewColumn<InvoiceRow>[] = [
-    { key: 'invoiceNumber', header: 'Invoice #', renderCell: (r) => r.invoiceNumber ?? '—' },
+    {
+      key: 'invoiceNumber',
+      header: 'Invoice #',
+      // Show the per-invoice severity badge only once business validation has
+      // run (businessResult set); before then a "No issues" badge would be
+      // misleading.
+      renderCell: (r) => (
+        <span className="upload-submission-page__invoice-cell">
+          <span>{r.invoiceNumber ?? '—'}</span>
+          {businessResult ? <InvoiceIssueBadge issues={collectInvoiceIssues(issues, r.index)} /> : null}
+        </span>
+      ),
+    },
     { key: 'invoiceDate', header: 'Date', renderCell: (r) => r.invoiceDate ?? '—' },
     { key: 'invoiceType', header: 'Type', renderCell: (r) => r.invoiceType ?? '—' },
     { key: 'sellerClientNumber', header: 'Seller Client #', renderCell: (r) => r.sellerClientNumber ?? '—' },
@@ -410,13 +423,11 @@ export function UploadSubmissionPage() {
   };
 
   const renderBusinessResult = (result: SubmissionValidationResponse) => {
-    // Surface every inline invoice / line-item issue as its own banner at the
-    // top, labelled with its row context, alongside the submission-level
-    // messages — matching the per-message InlineNotification style used across
-    // the rest of CSP (e.g. the Invoice page).
-    const invoiceNumberByIndex: Record<number, string | null> = {};
-    for (const inv of submission?.invoices ?? []) invoiceNumberByIndex[inv.index] = inv.invoiceNumber;
-    const rowBanners = issues ? collectIssueBanners(issues, invoiceNumberByIndex) : [];
+    // The top notification carries only page-level context: the overall
+    // pass/partial/fail summary and submission-level (form) messages that aren't
+    // tied to any invoice. Per-invoice and per-line issues are surfaced locally
+    // on each invoice — a severity badge on the row and a readable list inside
+    // its expanded panel — so the user no longer scrolls between top and table.
     return (
       <div className="upload-submission-page__notification">
         <InlineNotification
@@ -434,17 +445,6 @@ export function UploadSubmissionPage() {
             lowContrast
             hideCloseButton
             title={issue.message}
-          />
-        ))}
-        {rowBanners.map((b) => (
-          <InlineNotification
-            key={b.key}
-            className="upload-submission-page__issue-banner"
-            kind={b.type === 'ERROR' ? 'error' : 'warning'}
-            lowContrast
-            hideCloseButton
-            title={b.label}
-            subtitle={b.message}
           />
         ))}
       </div>
@@ -604,15 +604,21 @@ export function UploadSubmissionPage() {
                     rows={invoiceRows}
                     columns={invoiceColumns}
                     emptyMessage={EMPTY_TABLE_MESSAGE}
-                    issuesByRowId={invoiceIssuesByRowId}
                     expandable
                     expandedRowIds={expandedRowIds}
                     onExpandedRowIdsChange={setExpandedRowIds}
+                    rowClassName={(row) => {
+                      // Accent the row by severity, but only once validation has run.
+                      if (!businessResult) return undefined;
+                      const severity = invoiceSeverity(collectInvoiceIssues(issues, row.index));
+                      return severity === 'none' ? undefined : `upload-submission-page__invoice-row--${severity}`;
+                    }}
                     renderExpandedContent={(row) => (
                       <InvoiceLineItemsPanel
                         invoiceNumber={row.invoiceNumber ?? '—'}
                         lineItems={lineItemsByInvoice.get(row.index) ?? []}
                         issuesByRowId={lineIssuesByRowId}
+                        issues={collectInvoiceIssues(issues, row.index)}
                       />
                     )}
                   />

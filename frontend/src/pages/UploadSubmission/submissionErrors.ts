@@ -267,3 +267,47 @@ export const mapSubmissionIssues = (messages: ValidationMessageResponse[]): Mapp
 
   return result;
 };
+
+/** One flattened issue belonging to a single invoice (its own or one of its lines). */
+export interface InvoiceIssue {
+  type: 'ERROR' | 'WARNING';
+  /** 1-based line index when the issue belongs to a line item; absent for invoice-level issues. */
+  lineIndex?: number;
+  message: string;
+}
+
+/** ERROR outranks WARNING outranks clean, for a per-invoice roll-up. */
+export type InvoiceSeverity = 'error' | 'warning' | 'none';
+
+/**
+ * Flattens one invoice's issues — its own invoice-level issues plus every issue
+ * on its line items — into a single list, errors first (invoice-level before
+ * line-level within each severity). Drives the per-invoice badge and the local
+ * issue list in the expanded panel.
+ */
+export const collectInvoiceIssues = (issues: MappedIssues | null, invoiceIndex: number): InvoiceIssue[] => {
+  if (!issues) return [];
+  const out: InvoiceIssue[] = [];
+
+  const invoice = issues.invoices[invoiceIndex];
+  if (invoice) {
+    for (const list of Object.values(invoice.fields)) for (const i of list) out.push({ type: i.type, message: i.message });
+    for (const i of invoice.row) out.push({ type: i.type, message: i.message });
+  }
+
+  for (const [key, rowIssues] of Object.entries(issues.lineItems)) {
+    const [idx, lineIndex] = key.split(':').map(Number);
+    if (idx !== invoiceIndex) continue;
+    for (const list of Object.values(rowIssues.fields))
+      for (const i of list) out.push({ type: i.type, lineIndex, message: i.message });
+    for (const i of rowIssues.row) out.push({ type: i.type, lineIndex, message: i.message });
+  }
+
+  // Errors before warnings; Array.prototype.sort is stable, so insertion order
+  // (invoice-level before line-level) is preserved within each severity.
+  return out.sort((a, b) => (a.type === b.type ? 0 : a.type === 'ERROR' ? -1 : 1));
+};
+
+/** The worst severity present in a flattened invoice-issue list. */
+export const invoiceSeverity = (issues: InvoiceIssue[]): InvoiceSeverity =>
+  issues.some((i) => i.type === 'ERROR') ? 'error' : issues.length ? 'warning' : 'none';

@@ -4,6 +4,9 @@ import DataPreviewTable, { type DataPreviewColumn, type RowIssues } from '@/comp
 import { type ParsedLineItem } from '@/services/cspSubmission.service';
 import { formatCurrency, formatNumber } from '@/utils/format';
 
+import { InvoiceIssueList } from './InvoiceIssues';
+import { type InvoiceIssue } from './submissionErrors';
+
 export type LineItemRow = ParsedLineItem & { id: string };
 
 export type InvoiceLineItemsPanelProps = {
@@ -16,6 +19,8 @@ export type InvoiceLineItemsPanelProps = {
    * passed here — only the ids of this invoice's rows are matched.
    */
   issuesByRowId: Record<string, RowIssues>;
+  /** This invoice's issues (its own + its line items), for the local issue list. */
+  issues: InvoiceIssue[];
 };
 
 // The nested line-item table drops the redundant "Invoice #" column (the panel
@@ -39,8 +44,14 @@ const lineItemColumns: DataPreviewColumn<LineItemRow>[] = [
  * @param {InvoiceLineItemsPanelProps} props - The invoice number and its line items.
  * @returns {JSX.Element} The expanded line-items panel.
  */
-const InvoiceLineItemsPanel: FC<InvoiceLineItemsPanelProps> = ({ invoiceNumber, lineItems, issuesByRowId }) => (
+const InvoiceLineItemsPanel: FC<InvoiceLineItemsPanelProps> = ({
+  invoiceNumber,
+  lineItems,
+  issuesByRowId,
+  issues,
+}) => (
   <div className="upload-submission-page__line-items-panel">
+    <InvoiceIssueList invoiceNumber={invoiceNumber} issues={issues} />
     <div className="upload-submission-page__line-items">
       <p className="upload-submission-page__line-items-title">
         Line items for {invoiceNumber} ({lineItems.length})

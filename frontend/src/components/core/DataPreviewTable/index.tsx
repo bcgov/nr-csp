@@ -69,6 +69,8 @@ interface DataPreviewTableProps<T extends { id: string }> {
   /** Controlled expansion by row `id`; omit for uncontrolled internal state. */
   expandedRowIds?: Set<string>;
   onExpandedRowIdsChange?: (next: Set<string>) => void;
+  /** Optional per-row class, e.g. to accent rows by validation severity. */
+  rowClassName?: (row: T) => string | undefined;
 }
 
 /** Renders the error/warning icons for a set of issues, with the text in a native tooltip. */
@@ -141,12 +143,14 @@ const DataPreviewRow = <T,>({
   dataRow,
   columns,
   rowIssues,
+  className,
 }: {
   tableRow: PreviewRow;
   dataRow: T;
   columns: DataPreviewColumn<T>[];
   rowIssues?: RowIssues;
-}): ReactElement => <TableRow>{renderRowCells(tableRow, dataRow, columns, rowIssues)}</TableRow>;
+  className?: string;
+}): ReactElement => <TableRow className={className}>{renderRowCells(tableRow, dataRow, columns, rowIssues)}</TableRow>;
 
 /**
  * DataPreviewTable renders a read-only Carbon table for previewing parsed data.
@@ -169,6 +173,7 @@ const DataPreviewTable = <T extends { id: string }>({
   renderExpandedContent,
   expandedRowIds,
   onExpandedRowIdsChange,
+  rowClassName,
 }: DataPreviewTableProps<T>): ReactElement => {
   const headers = columns.map((col) => ({ key: col.key, header: col.header }));
 
@@ -235,14 +240,18 @@ const DataPreviewTable = <T extends { id: string }>({
                   const dataRow = rows.find((r) => r.id === tableRow.id);
                   if (!dataRow) return null;
                   const rowIssues = issuesByRowId?.[tableRow.id];
+                  const customRowClass = rowClassName?.(dataRow);
                   if (expandable) {
                     // React forbids spreading a `key` from a props object; lift the
-                    // key Carbon supplies onto the Fragment and spread the rest.
-                    const { key: rowKey, ...rowProps } = getRowProps({ row: tableRow });
+                    // key Carbon supplies onto the Fragment and merge its className
+                    // with the caller's so both survive.
+                    const { key: rowKey, className: carbonRowClass, ...rowProps } = getRowProps({ row: tableRow });
+                    const mergedClass = [carbonRowClass, customRowClass].filter(Boolean).join(' ') || undefined;
                     return (
                       <Fragment key={rowKey}>
                         <TableExpandRow
                           {...rowProps}
+                          className={mergedClass}
                           isExpanded={expandedIds.has(tableRow.id)}
                           onExpand={() => toggleExpanded(tableRow.id)}
                         >
@@ -263,6 +272,7 @@ const DataPreviewTable = <T extends { id: string }>({
                       dataRow={dataRow}
                       columns={columns}
                       rowIssues={rowIssues}
+                      className={customRowClass}
                     />
                   );
                 })

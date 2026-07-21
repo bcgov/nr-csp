@@ -255,6 +255,92 @@
       color: theme.$text-secondary;
     }
   }
+
+  // ── Per-invoice flags ──────────────────────────────────────────────────────
+  // Invoice-number cell: the number sits beside its severity badge.
+  &__invoice-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-04;
+  }
+
+  // Left severity accent on a flagged invoice row. An inset box-shadow on the
+  // first cell reads as a bar at the row's start without shifting the layout.
+  &__invoice-row--error > td:first-child {
+    box-shadow: inset $spacing-02 0 0 0 theme.$support-error;
+  }
+
+  &__invoice-row--warning > td:first-child {
+    box-shadow: inset $spacing-02 0 0 0 theme.$support-warning;
+  }
+
+  // Compact severity badge shown on the invoice row.
+  .invoice-issue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &--error {
+      color: theme.$support-error;
+    }
+
+    &--warning {
+      color: theme.$support-warning;
+    }
+
+    &--none {
+      color: theme.$text-secondary;
+      font-weight: 400;
+    }
+  }
+
+  // Local per-invoice issue list at the top of the expanded panel: a bordered
+  // card with a grey title band, matching the line-items block below it.
+  .invoice-issue-list {
+    margin-bottom: $spacing-05;
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$layer-01;
+
+    &__title {
+      @include type.type-style('heading-compact-01');
+      margin: 0;
+      padding: $spacing-03 $spacing-05;
+      background: theme.$background;
+      border-bottom: 1px solid theme.$border-subtle-02;
+    }
+
+    &__items {
+      margin: 0;
+      padding: $spacing-04 $spacing-05;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-03;
+    }
+
+    &__item {
+      @include type.type-style('body-01');
+      display: flex;
+      align-items: flex-start;
+      gap: $spacing-03;
+
+      &--error .invoice-issue-list__icon {
+        color: theme.$support-error;
+      }
+
+      &--warning .invoice-issue-list__icon {
+        color: theme.$support-warning;
+      }
+    }
+
+    &__icon {
+      flex-shrink: 0;
+      margin-top: 0.125rem; // nudge the 16px icon onto the first text line
+    }
+  }
 }
 
 // The global g10 (light) theme forces every .cds--text-input to grey (#f4f4f4).
