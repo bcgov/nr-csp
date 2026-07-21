@@ -116,7 +116,6 @@ export function UploadSubmissionPage() {
   };
 
   const applyBusinessResult = (result: SubmissionValidationResponse | SubmissionSubmitResponse) => {
-    const mapped = mapSubmissionIssues(result.errors);
     setBusinessResult({
       valid: result.valid,
       code: result.code,
@@ -125,13 +124,7 @@ export function UploadSubmissionPage() {
       rejectedInvoices: result.rejectedInvoices,
       errors: result.errors,
     });
-    setIssues(mapped);
-    // Auto-expand invoices that carry an invoice-level or line-item issue so
-    // their inline error/warning markers are visible without manual expansion.
-    const flagged = new Set<string>();
-    for (const index of Object.keys(mapped.invoices)) flagged.add(`inv-${index}`);
-    for (const key of Object.keys(mapped.lineItems)) flagged.add(`inv-${key.split(':')[0]}`);
-    setExpandedRowIds(flagged);
+    setIssues(mapSubmissionIssues(result.errors));
   };
 
   const handleSubmit = async () => {
@@ -204,6 +197,9 @@ export function UploadSubmissionPage() {
 
     setSubmission(parsed.submission);
     setFields(fieldsFromSubmission(parsed.submission));
+    // Expand every invoice by default so all line items are visible at a glance;
+    // the user can collapse rows individually or via "Collapse all".
+    setExpandedRowIds(new Set(parsed.submission.invoices.map((inv) => `inv-${inv.index}`)));
     setStatus('validating');
 
     // Phase 2 — business-rule validation (drives the inline errors).
