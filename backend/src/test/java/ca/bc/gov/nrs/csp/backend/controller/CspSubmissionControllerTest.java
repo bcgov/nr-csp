@@ -278,6 +278,13 @@ class CspSubmissionControllerTest {
         invoice.setInvoiceType("SA");
         invoice.setSellerClientNumber("00012345");
         invoice.setBuyerClientNumber("00067890");
+        invoice.setReplacesInvoiceNumbers("INV-0");
+        invoice.setAdjustsInvoiceNumbers("INV-A");
+        invoice.setSellerClientLocnCode("01");
+        invoice.setBuyerClientLocnCode("02");
+        invoice.setOtherPartyName("Acme Logging");
+        invoice.setOtherPartyCity("Victoria");
+        invoice.setOtherPartyProvState("BC");
 
         CSPInvoiceDetailsType details = new CSPInvoiceDetailsType();
         details.setMaturity("M");
@@ -285,6 +292,12 @@ class CspSubmissionControllerTest {
         details.setTotalAmount(new BigDecimal("100.00"));
         details.setTotalVolume(new BigDecimal("12.345"));
         details.setTotalPieces(7);
+        details.setPrimarySortCode("PSC");
+        details.setClientPrimarySortCode("CPSC");
+        details.setBoomNumbers("BOOM-1");
+        details.setTimberMarks("TM-1");
+        details.setWeighSlipNumbers("WS-1");
+        details.setSubmitterNotes("Handle with care");
         invoice.setCSPInvoiceDetails(details);
 
         CSPLineItemType line = new CSPLineItemType();
@@ -322,6 +335,20 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.submission.invoices[0].invoiceType").value("SA"))
                 .andExpect(jsonPath("$.submission.invoices[0].locationFOB").value("FOB1"))
                 .andExpect(jsonPath("$.submission.invoices[0].totalPieces").value(7))
+                // Supplementary detail fields shown in the expanded "Invoice details" card.
+                .andExpect(jsonPath("$.submission.invoices[0].replacesInvoiceNumbers").value("INV-0"))
+                .andExpect(jsonPath("$.submission.invoices[0].adjustsInvoiceNumbers").value("INV-A"))
+                .andExpect(jsonPath("$.submission.invoices[0].sellerClientLocnCode").value("01"))
+                .andExpect(jsonPath("$.submission.invoices[0].buyerClientLocnCode").value("02"))
+                .andExpect(jsonPath("$.submission.invoices[0].otherPartyName").value("Acme Logging"))
+                .andExpect(jsonPath("$.submission.invoices[0].otherPartyCity").value("Victoria"))
+                .andExpect(jsonPath("$.submission.invoices[0].otherPartyProvState").value("BC"))
+                .andExpect(jsonPath("$.submission.invoices[0].primarySortCode").value("PSC"))
+                .andExpect(jsonPath("$.submission.invoices[0].clientPrimarySortCode").value("CPSC"))
+                .andExpect(jsonPath("$.submission.invoices[0].boomNumbers").value("BOOM-1"))
+                .andExpect(jsonPath("$.submission.invoices[0].timberMarks").value("TM-1"))
+                .andExpect(jsonPath("$.submission.invoices[0].weighSlipNumbers").value("WS-1"))
+                .andExpect(jsonPath("$.submission.invoices[0].submitterNotes").value("Handle with care"))
                 .andExpect(jsonPath("$.submission.lineItems[0].invoiceIndex").value(1))
                 .andExpect(jsonPath("$.submission.lineItems[0].lineIndex").value(1))
                 .andExpect(jsonPath("$.submission.lineItems[0].invoiceNumber").value("INV-1"))

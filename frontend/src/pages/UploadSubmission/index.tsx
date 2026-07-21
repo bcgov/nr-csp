@@ -25,8 +25,8 @@ import { downloadBlob } from '@/utils/report';
 import { SUBMISSION_METADATA_KEY_TO_FIELD, validateSubmissionMetadata } from '@/validations/submission';
 import { splitMessages } from '@/validations/validationResult';
 
+import InvoiceDetailPanel from './InvoiceDetailPanel';
 import { InvoiceIssueBadge } from './InvoiceIssues';
-import InvoiceLineItemsPanel from './InvoiceLineItemsPanel';
 import {
   collectInvoiceIssues,
   invoiceSeverity,
@@ -614,7 +614,8 @@ export function UploadSubmissionPage() {
                       return severity === 'none' ? undefined : `upload-submission-page__invoice-row--${severity}`;
                     }}
                     renderExpandedContent={(row) => (
-                      <InvoiceLineItemsPanel
+                      <InvoiceDetailPanel
+                        invoice={row}
                         invoiceNumber={row.invoiceNumber ?? '—'}
                         lineItems={lineItemsByInvoice.get(row.index) ?? []}
                         issuesByRowId={lineIssuesByRowId}

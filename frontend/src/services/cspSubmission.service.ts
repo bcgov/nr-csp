@@ -14,6 +14,20 @@ export interface ParsedInvoice {
   totalAmount: number | null;
   totalVolume: number | null;
   totalPieces: number | null;
+  // Supplementary detail fields, shown in the expanded row's "Invoice details" card.
+  replacesInvoiceNumbers: string | null;
+  adjustsInvoiceNumbers: string | null;
+  sellerClientLocnCode: string | null;
+  buyerClientLocnCode: string | null;
+  otherPartyName: string | null;
+  otherPartyCity: string | null;
+  otherPartyProvState: string | null;
+  primarySortCode: string | null;
+  clientPrimarySortCode: string | null;
+  boomNumbers: string | null;
+  timberMarks: string | null;
+  weighSlipNumbers: string | null;
+  submitterNotes: string | null;
 }
 
 /** One line-item row parsed from an uploaded submission (Invoice Line Items table). */

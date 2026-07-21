@@ -224,6 +224,34 @@
     background: theme.$layer-01;
   }
 
+  // Expanded "Invoice details" card, mirroring the ViewSubmission page: a
+  // bordered white card with a grey title band and a fixed 3-column field grid
+  // (overriding DetailSection's responsive auto-fill layout).
+  &__invoice-details.detail-section {
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$layer-01;
+    margin-bottom: $spacing-05;
+  }
+
+  &__invoice-details .detail-section__title {
+    @include type.type-style('heading-compact-01');
+    margin: 0;
+    padding: $spacing-04 $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+
+  &__invoice-details .detail-section__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: $spacing-05;
+  }
+
+  // Italic "(empty)" placeholder for blank detail fields.
+  &__detail-empty {
+    color: theme.$text-secondary;
+    font-style: italic;
+  }
+
   &__line-items {
     border: 1px solid #e0e0e0;
     background: theme.$layer-01;

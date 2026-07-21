@@ -71,6 +71,20 @@ const makeSubmission = (over: Partial<ParsedSubmission> = {}): ParsedSubmission 
       totalAmount: 1000,
       totalVolume: 12.345,
       totalPieces: 10,
+      // Supplementary detail fields (some blank, to exercise the "(empty)" state).
+      replacesInvoiceNumbers: 'INV-000',
+      adjustsInvoiceNumbers: null,
+      sellerClientLocnCode: '01',
+      buyerClientLocnCode: '02',
+      otherPartyName: 'Acme Logging',
+      otherPartyCity: null,
+      otherPartyProvState: null,
+      primarySortCode: 'PSC',
+      clientPrimarySortCode: null,
+      boomNumbers: null,
+      timberMarks: null,
+      weighSlipNumbers: null,
+      submitterNotes: 'Deliver by end of month',
     },
   ],
   lineItems: [
@@ -194,6 +208,13 @@ describe('UploadSubmissionPage', () => {
 
     // A clean invoice shows the muted "No issues" badge.
     expect(screen.getByText('No issues')).toBeInTheDocument();
+
+    // Expanded panel shows the ViewSubmission-style "Invoice details" card, with
+    // populated fields and an italic "(empty)" placeholder for the blank ones.
+    expect(screen.getByText('Invoice details for INV-001')).toBeInTheDocument();
+    expect(screen.getByText('Acme Logging')).toBeInTheDocument();
+    expect(screen.getByText('Deliver by end of month')).toBeInTheDocument();
+    expect(screen.getAllByText('(empty)').length).toBeGreaterThan(0);
 
     // Table content rendered.
     expect(screen.getAllByText('INV-001').length).toBeGreaterThan(0);
