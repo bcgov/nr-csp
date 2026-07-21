@@ -1,5 +1,5 @@
 import { Download } from '@carbon/icons-react';
-import { Button, Column, Grid, InlineLoading, InlineNotification, TextInput } from '@carbon/react';
+import { Button, Column, Grid, InlineLoading, InlineNotification, Link, TextInput } from '@carbon/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -25,6 +25,7 @@ import { downloadBlob } from '@/utils/report';
 import { SUBMISSION_METADATA_KEY_TO_FIELD, validateSubmissionMetadata } from '@/validations/submission';
 import { splitMessages } from '@/validations/validationResult';
 
+import InvoiceLineItemsPanel from './InvoiceLineItemsPanel';
 import {
   collectIssueBanners,
   mapSubmissionIssues,
@@ -92,6 +93,9 @@ export function UploadSubmissionPage() {
   // by EditableFields key. Drives the inline red highlight the same way the
   // report filters do; cleared per field as the user edits.
   const [clientFieldErrors, setClientFieldErrors] = useState<Record<string, string>>({});
+  // Which invoice rows are expanded (open) in the Invoice Details table. Keyed by
+  // the invoice row id (`inv-${index}`).
+  const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
 
   const resetResults = () => {
     setSubmission(null);
@@ -101,6 +105,7 @@ export function UploadSubmissionPage() {
     setIssues(null);
     setClientFieldErrors({});
     setNotificationVisible(true);
+    setExpandedRowIds(new Set());
   };
 
   const handleClear = () => {
@@ -111,6 +116,7 @@ export function UploadSubmissionPage() {
   };
 
   const applyBusinessResult = (result: SubmissionValidationResponse | SubmissionSubmitResponse) => {
+    const mapped = mapSubmissionIssues(result.errors);
     setBusinessResult({
       valid: result.valid,
       code: result.code,
@@ -119,7 +125,13 @@ export function UploadSubmissionPage() {
       rejectedInvoices: result.rejectedInvoices,
       errors: result.errors,
     });
-    setIssues(mapSubmissionIssues(result.errors));
+    setIssues(mapped);
+    // Auto-expand invoices that carry an invoice-level or line-item issue so
+    // their inline error/warning markers are visible without manual expansion.
+    const flagged = new Set<string>();
+    for (const index of Object.keys(mapped.invoices)) flagged.add(`inv-${index}`);
+    for (const key of Object.keys(mapped.lineItems)) flagged.add(`inv-${key.split(':')[0]}`);
+    setExpandedRowIds(flagged);
   };
 
   const handleSubmit = async () => {
@@ -287,6 +299,18 @@ export function UploadSubmissionPage() {
     id: `li-${li.invoiceIndex}-${li.lineIndex}`,
   }));
 
+  // Line items grouped by their parent invoice index, so each expanded invoice
+  // row renders only its own lines underneath it.
+  const lineItemsByInvoice = new Map<number, LineItemRow[]>();
+  for (const li of lineItemRows) {
+    const group = lineItemsByInvoice.get(li.invoiceIndex) ?? [];
+    group.push(li);
+    lineItemsByInvoice.set(li.invoiceIndex, group);
+  }
+
+  const expandAllInvoices = () => setExpandedRowIds(new Set(invoiceRows.map((row) => row.id)));
+  const collapseAllInvoices = () => setExpandedRowIds(new Set());
+
   const invoiceIssuesByRowId: Record<string, RowIssues> = {};
   const lineIssuesByRowId: Record<string, RowIssues> = {};
   if (issues) {
@@ -310,17 +334,6 @@ export function UploadSubmissionPage() {
     { key: 'totalAmount', header: 'Total Amount', align: 'right', renderCell: (r) => formatCurrency(r.totalAmount) },
     { key: 'totalVolume', header: 'Total Volume', align: 'right', renderCell: (r) => formatNumber(r.totalVolume, 3) },
     { key: 'totalPieces', header: 'Total Pieces', align: 'right', renderCell: (r) => formatNumber(r.totalPieces) },
-  ];
-
-  const lineItemColumns: DataPreviewColumn<LineItemRow>[] = [
-    { key: 'invoiceNumber', header: 'Invoice #', renderCell: (r) => r.invoiceNumber ?? '—' },
-    { key: 'species', header: 'Species', renderCell: (r) => r.species ?? '—' },
-    { key: 'grade', header: 'Grade', renderCell: (r) => r.grade ?? '—' },
-    { key: 'secondarySortCode', header: 'Sort Code', renderCell: (r) => r.secondarySortCode ?? '—' },
-    { key: 'clientSecondarySortCode', header: 'Client Sort Code', renderCell: (r) => r.clientSecondarySortCode ?? '—' },
-    { key: 'numberOfPieces', header: '# Pieces', align: 'right', renderCell: (r) => formatNumber(r.numberOfPieces) },
-    { key: 'volume', header: 'Volume', align: 'right', renderCell: (r) => formatNumber(r.volume, 3) },
-    { key: 'price', header: 'Price', align: 'right', renderCell: (r) => formatCurrency(r.price) },
   ];
 
   const renderNetworkError = () => (
@@ -545,7 +558,7 @@ export function UploadSubmissionPage() {
               </section>
             </Column>
 
-            {/* Invoice Details */}
+            {/* Invoice Details — each invoice expands to reveal its line items. */}
             <Column lg={16} md={8} sm={4} className="upload-submission-page__section">
               <section className="upload-submission-page__card">
                 <div className="upload-submission-page__card-header">
@@ -554,8 +567,32 @@ export function UploadSubmissionPage() {
                       Invoice Details
                     </h2>
                     <p className="upload-submission-page__card-count">
-                      {invoiceRows.length} invoice {invoiceRows.length === 1 ? 'entry' : 'entries'}
+                      {invoiceRows.length} invoice {invoiceRows.length === 1 ? 'entry' : 'entries'} ·{' '}
+                      {lineItemRows.length} line item {lineItemRows.length === 1 ? 'entry' : 'entries'}
                     </p>
+                    {invoiceRows.length > 0 && (
+                      <div className="upload-submission-page__expand-actions">
+                        <Link
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            expandAllInvoices();
+                          }}
+                        >
+                          Expand all
+                        </Link>
+                        <span aria-hidden="true">|</span>
+                        <Link
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            collapseAllInvoices();
+                          }}
+                        >
+                          Collapse all
+                        </Link>
+                      </div>
+                    )}
                   </div>
                   <div className="upload-submission-page__actions">
                     <Button kind="tertiary" size="md" onClick={handleClear} disabled={isBusy}>
@@ -566,36 +603,22 @@ export function UploadSubmissionPage() {
                     </Button>
                   </div>
                 </div>
-                <div className="upload-submission-page__card-table">
+                <div className="upload-submission-page__card-table upload-submission-page__invoice-table">
                   <DataPreviewTable
                     rows={invoiceRows}
                     columns={invoiceColumns}
                     emptyMessage={EMPTY_TABLE_MESSAGE}
                     issuesByRowId={invoiceIssuesByRowId}
-                  />
-                </div>
-              </section>
-            </Column>
-
-            {/* Invoice Line Items */}
-            <Column lg={16} md={8} sm={4} className="upload-submission-page__section">
-              <section className="upload-submission-page__card">
-                <div className="upload-submission-page__card-header">
-                  <div>
-                    <h2 className="upload-submission-page__card-title upload-submission-page__card-title--flush">
-                      Invoice Line Items
-                    </h2>
-                    <p className="upload-submission-page__card-count">
-                      {lineItemRows.length} line item {lineItemRows.length === 1 ? 'entry' : 'entries'}
-                    </p>
-                  </div>
-                </div>
-                <div className="upload-submission-page__card-table">
-                  <DataPreviewTable
-                    rows={lineItemRows}
-                    columns={lineItemColumns}
-                    emptyMessage={EMPTY_TABLE_MESSAGE}
-                    issuesByRowId={lineIssuesByRowId}
+                    expandable
+                    expandedRowIds={expandedRowIds}
+                    onExpandedRowIdsChange={setExpandedRowIds}
+                    renderExpandedContent={(row) => (
+                      <InvoiceLineItemsPanel
+                        invoiceNumber={row.invoiceNumber ?? '—'}
+                        lineItems={lineItemsByInvoice.get(row.index) ?? []}
+                        issuesByRowId={lineIssuesByRowId}
+                      />
+                    )}
                   />
                 </div>
               </section>

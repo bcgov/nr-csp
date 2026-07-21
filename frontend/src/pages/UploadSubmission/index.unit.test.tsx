@@ -182,11 +182,11 @@ describe('UploadSubmissionPage', () => {
     expect(screen.getByRole('heading', { name: 'Submission Details' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Submitter Information' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Invoice Details' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Invoice Line Items' })).toBeInTheDocument();
+    // Line items now live inside each expandable invoice row (no separate card).
+    expect(screen.queryByRole('heading', { name: 'Invoice Line Items' })).not.toBeInTheDocument();
 
-    // Count text (singular).
-    expect(screen.getByText('1 invoice entry')).toBeInTheDocument();
-    expect(screen.getByText('1 line item entry')).toBeInTheDocument();
+    // Combined count text (singular invoice + singular line item).
+    expect(screen.getByText('1 invoice entry · 1 line item entry')).toBeInTheDocument();
 
     // Editable inputs seeded from the parsed submission.
     expect((screen.getByLabelText('Email Address') as HTMLInputElement).value).toBe('seller@example.com');
@@ -317,8 +317,57 @@ describe('UploadSubmissionPage', () => {
 
     await uploadAndSettle();
 
-    expect(await screen.findByText('2 invoice entries')).toBeInTheDocument();
-    expect(screen.getByText('2 line item entries')).toBeInTheDocument();
+    expect(await screen.findByText('2 invoice entries · 2 line item entries')).toBeInTheDocument();
+  });
+
+  it('expands an invoice to reveal its line items and supports expand/collapse all', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(makeValidation());
+
+    const { container } = await uploadAndSettle();
+    await screen.findByText('Validation passed.');
+
+    // Carbon keeps the expanded content mounted and toggles visibility via the
+    // parent row's expanded state, so assert on aria-expanded (not DOM presence).
+    const expandButton = () => container.querySelector('tbody .cds--table-expand__button') as HTMLElement;
+
+    // A valid submission starts fully collapsed.
+    expect(expandButton().getAttribute('aria-expanded')).toBe('false');
+    // The invoice's own line-items panel is the one rendered for this row.
+    expect(screen.getByText('Line items for INV-001 (1)')).toBeInTheDocument();
+    expect(screen.getByText('FIR')).toBeInTheDocument();
+
+    // Expand all opens the row.
+    fireEvent.click(screen.getByText('Expand all'));
+    await waitFor(() => expect(expandButton().getAttribute('aria-expanded')).toBe('true'));
+
+    // Collapse all closes it again.
+    fireEvent.click(screen.getByText('Collapse all'));
+    await waitFor(() => expect(expandButton().getAttribute('aria-expanded')).toBe('false'));
+  });
+
+  it('auto-expands invoices that carry a validation issue', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockRejectedValue(
+      envelopeError(
+        makeValidation({
+          valid: false,
+          code: 'PARTIALLY_ACCEPTED',
+          acceptedInvoices: [],
+          rejectedInvoices: ['INV-001'],
+          errors: [
+            msg('invoice.grade.invalid.required.error', 'invoice #1 (INV-001), line 1: Grade invalid.', 'ERROR'),
+          ],
+        }),
+      ),
+    );
+
+    const { container } = await uploadAndSettle();
+    await screen.findByText('Validation issues found.');
+
+    // The flagged invoice opens automatically so its line-item issue is visible.
+    const expandButton = container.querySelector('tbody .cds--table-expand__button') as HTMLElement;
+    expect(expandButton.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('business validation failed (non-partial) via thrown 422 shows error summary', async () => {
