@@ -274,7 +274,22 @@ public class CspSubmissionController implements CspSubmissionApi {
                 details == null ? null : details.getLocationFOB(),
                 details == null ? null : details.getTotalAmount(),
                 details == null ? null : details.getTotalVolume(),
-                details == null ? null : details.getTotalPieces());
+                details == null ? null : details.getTotalPieces(),
+                // Supplementary detail fields — the party/reference fields live on the
+                // invoice, the sort-code/source-document fields on its details block.
+                invoice.getReplacesInvoiceNumbers(),
+                invoice.getAdjustsInvoiceNumbers(),
+                invoice.getSellerClientLocnCode(),
+                invoice.getBuyerClientLocnCode(),
+                invoice.getOtherPartyName(),
+                invoice.getOtherPartyCity(),
+                invoice.getOtherPartyProvState(),
+                details == null ? null : details.getPrimarySortCode(),
+                details == null ? null : details.getClientPrimarySortCode(),
+                details == null ? null : details.getBoomNumbers(),
+                details == null ? null : details.getTimberMarks(),
+                details == null ? null : details.getWeighSlipNumbers(),
+                details == null ? null : details.getSubmitterNotes());
     }
 
     /** Maps a single parsed line item onto its form-friendly row. */

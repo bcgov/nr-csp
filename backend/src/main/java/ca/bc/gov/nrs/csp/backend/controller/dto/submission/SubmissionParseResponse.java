@@ -49,7 +49,12 @@ public record SubmissionParseResponse(
             List<ParsedLineItem> lineItems
     ) {}
 
-    /** One invoice row for the "Invoice Details" table. */
+    /**
+     * One invoice row for the "Invoice Details" table. The first fields are the
+     * summary columns shown in the table; the trailing fields are the
+     * supplementary details shown in the expanded row's "Invoice details" card
+     * (mirroring the persisted submission view).
+     */
     public record ParsedInvoice(
             @Schema(description = "1-based invoice position, matching the business-validation locator")
             int index,
@@ -63,7 +68,21 @@ public record SubmissionParseResponse(
             String locationFOB,
             BigDecimal totalAmount,
             BigDecimal totalVolume,
-            Integer totalPieces
+            Integer totalPieces,
+            // Supplementary detail fields (shown in the expanded "Invoice details" card).
+            String replacesInvoiceNumbers,
+            String adjustsInvoiceNumbers,
+            String sellerClientLocnCode,
+            String buyerClientLocnCode,
+            String otherPartyName,
+            String otherPartyCity,
+            String otherPartyProvState,
+            String primarySortCode,
+            String clientPrimarySortCode,
+            String boomNumbers,
+            String timberMarks,
+            String weighSlipNumbers,
+            String submitterNotes
     ) {}
 
     /** One line-item row for the "Invoice Line Items" table. */

@@ -59,10 +59,15 @@ export const structuralIssuesToCsv = (rows: StructuralIssueRow[]): string =>
     .join('\r\n');
 
 /**
- * Maps a business-validation message key to the invoice-table column it should
- * highlight. Best-effort: keys not listed here attach at the row level instead.
+ * Maps a business-validation message key to the invoice field it concerns. The
+ * field name is used to mark the matching field in the expanded "Invoice
+ * details" card with an inline error/warning icon. Keys not listed here attach
+ * at the row level instead. (The reference/location rules deliberately target
+ * the supplementary detail fields — replaces/adjusts numbers, client location
+ * codes — since those are the fields shown in the details card.)
  */
 export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
+  // ── Summary fields (shown in the invoice row) ──────────────────────────────
   'invoice.date.required.error': 'invoiceDate',
   'invoice.date.in.future.error': 'invoiceDate',
   'invoice.type.invalid.error': 'invoiceType',
@@ -76,15 +81,39 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.totalvolume.dismatch.warning': 'totalVolume',
   'invoice.totalpieces.negative.error': 'totalPieces',
   'invoice.totalpieces.dismatch.warning': 'totalPieces',
-  'invoice.seller.client.location.invalid.error': 'sellerClientNumber',
   'invoice.submitter.not.equal.seller.client.number.error': 'sellerClientNumber',
-  'invoice.buyer.client.location.invalid.error': 'buyerClientNumber',
-  'invoice.replace.invoicenumber.error': 'invoiceNumber',
-  'invoice.replace.with.itself.error': 'invoiceNumber',
-  'invoice.adjust.invoicenumber.error': 'invoiceNumber',
-  'invoice.adjust.with.itself.error': 'invoiceNumber',
-  'invoice.both.replace.adjust.invoicenum.error': 'invoiceNumber',
   'invoice.number.duplicate.same.type.warning': 'invoiceNumber',
+
+  // ── Detail-card fields (shown in the expanded "Invoice details" card) ──────
+  // Replaces / Adjusts invoice numbers
+  'invoice.replace.invoicenumber.error': 'replacesInvoiceNumbers',
+  'invoice.replace.with.itself.error': 'replacesInvoiceNumbers',
+  'invoice.morethanmax.replace.invoicenum.error': 'replacesInvoiceNumbers',
+  'invoice.both.replace.adjust.invoicenum.error': 'replacesInvoiceNumbers',
+  'invoice.adjust.invoicenumber.error': 'adjustsInvoiceNumbers',
+  'invoice.adjust.with.itself.error': 'adjustsInvoiceNumbers',
+  'invoice.morethanmax.adjust.invoicenum.error': 'adjustsInvoiceNumbers',
+  // Client location codes
+  'invoice.seller.client.location.invalid.error': 'sellerClientLocnCode',
+  'invoice.submitter.not.equal.seller.client.location.error': 'sellerClientLocnCode',
+  'invoice.buyer.client.location.invalid.error': 'buyerClientLocnCode',
+  // Other party
+  'invoice.otherparty.seller.name.required.error': 'otherPartyName',
+  'invoice.otherparty.buyer.name.required.error': 'otherPartyName',
+  'invoice.manual.other.party.name.error': 'otherPartyName',
+  'invoice.otherparty.error': 'otherPartyName',
+  'invoice.otherparty.seller.city.required.error': 'otherPartyCity',
+  'invoice.otherparty.buyer.city.required.error': 'otherPartyCity',
+  'invoice.otherparty.seller.province.required.error': 'otherPartyProvState',
+  'invoice.otherparty.buyer.province.required.error': 'otherPartyProvState',
+  // Primary sort code
+  'invoice.primary.sortcode.invalid.error': 'primarySortCode',
+  // Source-document references (boom / timber / weigh)
+  'invoice.boomnumber.duplicate.warning': 'boomNumbers',
+  'invoice.morethan.Max.boomnumbers.error': 'boomNumbers',
+  'invoice.oneofthe.boom.timber.wiegh.requiered.error': 'boomNumbers',
+  'invoice.morethan.Max.timbermarks.error': 'timberMarks',
+  'invoice.morethan.Max.weighslips.error': 'weighSlipNumbers',
 };
 
 /** Maps a business-validation message key to the line-item-table column. */
@@ -266,4 +295,54 @@ export const mapSubmissionIssues = (messages: ValidationMessageResponse[]): Mapp
   for (const m of messages) attributeMessage(result, m);
 
   return result;
+};
+
+/** One flattened issue belonging to a single invoice (its own or one of its lines). */
+export interface InvoiceIssue {
+  type: 'ERROR' | 'WARNING';
+  /** 1-based line index when the issue belongs to a line item; absent for invoice-level issues. */
+  lineIndex?: number;
+  message: string;
+}
+
+/** ERROR outranks WARNING outranks clean, for a per-invoice roll-up. */
+export type InvoiceSeverity = 'error' | 'warning' | 'none';
+
+/**
+ * Flattens one invoice's issues — its own invoice-level issues plus every issue
+ * on its line items — into a single list, errors first (invoice-level before
+ * line-level within each severity). Drives the per-invoice badge and the local
+ * issue list in the expanded panel.
+ */
+export const collectInvoiceIssues = (issues: MappedIssues | null, invoiceIndex: number): InvoiceIssue[] => {
+  if (!issues) return [];
+
+  // Flatten a row's field + row-level issues into InvoiceIssue records, tagging
+  // each with its line index when the issue belongs to a line item.
+  const flatten = (rowIssues: RowIssues, lineIndex?: number): InvoiceIssue[] =>
+    [...Object.values(rowIssues.fields).flat(), ...rowIssues.row].map((i) => ({
+      type: i.type,
+      lineIndex,
+      message: i.message,
+    }));
+
+  const invoice = issues.invoices[invoiceIndex];
+  const invoiceIssues = invoice ? flatten(invoice) : [];
+
+  const lineIssues = Object.entries(issues.lineItems).flatMap(([key, rowIssues]) => {
+    const [idx, lineIndex] = key.split(':').map(Number);
+    return idx === invoiceIndex ? flatten(rowIssues, lineIndex) : [];
+  });
+
+  // Errors before warnings; Array.prototype.sort is stable, so insertion order
+  // (invoice-level before line-level) is preserved within each severity.
+  const rank = (type: InvoiceIssue['type']): number => (type === 'ERROR' ? 0 : 1);
+  return [...invoiceIssues, ...lineIssues].sort((a, b) => rank(a.type) - rank(b.type));
+};
+
+/** The worst severity present in a flattened invoice-issue list. */
+export const invoiceSeverity = (issues: InvoiceIssue[]): InvoiceSeverity => {
+  if (issues.some((i) => i.type === 'ERROR')) return 'error';
+  if (issues.length > 0) return 'warning';
+  return 'none';
 };

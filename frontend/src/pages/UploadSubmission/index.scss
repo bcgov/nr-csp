@@ -172,6 +172,225 @@
   &__field {
     min-width: 0;
   }
+
+  // Expand / collapse-all links beneath the invoice count, matching the
+  // ViewSubmission page's invoices header.
+  &__expand-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-03;
+    margin-top: $spacing-03;
+    color: theme.$text-secondary;
+  }
+
+  // ── Expandable invoice table ───────────────────────────────────────────────
+  // Each invoice row expands to reveal its own line items. Parent rows read as a
+  // light-grey band and the expanded panel sits on a white surface — mirroring
+  // the ViewSubmission page.
+  &__invoice-table {
+    // Parent invoice rows: light-grey band. Make the white top border Carbon
+    // adds between rows transparent so rows separate with one subtle line.
+    .cds--data-table tbody tr.cds--parent-row > td {
+      background-color: theme.$background;
+      border-block-start-color: transparent;
+    }
+
+    // The expanded content row and its inner container sit on white; zero their
+    // padding so the line-items panel controls its own spacing.
+    .cds--data-table tbody tr.cds--parent-row.cds--expandable-row + tr[data-child-row] > td,
+    .cds--child-row-inner-container {
+      background-color: theme.$layer-01;
+      padding: 0;
+    }
+
+    // Carbon's expandable rule (`tr[data-child-row] td { padding-inline-start:
+    // 3.5rem }`) leaks onto the nested line-item table's body cells, shifting
+    // them right of their headers. Reset the nested cells to the standard inline
+    // padding so the columns line up under their headers. The extra
+    // `.cds--data-table--sm` class lifts specificity enough to beat Carbon's.
+    .cds--child-row-inner-container .cds--data-table.cds--data-table--sm tbody td {
+      padding-inline: $spacing-05 !important;
+    }
+  }
+
+  // ── Expanded line-items panel ──────────────────────────────────────────────
+  // Nested inside each expanded invoice row: a bordered card with a grey title
+  // band holding that invoice's line-items table. Matches the ViewSubmission
+  // invoice-detail line-items block.
+  &__line-items-panel {
+    // Inset the card from the expanded row edges (small top/bottom, large left
+    // to clear the expand column, moderate right), per the ViewSubmission page.
+    padding: $spacing-02 $spacing-06 $spacing-03 $spacing-09;
+    background: theme.$layer-01;
+  }
+
+  // Expanded "Invoice details" card, mirroring the ViewSubmission page: a
+  // bordered white card with a grey title band and a fixed 3-column field grid
+  // (overriding DetailSection's responsive auto-fill layout).
+  &__invoice-details.detail-section {
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$layer-01;
+    margin-bottom: $spacing-05;
+  }
+
+  &__invoice-details .detail-section__title {
+    @include type.type-style('heading-compact-01');
+    margin: 0;
+    padding: $spacing-04 $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+
+  &__invoice-details .detail-section__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: $spacing-05;
+  }
+
+  // Italic "(empty)" placeholder for blank detail fields.
+  &__detail-empty {
+    color: theme.$text-secondary;
+    font-style: italic;
+  }
+
+  // A detail value paired with its inline error/warning marker.
+  &__detail-value {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  // The per-field error/warning icon shown beside a flagged detail field.
+  .invoice-field-issue {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+
+    &--error {
+      color: theme.$support-error;
+    }
+
+    &--warning {
+      color: theme.$support-warning;
+    }
+  }
+
+  &__line-items {
+    border: 1px solid #e0e0e0;
+    background: theme.$layer-01;
+  }
+
+  &__line-items-title {
+    @include type.type-style('heading-compact-01');
+    margin: 0;
+    padding: $spacing-03 $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  // Compact, low-emphasis line-item headers, exact to the ViewSubmission page:
+  // 12px / 16px line-height, normal weight, secondary text, on the grey band.
+  &__line-items .cds--data-table thead th {
+    background-color: theme.$background;
+    color: theme.$text-secondary;
+    padding-block: $spacing-03;
+    padding-inline: $spacing-05;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 400;
+
+    .cds--table-header-label {
+      font-size: 0.75rem;
+      line-height: 1rem;
+      font-weight: 400;
+      color: theme.$text-secondary;
+    }
+  }
+
+  // ── Per-invoice flags ──────────────────────────────────────────────────────
+  // Invoice-number cell: the number sits beside its severity badge.
+  &__invoice-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-04;
+  }
+
+  // Left severity accent on a flagged invoice row. An inset box-shadow on the
+  // first cell reads as a bar at the row's start without shifting the layout.
+  &__invoice-row--error > td:first-child {
+    box-shadow: inset $spacing-02 0 0 0 theme.$support-error;
+  }
+
+  &__invoice-row--warning > td:first-child {
+    box-shadow: inset $spacing-02 0 0 0 theme.$support-warning;
+  }
+
+  // Compact severity badge shown on the invoice row.
+  .invoice-issue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &--error {
+      color: theme.$support-error;
+    }
+
+    &--warning {
+      color: theme.$support-warning;
+    }
+
+    &--none {
+      color: theme.$text-secondary;
+      font-weight: 400;
+    }
+  }
+
+  // Local per-invoice issue list at the top of the expanded panel: a bordered
+  // card with a grey title band, matching the line-items block below it.
+  .invoice-issue-list {
+    margin-bottom: $spacing-05;
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$layer-01;
+
+    &__title {
+      @include type.type-style('heading-compact-01');
+      margin: 0;
+      padding: $spacing-03 $spacing-05;
+      background: theme.$background;
+      border-bottom: 1px solid theme.$border-subtle-02;
+    }
+
+    &__items {
+      margin: 0;
+      padding: $spacing-04 $spacing-05;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-03;
+    }
+
+    &__item {
+      @include type.type-style('body-01');
+      display: flex;
+      align-items: flex-start;
+      gap: $spacing-03;
+
+      &--error .invoice-issue-list__icon {
+        color: theme.$support-error;
+      }
+
+      &--warning .invoice-issue-list__icon {
+        color: theme.$support-warning;
+      }
+    }
+
+    &__icon {
+      flex-shrink: 0;
+      margin-top: 0.125rem; // nudge the 16px icon onto the first text line
+    }
+  }
 }
 
 // The global g10 (light) theme forces every .cds--text-input to grey (#f4f4f4).

@@ -1,6 +1,17 @@
 import { ErrorFilled, WarningAltFilled } from '@carbon/icons-react';
-import { DataTable, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@carbon/react';
-import { type ReactElement, type ReactNode } from 'react';
+import {
+  DataTable,
+  Table,
+  TableBody,
+  TableCell,
+  TableExpandedRow,
+  TableExpandHeader,
+  TableExpandRow,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@carbon/react';
+import { Fragment, useState, type ReactElement, type ReactNode } from 'react';
 
 import './index.scss';
 
@@ -46,6 +57,20 @@ interface DataPreviewTableProps<T extends { id: string }> {
   emptyMessage: string;
   /** Validation issues keyed by row `id`. Highlights affected rows and cells. */
   issuesByRowId?: Record<string, RowIssues>;
+  /** Table size. Defaults to 'lg'. */
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  /**
+   * When true, each row renders with an expand chevron and, if
+   * `renderExpandedContent` is supplied, its output is shown in a spanning row
+   * beneath the row while it is expanded.
+   */
+  expandable?: boolean;
+  renderExpandedContent?: (row: T) => ReactNode;
+  /** Controlled expansion by row `id`; omit for uncontrolled internal state. */
+  expandedRowIds?: Set<string>;
+  onExpandedRowIdsChange?: (next: Set<string>) => void;
+  /** Optional per-row class, e.g. to accent rows by validation severity. */
+  rowClassName?: (row: T) => string | undefined;
 }
 
 /** Renders the error/warning icons for a set of issues, with the text in a native tooltip. */
@@ -97,28 +122,35 @@ const DataPreviewCell = <T,>({
   </TableCell>
 );
 
-/** Renders a single data row, attaching per-cell and row-level issues. */
+/** Builds the data cells for one row, attaching per-cell and row-level issues. */
+const renderRowCells = <T,>(
+  tableRow: PreviewRow,
+  dataRow: T,
+  columns: DataPreviewColumn<T>[],
+  rowIssues?: RowIssues,
+): ReactNode[] =>
+  tableRow.cells.map((cell, cellIndex) => {
+    const column = columns.find((c) => c.key === cell.info.header);
+    const cellIssues = rowIssues?.fields[String(cell.info.header)] ?? [];
+    // Surface row-level issues (no specific column) on the first cell.
+    const issues = cellIndex === 0 ? [...cellIssues, ...(rowIssues?.row ?? [])] : cellIssues;
+    return <DataPreviewCell key={cell.id} cell={cell} column={column} dataRow={dataRow} issues={issues} />;
+  });
+
+/** Renders a single (non-expandable) data row. */
 const DataPreviewRow = <T,>({
   tableRow,
   dataRow,
   columns,
   rowIssues,
+  className,
 }: {
   tableRow: PreviewRow;
   dataRow: T;
   columns: DataPreviewColumn<T>[];
   rowIssues?: RowIssues;
-}): ReactElement => (
-  <TableRow>
-    {tableRow.cells.map((cell, cellIndex) => {
-      const column = columns.find((c) => c.key === cell.info.header);
-      const cellIssues = rowIssues?.fields[String(cell.info.header)] ?? [];
-      // Surface row-level issues (no specific column) on the first cell.
-      const issues = cellIndex === 0 ? [...cellIssues, ...(rowIssues?.row ?? [])] : cellIssues;
-      return <DataPreviewCell key={cell.id} cell={cell} column={column} dataRow={dataRow} issues={issues} />;
-    })}
-  </TableRow>
-);
+  className?: string;
+}): ReactElement => <TableRow className={className}>{renderRowCells(tableRow, dataRow, columns, rowIssues)}</TableRow>;
 
 /**
  * DataPreviewTable renders a read-only Carbon table for previewing parsed data.
@@ -136,55 +168,121 @@ const DataPreviewTable = <T extends { id: string }>({
   columns,
   emptyMessage,
   issuesByRowId,
+  size = 'lg',
+  expandable = false,
+  renderExpandedContent,
+  expandedRowIds,
+  onExpandedRowIdsChange,
+  rowClassName,
 }: DataPreviewTableProps<T>): ReactElement => {
   const headers = columns.map((col) => ({ key: col.key, header: col.header }));
 
+  // Expansion is tracked by row id so a row stays open across `rows` changes.
+  // Controlled when `expandedRowIds` is supplied; otherwise internal.
+  const [internalExpandedIds, setInternalExpandedIds] = useState<Set<string>>(new Set());
+  const expandedIds = expandedRowIds ?? internalExpandedIds;
+  const commitExpanded = (next: Set<string>) => {
+    onExpandedRowIdsChange?.(next);
+    if (expandedRowIds === undefined) setInternalExpandedIds(next);
+  };
+  const toggleExpanded = (id: string) => {
+    const next = new Set(expandedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    commitExpanded(next);
+  };
+  const allExpanded = expandable && rows.length > 0 && rows.every((r) => expandedIds.has(r.id));
+
   return (
-    <div className="data-preview-table">
+    <div className={`data-preview-table${expandable ? ' data-preview-table--expandable' : ''}`}>
       <DataTable rows={rows} headers={headers}>
-        {({ rows: tableRows, headers: tableHeaders, getTableProps, getHeaderProps }) => (
-          <Table {...getTableProps()} size="lg">
-            <TableHead>
-              <TableRow>
-                {tableHeaders.map((header) => {
-                  const colDef = columns.find((c) => c.key === header.key);
-                  return (
-                    <TableHeader
-                      {...getHeaderProps({ header })}
-                      key={header.key}
-                      style={colDef?.align === 'right' ? { textAlign: 'right' } : undefined}
-                    >
-                      {header.header}
-                    </TableHeader>
-                  );
-                })}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {tableRows.length === 0 ? (
-                <tr className="data-preview-table__empty-row">
-                  <td colSpan={tableHeaders.length}>
-                    <p className="data-preview-table__empty-message">{emptyMessage}</p>
-                  </td>
-                </tr>
-              ) : (
-                tableRows.map((tableRow) => {
-                  const dataRow = rows.find((r) => r.id === tableRow.id);
-                  if (!dataRow) return null;
-                  return (
-                    <DataPreviewRow
-                      key={tableRow.id}
-                      tableRow={tableRow}
-                      dataRow={dataRow}
-                      columns={columns}
-                      rowIssues={issuesByRowId?.[tableRow.id]}
+        {({
+          rows: tableRows,
+          headers: tableHeaders,
+          getTableProps,
+          getHeaderProps,
+          getRowProps,
+          getExpandHeaderProps,
+        }) => {
+          const expandHeaderProps = getExpandHeaderProps ? getExpandHeaderProps() : {};
+          return (
+            <Table {...getTableProps()} size={size}>
+              <TableHead>
+                <TableRow>
+                  {expandable ? (
+                    <TableExpandHeader
+                      {...expandHeaderProps}
+                      isExpanded={allExpanded}
+                      onExpand={() => commitExpanded(allExpanded ? new Set() : new Set(rows.map((r) => r.id)))}
                     />
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        )}
+                  ) : null}
+                  {tableHeaders.map((header) => {
+                    const colDef = columns.find((c) => c.key === header.key);
+                    return (
+                      <TableHeader
+                        {...getHeaderProps({ header })}
+                        key={header.key}
+                        style={colDef?.align === 'right' ? { textAlign: 'right' } : undefined}
+                      >
+                        {header.header}
+                      </TableHeader>
+                    );
+                  })}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {tableRows.length === 0 ? (
+                  <tr className="data-preview-table__empty-row">
+                    <td colSpan={tableHeaders.length + (expandable ? 1 : 0)}>
+                      <p className="data-preview-table__empty-message">{emptyMessage}</p>
+                    </td>
+                  </tr>
+                ) : (
+                  tableRows.map((tableRow) => {
+                    const dataRow = rows.find((r) => r.id === tableRow.id);
+                    if (!dataRow) return null;
+                    const rowIssues = issuesByRowId?.[tableRow.id];
+                    const customRowClass = rowClassName?.(dataRow);
+                    if (expandable) {
+                      // React forbids spreading a `key` from a props object; lift the
+                      // key Carbon supplies onto the Fragment and merge its className
+                      // with the caller's so both survive.
+                      const { key: rowKey, className: carbonRowClass, ...rowProps } = getRowProps({ row: tableRow });
+                      const mergedClass = [carbonRowClass, customRowClass].filter(Boolean).join(' ') || undefined;
+                      return (
+                        <Fragment key={rowKey}>
+                          <TableExpandRow
+                            {...rowProps}
+                            className={mergedClass}
+                            isExpanded={expandedIds.has(tableRow.id)}
+                            onExpand={() => toggleExpanded(tableRow.id)}
+                          >
+                            {renderRowCells(tableRow, dataRow, columns, rowIssues)}
+                          </TableExpandRow>
+                          {renderExpandedContent ? (
+                            <TableExpandedRow colSpan={tableHeaders.length + 1}>
+                              {renderExpandedContent(dataRow)}
+                            </TableExpandedRow>
+                          ) : null}
+                        </Fragment>
+                      );
+                    }
+                    return (
+                      <DataPreviewRow
+                        key={tableRow.id}
+                        tableRow={tableRow}
+                        dataRow={dataRow}
+                        columns={columns}
+                        rowIssues={rowIssues}
+                        className={customRowClass}
+                      />
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          );
+        }}
       </DataTable>
     </div>
   );
