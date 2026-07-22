@@ -203,83 +203,86 @@ const DataPreviewTable = <T extends { id: string }>({
           getHeaderProps,
           getRowProps,
           getExpandHeaderProps,
-        }) => (
-          <Table {...getTableProps()} size={size}>
-            <TableHead>
-              <TableRow>
-                {expandable ? (
-                  <TableExpandHeader
-                    {...(getExpandHeaderProps ? getExpandHeaderProps() : {})}
-                    isExpanded={allExpanded}
-                    onExpand={() => commitExpanded(allExpanded ? new Set() : new Set(rows.map((r) => r.id)))}
-                  />
-                ) : null}
-                {tableHeaders.map((header) => {
-                  const colDef = columns.find((c) => c.key === header.key);
-                  return (
-                    <TableHeader
-                      {...getHeaderProps({ header })}
-                      key={header.key}
-                      style={colDef?.align === 'right' ? { textAlign: 'right' } : undefined}
-                    >
-                      {header.header}
-                    </TableHeader>
-                  );
-                })}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {tableRows.length === 0 ? (
-                <tr className="data-preview-table__empty-row">
-                  <td colSpan={tableHeaders.length + (expandable ? 1 : 0)}>
-                    <p className="data-preview-table__empty-message">{emptyMessage}</p>
-                  </td>
-                </tr>
-              ) : (
-                tableRows.map((tableRow) => {
-                  const dataRow = rows.find((r) => r.id === tableRow.id);
-                  if (!dataRow) return null;
-                  const rowIssues = issuesByRowId?.[tableRow.id];
-                  const customRowClass = rowClassName?.(dataRow);
-                  if (expandable) {
-                    // React forbids spreading a `key` from a props object; lift the
-                    // key Carbon supplies onto the Fragment and merge its className
-                    // with the caller's so both survive.
-                    const { key: rowKey, className: carbonRowClass, ...rowProps } = getRowProps({ row: tableRow });
-                    const mergedClass = [carbonRowClass, customRowClass].filter(Boolean).join(' ') || undefined;
-                    return (
-                      <Fragment key={rowKey}>
-                        <TableExpandRow
-                          {...rowProps}
-                          className={mergedClass}
-                          isExpanded={expandedIds.has(tableRow.id)}
-                          onExpand={() => toggleExpanded(tableRow.id)}
-                        >
-                          {renderRowCells(tableRow, dataRow, columns, rowIssues)}
-                        </TableExpandRow>
-                        {renderExpandedContent ? (
-                          <TableExpandedRow colSpan={tableHeaders.length + 1}>
-                            {renderExpandedContent(dataRow)}
-                          </TableExpandedRow>
-                        ) : null}
-                      </Fragment>
-                    );
-                  }
-                  return (
-                    <DataPreviewRow
-                      key={tableRow.id}
-                      tableRow={tableRow}
-                      dataRow={dataRow}
-                      columns={columns}
-                      rowIssues={rowIssues}
-                      className={customRowClass}
+        }) => {
+          const expandHeaderProps = getExpandHeaderProps ? getExpandHeaderProps() : {};
+          return (
+            <Table {...getTableProps()} size={size}>
+              <TableHead>
+                <TableRow>
+                  {expandable ? (
+                    <TableExpandHeader
+                      {...expandHeaderProps}
+                      isExpanded={allExpanded}
+                      onExpand={() => commitExpanded(allExpanded ? new Set() : new Set(rows.map((r) => r.id)))}
                     />
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        )}
+                  ) : null}
+                  {tableHeaders.map((header) => {
+                    const colDef = columns.find((c) => c.key === header.key);
+                    return (
+                      <TableHeader
+                        {...getHeaderProps({ header })}
+                        key={header.key}
+                        style={colDef?.align === 'right' ? { textAlign: 'right' } : undefined}
+                      >
+                        {header.header}
+                      </TableHeader>
+                    );
+                  })}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {tableRows.length === 0 ? (
+                  <tr className="data-preview-table__empty-row">
+                    <td colSpan={tableHeaders.length + (expandable ? 1 : 0)}>
+                      <p className="data-preview-table__empty-message">{emptyMessage}</p>
+                    </td>
+                  </tr>
+                ) : (
+                  tableRows.map((tableRow) => {
+                    const dataRow = rows.find((r) => r.id === tableRow.id);
+                    if (!dataRow) return null;
+                    const rowIssues = issuesByRowId?.[tableRow.id];
+                    const customRowClass = rowClassName?.(dataRow);
+                    if (expandable) {
+                      // React forbids spreading a `key` from a props object; lift the
+                      // key Carbon supplies onto the Fragment and merge its className
+                      // with the caller's so both survive.
+                      const { key: rowKey, className: carbonRowClass, ...rowProps } = getRowProps({ row: tableRow });
+                      const mergedClass = [carbonRowClass, customRowClass].filter(Boolean).join(' ') || undefined;
+                      return (
+                        <Fragment key={rowKey}>
+                          <TableExpandRow
+                            {...rowProps}
+                            className={mergedClass}
+                            isExpanded={expandedIds.has(tableRow.id)}
+                            onExpand={() => toggleExpanded(tableRow.id)}
+                          >
+                            {renderRowCells(tableRow, dataRow, columns, rowIssues)}
+                          </TableExpandRow>
+                          {renderExpandedContent ? (
+                            <TableExpandedRow colSpan={tableHeaders.length + 1}>
+                              {renderExpandedContent(dataRow)}
+                            </TableExpandedRow>
+                          ) : null}
+                        </Fragment>
+                      );
+                    }
+                    return (
+                      <DataPreviewRow
+                        key={tableRow.id}
+                        tableRow={tableRow}
+                        dataRow={dataRow}
+                        columns={columns}
+                        rowIssues={rowIssues}
+                        className={customRowClass}
+                      />
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          );
+        }}
       </DataTable>
     </div>
   );

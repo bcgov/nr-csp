@@ -1,5 +1,5 @@
 import { CheckmarkFilled, ErrorFilled, WarningAltFilled } from '@carbon/icons-react';
-import { type FC } from 'react';
+import { useId, type FC } from 'react';
 
 import { type CellIssue } from '@/components/core/DataPreviewTable';
 
@@ -66,12 +66,17 @@ export const InvoiceIssueBadge: FC<{ issues: InvoiceIssue[] }> = ({ issues }) =>
  * the data they concern. Renders nothing when the invoice is clean.
  */
 export const InvoiceIssueList: FC<{ invoiceNumber: string; issues: InvoiceIssue[] }> = ({ invoiceNumber, issues }) => {
+  // Stable, unique id so the list can be named by its visible title via
+  // aria-labelledby (multiple invoices render this list on the same page).
+  const titleId = useId();
   if (issues.length === 0) return null;
 
   return (
-    <div className="invoice-issue-list" role="group" aria-label={`Issues for ${invoiceNumber}`}>
-      <p className="invoice-issue-list__title">Issues for {invoiceNumber}</p>
-      <ul className="invoice-issue-list__items">
+    <div className="invoice-issue-list">
+      <p className="invoice-issue-list__title" id={titleId}>
+        Issues for {invoiceNumber}
+      </p>
+      <ul className="invoice-issue-list__items" aria-labelledby={titleId}>
         {issues.map((issue, i) => {
           const Icon = issue.type === 'ERROR' ? ErrorFilled : WarningAltFilled;
           return (

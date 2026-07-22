@@ -316,28 +316,33 @@ export type InvoiceSeverity = 'error' | 'warning' | 'none';
  */
 export const collectInvoiceIssues = (issues: MappedIssues | null, invoiceIndex: number): InvoiceIssue[] => {
   if (!issues) return [];
-  const out: InvoiceIssue[] = [];
+
+  // Flatten a row's field + row-level issues into InvoiceIssue records, tagging
+  // each with its line index when the issue belongs to a line item.
+  const flatten = (rowIssues: RowIssues, lineIndex?: number): InvoiceIssue[] =>
+    [...Object.values(rowIssues.fields).flat(), ...rowIssues.row].map((i) => ({
+      type: i.type,
+      lineIndex,
+      message: i.message,
+    }));
 
   const invoice = issues.invoices[invoiceIndex];
-  if (invoice) {
-    for (const list of Object.values(invoice.fields))
-      for (const i of list) out.push({ type: i.type, message: i.message });
-    for (const i of invoice.row) out.push({ type: i.type, message: i.message });
-  }
+  const invoiceIssues = invoice ? flatten(invoice) : [];
 
-  for (const [key, rowIssues] of Object.entries(issues.lineItems)) {
+  const lineIssues = Object.entries(issues.lineItems).flatMap(([key, rowIssues]) => {
     const [idx, lineIndex] = key.split(':').map(Number);
-    if (idx !== invoiceIndex) continue;
-    for (const list of Object.values(rowIssues.fields))
-      for (const i of list) out.push({ type: i.type, lineIndex, message: i.message });
-    for (const i of rowIssues.row) out.push({ type: i.type, lineIndex, message: i.message });
-  }
+    return idx === invoiceIndex ? flatten(rowIssues, lineIndex) : [];
+  });
 
   // Errors before warnings; Array.prototype.sort is stable, so insertion order
   // (invoice-level before line-level) is preserved within each severity.
-  return out.sort((a, b) => (a.type === b.type ? 0 : a.type === 'ERROR' ? -1 : 1));
+  const rank = (type: InvoiceIssue['type']): number => (type === 'ERROR' ? 0 : 1);
+  return [...invoiceIssues, ...lineIssues].sort((a, b) => rank(a.type) - rank(b.type));
 };
 
 /** The worst severity present in a flattened invoice-issue list. */
-export const invoiceSeverity = (issues: InvoiceIssue[]): InvoiceSeverity =>
-  issues.some((i) => i.type === 'ERROR') ? 'error' : issues.length ? 'warning' : 'none';
+export const invoiceSeverity = (issues: InvoiceIssue[]): InvoiceSeverity => {
+  if (issues.some((i) => i.type === 'ERROR')) return 'error';
+  if (issues.length > 0) return 'warning';
+  return 'none';
+};
