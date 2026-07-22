@@ -320,7 +320,8 @@ export const collectInvoiceIssues = (issues: MappedIssues | null, invoiceIndex: 
 
   const invoice = issues.invoices[invoiceIndex];
   if (invoice) {
-    for (const list of Object.values(invoice.fields)) for (const i of list) out.push({ type: i.type, message: i.message });
+    for (const list of Object.values(invoice.fields))
+      for (const i of list) out.push({ type: i.type, message: i.message });
     for (const i of invoice.row) out.push({ type: i.type, message: i.message });
   }
 

@@ -446,7 +446,11 @@ describe('UploadSubmissionPage', () => {
             // Maps to a summary field (shown only in the header row).
             msg('invoice.date.required.error', 'invoice #1 (INV-001): Invoice date is required.', 'ERROR'),
             // Maps to a details-card field.
-            msg('invoice.seller.client.location.invalid.error', 'invoice #1 (INV-001): Seller location invalid.', 'ERROR'),
+            msg(
+              'invoice.seller.client.location.invalid.error',
+              'invoice #1 (INV-001): Seller location invalid.',
+              'ERROR',
+            ),
           ],
         }),
       ),

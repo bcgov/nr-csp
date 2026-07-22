@@ -133,9 +133,7 @@ describe('mapSubmissionIssues', () => {
       msg('invoice.morethan.Max.timbermarks.error', 'invoice #1 (INV-1): Too many timber marks.'),
       msg('invoice.primary.sortcode.invalid.error', 'invoice #1 (INV-1): Primary sort code invalid.'),
     ]);
-    expect(result.invoices[1].fields.boomNumbers).toEqual([
-      { message: 'Boom Numbers duplicate: 1.', type: 'WARNING' },
-    ]);
+    expect(result.invoices[1].fields.boomNumbers).toEqual([{ message: 'Boom Numbers duplicate: 1.', type: 'WARNING' }]);
     expect(result.invoices[1].fields.timberMarks).toEqual([{ message: 'Too many timber marks.', type: 'ERROR' }]);
     expect(result.invoices[1].fields.primarySortCode).toEqual([
       { message: 'Primary sort code invalid.', type: 'ERROR' },

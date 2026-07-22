@@ -83,15 +83,30 @@ const InvoiceDetailPanel: FC<InvoiceDetailPanelProps> = ({
   };
 
   const detailItems: DetailItem[] = [
-    { label: 'Replaces Invoice Numbers', value: withMarker('replacesInvoiceNumbers', orEmpty(invoice.replacesInvoiceNumbers)) },
-    { label: 'Adjusts Invoice Numbers', value: withMarker('adjustsInvoiceNumbers', orEmpty(invoice.adjustsInvoiceNumbers)) },
-    { label: 'Seller Client Location Code', value: withMarker('sellerClientLocnCode', orEmpty(invoice.sellerClientLocnCode)) },
-    { label: 'Buyer Client Location Code', value: withMarker('buyerClientLocnCode', orEmpty(invoice.buyerClientLocnCode)) },
+    {
+      label: 'Replaces Invoice Numbers',
+      value: withMarker('replacesInvoiceNumbers', orEmpty(invoice.replacesInvoiceNumbers)),
+    },
+    {
+      label: 'Adjusts Invoice Numbers',
+      value: withMarker('adjustsInvoiceNumbers', orEmpty(invoice.adjustsInvoiceNumbers)),
+    },
+    {
+      label: 'Seller Client Location Code',
+      value: withMarker('sellerClientLocnCode', orEmpty(invoice.sellerClientLocnCode)),
+    },
+    {
+      label: 'Buyer Client Location Code',
+      value: withMarker('buyerClientLocnCode', orEmpty(invoice.buyerClientLocnCode)),
+    },
     { label: 'Other Party Name', value: withMarker('otherPartyName', orEmpty(invoice.otherPartyName)) },
     { label: 'Other Party City', value: withMarker('otherPartyCity', orEmpty(invoice.otherPartyCity)) },
     { label: 'Other Party Prov/State', value: withMarker('otherPartyProvState', orEmpty(invoice.otherPartyProvState)) },
     { label: 'Primary Sort Code', value: withMarker('primarySortCode', orEmpty(invoice.primarySortCode)) },
-    { label: 'Client Primary Sort Code', value: withMarker('clientPrimarySortCode', orEmpty(invoice.clientPrimarySortCode)) },
+    {
+      label: 'Client Primary Sort Code',
+      value: withMarker('clientPrimarySortCode', orEmpty(invoice.clientPrimarySortCode)),
+    },
     { label: 'Boom Numbers', value: withMarker('boomNumbers', orEmpty(invoice.boomNumbers)) },
     { label: 'Timber Marks', value: withMarker('timberMarks', orEmpty(invoice.timberMarks)) },
     { label: 'Weigh Slip Numbers', value: withMarker('weighSlipNumbers', orEmpty(invoice.weighSlipNumbers)) },
