@@ -106,6 +106,42 @@ describe('mapSubmissionIssues', () => {
     expect(result.invoices[2]).toEqual({ fields: {}, row: [{ message: 'mystery invoice.', type: 'ERROR' }] });
   });
 
+  it('attributes reference/location invoice rules to the expanded detail-card fields', () => {
+    const result = mapSubmissionIssues([
+      msg('invoice.replace.invoicenumber.error', 'invoice #1 (INV-1): Replaces invoice not found.'),
+      msg('invoice.adjust.invoicenumber.error', 'invoice #1 (INV-1): Adjusts invoice not found.'),
+      msg('invoice.seller.client.location.invalid.error', 'invoice #1 (INV-1): Seller location invalid.'),
+      msg('invoice.buyer.client.location.invalid.error', 'invoice #1 (INV-1): Buyer location invalid.'),
+    ]);
+    expect(result.invoices[1].fields.replacesInvoiceNumbers).toEqual([
+      { message: 'Replaces invoice not found.', type: 'ERROR' },
+    ]);
+    expect(result.invoices[1].fields.adjustsInvoiceNumbers).toEqual([
+      { message: 'Adjusts invoice not found.', type: 'ERROR' },
+    ]);
+    expect(result.invoices[1].fields.sellerClientLocnCode).toEqual([
+      { message: 'Seller location invalid.', type: 'ERROR' },
+    ]);
+    expect(result.invoices[1].fields.buyerClientLocnCode).toEqual([
+      { message: 'Buyer location invalid.', type: 'ERROR' },
+    ]);
+  });
+
+  it('attributes source-document and sort-code rules to their detail-card fields', () => {
+    const result = mapSubmissionIssues([
+      msg('invoice.boomnumber.duplicate.warning', 'invoice #1 (INV-1): Boom Numbers duplicate: 1.', 'WARNING'),
+      msg('invoice.morethan.Max.timbermarks.error', 'invoice #1 (INV-1): Too many timber marks.'),
+      msg('invoice.primary.sortcode.invalid.error', 'invoice #1 (INV-1): Primary sort code invalid.'),
+    ]);
+    expect(result.invoices[1].fields.boomNumbers).toEqual([
+      { message: 'Boom Numbers duplicate: 1.', type: 'WARNING' },
+    ]);
+    expect(result.invoices[1].fields.timberMarks).toEqual([{ message: 'Too many timber marks.', type: 'ERROR' }]);
+    expect(result.invoices[1].fields.primarySortCode).toEqual([
+      { message: 'Primary sort code invalid.', type: 'ERROR' },
+    ]);
+  });
+
   it('maps a submission-level single-field key to that metadata field (SUBMISSION_KEY_TO_FIELD)', () => {
     const result = mapSubmissionIssues([
       msg('invoice.month.completed.warning', 'submission: Month not complete.', 'WARNING'),

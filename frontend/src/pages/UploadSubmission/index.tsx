@@ -620,6 +620,7 @@ export function UploadSubmissionPage() {
                         lineItems={lineItemsByInvoice.get(row.index) ?? []}
                         issuesByRowId={lineIssuesByRowId}
                         issues={collectInvoiceIssues(issues, row.index)}
+                        fieldIssues={issues?.invoices[row.index]?.fields ?? {}}
                       />
                     )}
                   />

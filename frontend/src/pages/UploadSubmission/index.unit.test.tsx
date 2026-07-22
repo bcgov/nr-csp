@@ -433,6 +433,34 @@ describe('UploadSubmissionPage', () => {
     expect(screen.getByText('Grade Z used.')).toBeInTheDocument();
   });
 
+  it('shows inline field markers in the Invoice details card, not on the header row', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockRejectedValue(
+      envelopeError(
+        makeValidation({
+          valid: false,
+          code: 'PARTIALLY_ACCEPTED',
+          acceptedInvoices: [],
+          rejectedInvoices: ['INV-001'],
+          errors: [
+            // Maps to a summary field (shown only in the header row).
+            msg('invoice.date.required.error', 'invoice #1 (INV-001): Invoice date is required.', 'ERROR'),
+            // Maps to a details-card field.
+            msg('invoice.seller.client.location.invalid.error', 'invoice #1 (INV-001): Seller location invalid.', 'ERROR'),
+          ],
+        }),
+      ),
+    );
+
+    await uploadAndSettle();
+    await screen.findByText('Validation issues found.');
+
+    // The details-card field carries an inline icon whose tooltip is the message.
+    expect(screen.getByTitle('Seller location invalid.')).toBeInTheDocument();
+    // The summary-field issue is NOT surfaced as an inline marker on the header row.
+    expect(screen.queryByTitle('Invoice date is required.')).not.toBeInTheDocument();
+  });
+
   it('business validation failed (non-partial) via thrown 422 shows error summary', async () => {
     mockParse.mockResolvedValue(makeParse());
     mockValidate.mockRejectedValue(

@@ -1,11 +1,15 @@
 import { type FC, type ReactNode } from 'react';
 
-import DataPreviewTable, { type DataPreviewColumn, type RowIssues } from '@/components/core/DataPreviewTable';
+import DataPreviewTable, {
+  type CellIssue,
+  type DataPreviewColumn,
+  type RowIssues,
+} from '@/components/core/DataPreviewTable';
 import DetailSection, { type DetailItem } from '@/components/core/DetailSection';
 import { type ParsedInvoice, type ParsedLineItem } from '@/services/cspSubmission.service';
 import { formatCurrency, formatNumber } from '@/utils/format';
 
-import { InvoiceIssueList } from './InvoiceIssues';
+import { FieldIssueMarker, InvoiceIssueList } from './InvoiceIssues';
 import { type InvoiceIssue } from './submissionErrors';
 
 export type LineItemRow = ParsedLineItem & { id: string };
@@ -24,6 +28,11 @@ export type InvoiceDetailPanelProps = {
   issuesByRowId: Record<string, RowIssues>;
   /** This invoice's issues (its own + its line items), for the local issue list. */
   issues: InvoiceIssue[];
+  /**
+   * This invoice's per-field issues, keyed by the ParsedInvoice field name, used
+   * to mark the matching field in the details grid with an error/warning icon.
+   */
+  fieldIssues: Record<string, CellIssue[]>;
 };
 
 /** Renders an italic "(empty)" placeholder for blank fields, mirroring the ViewSubmission page. */
@@ -58,21 +67,35 @@ const InvoiceDetailPanel: FC<InvoiceDetailPanelProps> = ({
   lineItems,
   issuesByRowId,
   issues,
+  fieldIssues,
 }) => {
+  // Pair a field's value with its error/warning icon when that field carries an
+  // issue, so the marker sits directly beside the value it concerns.
+  const withMarker = (fieldKey: keyof ParsedInvoice, value: ReactNode): ReactNode => {
+    const fieldIssueList = fieldIssues[fieldKey];
+    if (!fieldIssueList?.length) return value;
+    return (
+      <span className="upload-submission-page__detail-value">
+        {value}
+        <FieldIssueMarker issues={fieldIssueList} />
+      </span>
+    );
+  };
+
   const detailItems: DetailItem[] = [
-    { label: 'Replaces Invoice Numbers', value: orEmpty(invoice.replacesInvoiceNumbers) },
-    { label: 'Adjusts Invoice Numbers', value: orEmpty(invoice.adjustsInvoiceNumbers) },
-    { label: 'Seller Client Location Code', value: orEmpty(invoice.sellerClientLocnCode) },
-    { label: 'Buyer Client Location Code', value: orEmpty(invoice.buyerClientLocnCode) },
-    { label: 'Other Party Name', value: orEmpty(invoice.otherPartyName) },
-    { label: 'Other Party City', value: orEmpty(invoice.otherPartyCity) },
-    { label: 'Other Party Prov/State', value: orEmpty(invoice.otherPartyProvState) },
-    { label: 'Primary Sort Code', value: orEmpty(invoice.primarySortCode) },
-    { label: 'Client Primary Sort Code', value: orEmpty(invoice.clientPrimarySortCode) },
-    { label: 'Boom Numbers', value: orEmpty(invoice.boomNumbers) },
-    { label: 'Timber Marks', value: orEmpty(invoice.timberMarks) },
-    { label: 'Weigh Slip Numbers', value: orEmpty(invoice.weighSlipNumbers) },
-    { label: 'Submitter Notes', value: orEmpty(invoice.submitterNotes), fullWidth: true },
+    { label: 'Replaces Invoice Numbers', value: withMarker('replacesInvoiceNumbers', orEmpty(invoice.replacesInvoiceNumbers)) },
+    { label: 'Adjusts Invoice Numbers', value: withMarker('adjustsInvoiceNumbers', orEmpty(invoice.adjustsInvoiceNumbers)) },
+    { label: 'Seller Client Location Code', value: withMarker('sellerClientLocnCode', orEmpty(invoice.sellerClientLocnCode)) },
+    { label: 'Buyer Client Location Code', value: withMarker('buyerClientLocnCode', orEmpty(invoice.buyerClientLocnCode)) },
+    { label: 'Other Party Name', value: withMarker('otherPartyName', orEmpty(invoice.otherPartyName)) },
+    { label: 'Other Party City', value: withMarker('otherPartyCity', orEmpty(invoice.otherPartyCity)) },
+    { label: 'Other Party Prov/State', value: withMarker('otherPartyProvState', orEmpty(invoice.otherPartyProvState)) },
+    { label: 'Primary Sort Code', value: withMarker('primarySortCode', orEmpty(invoice.primarySortCode)) },
+    { label: 'Client Primary Sort Code', value: withMarker('clientPrimarySortCode', orEmpty(invoice.clientPrimarySortCode)) },
+    { label: 'Boom Numbers', value: withMarker('boomNumbers', orEmpty(invoice.boomNumbers)) },
+    { label: 'Timber Marks', value: withMarker('timberMarks', orEmpty(invoice.timberMarks)) },
+    { label: 'Weigh Slip Numbers', value: withMarker('weighSlipNumbers', orEmpty(invoice.weighSlipNumbers)) },
+    { label: 'Submitter Notes', value: withMarker('submitterNotes', orEmpty(invoice.submitterNotes)), fullWidth: true },
   ];
 
   return (

@@ -252,6 +252,28 @@
     font-style: italic;
   }
 
+  // A detail value paired with its inline error/warning marker.
+  &__detail-value {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  // The per-field error/warning icon shown beside a flagged detail field.
+  .invoice-field-issue {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+
+    &--error {
+      color: theme.$support-error;
+    }
+
+    &--warning {
+      color: theme.$support-warning;
+    }
+  }
+
   &__line-items {
     border: 1px solid #e0e0e0;
     background: theme.$layer-01;

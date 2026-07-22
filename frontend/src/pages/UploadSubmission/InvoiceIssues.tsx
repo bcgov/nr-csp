@@ -1,10 +1,31 @@
 import { CheckmarkFilled, ErrorFilled, WarningAltFilled } from '@carbon/icons-react';
 import { type FC } from 'react';
 
+import { type CellIssue } from '@/components/core/DataPreviewTable';
+
 import { invoiceSeverity, type InvoiceIssue } from './submissionErrors';
 
 /** "n thing" / "n things". */
 const count = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+/**
+ * A single error/warning icon shown beside a field that has validation issues,
+ * with the message(s) in a native hover tooltip. ERROR takes icon precedence.
+ * Used to mark individual fields in the expanded "Invoice details" card.
+ */
+export const FieldIssueMarker: FC<{ issues: CellIssue[] }> = ({ issues }) => {
+  if (issues.length === 0) return null;
+  const hasError = issues.some((i) => i.type === 'ERROR');
+  const Icon = hasError ? ErrorFilled : WarningAltFilled;
+  return (
+    <span
+      className={`invoice-field-issue invoice-field-issue--${hasError ? 'error' : 'warning'}`}
+      title={issues.map((i) => i.message).join('\n')}
+    >
+      <Icon size={16} />
+    </span>
+  );
+};
 
 /**
  * Compact per-invoice severity badge shown on the invoice row: red "N errors" /
