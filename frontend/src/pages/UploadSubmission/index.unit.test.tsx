@@ -188,8 +188,8 @@ describe('UploadSubmissionPage', () => {
 
     const { container } = await uploadAndSettle();
 
-    expect(await screen.findByText('Validation passed.')).toBeInTheDocument();
-    expect(screen.getByText('Submission is valid. 1 invoice(s) accepted.')).toBeInTheDocument();
+    expect(await screen.findByText('No issues found.')).toBeInTheDocument();
+    expect(screen.getByText('This submission passed all validation checks.')).toBeInTheDocument();
 
     // Cards / headings.
     expect(screen.getByRole('heading', { name: 'Submission Metadata' })).toBeInTheDocument();
@@ -302,10 +302,8 @@ describe('UploadSubmissionPage', () => {
 
     await uploadAndSettle();
 
-    expect(await screen.findByText('Validation issues found.')).toBeInTheDocument();
-    expect(
-      screen.getByText('1 invoice(s) accepted, 1 rejected. Correct the highlighted issues and resubmit.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Errors found.')).toBeInTheDocument();
+    expect(screen.getByText('Correct the highlighted errors before submitting.')).toBeInTheDocument();
 
     // Form-level (unmapped) banner still sits at the top of the page.
     expect(screen.getByText('General submission problem.')).toBeInTheDocument();
@@ -340,7 +338,7 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation issues found.');
+    await screen.findByText('Errors found.');
 
     expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
   });
@@ -358,7 +356,7 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation issues found.');
+    await screen.findByText('Warnings found.');
 
     expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
   });
@@ -383,7 +381,7 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation issues found.');
+    await screen.findByText('Errors found.');
 
     expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
 
@@ -430,7 +428,7 @@ describe('UploadSubmissionPage', () => {
     mockValidate.mockResolvedValue(makeValidation({ acceptedInvoices: ['INV-001', 'INV-002'] }));
 
     const { container } = await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     // Carbon keeps the expanded content mounted and toggles visibility via the
     // parent row's expanded state, so assert on aria-expanded (not DOM presence).
@@ -464,7 +462,7 @@ describe('UploadSubmissionPage', () => {
     mockValidate.mockResolvedValue(makeValidation());
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     // The expanded invoice shows a zero count and the empty-state message.
     expect(screen.getByText('Line items for INV-001 (0)')).toBeInTheDocument();
@@ -490,7 +488,7 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation issues found.');
+    await screen.findByText('Errors found.');
 
     // Row badge rolls up the invoice's own + its line-item issues into separate
     // error and warning segments.
@@ -521,7 +519,7 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation issues found.');
+    await screen.findByText('Warnings found.');
 
     // Warning-only list reads "Warnings for …", and the badge shows only the
     // warnings segment (no error segment).
@@ -554,7 +552,7 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation issues found.');
+    await screen.findByText('Errors found.');
 
     // The details-card field carries an inline icon whose tooltip is the message.
     expect(screen.getByTitle('Seller location invalid.')).toBeInTheDocument();
@@ -578,11 +576,8 @@ describe('UploadSubmissionPage', () => {
 
     await uploadAndSettle();
 
-    expect(
-      await screen.findByText(
-        'Submission failed business validation. Correct the highlighted issues and upload again.',
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Errors found.')).toBeInTheDocument();
+    expect(screen.getByText('Correct the highlighted errors before submitting.')).toBeInTheDocument();
     expect(screen.getByText('Everything failed.')).toBeInTheDocument();
   });
 
@@ -602,7 +597,7 @@ describe('UploadSubmissionPage', () => {
     mockValidate.mockResolvedValue(makeValidation());
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
@@ -633,7 +628,7 @@ describe('UploadSubmissionPage', () => {
     mockValidate.mockResolvedValue(makeValidation());
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
@@ -648,7 +643,7 @@ describe('UploadSubmissionPage', () => {
     mockSubmit.mockResolvedValue(makeSubmit({ valid: true, submissionId: 42 }));
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
@@ -671,11 +666,11 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(await screen.findByText('Validation issues found.')).toBeInTheDocument();
+    expect(await screen.findByText('Errors found.')).toBeInTheDocument();
     expect(screen.getByText('Rejected at submit.')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -697,7 +692,7 @@ describe('UploadSubmissionPage', () => {
     );
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
@@ -711,7 +706,7 @@ describe('UploadSubmissionPage', () => {
     mockSubmit.mockRejectedValue(new Error('network'));
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
@@ -723,7 +718,7 @@ describe('UploadSubmissionPage', () => {
     mockValidate.mockResolvedValue(makeValidation());
 
     await uploadAndSettle();
-    await screen.findByText('Validation passed.');
+    await screen.findByText('No issues found.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 

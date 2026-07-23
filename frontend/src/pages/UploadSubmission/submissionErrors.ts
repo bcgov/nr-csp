@@ -364,3 +364,23 @@ export const invoiceSeverity = (issues: InvoiceIssue[]): InvoiceSeverity => {
   if (issues.length > 0) return 'warning';
   return 'none';
 };
+
+/**
+ * The worst severity across the whole mapped submission — every form, field,
+ * invoice and line-item issue combined. Drives the page-level status banner:
+ * 'error' when any ERROR is present, 'warning' when only warnings remain,
+ * 'none' when clean. Computed live from `issues` like {@link hasHardErrors},
+ * so it downgrades as the user clears errors on editable metadata fields.
+ */
+export const submissionSeverity = (issues: MappedIssues | null): InvoiceSeverity => {
+  if (!issues) return 'none';
+  if (hasHardErrors(issues)) return 'error';
+  const rowHasIssue = (r: RowIssues): boolean =>
+    r.row.length > 0 || Object.values(r.fields).some((list) => list.length > 0);
+  const hasAny =
+    issues.formIssues.length > 0 ||
+    Object.values(issues.submissionFields).some((list) => list.length > 0) ||
+    Object.values(issues.invoices).some(rowHasIssue) ||
+    Object.values(issues.lineItems).some(rowHasIssue);
+  return hasAny ? 'warning' : 'none';
+};

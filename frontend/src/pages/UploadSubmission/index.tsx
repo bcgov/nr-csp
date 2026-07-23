@@ -33,7 +33,9 @@ import {
   invoiceSeverity,
   mapSubmissionIssues,
   structuralIssuesToCsv,
+  submissionSeverity,
   toStructuralIssueRows,
+  type InvoiceSeverity,
   type MappedIssues,
   type StructuralIssueRow,
 } from './submissionErrors';
@@ -79,6 +81,29 @@ const fieldsFromSubmission = (s: ParsedSubmission): EditableFields => ({
 });
 
 const EMPTY_TABLE_MESSAGE = 'No data available — upload an XML file to populate this table.';
+
+/**
+ * The top status banner, keyed by the submission's worst severity: green when
+ * clean, amber when only warnings remain, red when any error is present.
+ */
+const STATUS_BANNER: Record<InvoiceSeverity, { kind: 'success' | 'warning' | 'error'; title: string; subtitle: string }> =
+  {
+    none: {
+      kind: 'success',
+      title: 'No issues found.',
+      subtitle: 'This submission passed all validation checks.',
+    },
+    warning: {
+      kind: 'warning',
+      title: 'Warnings found.',
+      subtitle: 'Review the warnings below. You can still submit.',
+    },
+    error: {
+      kind: 'error',
+      title: 'Errors found.',
+      subtitle: 'Correct the highlighted errors before submitting.',
+    },
+  };
 
 export function UploadSubmissionPage() {
   const navigate = useNavigate();
@@ -409,35 +434,22 @@ export function UploadSubmissionPage() {
     );
   };
 
-  const businessKind = (result: SubmissionValidationResponse): 'success' | 'warning' | 'error' => {
-    if (result.valid) return 'success';
-    if (result.code === 'PARTIALLY_ACCEPTED') return 'warning';
-    return 'error';
-  };
-
-  const businessSummary = (result: SubmissionValidationResponse): string => {
-    const accepted = result.acceptedInvoices.length;
-    const rejected = result.rejectedInvoices.length;
-    if (result.valid) return `Submission is valid. ${accepted} invoice(s) accepted.`;
-    if (result.code === 'PARTIALLY_ACCEPTED') {
-      return `${accepted} invoice(s) accepted, ${rejected} rejected. Correct the highlighted issues and resubmit.`;
-    }
-    return 'Submission failed business validation. Correct the highlighted issues and upload again.';
-  };
-
-  const renderBusinessResult = (result: SubmissionValidationResponse) => {
-    // The top notification carries only page-level context: the overall
-    // pass/partial/fail summary and submission-level (form) messages that aren't
-    // tied to any invoice. Per-invoice and per-line issues are surfaced locally
-    // on each invoice — a severity badge on the row and a readable list inside
-    // its expanded panel — so the user no longer scrolls between top and table.
+  const renderBusinessResult = () => {
+    // The top notification reflects the worst severity actually present across
+    // the whole submission (errors → red, warnings-only → amber, clean → green),
+    // rather than the response's accept/reject flags — so a submission that
+    // parsed with only warnings still reads as a warning, not a pass. It also
+    // carries the submission-level (form) messages that aren't tied to any
+    // invoice; per-invoice and per-line issues are surfaced locally on each
+    // invoice (a severity badge on the row and a list in its expanded panel).
+    const banner = STATUS_BANNER[submissionSeverity(issues)];
     return (
       <div className="upload-submission-page__notification">
         <InlineNotification
-          kind={businessKind(result)}
+          kind={banner.kind}
           lowContrast
-          title={result.valid ? 'Validation passed.' : 'Validation issues found.'}
-          subtitle={businessSummary(result)}
+          title={banner.title}
+          subtitle={banner.subtitle}
           hideCloseButton
         />
         {issues?.formIssues.map((issue) => (
@@ -468,7 +480,7 @@ export function UploadSubmissionPage() {
   const renderStatus = () => {
     if (status === 'network-error') return renderNetworkError();
     if (status === 'structural-error') return renderStructuralError();
-    if (status === 'done' && businessResult) return renderBusinessResult(businessResult);
+    if (status === 'done' && businessResult) return renderBusinessResult();
     if (status === 'idle' && notificationVisible) return renderIdle();
     return null;
   };
