@@ -502,6 +502,34 @@ describe('UploadSubmissionPage', () => {
     expect(screen.getByText('Grade Z used.')).toBeInTheDocument();
   });
 
+  it('titles the local list "Warnings" when an invoice has only warnings', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockRejectedValue(
+      envelopeError(
+        makeValidation({
+          valid: false,
+          code: 'PARTIALLY_ACCEPTED',
+          acceptedInvoices: ['INV-001'],
+          rejectedInvoices: [],
+          errors: [
+            // Warnings only — no ERROR entries for this invoice.
+            msg('invoice.month.completed.warning', 'invoice #1 (INV-001): Month may be incomplete.', 'WARNING'),
+            msg('invoice.grade.z.warning', 'invoice #1 (INV-001), line 1: Grade Z used.', 'WARNING'),
+          ],
+        }),
+      ),
+    );
+
+    await uploadAndSettle();
+    await screen.findByText('Validation issues found.');
+
+    // Warning-only list reads "Warnings for …", and the badge shows only the
+    // warnings segment (no error segment).
+    expect(screen.getByText('Warnings for INV-001')).toBeInTheDocument();
+    expect(screen.queryByText('Issues for INV-001')).not.toBeInTheDocument();
+    expect(screen.getByText('2 warnings')).toBeInTheDocument();
+  });
+
   it('shows inline field markers in the Invoice details card, not on the header row', async () => {
     mockParse.mockResolvedValue(makeParse());
     mockValidate.mockRejectedValue(

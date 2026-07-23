@@ -79,10 +79,12 @@ export const InvoiceIssueList: FC<{ invoiceNumber: string; issues: InvoiceIssue[
   const titleId = useId();
   if (issues.length === 0) return null;
 
+  const heading = issues.some((i) => i.type === 'ERROR') ? 'Issues' : 'Warnings';
+
   return (
     <div className="invoice-issue-list">
       <p className="invoice-issue-list__title" id={titleId}>
-        Issues for {invoiceNumber}
+        {heading} for {invoiceNumber}
       </p>
       <ul className="invoice-issue-list__items" aria-labelledby={titleId}>
         {issues.map((issue, i) => {
