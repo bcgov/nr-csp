@@ -29,6 +29,7 @@ import InvoiceDetailPanel from './InvoiceDetailPanel';
 import { InvoiceIssueBadge } from './InvoiceIssues';
 import {
   collectInvoiceIssues,
+  hasHardErrors,
   invoiceSeverity,
   mapSubmissionIssues,
   structuralIssuesToCsv,
@@ -221,11 +222,13 @@ export function UploadSubmissionPage() {
 
   const isBusy = status === 'parsing' || status === 'validating' || status === 'submitting';
   const hasSubmission = submission != null;
-  // Submit is allowed whenever a submission has parsed and we're not mid-request.
-  // A prior validation error must NOT lock the button — the whole point is to
-  // correct the highlighted fields and resubmit; the submit endpoint re-validates
-  // the edited values authoritatively and re-surfaces any remaining issues.
-  const canSubmit = hasSubmission && !isBusy;
+  // Any ERROR-severity ("hard") validation issue disables Submit — the user must
+  // resolve it before the submission can be sent. Errors on the editable metadata
+  // fields lift as the user corrects them (setField clears them); errors on the
+  // read-only invoice/line data require re-uploading a corrected file. Warnings
+  // do not block submission.
+  const hasHardValidationErrors = hasHardErrors(issues);
+  const canSubmit = hasSubmission && !isBusy && !hasHardValidationErrors;
 
   // Progress text shown by the inline loader for each in-flight phase.
   const loadingDescription = (): string => {

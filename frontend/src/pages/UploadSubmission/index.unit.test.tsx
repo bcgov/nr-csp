@@ -326,6 +326,73 @@ describe('UploadSubmissionPage', () => {
     await waitFor(() => expect(screen.queryByText('Month may be incomplete.')).not.toBeInTheDocument());
   });
 
+  it('disables Submit while a hard (ERROR) validation issue is present', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(
+      makeValidation({
+        valid: false,
+        code: 'PARTIALLY_ACCEPTED',
+        acceptedInvoices: [],
+        rejectedInvoices: ['INV-001'],
+        // Read-only invoice-level error — the user can't fix it in the form.
+        errors: [msg('invoice.date.required.error', 'invoice #1 (INV-001): Invoice date is required.', 'ERROR')],
+      }),
+    );
+
+    await uploadAndSettle();
+    await screen.findByText('Validation issues found.');
+
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+  });
+
+  it('keeps Submit enabled when only warnings are present', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(
+      makeValidation({
+        valid: false,
+        code: 'PARTIALLY_ACCEPTED',
+        acceptedInvoices: ['INV-001'],
+        rejectedInvoices: [],
+        errors: [msg('invoice.month.completed.warning', 'submission: Month may be incomplete.', 'WARNING')],
+      }),
+    );
+
+    await uploadAndSettle();
+    await screen.findByText('Validation issues found.');
+
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+  });
+
+  it('re-enables Submit once an editable-field error is corrected', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(
+      makeValidation({
+        valid: false,
+        code: 'REJECTED',
+        acceptedInvoices: [],
+        rejectedInvoices: ['INV-001'],
+        // Maps to both submitter fields; clearing both lifts the error.
+        errors: [
+          msg(
+            'invoice.submitter.client.location.invalid.error',
+            'submission: Submitter client/location invalid.',
+            'ERROR',
+          ),
+        ],
+      }),
+    );
+
+    await uploadAndSettle();
+    await screen.findByText('Validation issues found.');
+
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Submission Client Number'), { target: { value: '99998888' } });
+    fireEvent.change(screen.getByLabelText('Submission Client Location Code'), { target: { value: '02' } });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled());
+  });
+
   it('renders plural invoice/line-item counts for multiple rows', async () => {
     mockParse.mockResolvedValue(
       makeParse({
