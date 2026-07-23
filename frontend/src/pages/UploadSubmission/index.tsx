@@ -86,24 +86,26 @@ const EMPTY_TABLE_MESSAGE = 'No data available — upload an XML file to populat
  * The top status banner, keyed by the submission's worst severity: green when
  * clean, amber when only warnings remain, red when any error is present.
  */
-const STATUS_BANNER: Record<InvoiceSeverity, { kind: 'success' | 'warning' | 'error'; title: string; subtitle: string }> =
-  {
-    none: {
-      kind: 'success',
-      title: 'No issues found.',
-      subtitle: 'This submission passed all validation checks.',
-    },
-    warning: {
-      kind: 'warning',
-      title: 'Warnings found.',
-      subtitle: 'Review the warnings below. You can still submit.',
-    },
-    error: {
-      kind: 'error',
-      title: 'Errors found.',
-      subtitle: 'Correct the highlighted errors before submitting.',
-    },
-  };
+const STATUS_BANNER: Record<
+  InvoiceSeverity,
+  { kind: 'success' | 'warning' | 'error'; title: string; subtitle: string }
+> = {
+  none: {
+    kind: 'success',
+    title: 'No issues found.',
+    subtitle: 'This submission passed all validation checks.',
+  },
+  warning: {
+    kind: 'warning',
+    title: 'Warnings found.',
+    subtitle: 'Review the warnings below. You can still submit.',
+  },
+  error: {
+    kind: 'error',
+    title: 'Errors found.',
+    subtitle: 'Correct the highlighted errors before submitting.',
+  },
+};
 
 export function UploadSubmissionPage() {
   const navigate = useNavigate();
