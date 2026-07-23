@@ -324,24 +324,35 @@
     box-shadow: inset $spacing-02 0 0 0 theme.$support-warning;
   }
 
-  // Compact severity badge shown on the invoice row.
+  // Compact severity badge shown on the invoice row. Errors and warnings render
+  // as separate icon+text segments, so a mixed invoice reads as a red "N errors"
+  // segment next to an amber "N warnings" segment.
   .invoice-issue-badge {
     display: inline-flex;
     align-items: center;
-    gap: $spacing-02;
+    gap: $spacing-04;
     font-size: 0.75rem;
     font-weight: 600;
     white-space: nowrap;
 
-    &--error {
-      color: theme.$support-error;
+    &__segment {
+      display: inline-flex;
+      align-items: center;
+      gap: $spacing-02;
+
+      &--error {
+        color: theme.$support-error;
+      }
+
+      &--warning {
+        color: theme.$support-warning;
+      }
     }
 
-    &--warning {
-      color: theme.$support-warning;
-    }
-
+    // The "No issues" check renders directly in the wrapper (no segment), so it
+    // needs the tight icon/text gap rather than the inter-segment spacing.
     &--none {
+      gap: $spacing-02;
       color: theme.$text-secondary;
       font-weight: 400;
     }

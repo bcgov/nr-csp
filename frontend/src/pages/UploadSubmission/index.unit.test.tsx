@@ -425,8 +425,10 @@ describe('UploadSubmissionPage', () => {
     await uploadAndSettle();
     await screen.findByText('Validation issues found.');
 
-    // Row badge rolls up the invoice's own + its line-item issues.
-    expect(screen.getByText('1 error, 1 warning')).toBeInTheDocument();
+    // Row badge rolls up the invoice's own + its line-item issues into separate
+    // error and warning segments.
+    expect(screen.getByText('1 error')).toBeInTheDocument();
+    expect(screen.getByText('1 warning')).toBeInTheDocument();
     // Local list under the invoice enumerates them, next to the data.
     expect(screen.getByText('Issues for INV-001')).toBeInTheDocument();
     expect(screen.getByText('Invoice date is required.')).toBeInTheDocument();

@@ -47,15 +47,23 @@ export const InvoiceIssueBadge: FC<{ issues: InvoiceIssue[] }> = ({ issues }) =>
 
   const errors = issues.filter((i) => i.type === 'ERROR').length;
   const warnings = issues.length - errors;
-  const Icon = severity === 'error' ? ErrorFilled : WarningAltFilled;
-  const parts = [errors > 0 ? count(errors, 'error') : null, warnings > 0 ? count(warnings, 'warning') : null].filter(
-    Boolean,
-  );
 
+  // Errors and warnings each render as their own icon+text segment so the
+  // warning count keeps its amber colour and warning icon even alongside errors.
   return (
-    <span className={`invoice-issue-badge invoice-issue-badge--${severity}`}>
-      <Icon size={16} />
-      {parts.join(', ')}
+    <span className="invoice-issue-badge">
+      {errors > 0 && (
+        <span className="invoice-issue-badge__segment invoice-issue-badge__segment--error">
+          <ErrorFilled size={16} />
+          {count(errors, 'error')}
+        </span>
+      )}
+      {warnings > 0 && (
+        <span className="invoice-issue-badge__segment invoice-issue-badge__segment--warning">
+          <WarningAltFilled size={16} />
+          {count(warnings, 'warning')}
+        </span>
+      )}
     </span>
   );
 };
