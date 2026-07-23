@@ -297,6 +297,24 @@ export const mapSubmissionIssues = (messages: ValidationMessageResponse[]): Mapp
   return result;
 };
 
+/**
+ * True when the currently-mapped issues contain any ERROR (a "hard" error), as
+ * opposed to warnings. Computed live from `issues` rather than the map-time
+ * `hasErrors` flag so it reacts as the user clears errors on editable metadata
+ * fields — errors on read-only invoice/line data stay and keep it true.
+ */
+export const hasHardErrors = (issues: MappedIssues | null): boolean => {
+  if (!issues) return false;
+  const anyError = (list: CellIssue[]): boolean => list.some((i) => i.type === 'ERROR');
+  const rowHasError = (r: RowIssues): boolean => anyError(r.row) || Object.values(r.fields).some(anyError);
+  return (
+    anyError(issues.formIssues) ||
+    Object.values(issues.submissionFields).some(anyError) ||
+    Object.values(issues.invoices).some(rowHasError) ||
+    Object.values(issues.lineItems).some(rowHasError)
+  );
+};
+
 /** One flattened issue belonging to a single invoice (its own or one of its lines). */
 export interface InvoiceIssue {
   type: 'ERROR' | 'WARNING';
