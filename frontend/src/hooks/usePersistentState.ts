@@ -48,9 +48,7 @@ export function usePersistentState<T>(
   const storageKey = `${namespace}.${key}`;
   const serializerRef = useRef(serializer);
 
-  const [value, setValue] = useState<T>(() =>
-    readStored(storageKey, serializerRef.current.deserialize, initialValue),
-  );
+  const [value, setValue] = useState<T>(() => readStored(storageKey, serializerRef.current.deserialize, initialValue));
 
   useEffect(() => {
     try {

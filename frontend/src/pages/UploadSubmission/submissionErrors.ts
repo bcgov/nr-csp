@@ -364,3 +364,56 @@ export const invoiceSeverity = (issues: InvoiceIssue[]): InvoiceSeverity => {
   if (issues.length > 0) return 'warning';
   return 'none';
 };
+
+/**
+ * The worst severity across the whole mapped submission — every form, field,
+ * invoice and line-item issue combined. Drives the page-level status banner:
+ * 'error' when any ERROR is present, 'warning' when only warnings remain,
+ * 'none' when clean. Computed live from `issues` like {@link hasHardErrors},
+ * so it downgrades as the user clears errors on editable metadata fields.
+ */
+export const submissionSeverity = (issues: MappedIssues | null): InvoiceSeverity => {
+  if (!issues) return 'none';
+  if (hasHardErrors(issues)) return 'error';
+  const rowHasIssue = (r: RowIssues): boolean =>
+    r.row.length > 0 || Object.values(r.fields).some((list) => list.length > 0);
+  const hasAny =
+    issues.formIssues.length > 0 ||
+    Object.values(issues.submissionFields).some((list) => list.length > 0) ||
+    Object.values(issues.invoices).some(rowHasIssue) ||
+    Object.values(issues.lineItems).some(rowHasIssue);
+  return hasAny ? 'warning' : 'none';
+};
+
+/**
+ * Counts distinct issues of a given severity across the whole mapped submission.
+ * A submission-level message can map to more than one field (e.g. the submitter
+ * client/location message targets two fields), which pushes the *same* issue
+ * object into several arrays — so issues are de-duplicated by reference to avoid
+ * counting one message twice.
+ */
+const countBySeverity = (issues: MappedIssues | null, type: CellIssue['type']): number => {
+  if (!issues) return 0;
+  const seen = new Set<CellIssue>();
+  const add = (list: CellIssue[]): void => list.forEach((i) => seen.add(i));
+  const addRow = (r: RowIssues): void => {
+    add(r.row);
+    Object.values(r.fields).forEach(add);
+  };
+  add(issues.formIssues);
+  Object.values(issues.submissionFields).forEach(add);
+  Object.values(issues.invoices).forEach(addRow);
+  Object.values(issues.lineItems).forEach(addRow);
+
+  let total = 0;
+  seen.forEach((i) => {
+    if (i.type === type) total += 1;
+  });
+  return total;
+};
+
+/** The number of WARNING-severity issues across the whole mapped submission. */
+export const countWarnings = (issues: MappedIssues | null): number => countBySeverity(issues, 'WARNING');
+
+/** The number of ERROR-severity issues across the whole mapped submission. */
+export const countErrors = (issues: MappedIssues | null): number => countBySeverity(issues, 'ERROR');

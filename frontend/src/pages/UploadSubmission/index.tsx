@@ -29,11 +29,15 @@ import InvoiceDetailPanel from './InvoiceDetailPanel';
 import { InvoiceIssueBadge } from './InvoiceIssues';
 import {
   collectInvoiceIssues,
+  countErrors,
+  countWarnings,
   hasHardErrors,
   invoiceSeverity,
   mapSubmissionIssues,
   structuralIssuesToCsv,
+  submissionSeverity,
   toStructuralIssueRows,
+  type InvoiceSeverity,
   type MappedIssues,
   type StructuralIssueRow,
 } from './submissionErrors';
@@ -79,6 +83,35 @@ const fieldsFromSubmission = (s: ParsedSubmission): EditableFields => ({
 });
 
 const EMPTY_TABLE_MESSAGE = 'No data available — upload an XML file to populate this table.';
+
+/**
+ * The top status banner, keyed by the submission's worst severity: green when
+ * clean, amber when only warnings remain, red when any error is present.
+ */
+const STATUS_BANNER: Record<
+  InvoiceSeverity,
+  { kind: 'success' | 'warning' | 'error'; title: string; subtitle: string }
+> = {
+  none: {
+    kind: 'success',
+    // Title is overridden with the uploaded file name in renderBusinessResult;
+    // the clean banner shows no subtitle.
+    title: 'No issues found.',
+    subtitle: '',
+  },
+  warning: {
+    kind: 'warning',
+    // Title is overridden with the live warning count in renderBusinessResult.
+    title: 'Warnings found.',
+    subtitle: 'Submission is permitted. Review is recommended.',
+  },
+  error: {
+    kind: 'error',
+    // Title is overridden with the live error count in renderBusinessResult.
+    title: 'Errors found.',
+    subtitle: 'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
+  },
+};
 
 export function UploadSubmissionPage() {
   const navigate = useNavigate();
@@ -409,35 +442,34 @@ export function UploadSubmissionPage() {
     );
   };
 
-  const businessKind = (result: SubmissionValidationResponse): 'success' | 'warning' | 'error' => {
-    if (result.valid) return 'success';
-    if (result.code === 'PARTIALLY_ACCEPTED') return 'warning';
-    return 'error';
-  };
-
-  const businessSummary = (result: SubmissionValidationResponse): string => {
-    const accepted = result.acceptedInvoices.length;
-    const rejected = result.rejectedInvoices.length;
-    if (result.valid) return `Submission is valid. ${accepted} invoice(s) accepted.`;
-    if (result.code === 'PARTIALLY_ACCEPTED') {
-      return `${accepted} invoice(s) accepted, ${rejected} rejected. Correct the highlighted issues and resubmit.`;
-    }
-    return 'Submission failed business validation. Correct the highlighted issues and upload again.';
-  };
-
-  const renderBusinessResult = (result: SubmissionValidationResponse) => {
-    // The top notification carries only page-level context: the overall
-    // pass/partial/fail summary and submission-level (form) messages that aren't
-    // tied to any invoice. Per-invoice and per-line issues are surfaced locally
-    // on each invoice — a severity badge on the row and a readable list inside
-    // its expanded panel — so the user no longer scrolls between top and table.
+  const renderBusinessResult = () => {
+    // The top notification reflects the worst severity actually present across
+    // the whole submission (errors → red, warnings-only → amber, clean → green),
+    // rather than the response's accept/reject flags — so a submission that
+    // parsed with only warnings still reads as a warning, not a pass. It also
+    // carries the submission-level (form) messages that aren't tied to any
+    // invoice; per-invoice and per-line issues are surfaced locally on each
+    // invoice (a severity badge on the row and a list in its expanded panel).
+    const severity = submissionSeverity(issues);
+    const banner = STATUS_BANNER[severity];
+    // Each banner leads with a live, severity-specific title: the clean banner
+    // names the uploaded file ("sub.xml was uploaded with no issues found."),
+    // the warning / error banners lead with the live count ("3 warnings found." /
+    // "2 errors found."). The clean title is self-contained, so it drops the
+    // supporting subtitle the warning / error banners carry.
+    const warnings = countWarnings(issues);
+    const errors = countErrors(issues);
+    let title = banner.title;
+    if (severity === 'warning') title = `${warnings} warning${warnings === 1 ? '' : 's'} found.`;
+    else if (severity === 'error') title = `${errors} error${errors === 1 ? '' : 's'} found.`;
+    else title = `${fileName ?? 'The file'} was uploaded with no issues found.`;
     return (
       <div className="upload-submission-page__notification">
         <InlineNotification
-          kind={businessKind(result)}
+          kind={banner.kind}
           lowContrast
-          title={result.valid ? 'Validation passed.' : 'Validation issues found.'}
-          subtitle={businessSummary(result)}
+          title={title}
+          subtitle={severity === 'none' ? undefined : banner.subtitle}
           hideCloseButton
         />
         {issues?.formIssues.map((issue) => (
@@ -468,7 +500,7 @@ export function UploadSubmissionPage() {
   const renderStatus = () => {
     if (status === 'network-error') return renderNetworkError();
     if (status === 'structural-error') return renderStructuralError();
-    if (status === 'done' && businessResult) return renderBusinessResult(businessResult);
+    if (status === 'done' && businessResult) return renderBusinessResult();
     if (status === 'idle' && notificationVisible) return renderIdle();
     return null;
   };
