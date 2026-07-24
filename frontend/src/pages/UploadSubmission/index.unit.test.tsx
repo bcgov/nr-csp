@@ -303,7 +303,9 @@ describe('UploadSubmissionPage', () => {
 
     expect(await screen.findByText('4 errors found.')).toBeInTheDocument();
     expect(
-      screen.getByText('Submission is blocked. Correct the errors in your source file, then replace the file to continue.'),
+      screen.getByText(
+        'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
+      ),
     ).toBeInTheDocument();
 
     // Form-level (unmapped) banner still sits at the top of the page.
@@ -579,7 +581,9 @@ describe('UploadSubmissionPage', () => {
 
     expect(await screen.findByText('1 error found.')).toBeInTheDocument();
     expect(
-      screen.getByText('Submission is blocked. Correct the errors in your source file, then replace the file to continue.'),
+      screen.getByText(
+        'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Everything failed.')).toBeInTheDocument();
   });
