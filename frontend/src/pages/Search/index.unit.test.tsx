@@ -55,10 +55,7 @@ const mockSearchResult = {
 // ── Render helper ─────────────────────────────────────────────────────────────
 
 const lastQueryParams = () =>
-  vi.mocked(useSearchQuery).mock.calls[vi.mocked(useSearchQuery).mock.calls.length - 1][0] as Record<
-    string,
-    unknown
-  >;
+  vi.mocked(useSearchQuery).mock.calls[vi.mocked(useSearchQuery).mock.calls.length - 1][0] as Record<string, unknown>;
 
 function renderSearchPage() {
   const queryClient = new QueryClient({

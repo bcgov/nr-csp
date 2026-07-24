@@ -25,6 +25,7 @@
         <ojdbc.version>23.3.0.23.09</ojdbc.version>
         <jasperreports.version>7.0.4</jasperreports.version>
         <testcontainers.version>1.20.4</testcontainers.version>
+        <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
         <sonar.coverage.exclusions>
             **/*Test.java,
             **/*IT.java
@@ -329,6 +330,14 @@
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
+            </plugin>
+            <!-- SonarCloud scanner, pinned. Declaring it here also lets the
+                 short `mvn sonar:sonar` prefix resolve again (Maven Central
+                 dropped the legacy org.codehaus.mojo prefix mapping). -->
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>${sonar-maven-plugin.version}</version>
             </plugin>
             <!-- Failsafe: runs *IT.java integration tests during mvn verify -->
             <plugin>

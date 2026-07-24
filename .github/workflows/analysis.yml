@@ -50,8 +50,10 @@ jobs:
         working-directory: backend
         env:
           SONAR_TOKEN: ${{ secrets.sonar_token_backend }}
+        # Fully-qualified goal: the bare `sonar` prefix no longer resolves
+        # since Maven Central dropped its legacy org.codehaus.mojo mapping.
         run: |
-          mvn -B sonar:sonar \
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.organization=bcgov-sonarcloud \
             -Dsonar.projectKey=bcgov-sonarcloud_nr-csp_backend \
