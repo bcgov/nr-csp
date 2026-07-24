@@ -350,10 +350,11 @@
     }
 
     // The "No issues" check renders directly in the wrapper (no segment), so it
-    // needs the tight icon/text gap rather than the inter-segment spacing.
+    // needs the tight icon/text gap rather than the inter-segment spacing. Green
+    // to read as a positive "clean" status, matching the error/warning colours.
     &--none {
       gap: $spacing-02;
-      color: theme.$text-secondary;
+      color: theme.$support-success;
       font-weight: 400;
     }
   }

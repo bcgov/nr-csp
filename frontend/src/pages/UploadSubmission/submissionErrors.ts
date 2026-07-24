@@ -384,3 +384,36 @@ export const submissionSeverity = (issues: MappedIssues | null): InvoiceSeverity
     Object.values(issues.lineItems).some(rowHasIssue);
   return hasAny ? 'warning' : 'none';
 };
+
+/**
+ * Counts distinct issues of a given severity across the whole mapped submission.
+ * A submission-level message can map to more than one field (e.g. the submitter
+ * client/location message targets two fields), which pushes the *same* issue
+ * object into several arrays — so issues are de-duplicated by reference to avoid
+ * counting one message twice.
+ */
+const countBySeverity = (issues: MappedIssues | null, type: CellIssue['type']): number => {
+  if (!issues) return 0;
+  const seen = new Set<CellIssue>();
+  const add = (list: CellIssue[]): void => list.forEach((i) => seen.add(i));
+  const addRow = (r: RowIssues): void => {
+    add(r.row);
+    Object.values(r.fields).forEach(add);
+  };
+  add(issues.formIssues);
+  Object.values(issues.submissionFields).forEach(add);
+  Object.values(issues.invoices).forEach(addRow);
+  Object.values(issues.lineItems).forEach(addRow);
+
+  let total = 0;
+  seen.forEach((i) => {
+    if (i.type === type) total += 1;
+  });
+  return total;
+};
+
+/** The number of WARNING-severity issues across the whole mapped submission. */
+export const countWarnings = (issues: MappedIssues | null): number => countBySeverity(issues, 'WARNING');
+
+/** The number of ERROR-severity issues across the whole mapped submission. */
+export const countErrors = (issues: MappedIssues | null): number => countBySeverity(issues, 'ERROR');
