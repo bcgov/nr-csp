@@ -72,13 +72,14 @@ public interface CspSubmissionApi {
     @Operation(summary = "Submit: business-validate and persist the submission",
             description = "Accepts the multipart file part named 'file' plus the user's editable "
                     + "submission metadata (submissionClientNumber, submissionClientLocnCode, "
-                    + "monthComplete, sellerSubmission) as optional form fields. Any field supplied "
-                    + "overrides the parsed value before business validation runs, so the submission "
-                    + "is validated and persisted exactly as edited. Only when the submission is "
-                    + "fully accepted (no rejected invoices) is it saved — a csp_submission row plus "
-                    + "one invoice per parsed invoice with its line items — and the new submissionId "
-                    + "returned. If any invoice is rejected the submission is NOT saved and the "
-                    + "validation messages are returned (422).")
+                    + "monthComplete, sellerSubmission, email, telephone) as optional form fields. Any "
+                    + "field supplied overrides the parsed value before business validation runs, so the "
+                    + "submission is validated and persisted exactly as edited. The submitter's email and "
+                    + "telephone are persisted on the csp_submission row; a blank field falls back to the "
+                    + "value parsed from the ESF envelope. Only when the submission is fully accepted (no "
+                    + "rejected invoices) is it saved — a csp_submission row plus one invoice per parsed "
+                    + "invoice with its line items — and the new submissionId returned. If any invoice is "
+                    + "rejected the submission is NOT saved and the validation messages are returned (422).")
     @ApiResponse(responseCode = "200", description = "Submission saved; submissionId returned",
             content = @Content(schema = @Schema(implementation = SubmissionSubmitResponse.class)))
     @ApiResponse(responseCode = "422", description = "Submission failed validation and was not saved",
@@ -91,5 +92,7 @@ public interface CspSubmissionApi {
             @RequestParam(value = "submissionClientNumber", required = false) String submissionClientNumber,
             @RequestParam(value = "submissionClientLocnCode", required = false) String submissionClientLocnCode,
             @RequestParam(value = "monthComplete", required = false) String monthComplete,
-            @RequestParam(value = "sellerSubmission", required = false) String sellerSubmission);
+            @RequestParam(value = "sellerSubmission", required = false) String sellerSubmission,
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "telephone", required = false) String telephone);
 }

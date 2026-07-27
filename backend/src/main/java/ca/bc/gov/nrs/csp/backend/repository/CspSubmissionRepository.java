@@ -54,28 +54,36 @@ public class CspSubmissionRepository {
     }
 
     public Long insertSubmission(String clientNumber, String clientLocnCode, String statusCode, String userId) {
-        // Single manually-entered invoice: month not complete, one invoice.
-        return insertSubmission(clientNumber, clientLocnCode, statusCode, "N", 1, userId);
+        // Single manually-entered invoice: month not complete, one invoice. The manual
+        // entry path carries no submitter contact details, so email/phone are left null.
+        return insertSubmission(clientNumber, clientLocnCode, statusCode, "N", 1, null, null, userId);
     }
 
     /**
      * Inserts a submission with an explicit month-complete flag and invoice count.
      * Used by the CSP XML upload path, where a submission carries many invoices and
      * the month-complete indicator comes from the uploaded document.
+     *
+     * <p>{@code submitterEmail} / {@code submitterPhone} are the submitter's contact
+     * details (from the upload form, seeded from the ESF envelope); either may be
+     * {@code null}, in which case the corresponding column is left null.
      */
     public Long insertSubmission(String clientNumber, String clientLocnCode, String statusCode,
-                                 String monthCompleteInd, int numberInvoicesSubmitted, String userId) {
+                                 String monthCompleteInd, int numberInvoicesSubmitted,
+                                 String submitterEmail, String submitterPhone, String userId) {
         String sql = """
                 INSERT INTO THE.csp_submission (
                     csp_submission_id, csp_submission_status_code,
                     client_number, client_locn_code,
                     month_complete_ind, number_invoices_submitted,
+                    submitter_email, submitter_phone,
                     revision_count,
                     entry_userid, entry_timestamp, update_userid, update_timestamp
                 ) VALUES (
                     THE.CSP_SUBMISSION_SEQ.NEXTVAL, :status,
                     :clientNumber, :clientLocnCode,
                     :monthComplete, :invoiceCount,
+                    :submitterEmail, :submitterPhone,
                     0,
                     :userId, SYSDATE, :userId, SYSDATE
                 )
@@ -86,6 +94,8 @@ public class CspSubmissionRepository {
                 .addValue("clientLocnCode", clientLocnCode)
                 .addValue("monthComplete", monthCompleteInd)
                 .addValue("invoiceCount", numberInvoicesSubmitted)
+                .addValue("submitterEmail", submitterEmail)
+                .addValue("submitterPhone", submitterPhone)
                 .addValue("userId", userId);
 
         KeyHolder keyHolder = new GeneratedKeyHolder();

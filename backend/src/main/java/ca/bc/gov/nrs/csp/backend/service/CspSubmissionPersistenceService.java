@@ -56,10 +56,14 @@ public class CspSubmissionPersistenceService {
    * user's metadata edits, and runs business validation before invoking this, so
    * the tree passed here is exactly what gets saved.
    *
+   * <p>The submitter's email/phone are not part of the parsed submission tree —
+   * they live in the ESF envelope and are resolved by the caller (edited form
+   * value, falling back to the envelope value) — so they are passed in separately.
+   *
    * @return the new {@code csp_submission_id}.
    */
   @Transactional
-  public Long persist(CSPSubmissionType submission) {
+  public Long persist(CSPSubmissionType submission, String submitterEmail, String submitterPhone) {
     CSPSubmitterType submitter = submission.getCSPSubmitter();
     String user = SecurityContextUtils.requireUsername();
     List<CSPInvoiceType> invoices = submission.getCSPInvoice();
@@ -70,6 +74,8 @@ public class CspSubmissionPersistenceService {
         ConstantsCode.SUBMSTATUS_INBOX,
         monthCompleteInd(submission.getMonthComplete()),
         invoices.size(),
+        submitterEmail,
+        submitterPhone,
         user);
 
     for (CSPInvoiceType invoice : invoices) {

@@ -79,17 +79,19 @@ class CspSubmissionPersistenceServiceTest {
   @Test
   void persist_insertsOneSubmissionAndMapsInvoiceAndLine() throws Exception {
     CSPSubmissionType submission = sampleSubmission();
-    given(submissionRepo.insertSubmission(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), any()))
-        .willReturn(555L);
+    given(submissionRepo.insertSubmission(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(),
+        any(), any(), any())).willReturn(555L);
     given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(900L);
 
-    Long submissionId = service.persist(submission);
+    Long submissionId = service.persist(submission, "seller@example.com", "2505551234");
 
     assertThat(submissionId).isEqualTo(555L);
 
-    // One submission, keyed on the submission-level submitter, month-complete + count from the XML.
+    // One submission, keyed on the submission-level submitter, month-complete + count from the XML,
+    // with the submitter contact details threaded through to the insert.
     verify(submissionRepo).insertSubmission(
-        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "Y", 1, USER);
+        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "Y", 1,
+        "seller@example.com", "2505551234", USER);
 
     // One invoice, saved under that submission as DRAFT, with the parsed fields mapped through.
     ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);
@@ -144,10 +146,10 @@ class CspSubmissionPersistenceServiceTest {
     given(participantRepo.insert(any(), any(), any(), any())).willReturn(777L);
     given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(901L);
 
-    service.persist(submission);
+    service.persist(submission, null, null);
 
     verify(submissionRepo).insertSubmission(
-        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "N", 1, USER);
+        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "N", 1, null, null, USER);
 
     // Manual seller party lands in the seller slot; the buyer slot stays null.
     ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);
@@ -179,7 +181,7 @@ class CspSubmissionPersistenceServiceTest {
     given(participantRepo.insert(any(), any(), any(), any())).willReturn(555L);
     given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(902L);
 
-    service.persist(submission);
+    service.persist(submission, null, null);
 
     ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);
     verify(invoiceRepo).insertInvoice(detailsCaptor.capture(), any(),
@@ -207,7 +209,7 @@ class CspSubmissionPersistenceServiceTest {
     invoice.setOtherPartyProvState(prov);
     submission.getCSPInvoice().add(invoice);
 
-    service.persist(submission);
+    service.persist(submission, null, null);
 
     verify(participantRepo, expectParticipant ? times(1) : never())
         .insert(any(), any(), any(), any());
@@ -225,7 +227,7 @@ class CspSubmissionPersistenceServiceTest {
     invoice.setOtherPartyName("Manual Buyer");
     submission.getCSPInvoice().add(invoice);
 
-    service.persist(submission);
+    service.persist(submission, null, null);
 
     verify(participantRepo).insert(any(), any(), any(), any());
   }

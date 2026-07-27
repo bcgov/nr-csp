@@ -130,7 +130,7 @@ public class CspSubmissionController implements CspSubmissionApi {
     @Override
     public ResponseEntity<SubmissionSubmitResponse> submit(MultipartFile file,
             String submissionClientNumber, String submissionClientLocnCode,
-            String monthComplete, String sellerSubmission) {
+            String monthComplete, String sellerSubmission, String email, String telephone) {
         log.info("POST /api/submissions/submit received file part: present={} size={}",
                 file != null && !file.isEmpty(),
                 file == null ? 0 : file.getSize());
@@ -182,7 +182,14 @@ public class CspSubmissionController implements CspSubmissionApi {
                             null, result.acceptance().accepted(), rejected, messages));
         }
 
-        Long submissionId = persistenceService.persist(submission);
+        // Submitter email/telephone are not part of the parsed submission tree — they
+        // live in the ESF envelope. The user can edit them on the form, so the edited
+        // value wins; when a field is left blank the parsed envelope value is used.
+        SubmissionEnvelopeStripper.SubmissionMetadata metadata = envelopeStripper.extractMetadata(xml);
+        String submitterEmail = hasText(email) ? email.trim() : metadata.email();
+        String submitterPhone = hasText(telephone) ? telephone.trim() : metadata.telephone();
+
+        Long submissionId = persistenceService.persist(submission, submitterEmail, submitterPhone);
         return ResponseEntity.ok(new SubmissionSubmitResponse(
                 true, "OK", "Submission saved.", submissionId,
                 result.acceptance().accepted(), List.of(), List.of()));
@@ -191,9 +198,10 @@ public class CspSubmissionController implements CspSubmissionApi {
     /**
      * Overlays the user's editable submission metadata onto the parsed tree. Only
      * non-blank fields override the parsed value; Email/Telephone live in the ESF
-     * envelope (not this tree) and have no persisted home yet, so they are not
-     * applied here. An out-of-range sellerSubmission (schema allows only Y/N) is
-     * ignored, leaving the already-valid parsed value in place.
+     * envelope (not this tree), so they are not applied here — {@code submit}
+     * resolves and persists them separately. An out-of-range sellerSubmission
+     * (schema allows only Y/N) is ignored, leaving the already-valid parsed value
+     * in place.
      */
     private void applyMetadataEdits(CSPSubmissionType submission, String submissionClientNumber,
             String submissionClientLocnCode, String monthComplete, String sellerSubmission) {
