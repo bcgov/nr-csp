@@ -35,10 +35,10 @@ public record SubmissionDetailResponse(
         @Schema(description = "Submitting client location code (client_locn_code).")
         String clientLocnCode,
 
-        @Schema(description = "Contact email address. Not stored in the submission schema — always null at present.")
+        @Schema(description = "Submitter contact email address (csp_submission.submitter_email); null if not captured.")
         String email,
 
-        @Schema(description = "Contact telephone number. Not stored in the submission schema — always null at present.")
+        @Schema(description = "Submitter contact telephone number (csp_submission.submitter_phone); null if not captured.")
         String telephone,
 
         @Schema(description = "Month-complete indicator (Y/N) from csp_submission.month_complete_ind.")
