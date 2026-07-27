@@ -185,6 +185,8 @@ export function UploadSubmissionPage() {
         submissionClientLocnCode: fields.submissionClientLocnCode,
         monthComplete: fields.monthComplete,
         sellerSubmission: fields.sellerSubmission,
+        email: fields.email,
+        telephone: fields.telephone,
       });
       if (result.valid && result.submissionId != null) {
         navigate(`${ROUTES.SUBMISSION_HISTORY}/${result.submissionId}`);

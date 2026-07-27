@@ -655,6 +655,12 @@ describe('UploadSubmissionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => expect(mockSubmit).toHaveBeenCalledTimes(1));
+    // The edited fields — including email/telephone, seeded from the parsed submission —
+    // are sent to the submit endpoint.
+    expect(mockSubmit).toHaveBeenCalledWith(
+      expect.any(File),
+      expect.objectContaining({ email: 'seller@example.com', telephone: '5551234567' }),
+    );
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/submission-history/42'));
   });
 
