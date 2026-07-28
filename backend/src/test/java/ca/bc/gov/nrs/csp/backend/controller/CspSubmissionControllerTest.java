@@ -44,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -485,7 +486,7 @@ class CspSubmissionControllerTest {
     }
 
     @Test
-    void submit_blankContact_fallsBackToEnvelopeEmailAndTelephone() throws Exception {
+    void submit_clearedContact_persistsNullAndDoesNotResurrectEnvelope() throws Exception {
         given(validationService.parse(any())).willReturn(
                 new StructuralValidationService.ValidationOutcome(
                         SubmissionValidationResult.ok(), sampleSubmission()));
@@ -501,12 +502,15 @@ class CspSubmissionControllerTest {
                   </esf:submissionMetadata>
                 </esf:ESFSubmission>""";
 
-        // No email/telephone form fields supplied → the envelope values are persisted.
+        // The form fields are the source of truth: cleared (blank) email/telephone are
+        // persisted as null — the envelope values are NOT resurrected.
         mockMvc.perform(multipart("/api/submissions/submit")
-                        .file(file("submission.xml", esf.getBytes())))
+                        .file(file("submission.xml", esf.getBytes()))
+                        .param("email", "")
+                        .param("telephone", ""))
                 .andExpect(status().isOk());
 
-        verify(persistenceService).persist(any(), eq("parsed@example.com"), eq("2503878363"));
+        verify(persistenceService).persist(any(), isNull(), isNull());
     }
 
     @Test
