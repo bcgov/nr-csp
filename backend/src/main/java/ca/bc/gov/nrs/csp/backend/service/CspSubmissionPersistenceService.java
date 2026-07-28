@@ -69,13 +69,14 @@ public class CspSubmissionPersistenceService {
     List<CSPInvoiceType> invoices = submission.getCSPInvoice();
 
     Long submissionId = submissionRepo.insertSubmission(
-        submitter.getSubmissionClientNumber(),
-        submitter.getSubmissionClientLocnCode(),
-        ConstantsCode.SUBMSTATUS_INBOX,
-        monthCompleteInd(submission.getMonthComplete()),
-        invoices.size(),
-        submitterEmail,
-        submitterPhone,
+        new CspSubmissionRepository.NewSubmission(
+            submitter.getSubmissionClientNumber(),
+            submitter.getSubmissionClientLocnCode(),
+            ConstantsCode.SUBMSTATUS_INBOX,
+            monthCompleteInd(submission.getMonthComplete()),
+            invoices.size(),
+            submitterEmail,
+            submitterPhone),
         user);
 
     for (CSPInvoiceType invoice : invoices) {

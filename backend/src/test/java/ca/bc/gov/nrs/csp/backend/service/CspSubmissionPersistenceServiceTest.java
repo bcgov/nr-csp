@@ -79,8 +79,8 @@ class CspSubmissionPersistenceServiceTest {
   @Test
   void persist_insertsOneSubmissionAndMapsInvoiceAndLine() throws Exception {
     CSPSubmissionType submission = sampleSubmission();
-    given(submissionRepo.insertSubmission(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(),
-        any(), any(), any())).willReturn(555L);
+    given(submissionRepo.insertSubmission(any(CspSubmissionRepository.NewSubmission.class), any()))
+        .willReturn(555L);
     given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(900L);
 
     Long submissionId = service.persist(submission, "seller@example.com", "2505551234");
@@ -90,8 +90,9 @@ class CspSubmissionPersistenceServiceTest {
     // One submission, keyed on the submission-level submitter, month-complete + count from the XML,
     // with the submitter contact details threaded through to the insert.
     verify(submissionRepo).insertSubmission(
-        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "Y", 1,
-        "seller@example.com", "2505551234", USER);
+        new CspSubmissionRepository.NewSubmission(
+            "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "Y", 1, "seller@example.com", "2505551234"),
+        USER);
 
     // One invoice, saved under that submission as DRAFT, with the parsed fields mapped through.
     ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);
@@ -149,7 +150,9 @@ class CspSubmissionPersistenceServiceTest {
     service.persist(submission, null, null);
 
     verify(submissionRepo).insertSubmission(
-        "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "N", 1, null, null, USER);
+        new CspSubmissionRepository.NewSubmission(
+            "00126920", "00", ConstantsCode.SUBMSTATUS_INBOX, "N", 1, null, null),
+        USER);
 
     // Manual seller party lands in the seller slot; the buyer slot stays null.
     ArgumentCaptor<InvoiceDetails> detailsCaptor = ArgumentCaptor.forClass(InvoiceDetails.class);

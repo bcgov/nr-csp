@@ -208,8 +208,8 @@ class CspSubmissionRepositoryTest {
     void insertSubmission_uploadOverload_bindsSubmitterEmailAndPhone() {
         stubKeyHolder();
 
-        Long id = repo.insertSubmission("00012345", "00", "INB", "Y", 3,
-                "seller@example.com", "2505551234", "USER1");
+        Long id = repo.insertSubmission(new CspSubmissionRepository.NewSubmission(
+                "00012345", "00", "INB", "Y", 3, "seller@example.com", "2505551234"), "USER1");
 
         assertThat(id).isEqualTo(777L);
 
