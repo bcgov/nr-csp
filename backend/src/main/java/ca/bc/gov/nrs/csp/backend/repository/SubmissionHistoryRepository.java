@@ -35,11 +35,11 @@ import java.util.Optional;
  *
  * <p>Submitter name comes from {@code forest_client} and {@code submitted_by}
  * from {@code electronic_submission} (falling back to the submission's entry
- * user). The submission's own email and telephone are not yet columns on
- * {@code csp_submission} (a planned addition); until they exist the detail
- * returns them as null rather than borrowing the client's contact info from
- * {@code client_location}. The admin comment is the first non-null
- * {@code reviewer_notes} across the submission's invoices.</p>
+ * user). The submission's own email and telephone come from the
+ * {@code submitter_email} / {@code submitter_phone} columns on
+ * {@code csp_submission} (captured at submit time), not from the client's
+ * contact info in {@code client_location}. The admin comment is the first
+ * non-null {@code reviewer_notes} across the submission's invoices.</p>
  */
 @Repository
 public class SubmissionHistoryRepository {
@@ -96,12 +96,11 @@ public class SubmissionHistoryRepository {
                    sub.client_number                                                           AS client_number,
                    fc.client_name                                                              AS client_name,
                    sub.client_locn_code                                                        AS client_locn_code,
-                   -- email/telephone are not yet columns on csp_submission (planned addition);
-                   -- source them from sub.* once those columns exist. Null until then — do NOT
-                   -- fall back to client_location, which holds the client's contact info, not
-                   -- the submission's.
-                   NULL                                                                        AS email,
-                   NULL                                                                        AS telephone,
+                   -- The submitter's own contact details, captured on the submission at submit
+                   -- time. Do NOT fall back to client_location, which holds the client's contact
+                   -- info, not the submission's.
+                   sub.submitter_email                                                         AS email,
+                   sub.submitter_phone                                                         AS telephone,
                    sub.month_complete_ind                                                      AS month_complete_ind,
                    CASE WHEN EXISTS (
                             SELECT 1 FROM THE.coastal_log_sale s

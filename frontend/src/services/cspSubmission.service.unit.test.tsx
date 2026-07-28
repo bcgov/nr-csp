@@ -20,6 +20,8 @@ const EDITS: SubmissionEdits = {
   submissionClientLocnCode: '00',
   monthComplete: '2026-05',
   sellerSubmission: 'Seller',
+  email: 'seller@example.com',
+  telephone: '2505551234',
 };
 
 beforeEach(() => {
@@ -82,6 +84,8 @@ describe('cspSubmission endpoint fetchers', () => {
     expect(form.get('submissionClientLocnCode')).toBe(EDITS.submissionClientLocnCode);
     expect(form.get('monthComplete')).toBe(EDITS.monthComplete);
     expect(form.get('sellerSubmission')).toBe(EDITS.sellerSubmission);
+    expect(form.get('email')).toBe(EDITS.email);
+    expect(form.get('telephone')).toBe(EDITS.telephone);
   });
 });
 

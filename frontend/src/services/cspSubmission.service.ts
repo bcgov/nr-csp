@@ -95,14 +95,17 @@ const buildFormData = (file: File): FormData => {
 /**
  * The submission metadata the user can edit before submitting. Sent alongside the
  * file so the backend overrides the parsed values before validating and saving.
- * Email/telephone are omitted — they live only in the ESF envelope and have no
- * persisted home yet.
+ * Email/telephone originate in the ESF envelope but are editable on the form and
+ * are persisted on the submission, so they are sent too; a blank value lets the
+ * backend fall back to the parsed envelope value.
  */
 export interface SubmissionEdits {
   submissionClientNumber: string;
   submissionClientLocnCode: string;
   monthComplete: string;
   sellerSubmission: string;
+  email: string;
+  telephone: string;
 }
 
 /**
@@ -135,6 +138,8 @@ export const submitSubmission = (file: File, edits: SubmissionEdits): Promise<Su
   form.append('submissionClientLocnCode', edits.submissionClientLocnCode);
   form.append('monthComplete', edits.monthComplete);
   form.append('sellerSubmission', edits.sellerSubmission);
+  form.append('email', edits.email);
+  form.append('telephone', edits.telephone);
   return apiClient.post<SubmissionSubmitResponse>('/submissions/submit', form).then(({ data }) => data);
 };
 

@@ -43,6 +43,8 @@ import java.util.Locale;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -413,7 +415,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any())).willReturn(98765L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(98765L);
 
         mockMvc.perform(multipart("/api/submissions/submit")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -422,7 +424,7 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.submissionId").value(98765));
 
-        verify(persistenceService).persist(any());
+        verify(persistenceService).persist(any(), any(), any());
     }
 
     @Test
@@ -433,7 +435,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any())).willReturn(42L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(42L);
 
         mockMvc.perform(multipart("/api/submissions/submit")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes()))
@@ -445,7 +447,7 @@ class CspSubmissionControllerTest {
 
         // The exact tree that is persisted reflects the edits (validate == save).
         ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
-        verify(persistenceService).persist(captor.capture());
+        verify(persistenceService).persist(captor.capture(), any(), any());
         CSPSubmissionType saved = captor.getValue();
         assertThat(saved.getMonthComplete()).isEqualTo("N");
         assertThat(saved.getCSPSubmitter().getSubmissionClientNumber()).isEqualTo("00999999");
@@ -453,6 +455,62 @@ class CspSubmissionControllerTest {
         assertThat(saved.getCSPSubmitter().getSellerSubmission()).isEqualTo(SellerSubmissionType.N);
         // The same tree was the one business-validated.
         verify(validationService).validateBusiness(saved);
+    }
+
+    @Test
+    void submit_editedEmailAndTelephone_overrideEnvelopeAndArePersisted() throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any(), any(), any())).willReturn(11L);
+
+        // ESF envelope carries one set of contact details; the form fields carry edits.
+        String esf = """
+                <esf:ESFSubmission xmlns:esf="http://www.for.gov.bc.ca/schema/esf">
+                  <esf:submissionMetadata>
+                    <esf:emailAddress>mailto:parsed@example.com</esf:emailAddress>
+                    <esf:telephoneNumber>2500000000</esf:telephoneNumber>
+                  </esf:submissionMetadata>
+                </esf:ESFSubmission>""";
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", esf.getBytes()))
+                        .param("email", "edited@example.com")
+                        .param("telephone", "2505551234"))
+                .andExpect(status().isOk());
+
+        // The edited values win over the envelope values.
+        verify(persistenceService).persist(any(), eq("edited@example.com"), eq("2505551234"));
+    }
+
+    @Test
+    void submit_clearedContact_persistsNullAndDoesNotResurrectEnvelope() throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any(), any(), any())).willReturn(12L);
+
+        String esf = """
+                <esf:ESFSubmission xmlns:esf="http://www.for.gov.bc.ca/schema/esf">
+                  <esf:submissionMetadata>
+                    <esf:emailAddress>mailto:parsed@example.com</esf:emailAddress>
+                    <esf:telephoneNumber>2503878363</esf:telephoneNumber>
+                  </esf:submissionMetadata>
+                </esf:ESFSubmission>""";
+
+        // The form fields are the source of truth: cleared (blank) email/telephone are
+        // persisted as null — the envelope values are NOT resurrected.
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", esf.getBytes()))
+                        .param("email", "")
+                        .param("telephone", ""))
+                .andExpect(status().isOk());
+
+        verify(persistenceService).persist(any(), isNull(), isNull());
     }
 
     @Test
@@ -472,7 +530,7 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.submissionId").value(nullValue()))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.fob.required.error"));
 
-        verify(persistenceService, never()).persist(any());
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     @Test
@@ -494,7 +552,7 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("PARTIALLY_ACCEPTED"))
                 .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"));
 
-        verify(persistenceService, never()).persist(any());
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     @Test
@@ -513,7 +571,7 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.errors[0].messageKey").value("FORMAT_UNRECOGNIZED"));
 
         verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
-        verify(persistenceService, never()).persist(any());
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     @Test
@@ -522,7 +580,7 @@ class CspSubmissionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("UPLOAD_MISSING"));
 
-        verify(persistenceService, never()).persist(any());
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     // ---------- edge branches (direct invocation) ----------
@@ -560,7 +618,7 @@ class CspSubmissionControllerTest {
 
     @Test
     void submit_emptyFile_returns400Missing() {
-        var resp = controller().submit(file("empty.xml", new byte[0]), null, null, null, null);
+        var resp = controller().submit(file("empty.xml", new byte[0]), null, null, null, null, null, null);
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
         assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
     }
@@ -626,10 +684,10 @@ class CspSubmissionControllerTest {
 
     @Test
     void submit_nullFile_returns400Missing() {
-        var resp = controller().submit(null, null, null, null, null);
+        var resp = controller().submit(null, null, null, null, null, null, null);
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
         assertThat(resp.getBody().code()).isEqualTo("UPLOAD_MISSING");
-        verify(persistenceService, never()).persist(any());
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     @Test
@@ -638,10 +696,10 @@ class CspSubmissionControllerTest {
         given(file.isEmpty()).willReturn(false);
         given(file.getBytes()).willThrow(new IOException("boom"));
 
-        var resp = controller().submit(file, null, null, null, null);
+        var resp = controller().submit(file, null, null, null, null, null, null);
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
         assertThat(resp.getBody().code()).isEqualTo("UPLOAD_UNREADABLE");
-        verify(persistenceService, never()).persist(any());
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     @Test
@@ -650,10 +708,10 @@ class CspSubmissionControllerTest {
                 new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), null));
 
         var resp = controller().submit(
-                file("x.xml", "<csp:CSPSubmission/>".getBytes()), null, null, null, null);
+                file("x.xml", "<csp:CSPSubmission/>".getBytes()), null, null, null, null, null, null);
         assertThat(resp.getStatusCode().value()).isEqualTo(422);
         assertThat(resp.getBody().code()).isEqualTo("VALIDATION_ERROR");
-        verify(persistenceService, never()).persist(any());
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     @Test
@@ -667,14 +725,16 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), submission));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any())).willReturn(7L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(7L);
 
         var resp = controller().submit(
-                file("x.xml", "<csp:CSPSubmission/>".getBytes()), "00999999", "01", "Y", "Y");
+                file("x.xml", "<csp:CSPSubmission/>".getBytes()), "00999999", "01", "Y", "Y",
+                "seller@example.com", "2505551234");
         assertThat(resp.getStatusCode().value()).isEqualTo(200);
         // monthComplete edit still applied (it does not depend on the submitter).
         assertThat(submission.getMonthComplete()).isEqualTo("Y");
-        verify(persistenceService).persist(submission);
+        // The edited email/telephone are persisted alongside the tree.
+        verify(persistenceService).persist(submission, "seller@example.com", "2505551234");
     }
 
     @ParameterizedTest
@@ -685,11 +745,11 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any())).willReturn(1L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(1L);
 
         ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
-        controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), null, null, null, value);
-        verify(persistenceService).persist(captor.capture());
+        controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), null, null, null, value, null, null);
+        verify(persistenceService).persist(captor.capture(), any(), any());
 
         SellerSubmissionType seller = captor.getValue().getCSPSubmitter().getSellerSubmission();
         if ("Y".equals(value)) {
@@ -707,11 +767,11 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any())).willReturn(1L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(1L);
 
         ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
-        controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), "  ", "  ", "  ", "  ");
-        verify(persistenceService).persist(captor.capture());
+        controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), "  ", "  ", "  ", "  ", "  ", "  ");
+        verify(persistenceService).persist(captor.capture(), any(), any());
 
         // Blank edits do not overwrite the parsed values.
         CSPSubmissionType saved = captor.getValue();
