@@ -184,10 +184,20 @@ public class CspSubmissionController implements CspSubmissionApi {
 
         // Submitter email/telephone are not part of the parsed submission tree — they
         // live in the ESF envelope. The user can edit them on the form, so the edited
-        // value wins; when a field is left blank the parsed envelope value is used.
-        SubmissionEnvelopeStripper.SubmissionMetadata metadata = envelopeStripper.extractMetadata(xml);
-        String submitterEmail = hasText(email) ? email.trim() : metadata.email();
-        String submitterPhone = hasText(telephone) ? telephone.trim() : metadata.telephone();
+        // value wins; when a field is left blank we fall back to the parsed envelope value.
+        // The upload form normally resends both, so only re-parse the ESF envelope (a full
+        // DOM parse) when a fallback is actually needed — keeping it off the hot submit path.
+        String submitterEmail = hasText(email) ? email.trim() : null;
+        String submitterPhone = hasText(telephone) ? telephone.trim() : null;
+        if (submitterEmail == null || submitterPhone == null) {
+            SubmissionEnvelopeStripper.SubmissionMetadata metadata = envelopeStripper.extractMetadata(xml);
+            if (submitterEmail == null) {
+                submitterEmail = metadata.email();
+            }
+            if (submitterPhone == null) {
+                submitterPhone = metadata.telephone();
+            }
+        }
 
         Long submissionId = persistenceService.persist(submission, submitterEmail, submitterPhone);
         return ResponseEntity.ok(new SubmissionSubmitResponse(
