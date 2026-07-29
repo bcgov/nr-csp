@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -53,6 +54,7 @@ public class R13Service {
     private final DataSource dataSource;
     private final LookupService lookupService;
     private final SearchService searchService;
+    private final Clock clock;
 
     /** Cache of compiled JasperReport objects keyed by {@code templatePath:showOptionsBitmask}. */
     private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
@@ -65,10 +67,12 @@ public class R13Service {
 
     public R13Service(@org.springframework.beans.factory.annotation.Autowired(required = false) DataSource dataSource,
                       LookupService lookupService,
-                      SearchService searchService) {
+                      SearchService searchService,
+                      Clock clock) {
         this.dataSource = dataSource;
         this.lookupService = lookupService;
         this.searchService = searchService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R13ReportRequest request) {
@@ -78,7 +82,7 @@ public class R13Service {
         log.info("Generating R13 report format={}", format);
         String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
         String filename = String.format("R13_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
+                LocalDateTime.now(clock).format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
 
         R13ShowOptions showOptions = request.getShowOptions() != null
                 ? request.getShowOptions() : new R13ShowOptions();

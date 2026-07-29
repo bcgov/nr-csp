@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -27,10 +28,12 @@ public class R10Service {
 
     private final JasperServerService jasperServerService;
     private final SearchService searchService;
+    private final Clock clock;
 
-    public R10Service(JasperServerService jasperServerService, SearchService searchService) {
+    public R10Service(JasperServerService jasperServerService, SearchService searchService, Clock clock) {
         this.jasperServerService = jasperServerService;
         this.searchService = searchService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R10ReportRequest request) {
@@ -47,7 +50,7 @@ public class R10Service {
         }
 
         String filename = String.format("R10_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
+                LocalDateTime.now(clock).format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
                 request.getReportFormat().getExtension());
         return new ReportResult(data, filename);
     }

@@ -41,6 +41,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
@@ -103,7 +104,7 @@ class InvoiceServiceTest {
                 new UsernamePasswordAuthenticationToken(USER, null, List.of()));
 
         service = spy(new InvoiceService(invoiceRepo, lineItemRepo, submissionRepo,
-                participantRepo, commonValidation, priceConversionService, mapper));
+                participantRepo, commonValidation, priceConversionService, mapper, Clock.systemUTC()));
         validator = mock(InvoiceValidator.class);
         lenient().doReturn(validator).when(service).newValidator();
 

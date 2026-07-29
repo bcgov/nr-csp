@@ -16,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
@@ -33,7 +35,7 @@ class R11ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R11Service(jasperServerService);
+        service = new R11Service(jasperServerService, Clock.systemUTC());
     }
 
     private R11ReportRequest baseRequest() {

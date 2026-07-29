@@ -25,6 +25,7 @@ import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,7 +55,7 @@ class R13ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R13Service(dataSource, lookupService, searchService);
+        service = new R13Service(dataSource, lookupService, searchService, Clock.systemUTC());
         ReflectionTestUtils.setField(service, "r13TemplatePath", "/reports/R13.jrxml");
         ReflectionTestUtils.setField(service, "r13CsvTemplatePath", "/reports/R13_CSV.jrxml");
     }
@@ -360,7 +361,7 @@ class R13ServiceTest {
 
         @Test
         void shouldThrowReportGenerationException_whenNoDataSourceConfigured() {
-            R13Service noDbService = new R13Service(null, lookupService, searchService);
+            R13Service noDbService = new R13Service(null, lookupService, searchService, Clock.systemUTC());
             ReflectionTestUtils.setField(noDbService, "r13TemplatePath", "/reports/R13.jrxml");
             ReflectionTestUtils.setField(noDbService, "r13CsvTemplatePath", "/reports/R13_CSV.jrxml");
             R13ReportRequest req = baseRequest();
