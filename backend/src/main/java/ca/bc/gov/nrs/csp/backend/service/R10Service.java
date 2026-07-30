@@ -2,12 +2,11 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R10ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
-import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRunner;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
-import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R10Validator;
 import org.slf4j.Logger;
@@ -41,16 +40,8 @@ public class R10Service {
         String format = request.getReportFormat().getValue();
         log.info("Generating R10 report format={}", format);
 
-        Map<String, Object> params = buildParams(request);
-        params.put("RUN_OUTPUT_FORMAT", format);
-
-        byte[] data = jasperServerService.generateReport("R10", params);
-        if (data == null || data.length == 0) {
-            throw new ResourceNotFoundException("The R10 report returned no data.");
-        }
-
-        String filename = ReportFilenames.timestamped("R10", request.getReportFormat().getExtension(), clock);
-        return new ReportResult(data, filename);
+        return JasperReportRunner.run(jasperServerService, clock, "R10",
+                request.getReportFormat(), buildParams(request));
     }
 
     private void validate(R10ReportRequest r) {
