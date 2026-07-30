@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.LookupItem;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R13Validator;
 import net.sf.jasperreports.engine.*;
@@ -33,7 +34,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -81,8 +81,7 @@ public class R13Service {
         String format = request.getReportFormat().getValue();
         log.info("Generating R13 report format={}", format);
         String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
-        String filename = String.format("R13_%s.%s",
-                LocalDateTime.now(clock).format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
+        String filename = ReportFilenames.timestamped("R13", ext, clock);
 
         R13ShowOptions showOptions = request.getShowOptions() != null
                 ? request.getShowOptions() : new R13ShowOptions();

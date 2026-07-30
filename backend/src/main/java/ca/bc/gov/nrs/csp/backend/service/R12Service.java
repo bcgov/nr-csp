@@ -7,6 +7,7 @@ import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R12Validator;
 import org.slf4j.Logger;
@@ -15,7 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -47,9 +47,7 @@ public class R12Service {
             throw new ResourceNotFoundException("The R12 report returned no data.");
         }
 
-        String filename = String.format("R12_%s.%s",
-                LocalDateTime.now(clock).format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
-                request.getReportFormat().getExtension());
+        String filename = ReportFilenames.timestamped("R12", request.getReportFormat().getExtension(), clock);
         return new ReportResult(data, filename);
     }
 
