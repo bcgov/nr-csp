@@ -21,12 +21,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
@@ -63,7 +62,7 @@ class FlatPriceConversionControllerTest {
     private FlatPriceConversionResponse sampleResponse() {
         return new FlatPriceConversionResponse(
                 1L, "P", "S", "FD", "U", "A", 100,
-                LocalDate.of(1990, 1, 1), null, 1,
+                LocalDate.of(1990, Month.JANUARY, 1), null, 1,
                 null, null, null, null
         );
     }
@@ -154,10 +153,6 @@ class FlatPriceConversionControllerTest {
                 .andExpect(jsonPath("$.code").value("CONFLICT"));
     }
 
-    // ---------------------------------------------------------------
-    // PUT /api/flat-price-conversions/{id}
-    // ---------------------------------------------------------------
-
     @Test
     void update_validRequest_returns200() throws Exception {
         String body = """
@@ -199,13 +194,9 @@ class FlatPriceConversionControllerTest {
                 .andExpect(status().isConflict());
     }
 
-    // ---------------------------------------------------------------
-    // DELETE /api/flat-price-conversions/{id}
-    // ---------------------------------------------------------------
-
     @Test
     void delete_found_returns204() throws Exception {
-        willDoNothing().given(service).delete(anyLong());
+        willDoNothing().given(service).delete(any());
 
         mockMvc.perform(delete("/api/flat-price-conversions/1"))
                 .andExpect(status().isNoContent());
@@ -271,13 +262,9 @@ class FlatPriceConversionControllerTest {
                 .andExpect(status().isConflict());
     }
 
-    // ---------------------------------------------------------------
-    // DELETE /api/flat-price-conversions/clear/{modellingCode}
-    // ---------------------------------------------------------------
-
     @Test
     void clear_returns204() throws Exception {
-        willDoNothing().given(service).clearAll(anyString());
+        willDoNothing().given(service).clearAll(any());
 
         mockMvc.perform(delete("/api/flat-price-conversions/clear/M1"))
                 .andExpect(status().isNoContent());

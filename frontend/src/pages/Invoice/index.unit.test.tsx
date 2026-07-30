@@ -21,7 +21,7 @@ const h = vi.hoisted(() => {
     downloadBlob: vi.fn(),
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
-    usePermission: vi.fn(() => true),
+    usePermission: vi.fn((_action: string) => true),
     params: { id: undefined as string | undefined },
     invoiceQuery: { data: undefined as unknown, isLoading: false },
     mutations: {
@@ -125,7 +125,6 @@ const LINE_ITEM = {
   amount: 500,
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const makeInvoice = (overrides: Record<string, any> = {}) => ({
   invID: 1,
   invNumber: 'INV-001',
@@ -169,7 +168,6 @@ const renderPage = () => {
 };
 
 // Render an existing invoice and wait until it finishes loading (skeleton gone).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const renderLoaded = async (overrides: Record<string, any> = {}) => {
   h.params.id = '1';
   h.invoiceQuery = { data: makeInvoice(overrides), isLoading: false };

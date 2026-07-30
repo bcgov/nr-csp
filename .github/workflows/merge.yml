@@ -28,35 +28,67 @@ jobs:
     steps:
       # Get PR number for squash merges to main
       - id: pr
-        uses: bcgov/action-get-pr@3931962bf13b3f4702d0013ec7c836f752ff1a3b # v0.3.0
+        uses: bcgov/action-get-pr@28b0adf8e4d40720d41f9c87356ce24b0a4bd6af # v0.3.1
   deploy-test:
     name: TEST Deploys (${{ needs.init.outputs.pr }})
     needs: [init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
-      db_password: ${{ secrets.db_password }}
       oc_namespace: ${{ secrets.oc_namespace }}
       oc_token: ${{ secrets.oc_token }}
+      spring_datasource_url: ${{ secrets.spring_datasource_url }}
+      spring_datasource_username: ${{ secrets.spring_datasource_username }}
+      spring_datasource_password: ${{ secrets.spring_datasource_password }}
+      keystore_secret: ${{ secrets.keystore_secret }}
+      jasper_server_username: ${{ secrets.jasper_server_username }}
+      jasper_server_password: ${{ secrets.jasper_server_password }}
+      database_host: ${{ secrets.database_host }}
+      database_service_name: ${{ secrets.database_service_name }}
+      jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
+      jwt_issuer: ${{ secrets.jwt_issuer }}
+      jwt_audience: ${{ secrets.jwt_audience }}
+      jasper_server_login_url: ${{ secrets.jasper_server_login_url }}
+      jasper_server_fetch_url: ${{ secrets.jasper_server_fetch_url }}
+      jasper_server_put_url: ${{ secrets.jasper_server_put_url }}
+      jasper_server_report_uri_base: ${{ secrets.jasper_server_report_uri_base }}
     with:
       environment: test
       target: test
       tag: ${{ needs.init.outputs.pr }}
 
-  tests:
-    name: Tests
-    needs: [deploy-test]
-    uses: ./.github/workflows/reusable-tests.yml
-    with:
-      target: test
+  # Tests (reusable-tests.yml) are disabled: the integration suite
+  # (common/tests/integration) and Playwright e2e suite don't exist yet.
+  # Re-enable this job (and restore deploy-prod's needs) once they do:
+  #
+  # tests:
+  #   name: Tests
+  #   needs: [deploy-test]
+  #   uses: ./.github/workflows/reusable-tests.yml
+  #   with:
+  #     target: test
 
   deploy-prod:
     name: PROD Deploys (${{ needs.init.outputs.pr }})
-    needs: [tests, init]
+    needs: [deploy-test, init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
-      db_password: ${{ secrets.db_password }}
       oc_namespace: ${{ secrets.oc_namespace }}
       oc_token: ${{ secrets.oc_token }}
+      spring_datasource_url: ${{ secrets.spring_datasource_url }}
+      spring_datasource_username: ${{ secrets.spring_datasource_username }}
+      spring_datasource_password: ${{ secrets.spring_datasource_password }}
+      keystore_secret: ${{ secrets.keystore_secret }}
+      jasper_server_username: ${{ secrets.jasper_server_username }}
+      jasper_server_password: ${{ secrets.jasper_server_password }}
+      database_host: ${{ secrets.database_host }}
+      database_service_name: ${{ secrets.database_service_name }}
+      jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
+      jwt_issuer: ${{ secrets.jwt_issuer }}
+      jwt_audience: ${{ secrets.jwt_audience }}
+      jasper_server_login_url: ${{ secrets.jasper_server_login_url }}
+      jasper_server_fetch_url: ${{ secrets.jasper_server_fetch_url }}
+      jasper_server_put_url: ${{ secrets.jasper_server_put_url }}
+      jasper_server_report_uri_base: ${{ secrets.jasper_server_report_uri_base }}
     with:
       environment: prod
       target: prod
@@ -75,7 +107,7 @@ jobs:
       contents: read
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bcgov/action-sysdig-monitor@122c7672e37f97cf27c1b17d1c0738f152b1bcf7 # 0.0.2
         with:
           sysdig_api_token: ${{ secrets.SYSDIG_API_TOKEN }}
@@ -90,7 +122,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        package: [migrations, backend, frontend]
+        package: [backend, frontend]
     timeout-minutes: 1
     steps:
       - uses: shrink/actions-docker-registry-tag@e6aaef25c595b6e0edd18bf4c7dbfea3abd43299 # v5

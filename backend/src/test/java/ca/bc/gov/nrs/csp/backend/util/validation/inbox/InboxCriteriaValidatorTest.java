@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.Month;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -46,28 +47,28 @@ class InboxCriteriaValidatorTest {
 
     @Test
     void validate_onlyFromDate_isValid() {
-        assertThat(validateDates(LocalDate.of(2024, 1, 1), null).isValid()).isTrue();
+        assertThat(validateDates(LocalDate.of(2024, Month.JANUARY, 1), null).isValid()).isTrue();
     }
 
     @Test
     void validate_onlyToDate_isValid() {
-        assertThat(validateDates(null, LocalDate.of(2024, 12, 31)).isValid()).isTrue();
+        assertThat(validateDates(null, LocalDate.of(2024, Month.DECEMBER, 31)).isValid()).isTrue();
     }
 
     @Test
     void validate_fromBeforeTo_isValid() {
-        assertThat(validateDates(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31)).isValid()).isTrue();
+        assertThat(validateDates(LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31)).isValid()).isTrue();
     }
 
     @Test
     void validate_fromEqualsTo_isValid() {
-        LocalDate same = LocalDate.of(2024, 6, 15);
+        LocalDate same = LocalDate.of(2024, Month.JUNE, 15);
         assertThat(validateDates(same, same).isValid()).isTrue();
     }
 
     @Test
     void validate_fromAfterTo_hasErrorWithCorrectKey() {
-        ValidationResult result = validateDates(LocalDate.of(2024, 2, 1), LocalDate.of(2024, 1, 1));
+        ValidationResult result = validateDates(LocalDate.of(2024, Month.FEBRUARY, 1), LocalDate.of(2024, Month.JANUARY, 1));
 
         assertThat(result.hasErrors()).isTrue();
         assertThat(result.errors()).hasSize(1);
@@ -157,7 +158,7 @@ class InboxCriteriaValidatorTest {
     }
 
     // ---------------------------------------------------------------
-    // Invoice Number max length
+    // Invoice Number max length (wildcards count toward the 15-char limit)
     // ---------------------------------------------------------------
 
     @Test
@@ -189,7 +190,7 @@ class InboxCriteriaValidatorTest {
         given(lookupRepository.existsSubmissionStatusCode(anyString())).willReturn(false);
 
         ValidationResult result = validator.validate(
-                LocalDate.of(2024, 2, 1), LocalDate.of(2024, 1, 1), // date reversed
+                LocalDate.of(2024, Month.FEBRUARY, 1), LocalDate.of(2024, Month.JANUARY, 1), // date reversed
                 "BadRole",                                            // bad submittedBy
                 null, "GARBAGE", null, null, null);                   // bad status
 
@@ -232,9 +233,9 @@ class InboxCriteriaValidatorTest {
 
     @Test
     void validate_calledTwice_secondCallDoesNotInheritFirstCallErrors() {
-        validator.validate(LocalDate.of(2024, 2, 1), LocalDate.of(2024, 1, 1),
+        validator.validate(LocalDate.of(2024, Month.FEBRUARY, 1), LocalDate.of(2024, Month.JANUARY, 1),
                 null, null, null, null, null, null);
-        ValidationResult second = validator.validate(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31),
+        ValidationResult second = validator.validate(LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31),
                 null, null, null, null, null, null);
 
         assertThat(second.isValid()).isTrue();

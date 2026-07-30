@@ -161,8 +161,9 @@ class R12ServiceTest {
 
             Map<String, Object> params = capturedParams(r);
 
-            assertThat(params).containsEntry("INVOICE_DATE_FROM", "20200101");
-            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200331");
+            assertThat(params)
+                    .containsEntry("INVOICE_DATE_FROM", "20200101")
+                    .containsEntry("INVOICE_DATE_TO", "20200331");
         }
 
         @Test
@@ -173,8 +174,9 @@ class R12ServiceTest {
 
             Map<String, Object> params = capturedParams(r);
 
-            assertThat(params).containsEntry("INVOICE_DATE_FROM", "20200101");
-            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200331");
+            assertThat(params)
+                    .containsEntry("INVOICE_DATE_FROM", "20200101")
+                    .containsEntry("INVOICE_DATE_TO", "20200331");
         }
 
         @Test

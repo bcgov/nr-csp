@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import * as service from '@/services/flatPriceConversion.service';
@@ -64,6 +64,7 @@ const renderPage = () => {
 
 describe('FlatPriceConversionPage', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     vi.mocked(service.useSearchFlatPriceConversionsQuery).mockReturnValue({
       data: SAMPLE_ROWS,
       isLoading: false,
@@ -79,6 +80,10 @@ describe('FlatPriceConversionPage', () => {
     vi.mocked(lookup.useSpeciesLookupQuery).mockReturnValue({ data: [], isLoading: false } as any);
     vi.mocked(lookup.useGradeLookupQuery).mockReturnValue({ data: [], isLoading: false } as any);
     vi.mocked(lookup.useGradesBySpeciesLookupQuery).mockReturnValue({ data: [], isLoading: false } as any);
+  });
+
+  afterEach(() => {
+    window.sessionStorage.clear();
   });
 
   it('renders the page title', () => {
@@ -204,5 +209,37 @@ describe('FlatPriceConversionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /export table/i }));
     fireEvent.click(await screen.findByRole('menuitem', { name: /export as pdf/i }));
     expect(mutateMock).toHaveBeenCalledWith(expect.objectContaining({ format: 'pdf' }), expect.any(Object));
+  });
+
+  it('restores filters, search params, and pagination from sessionStorage on mount', async () => {
+    window.sessionStorage.setItem('csp.table.flatPriceConversion.v1.filterSpecies', JSON.stringify('FD'));
+    window.sessionStorage.setItem('csp.table.flatPriceConversion.v1.page', '2');
+    window.sessionStorage.setItem(
+      'csp.table.flatPriceConversion.v1.searchParams',
+      JSON.stringify({ modellingCode: 'P', species: 'FD' }),
+    );
+
+    vi.mocked(lookup.useSpeciesLookupQuery).mockReturnValue({
+      data: [{ code: 'FD', description: 'Douglas Fir' }],
+      isLoading: false,
+    } as any);
+
+    const manyRows: service.FlatPriceConversionResponse[] = Array.from({ length: 25 }, (_, i) => ({
+      ...SAMPLE_ROWS[0],
+      id: i + 1,
+    }));
+    vi.mocked(service.useSearchFlatPriceConversionsQuery).mockReturnValue({
+      data: manyRows,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as any);
+
+    renderPage();
+
+    const pageSelect = await screen.findByLabelText(/page of \d+ pages/i);
+    expect((pageSelect as HTMLSelectElement).value).toBe('2');
+
+    expect(await screen.findByDisplayValue(/Douglas Fir/i)).toBeInTheDocument();
   });
 });

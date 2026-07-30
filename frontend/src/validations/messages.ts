@@ -63,6 +63,19 @@ export const INVOICE_LINE_ITEM_MESSAGES: Record<string, string> = {
   'invoice.client.price.negative.error': 'Price cannot be negative.',
 };
 
+// CSP submission metadata (upload form) — client-side structural checks on the
+// editable header fields, surfaced inline the same way the report filters are.
+export const SUBMISSION_MESSAGES: Record<string, string> = {
+  'submission.client.clientnumber.required.error': 'Submission client number is required.',
+  'submission.client.clientnumber.pattern.error': 'Submission client number must be exactly 8 digits.',
+  'submission.client.locationcode.required.error': 'Submission client location code is required.',
+  'submission.client.locationcode.pattern.error': 'Submission client location code must be exactly 2 digits.',
+  'submission.client.monthcomplete.required.error': 'Month complete is required.',
+  'submission.client.monthcomplete.pattern.error': 'Month complete must be Y or N.',
+  'submission.client.sellersubmission.required.error': 'Seller submission is required.',
+  'submission.client.sellersubmission.pattern.error': 'Seller submission must be Y or N.',
+};
+
 export const ALL_MESSAGES: Record<string, string> = {
   ...DATE_MESSAGES,
   ...NUMBER_MESSAGES,
@@ -70,4 +83,5 @@ export const ALL_MESSAGES: Record<string, string> = {
   ...REPORT_MESSAGES,
   ...INVOICE_MESSAGES,
   ...INVOICE_LINE_ITEM_MESSAGES,
+  ...SUBMISSION_MESSAGES,
 };

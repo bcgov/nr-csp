@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.ValidationMessageResponse;
+import ca.bc.gov.nrs.csp.backend.invoice.shared.rules.SourceDocuments;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.springframework.context.MessageSource;
@@ -51,9 +52,9 @@ public class InvoiceMapper {
                 req.otherClientName(),
                 req.otherClientCity(),
                 req.otherClientProvState(),
-                req.boomNumbers() == null ? List.of() : req.boomNumbers(),
-                req.timberMarks() == null ? List.of() : req.timberMarks(),
-                req.weightSlips() == null ? List.of() : req.weightSlips(),
+                dedupSourceDocuments(req.boomNumbers()),
+                dedupSourceDocuments(req.timberMarks()),
+                dedupSourceDocuments(req.weightSlips()),
                 req.replaceInvNum(),
                 req.adjustInvNum(),
                 req.reviewComments(),
@@ -86,15 +87,24 @@ public class InvoiceMapper {
                 req.otherClientName(),
                 req.otherClientCity(),
                 req.otherClientProvState(),
-                req.boomNumbers() == null ? List.of() : req.boomNumbers(),
-                req.timberMarks() == null ? List.of() : req.timberMarks(),
-                req.weightSlips() == null ? List.of() : req.weightSlips(),
+                dedupSourceDocuments(req.boomNumbers()),
+                dedupSourceDocuments(req.timberMarks()),
+                dedupSourceDocuments(req.weightSlips()),
                 req.replaceInvNum(),
                 req.adjustInvNum(),
                 req.reviewComments(),
                 req.submitComments(),
                 existingEntryUserID
         );
+    }
+
+    /**
+     * I31 de-duplication at the domain-model boundary, delegated to the shared
+     * {@link SourceDocuments#dedup(List)} in {@code invoice.shared.rules} so the logic
+     * lives with the other invoice rules.
+     */
+    private static List<String> dedupSourceDocuments(List<String> values) {
+        return SourceDocuments.dedup(values);
     }
 
     public LineItem toLineItem(LineItemRequest req, Long invoiceId) {

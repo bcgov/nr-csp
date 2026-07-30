@@ -36,11 +36,12 @@ public class InboxController implements InboxApi {
             String invoiceNum,
             String submitterClientNum,
             String submitterLocNum,
+            String keyword,
             Pageable pageable) {
 
-        log.info("GET /api/inbox submissionDateFrom={} submissionDateTo={} submittedBy={} submissionType={} submissionStatus={} invoiceNum={} submitterClientNum={} page={} size={} sort={}",
+        log.info("GET /api/inbox submissionDateFrom={} submissionDateTo={} submittedBy={} submissionType={} submissionStatus={} invoiceNum={} submitterClientNum={} keyword={} page={} size={} sort={}",
                 submissionDateFrom, submissionDateTo, submittedBy, submissionType, submissionStatus,
-                invoiceNum, submitterClientNum,
+                invoiceNum, submitterClientNum, keyword,
                 pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
 
         return ResponseEntity.ok(
@@ -54,6 +55,7 @@ public class InboxController implements InboxApi {
                                 invoiceNum,
                                 submitterClientNum,
                                 submitterLocNum,
+                                keyword,
                                 pageable)));
     }
 }

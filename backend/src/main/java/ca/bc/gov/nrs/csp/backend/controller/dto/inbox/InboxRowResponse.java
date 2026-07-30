@@ -5,6 +5,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 
 public record InboxRowResponse(
+        @Schema(description = "Invoice ID (coastal_log_sale_id) for navigation to the invoice detail page.")
+        Long coastalLogSaleId,
+
         @Schema(description = "Electronic submission ID. Null/blank for Manual submissions.")
         String submissionId,
 

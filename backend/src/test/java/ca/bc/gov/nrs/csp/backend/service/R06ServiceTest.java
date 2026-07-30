@@ -16,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.Map;
@@ -208,6 +210,104 @@ class R06ServiceTest {
             assertThatThrownBy(() -> service.generateReport(r))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("R06");
+        }
+
+        @Test
+        void shouldThrowResourceNotFound_whenJasperReturnsNull() {
+            R06ReportRequest r = baseRequest();
+            given(jasperServerService.generateReport(eq("R06"), any())).willReturn(null);
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("R06");
+        }
+    }
+
+    @Nested
+    @DisplayName("buildParams()")
+    class BuildParams {
+
+        private Map<String, Object> capturedParams() {
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            verify(jasperServerService).generateReport(eq("R06"), captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        void shouldIncludeAllOptionalCriteriaInParams() {
+            R06ReportRequest r = baseRequest();
+            r.setSellerClientNumber("00000001");
+            r.setSellerLocCode("00");
+            r.setBuyerClientNumber("00000002");
+            r.setBuyerLocCode("01");
+            r.setSubmissionId(1234567890L);
+            r.setMaturityCodes("C,M");
+            r.setLogSaleEntryStatusCode("A");
+            r.setCspInvoiceTypeCode("S");
+            given(searchService.findClientsByNumber("00000001")).willReturn(List.of(ACME));
+            given(searchService.findClientsByNumber("00000002")).willReturn(List.of(ACME));
+            given(jasperServerService.generateReport(eq("R06"), any())).willReturn(new byte[]{1});
+
+            service.generateReport(r);
+
+            Map<String, Object> params = capturedParams();
+            assertThat(params)
+                    .containsEntry("INVOICE_FROM", "20200101")
+                    .containsEntry("INVOICE_TO", "20200131")
+                    .containsEntry("SELLER_CLIENT_NUMBER", "00000001")
+                    .containsEntry("SELLER_CLIENT_LOC_CODE", "00")
+                    .containsEntry("BUYER_CLIENT_NUMBER", "00000002")
+                    .containsEntry("BUYER_CLIENT_LOC_CODE", "01")
+                    .containsEntry("SUBMISSION_ID", 1234567890L)
+                    .containsEntry("LOG_SALE_TYPE_CODE_MATURITY", "C,M")
+                    .containsEntry("LOG_SALE_ENTRY_STATUS_CODE", "A")
+                    .containsEntry("CSP_INVOICE_TYPE_CODE", "S")
+                    .containsEntry("RUN_OUTPUT_FORMAT", "PDF");
+        }
+
+        @Test
+        void shouldOmitOptionalCriteriaAndUserId_whenNotProvided() {
+            R06ReportRequest r = baseRequest();
+            given(jasperServerService.generateReport(eq("R06"), any())).willReturn(new byte[]{1});
+
+            service.generateReport(r);
+
+            Map<String, Object> params = capturedParams();
+            assertThat(params).doesNotContainKeys(
+                    "SELLER_CLIENT_NUMBER", "SELLER_CLIENT_LOC_CODE",
+                    "BUYER_CLIENT_NUMBER", "BUYER_CLIENT_LOC_CODE",
+                    "SUBMISSION_ID", "CLIENT_INVOICE_NO",
+                    "LOG_SALE_TYPE_CODE_MATURITY", "LOG_SALE_ENTRY_STATUS_CODE",
+                    "CSP_INVOICE_TYPE_CODE", "USER_ID");
+        }
+
+        @Test
+        void shouldUseRequestUserId_whenNoAuthenticatedUser() {
+            R06ReportRequest r = baseRequest();
+            r.setUserId("CLIENTUSER");
+            given(jasperServerService.generateReport(eq("R06"), any())).willReturn(new byte[]{1});
+
+            service.generateReport(r);
+
+            assertThat(capturedParams()).containsEntry("USER_ID", "CLIENTUSER");
+        }
+
+        @Test
+        void shouldPreferAuthenticatedUser_overRequestUserId() {
+            R06ReportRequest r = baseRequest();
+            r.setUserId("CLIENTUSER");
+            given(jasperServerService.generateReport(eq("R06"), any())).willReturn(new byte[]{1});
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("JDOE", null, List.of()));
+
+            try {
+                service.generateReport(r);
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
+
+            assertThat(capturedParams()).containsEntry("USER_ID", "JDOE");
         }
     }
 }

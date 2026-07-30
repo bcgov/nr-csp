@@ -14,6 +14,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import java.util.List;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -28,7 +29,7 @@ class LookupServiceCachingTest {
     static class TestConfig {
         @Bean
         LookupRepository lookupRepository() {
-            return Mockito.mock(LookupRepository.class);
+            return mock(LookupRepository.class);
         }
     }
 

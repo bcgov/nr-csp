@@ -18,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,8 +49,8 @@ class SearchServiceTest {
     @Test
     void search_startDateAfterEndDate_throwsBadRequest() {
         SearchCriteria criteria = criteriaWith(
-                LocalDate.of(2024, 2, 1),
-                LocalDate.of(2024, 1, 1)
+                LocalDate.of(2024, Month.FEBRUARY, 1),
+                LocalDate.of(2024, Month.JANUARY, 1)
         );
 
         assertThatThrownBy(() -> searchService.search(criteria, PAGE))
@@ -59,7 +60,7 @@ class SearchServiceTest {
 
     @Test
     void search_startDateEqualsEndDate_doesNotThrow() {
-        LocalDate same = LocalDate.of(2024, 1, 15);
+        LocalDate same = LocalDate.of(2024, Month.JANUARY, 15);
         SearchCriteria criteria = criteriaWith(same, same);
         given(searchRepository.search(any(), any())).willReturn(emptyPage());
 
@@ -98,7 +99,7 @@ class SearchServiceTest {
     @Test
     void search_validCriteria_returnsRepositoryResults() {
         SearchResult result = new SearchResult(200456L, 1L, null, "APP", "WFP521046",
-                LocalDate.of(2024, 1, 31), "SAL", "014963285", "ACME LOGGING LTD", "O", "ESF");
+                LocalDate.of(2024, Month.JANUARY, 31), "SAL", "014963285", "ACME LOGGING LTD", "O", "ESF");
         given(searchRepository.search(any(), any())).willReturn(new PageImpl<>(List.of(result), PAGE, 1));
 
         Page<SearchResult> results = searchService.search(emptyCriteria(), PAGE);

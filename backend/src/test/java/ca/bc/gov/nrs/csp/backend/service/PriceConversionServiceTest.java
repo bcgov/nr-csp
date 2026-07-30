@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,7 +36,7 @@ class PriceConversionServiceTest {
     @InjectMocks
     PriceConversionService service;
 
-    private static final LocalDate INV_DATE = LocalDate.of(2026, 1, 15);
+    private static final LocalDate INV_DATE = LocalDate.of(2026, Month.JANUARY, 15);
 
     @BeforeEach
     void defaultGrouping() {
@@ -98,7 +99,7 @@ class PriceConversionServiceTest {
         service.apply(List.of(line(1, "SORT01", "FIR", "1", "5", "100")), "M", INV_DATE);
 
         // 'M' must be translated to 'O' for the factor lookup.
-        verify(factorRepo).findApplicableFactor(eq("O"), eq("SORT01"), eq("FIR"), eq("1"), eq(INV_DATE));
+        verify(factorRepo).findApplicableFactor("O", "SORT01", "FIR", "1", INV_DATE);
     }
 
     @Test

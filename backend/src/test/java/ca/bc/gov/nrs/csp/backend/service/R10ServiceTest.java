@@ -17,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.Map;
@@ -188,8 +190,9 @@ class R10ServiceTest {
 
             Map<String, Object> params = capturedParams(r);
 
-            assertThat(params).containsEntry("INVOICE_DATE_FROM", "20200101");
-            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200331");
+            assertThat(params)
+                    .containsEntry("INVOICE_DATE_FROM", "20200101")
+                    .containsEntry("INVOICE_DATE_TO", "20200331");
         }
 
         @Test
@@ -200,8 +203,9 @@ class R10ServiceTest {
 
             Map<String, Object> params = capturedParams(r);
 
-            assertThat(params).containsEntry("INVOICE_DATE_FROM", "20200101");
-            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200331");
+            assertThat(params)
+                    .containsEntry("INVOICE_DATE_FROM", "20200101")
+                    .containsEntry("INVOICE_DATE_TO", "20200331");
         }
 
         @Test
@@ -251,6 +255,106 @@ class R10ServiceTest {
             assertThatThrownBy(() -> service.generateReport(r))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("R10");
+        }
+
+        @Test
+        void shouldThrowResourceNotFound_whenJasperReturnsNull() {
+            R10ReportRequest r = baseRequest();
+            r.setDateTo("20201231");
+            given(jasperServerService.generateReport(eq("R10"), any())).willReturn(null);
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("R10");
+        }
+    }
+
+    @Nested
+    @DisplayName("buildParams() optional criteria")
+    class OptionalCriteria {
+
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> capturedParams(R10ReportRequest r) {
+            given(jasperServerService.generateReport(eq("R10"), any())).willReturn(new byte[]{1});
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R10"), captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        void shouldIncludeAllOptionalCriteria_whenProvided() {
+            R10ReportRequest r = baseRequest();
+            r.setDateTo("20201231");
+            r.setSellerClientNumber("00000001");
+            r.setSellerLocnCode("00");
+            r.setBuyerClientNumber("00000002");
+            r.setBuyerLocnCode("01");
+            r.setMaturityCodes("M,I");
+            r.setInvoiceTypeCode("SI");
+            given(searchService.findClientsByNumber("00000001")).willReturn(List.of(ACME));
+            given(searchService.findClientsByNumber("00000002")).willReturn(List.of(ACME));
+
+            Map<String, Object> params = capturedParams(r);
+
+            assertThat(params)
+                    .containsEntry("SELLER_CLIENT_NUMBER", "00000001")
+                    .containsEntry("SELLER_LOCN_CODE", "00")
+                    .containsEntry("BUYER_CLIENT_NUMBER", "00000002")
+                    .containsEntry("BUYER_LOCN_CODE", "01")
+                    .containsEntry("MATURITY", "M,I")
+                    .containsEntry("INVOICE_TYPE_CODE", "SI");
+        }
+
+        @Test
+        void shouldOmitOptionalCriteria_whenNotProvided() {
+            R10ReportRequest r = baseRequest();
+            r.setDateTo("20201231");
+
+            Map<String, Object> params = capturedParams(r);
+
+            assertThat(params)
+                    .doesNotContainKeys("SELLER_CLIENT_NUMBER", "SELLER_LOCN_CODE",
+                            "BUYER_CLIENT_NUMBER", "BUYER_LOCN_CODE",
+                            "MATURITY", "INVOICE_TYPE_CODE", "TIME_FRAME", "USER_ID");
+        }
+
+        @Test
+        void shouldIncludeTimeFrameParam_whenProvided() {
+            R10ReportRequest r = baseRequest();
+            r.setTimeFrame("3");
+
+            Map<String, Object> params = capturedParams(r);
+
+            assertThat(params).containsEntry("TIME_FRAME", "3");
+        }
+
+        @Test
+        void shouldUseRequestUserId_whenNoAuthenticatedUser() {
+            R10ReportRequest r = baseRequest();
+            r.setDateTo("20201231");
+            r.setUserId("REQUEST_USER");
+
+            Map<String, Object> params = capturedParams(r);
+
+            assertThat(params).containsEntry("USER_ID", "REQUEST_USER");
+        }
+
+        @Test
+        void shouldPreferAuthenticatedUser_overRequestUserId() {
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("IDIR_USER", null, List.of()));
+            try {
+                R10ReportRequest r = baseRequest();
+                r.setDateTo("20201231");
+                r.setUserId("REQUEST_USER");
+
+                Map<String, Object> params = capturedParams(r);
+
+                assertThat(params).containsEntry("USER_ID", "IDIR_USER");
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
         }
     }
 }

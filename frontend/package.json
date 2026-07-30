@@ -7,9 +7,6 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "generate-amplify-config": "node --env-file-if-exists=../.env scripts/generate-amplify-config.mjs",
-    "prestart": "npm run generate-amplify-config",
-    "prebuild": "npm run generate-amplify-config",
     "start": "vite",
     "build": "cross-env CI=false vite build",
     "preview": "vite preview",
@@ -17,8 +14,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,json}\"",
     "test": "vitest",
     "test:unit": "vitest --project node",
-    "test:browser": "vitest --project browser",
-    "test:coverage": "vitest run --coverage",
+    "test:browser": "cross-env VITEST_BROWSER_ENABLED=true vitest --project browser",
+    "test:coverage": "vitest run --coverage --project node",
     "test:ci": "vitest run --ci"
   },
   "dependencies": {

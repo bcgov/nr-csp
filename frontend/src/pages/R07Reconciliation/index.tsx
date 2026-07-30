@@ -20,7 +20,6 @@ import {
 } from '@/services/lookup.service';
 import { useR07ReportMutation } from '@/services/r07.service';
 import {
-  type SelectItem,
   TIME_FRAME_ITEMS,
   formatDate,
   formatYearMonth,
@@ -177,7 +176,7 @@ export function R07ReconciliationPage() {
           <DateInput
             id="reporting-year-month"
             labelText={<RequiredLabel>Year / month</RequiredLabel>}
-            dateFormat="Y/m"
+            dateFormat="Y-m"
             onChange={(dates) => setReportingYearMonth(dates[0] ?? null)}
           />
         </Column>
@@ -361,7 +360,7 @@ export function R07ReconciliationPage() {
           <DateInput
             id="submission-year-month"
             labelText={<RequiredLabel>Year / month</RequiredLabel>}
-            dateFormat="Y/m"
+            dateFormat="Y-m"
             onChange={(dates) => setSubmissionYearMonth(dates[0] ?? null)}
           />
         </Column>

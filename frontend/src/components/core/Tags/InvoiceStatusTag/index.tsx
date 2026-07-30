@@ -7,60 +7,44 @@ export type InvoiceStatusTagProps = {
   status: string;
 };
 
-const APPROVED_STATUSES = new Set(['APP', 'Approved']);
-
-type TagType =
-  | 'red'
-  | 'magenta'
-  | 'purple'
-  | 'blue'
-  | 'cyan'
-  | 'teal'
-  | 'green'
-  | 'gray'
-  | 'cool-gray'
-  | 'warm-gray'
-  | 'high-contrast'
-  | 'outline';
-
-const STATUS_COLOUR_MAP: Record<string, TagType> = {
+// Maps a status code or its backend description to the pill colour modifier.
+const STATUS_KEY_MAP: Record<string, string> = {
   // By code
-  APP: 'green',
-  VER: 'teal',
-  PRO: 'blue',
-  DFT: 'gray',
-  UNA: 'cool-gray',
-  CAN: 'warm-gray',
-  REJ: 'red',
-  DVF: 'purple',
+  PRO: 'processing',
+  UNA: 'unapproved',
+  APP: 'approved',
+  CAN: 'cancelled',
+  DFT: 'draft',
+  DVF: 'deverified',
+  REJ: 'rejected',
+  VER: 'verified',
   // By description (returned by backend)
-  Approved: 'green',
-  Verified: 'teal',
-  Processing: 'blue',
-  Draft: 'gray',
-  Unapproved: 'cool-gray',
-  Cancelled: 'warm-gray',
-  Rejected: 'red',
-  Deverified: 'purple',
+  Processing: 'processing',
+  Unapproved: 'unapproved',
+  Approved: 'approved',
+  Cancelled: 'cancelled',
+  Draft: 'draft',
+  Deverified: 'deverified',
+  Rejected: 'rejected',
+  Verified: 'verified',
 };
 
 /**
- * Displays an invoice status as a coloured Carbon Tag.
+ * Displays an invoice status as a coloured Carbon Tag pill.
  * Accepts either the status code (e.g. "APP") or its description (e.g. "Approved").
  * Falls back to a neutral gray tag for any unrecognised status.
  *
  * @param {InvoiceStatusTagProps} props - Component props.
  * @param {string} props.status - The status code or description to display.
- * @returns {JSX.Element} A coloured tag representing the invoice status.
+ * @returns {JSX.Element} A coloured pill representing the invoice status.
  */
-const InvoiceStatusTag: FC<InvoiceStatusTagProps> = ({ status }) => (
-  <Tag
-    type={STATUS_COLOUR_MAP[status] ?? 'gray'}
-    size="sm"
-    className={`invoice-status-tag${APPROVED_STATUSES.has(status) ? ' invoice-status-tag--approved' : ''}`}
-  >
-    {status}
-  </Tag>
-);
+const InvoiceStatusTag: FC<InvoiceStatusTagProps> = ({ status }) => {
+  const key = STATUS_KEY_MAP[status];
+  return (
+    <Tag type="gray" size="sm" className={`invoice-status-tag${key ? ` invoice-status-tag--${key}` : ''}`}>
+      {status}
+    </Tag>
+  );
+};
 
 export default InvoiceStatusTag;

@@ -25,9 +25,9 @@ import java.util.List;
 public class SortCodeExportService {
 
     private static final String[] HEADERS = {
-        "Sort Code", "Description", "Effective Date", "Expiry Date", "Update Timestamp"
+        "Sort Code", "Description", "Effective Date", "Expiry Date"
     };
-    private static final float[] COLUMN_WIDTHS = {1f, 5f, 2f, 2f, 2f};
+    private static final float[] COLUMN_WIDTHS = {1f, 5f, 2f, 2f};
     private static final String FILENAME_BASE = "Sortcodes";
 
     private final SortCodeService sortCodeService;
@@ -79,7 +79,6 @@ public class SortCodeExportService {
                 addCell(table, sc.description(), cellFont);
                 addCell(table, dateStr(sc.effectiveDate()), cellFont);
                 addCell(table, dateStr(sc.expiryDate()), cellFont);
-                addCell(table, dateStr(sc.updateTimestamp()), cellFont);
             }
 
             document.add(table);
@@ -92,13 +91,12 @@ public class SortCodeExportService {
 
     private byte[] generateCsv(List<SortCode> sortCodes) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Sort Code,Description,Effective Date,Expiry Date,Update Timestamp\n");
+        sb.append("Sort Code,Description,Effective Date,Expiry Date\n");
         for (SortCode sc : sortCodes) {
             sb.append(csvField(sc.sortCode())).append(',')
               .append(csvField(sc.description())).append(',')
               .append(dateStr(sc.effectiveDate())).append(',')
-              .append(dateStr(sc.expiryDate())).append(',')
-              .append(dateStr(sc.updateTimestamp())).append('\n');
+              .append(dateStr(sc.expiryDate())).append('\n');
         }
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }

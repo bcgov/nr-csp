@@ -18,11 +18,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
@@ -62,7 +62,7 @@ class InvoiceControllerTest {
 
     private InvoiceResponse sampleResponse() {
         return new InvoiceResponse(
-                1L, 10L, 67890L, "INV-001", LocalDate.of(2026, 1, 15), "DFT", "SAL", "M", "FOB01", "SORT01",
+                1L, 10L, 67890L, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), "DFT", "SAL", "M", "FOB01", "SORT01",
                 new BigDecimal("100.00"), 10, new BigDecimal("5.0"),
                 "1234", "00", "Seller", "1234", "00",
                 "5678", "00", "ABC Logging", "Nanaimo", "BC",
@@ -80,10 +80,6 @@ class InvoiceControllerTest {
     private static final String VALID_LINE_ITEM_BODY = """
             {"secondSort":"SORT01","species":"SP1","grade":"G1","numOfPieces":50,"price":25.00,"volume":6.25}
             """;
-
-    // ---------------------------------------------------------------
-    // GET /api/invoices/{id}
-    // ---------------------------------------------------------------
 
     @Test
     void getById_returns200WithInvoice() throws Exception {
@@ -146,10 +142,6 @@ class InvoiceControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // ---------------------------------------------------------------
-    // PUT /api/invoices/{id}
-    // ---------------------------------------------------------------
-
     @Test
     void update_validRequest_returns200() throws Exception {
         given(invoiceService.update(eq(1L), any())).willReturn(sampleResponse());
@@ -191,13 +183,9 @@ class InvoiceControllerTest {
                 .andExpect(jsonPath("$.code").value("CONFLICT"));
     }
 
-    // ---------------------------------------------------------------
-    // DELETE /api/invoices/{id}
-    // ---------------------------------------------------------------
-
     @Test
     void delete_returns204() throws Exception {
-        willDoNothing().given(invoiceService).delete(anyLong());
+        willDoNothing().given(invoiceService).delete(any());
 
         mockMvc.perform(delete("/api/invoices/1"))
                 .andExpect(status().isNoContent());
@@ -336,10 +324,6 @@ class InvoiceControllerTest {
                 .andExpect(status().isConflict());
     }
 
-    // ---------------------------------------------------------------
-    // PATCH /api/invoices/{id}/line-items/{lineId}
-    // ---------------------------------------------------------------
-
     @Test
     void updateLineItem_validRequest_returns200() throws Exception {
         given(invoiceService.updateLineItem(eq(1L), eq(5L), any())).willReturn(sampleResponse());
@@ -371,10 +355,6 @@ class InvoiceControllerTest {
                         .content(VALID_LINE_ITEM_BODY))
                 .andExpect(status().isConflict());
     }
-
-    // ---------------------------------------------------------------
-    // DELETE /api/invoices/{id}/line-items/{lineId}
-    // ---------------------------------------------------------------
 
     @Test
     void deleteLineItem_returns200() throws Exception {

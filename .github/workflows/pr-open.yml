@@ -10,6 +10,18 @@ concurrency:
 permissions: {}
 
 jobs:
+  # ZONE for OpenShift objects is the PR number mapped into 0-49, capping how
+  # many PR environments can exist at once. Images keep the real PR number.
+  init:
+    name: Initialize
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    outputs:
+      zone: ${{ steps.zone.outputs.zone }}
+    steps:
+      - id: zone
+        run: echo "zone=$(( ${{ github.event.number }} % 50 ))" >> $GITHUB_OUTPUT
+
   # https://github.com/bcgov/action-builder-ghcr
   builds:
     name: Builds
@@ -20,7 +32,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        package: [backend, frontend, migrations]
+        package: [backend, frontend]
     timeout-minutes: 10
     steps:
       - uses: bcgov/action-builder-ghcr@cb2629351c87dd1c2130073e4ebb7233a9653a63 # v4.4.1
@@ -28,25 +40,48 @@ jobs:
           package: ${{ matrix.package }}
           tags: ${{ github.event.number }}
           tag_fallback: latest
-          triggers: ('${{ matrix.package }}/', '.github/workflows/')
+          triggers: ('${{ matrix.package }}/', 'common/', '.github/workflows/')
+          build_args: |
+            BUILDKIT_INLINE_CACHE=1
+
 
   deploys:
     name: Deploys (${{ github.event.number }})
-    needs: [builds]
+    needs: [builds, init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
-      db_password: ${{ secrets.db_password }}
       oc_namespace: ${{ secrets.oc_namespace }}
       oc_token: ${{ secrets.oc_token }}
+      spring_datasource_url: ${{ secrets.spring_datasource_url }}
+      spring_datasource_username: ${{ secrets.spring_datasource_username }}
+      spring_datasource_password: ${{ secrets.spring_datasource_password }}
+      keystore_secret: ${{ secrets.keystore_secret }}
+      jasper_server_username: ${{ secrets.jasper_server_username }}
+      jasper_server_password: ${{ secrets.jasper_server_password }}
+      database_host: ${{ secrets.database_host }}
+      database_service_name: ${{ secrets.database_service_name }}
+      jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
+      jwt_issuer: ${{ secrets.jwt_issuer }}
+      jwt_audience: ${{ secrets.jwt_audience }}
+      jasper_server_login_url: ${{ secrets.jasper_server_login_url }}
+      jasper_server_fetch_url: ${{ secrets.jasper_server_fetch_url }}
+      jasper_server_put_url: ${{ secrets.jasper_server_put_url }}
+      jasper_server_report_uri_base: ${{ secrets.jasper_server_report_uri_base }}
     with:
-      target: ${{ github.event.number }}
-      triggers: ('backend/', 'frontend/', 'migrations/', 'common/', '.github/workflows/')
+      target: ${{ needs.init.outputs.zone }}
+      triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/')
 
-  tests:
-     name: Tests
-     if: needs.deploys.outputs.triggered == 'true'
-     needs: [deploys]
-     uses: ./.github/workflows/reusable-tests.yml
+  # Tests (reusable-tests.yml) are disabled: the integration suite
+  # (common/tests/integration) and Playwright e2e suite don't exist yet.
+  # Re-enable this job (and add it back to results.needs) once they do:
+  #
+  # tests:
+  #    name: Tests
+  #    if: needs.deploys.outputs.triggered == 'true'
+  #    needs: [deploys, init]
+  #    uses: ./.github/workflows/reusable-tests.yml
+  #    with:
+  #      target: ${{ needs.init.outputs.zone }}
 
   # ==========================================================================
   # WARNING: This job acts as the required merge gate for this workflow.
@@ -55,7 +90,7 @@ jobs:
   # ==========================================================================
   results:
     name: PR Results
-    needs: [builds, deploys, tests]
+    needs: [init, builds, deploys]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 1

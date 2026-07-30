@@ -21,9 +21,10 @@ const setup = (overrides: Partial<React.ComponentProps<typeof SingleSelect<Item>
     <SingleSelect<Item>
       id="sel"
       titleText="Pick one"
+      label="Select..."
       items={items}
       itemToString={itemToString}
-      selectedItem={null}
+      selectedItem={undefined}
       onChange={onChange}
       {...overrides}
     />,

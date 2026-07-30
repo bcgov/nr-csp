@@ -27,7 +27,6 @@ type SearchInputProps = {
  */
 const SearchInput: FC<SearchInputProps> = ({ id, titleText, placeholder, onChange, value }) => {
   const mousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const searchButtonRefs = useRef<HTMLButtonElement[]>([]);
 
   // Track and update the mouse position globally
   useEffect(() => {

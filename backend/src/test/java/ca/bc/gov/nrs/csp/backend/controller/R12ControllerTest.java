@@ -3,9 +3,6 @@ package ca.bc.gov.nrs.csp.backend.controller;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
 import ca.bc.gov.nrs.csp.backend.service.R12Service;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,11 +13,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.context.support.StaticMessageSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -34,13 +33,13 @@ class R12ControllerTest {
     R12Service r12Service;
 
     MockMvc mockMvc;
-    ObjectMapper objectMapper;
+    JsonMapper jsonMapper;
 
     @BeforeEach
     void setUp() {
-        objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        jsonMapper = JsonMapper.builder()
+                .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build();
 
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
@@ -50,7 +49,7 @@ class R12ControllerTest {
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .setValidator(validator)
                 .setMessageConverters(
-                        new MappingJackson2HttpMessageConverter(objectMapper),
+                        new JacksonJsonHttpMessageConverter(jsonMapper),
                         new ResourceHttpMessageConverter(),
                         new ByteArrayHttpMessageConverter())
                 .build();

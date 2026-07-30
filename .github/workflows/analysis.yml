@@ -20,48 +20,50 @@ jobs:
     name: Backend Tests
     if: (! github.event.pull_request.draft)
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_PASSWORD: default
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: bcgov/action-test-and-analyse@8f699e3fd3fadd9a6adf6f4b1f2638ef7ecfefb9 # v2.0.0
-        env:
-          sonar_token: ${{ secrets.sonar_token_backend }}
+      - uses: actions/checkout@v7
         with:
-          commands: |
-            npm ci
-            npm run lint
-            npm run format:check
-            npm run test:cov
-          dir: backend
-          node_version: "22"
-          sonar_args: >
-            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
-            -Dsonar.organization=bcgov-sonarcloud
-            -Dsonar.projectKey=quickstart-openshift_backend
-            -Dsonar.sources=src
-            -Dsonar.test.inclusions=**/*spec.ts
-            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-          sonar_token: ${{ env.sonar_token }}
-          dep_scan: warn
-          supply_scan: true
-          triggers: ('backend/')
+          # Sonar uses git blame for new-code detection; shallow clones break it.
+          fetch-depth: 0
+
+      - name: Set up Java 21 (Temurin) + Maven cache
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # `-DskipITs` skips the failsafe-bound integration tests (Oracle/Jasper
+      # end-to-end checks via TestContainers). Surefire still runs all
+      # *Test.java unit tests, and Jacoco collects coverage for SonarCloud.
+      - name: Maven verify (unit tests + jacoco coverage)
+        working-directory: backend
+        run: mvn -B -DskipITs verify
+
+      # Sonar is gated on the secret being present so PRs from forks (which
+      # don't get secrets) don't fail.
+      - name: SonarCloud scan
+        if: env.SONAR_TOKEN != ''
+        working-directory: backend
+        env:
+          SONAR_TOKEN: ${{ secrets.sonar_token_backend }}
+        # Fully-qualified goal: the bare `sonar` prefix no longer resolves
+        # since Maven Central dropped its legacy org.codehaus.mojo mapping.
+        run: |
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.organization=bcgov-sonarcloud \
+            -Dsonar.projectKey=bcgov-sonarcloud_nr-csp_backend \
+            -Dsonar.token="$SONAR_TOKEN"
 
   frontend-tests:
     name: Frontend Tests
     if: (! github.event.pull_request.draft)
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: bcgov/action-test-and-analyse@8f699e3fd3fadd9a6adf6f4b1f2638ef7ecfefb9 # v2.0.0
         env:
@@ -70,16 +72,15 @@ jobs:
           commands: |
             npm ci
             npm run lint
-            npm run format:check
-            npm run test:cov
+            npm run test:coverage
           dir: frontend
-          node_version: "22"
+          node_version: "24"
           sonar_args: >
-            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts
+            -Dsonar.exclusions=**/coverage/**,**/node_modules/**,**/*spec.ts,**/*.test.ts,**/*.test.tsx,**/e2e/**
             -Dsonar.organization=bcgov-sonarcloud
-            -Dsonar.projectKey=quickstart-openshift_frontend
+            -Dsonar.projectKey=bcgov-sonarcloud_nr-csp_frontend
             -Dsonar.sources=src
-            -Dsonar.test.inclusions=**/*spec.ts
+            -Dsonar.test.inclusions=**/*spec.ts,**/*.test.ts,**/*.test.tsx
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
           sonar_token: ${{ env.sonar_token }}
           dep_scan: warn
@@ -90,16 +91,16 @@ jobs:
   trivy:
     name: Trivy Security Scan
     if: (! github.event.pull_request.draft)
-    continue-on-error: true
     permissions:
+      contents: read
       security-events: write
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Cache Trivy DB
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .trivycache
           key: ${{ runner.os }}-trivy-v0.36.0-cache-v1
@@ -117,7 +118,7 @@ jobs:
           severity: "CRITICAL,HIGH"
           trivyignores: ".github/.trivyignore"
           cache-dir: .trivycache
-          skip-dirs: "**/node_modules,**/coverage,**/dist,.git"
+          skip-dirs: "**/node_modules,**/coverage,**/dist,**/target,.git"
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
@@ -132,7 +133,7 @@ jobs:
   # ==========================================================================
   results:
     name: Analysis Results
-    needs: [backend-tests, frontend-tests]
+    needs: [backend-tests, frontend-tests, trivy]
     if: always() && (! github.event.pull_request.draft)
     runs-on: ubuntu-slim
     timeout-minutes: 1

@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.service;
 import ca.bc.gov.nrs.csp.backend.exception.ReportGenerationException;
 import ca.bc.gov.nrs.csp.backend.repository.FlatPriceConversionRepository;
 import ca.bc.gov.nrs.csp.backend.service.model.FlatPriceConversion;
+import ca.bc.gov.nrs.csp.backend.service.model.LookupItem;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
@@ -22,6 +23,8 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class FlatPriceConversionExportService {
@@ -33,24 +36,43 @@ public class FlatPriceConversionExportService {
     private static final String FILENAME_BASE = "FlatPriceConversions";
 
     private final FlatPriceConversionRepository repository;
+    private final LookupService lookupService;
 
-    public FlatPriceConversionExportService(FlatPriceConversionRepository repository) {
+    public FlatPriceConversionExportService(FlatPriceConversionRepository repository, LookupService lookupService) {
         this.repository = repository;
+        this.lookupService = lookupService;
     }
 
     @Transactional(readOnly = true)
     public ReportResult exportPdf(String modellingCode, String maturity, String sortCode, String species, String grade) {
         List<FlatPriceConversion> records = repository.search(modellingCode, maturity, sortCode, species, grade);
-        return new ReportResult(generatePdf(records), FILENAME_BASE + ".pdf");
+        return new ReportResult(generatePdf(records, buildDescriptionMaps()), FILENAME_BASE + ".pdf");
     }
 
     @Transactional(readOnly = true)
     public ReportResult exportCsv(String modellingCode, String maturity, String sortCode, String species, String grade) {
         List<FlatPriceConversion> records = repository.search(modellingCode, maturity, sortCode, species, grade);
-        return new ReportResult(generateCsv(records), FILENAME_BASE + ".csv");
+        return new ReportResult(generateCsv(records, buildDescriptionMaps()), FILENAME_BASE + ".csv");
     }
 
-    private byte[] generatePdf(List<FlatPriceConversion> records) {
+    private DescriptionMaps buildDescriptionMaps() {
+        Map<String, String> maturity = toDescriptionMap(lookupService.getMaturityCodes());
+        Map<String, String> species = toDescriptionMap(lookupService.getSpeciesCodes());
+        Map<String, String> sortCodes = toDescriptionMap(lookupService.getSortCodes());
+        return new DescriptionMaps(maturity, species, sortCodes);
+    }
+
+    private Map<String, String> toDescriptionMap(List<LookupItem> items) {
+        return items.stream().collect(Collectors.toMap(LookupItem::code, LookupItem::description, (a, b) -> a));
+    }
+
+    private record DescriptionMaps(Map<String, String> maturity, Map<String, String> species, Map<String, String> sortCodes) {
+        String maturityDesc(String code) { return code != null ? maturity.getOrDefault(code, code) : ""; }
+        String speciesDesc(String code) { return code != null ? species.getOrDefault(code, code) : ""; }
+        String sortCodeDesc(String code) { return code != null ? sortCodes.getOrDefault(code, code) : ""; }
+    }
+
+    private byte[] generatePdf(List<FlatPriceConversion> records, DescriptionMaps maps) {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             Document document = new Document(PageSize.A4.rotate());
@@ -77,9 +99,9 @@ public class FlatPriceConversionExportService {
             }
 
             for (FlatPriceConversion r : records) {
-                addCell(table, r.maturity(), cellFont);
-                addCell(table, r.species(), cellFont);
-                addCell(table, r.sortCode(), cellFont);
+                addCell(table, maps.maturityDesc(r.maturity()), cellFont);
+                addCell(table, maps.speciesDesc(r.species()), cellFont);
+                addCell(table, maps.sortCodeDesc(r.sortCode()), cellFont);
                 addCell(table, r.grade(), cellFont);
                 addCell(table, r.flatPriceConversion() != null ? r.flatPriceConversion().toString() : "", cellFont);
                 addCell(table, dateStr(r.effectiveDate()), cellFont);
@@ -94,13 +116,13 @@ public class FlatPriceConversionExportService {
         }
     }
 
-    private byte[] generateCsv(List<FlatPriceConversion> records) {
+    private byte[] generateCsv(List<FlatPriceConversion> records, DescriptionMaps maps) {
         StringBuilder sb = new StringBuilder();
         sb.append("Maturity,Species,Sort Code,Grade,Flat Price Conversion,Effective Date,Expiry Date\n");
         for (FlatPriceConversion r : records) {
-            sb.append(csvField(r.maturity())).append(',')
-              .append(csvField(r.species())).append(',')
-              .append(csvField(r.sortCode())).append(',')
+            sb.append(csvField(maps.maturityDesc(r.maturity()))).append(',')
+              .append(csvField(maps.speciesDesc(r.species()))).append(',')
+              .append(csvField(maps.sortCodeDesc(r.sortCode()))).append(',')
               .append(csvField(r.grade())).append(',')
               .append(r.flatPriceConversion() != null ? r.flatPriceConversion() : "").append(',')
               .append(dateStr(r.effectiveDate())).append(',')

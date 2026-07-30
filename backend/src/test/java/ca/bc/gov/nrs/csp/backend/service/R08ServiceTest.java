@@ -2,12 +2,14 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R08ReportRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.ReportFormat;
+import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,6 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +30,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class R08ServiceTest {
@@ -38,6 +43,7 @@ class R08ServiceTest {
     R08Service service;
 
     static final ClientLocation ACME = new ClientLocation("00000001", "Acme Logging", "00", "Main", "Victoria", "BC");
+    static final ClientLocation ACME_BRANCH = new ClientLocation("00000001", "Acme Logging", "01", "Branch", "Nanaimo", "BC");
 
     @BeforeEach
     void setUp() {
@@ -144,6 +150,17 @@ class R08ServiceTest {
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("R08");
         }
+
+        @Test
+        void shouldThrowResourceNotFound_whenJasperReturnsNull() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(null);
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("R08");
+        }
     }
 
     @Nested
@@ -161,12 +178,13 @@ class R08ServiceTest {
             @SuppressWarnings("unchecked")
             ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
             service.generateReport(r);
-            org.mockito.Mockito.verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
 
             Map<String, Object> params = captor.getValue();
-            assertThat(params.get("SELLER_NUMBER")).isEqualTo("00000001");
-            assertThat(params.get("SELLER_NAME")).isEqualTo("Acme Logging");
-            assertThat(params.get("SELLER_CLIENT_LOCN_CODE")).isEqualTo("00");
+            assertThat(params)
+                    .containsEntry("SELLER_NUMBER", "00000001")
+                    .containsEntry("SELLER_NAME", "Acme Logging")
+                    .containsEntry("SELLER_CLIENT_LOCN_CODE", "00");
         }
 
         @Test
@@ -180,11 +198,12 @@ class R08ServiceTest {
             @SuppressWarnings("unchecked")
             ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
             service.generateReport(r);
-            org.mockito.Mockito.verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
 
             Map<String, Object> params = captor.getValue();
-            assertThat(params.get("SELLER_NUMBER")).isEqualTo("00000001");
-            assertThat(params.get("SELLER_NAME")).isEqualTo("Acme Logging");
+            assertThat(params)
+                    .containsEntry("SELLER_NUMBER", "00000001")
+                    .containsEntry("SELLER_NAME", "Acme Logging");
         }
 
         @Test
@@ -198,12 +217,13 @@ class R08ServiceTest {
             @SuppressWarnings("unchecked")
             ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
             service.generateReport(r);
-            org.mockito.Mockito.verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
 
             Map<String, Object> params = captor.getValue();
-            assertThat(params.get("BUYER_NUMBER")).isEqualTo("00000001");
-            assertThat(params.get("BUYER_NAME")).isEqualTo("Acme Logging");
-            assertThat(params.get("BUYER_CLIENT_LOCN_CODE")).isEqualTo("00");
+            assertThat(params)
+                    .containsEntry("BUYER_NUMBER", "00000001")
+                    .containsEntry("BUYER_NAME", "Acme Logging")
+                    .containsEntry("BUYER_CLIENT_LOCN_CODE", "00");
         }
 
         @Test
@@ -260,11 +280,144 @@ class R08ServiceTest {
             @SuppressWarnings("unchecked")
             ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
             service.generateReport(r);
-            org.mockito.Mockito.verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
 
             Map<String, Object> params = captor.getValue();
-            assertThat(params).doesNotContainKey("SELLER_NUMBER");
-            assertThat(params).doesNotContainKey("BUYER_NUMBER");
+            assertThat(params)
+                    .doesNotContainKey("SELLER_NUMBER")
+                    .doesNotContainKey("BUYER_NUMBER");
+        }
+
+        @Test
+        void shouldResolveSellerByName_whenSellerNumberIsBlank() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setSellerClientNumber("   ");
+            r.setSellerClientName("Acme");
+            given(searchService.findClientsByName("Acme")).willReturn(List.of(ACME));
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+
+            Map<String, Object> params = captor.getValue();
+            assertThat(params)
+                    .containsEntry("SELLER_NUMBER", "00000001")
+                    .containsEntry("SELLER_NAME", "Acme Logging");
+        }
+
+        @Test
+        void shouldNotSetSellerParams_whenSellerNameIsBlank() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setSellerClientName("   ");
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+
+            Map<String, Object> params = captor.getValue();
+            assertThat(params)
+                    .doesNotContainKey("SELLER_NUMBER")
+                    .doesNotContainKey("SELLER_NAME");
+        }
+
+        @Test
+        void shouldNotSetSellerParams_whenNumberLookupBecomesEmptyAfterValidation() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setSellerClientNumber("1");
+            // Validation lookup succeeds, but the second lookup inside buildParams returns empty.
+            given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME), List.of());
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+
+            Map<String, Object> params = captor.getValue();
+            assertThat(params)
+                    .doesNotContainKey("SELLER_NUMBER")
+                    .doesNotContainKey("SELLER_NAME");
+        }
+
+        @Test
+        void shouldNotSetSellerParams_whenNameLookupBecomesEmptyAfterValidation() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setSellerClientName("Acme");
+            // Validation lookup succeeds, but the second lookup inside buildParams returns empty.
+            given(searchService.findClientsByName("Acme")).willReturn(List.of(ACME), List.of());
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+
+            Map<String, Object> params = captor.getValue();
+            assertThat(params)
+                    .doesNotContainKey("SELLER_NUMBER")
+                    .doesNotContainKey("SELLER_NAME");
+        }
+
+        @Test
+        void shouldSelectLocationMatchingLocCode() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setSellerClientNumber("1");
+            r.setSellerLocCode("01");
+            given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME, ACME_BRANCH));
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+
+            Map<String, Object> params = captor.getValue();
+            assertThat(params).containsEntry("SELLER_CLIENT_LOCN_CODE", "01");
+        }
+
+        @Test
+        void shouldDefaultToLocationZeroZero_whenLocCodeIsBlank() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setSellerClientNumber("1");
+            r.setSellerLocCode("   ");
+            given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME_BRANCH, ACME));
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+
+            Map<String, Object> params = captor.getValue();
+            assertThat(params).containsEntry("SELLER_CLIENT_LOCN_CODE", "00");
+        }
+
+        @Test
+        void shouldFallBackToFirstLocation_whenLocCodeMatchesNothing() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setSellerClientNumber("1");
+            r.setSellerLocCode("99");
+            given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME_BRANCH, ACME));
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+
+            Map<String, Object> params = captor.getValue();
+            assertThat(params).containsEntry("SELLER_CLIENT_LOCN_CODE", "01");
         }
     }
 
@@ -277,7 +430,7 @@ class R08ServiceTest {
             given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
             ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
             service.generateReport(r);
-            org.mockito.Mockito.verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
             return captor.getValue();
         }
 
@@ -288,8 +441,9 @@ class R08ServiceTest {
 
             Map<String, Object> params = captureParams(r);
 
-            assertThat(params.get("YEAR")).isEqualTo("2020");
-            assertThat(params.get("MONTH")).isEqualTo("03");
+            assertThat(params)
+                    .containsEntry("YEAR", "2020")
+                    .containsEntry("MONTH", "03");
         }
 
         @Test
@@ -300,7 +454,7 @@ class R08ServiceTest {
 
             Map<String, Object> params = captureParams(r);
 
-            assertThat(params.get("INVOICE_DATE_TO")).isEqualTo("20200430");
+            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200430");
         }
 
         @Test
@@ -310,7 +464,203 @@ class R08ServiceTest {
 
             Map<String, Object> params = captureParams(r);
 
-            assertThat(params.get("INVOICE_DATE_TO")).isEqualTo("20200131");
+            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200131");
+        }
+
+        @Test
+        void shouldUseYearAndMonthParams_whenProvided() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setYear(2021);
+            r.setMonth(5);
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params)
+                    .containsEntry("YEAR", "2021")
+                    .containsEntry("MONTH", "05");
+        }
+
+        @Test
+        void shouldKeepYearAndMonth_whenSubmissionYearMonthIsBlank() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setYear(2021);
+            r.setMonth(5);
+            r.setSubmissionYearMonth("");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params)
+                    .containsEntry("YEAR", "2021")
+                    .containsEntry("MONTH", "05");
+        }
+
+        @Test
+        void shouldPreferSubmissionYearMonthOverExplicitYearAndMonth() {
+            R08ReportRequest r = baseRequest();
+            r.setYear(2019);
+            r.setMonth(7);
+            r.setSubmissionYearMonth("202003");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params)
+                    .containsEntry("YEAR", "2020")
+                    .containsEntry("MONTH", "03");
+        }
+
+        @Test
+        void shouldUseProvidedDateTo_whenDateToPresent() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setDateTo("20200315");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params)
+                    .containsEntry("INVOICE_DATE_FROM", "20200101")
+                    .containsEntry("INVOICE_DATE_TO", "20200315");
+        }
+
+        @Test
+        void shouldTreatBlankTimeFrameAsAbsent() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200115");
+            r.setTimeFrame("   ");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params).containsEntry("INVOICE_DATE_TO", "20200131");
+        }
+
+        @Test
+        void shouldThrowBadRequest_whenTimeFrameIsNotNumeric() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setTimeFrame("abc");
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessageContaining("timeFrame");
+        }
+
+        @Test
+        void shouldUseProvidedFilterCodes() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setMaturityCodes("O,C");
+            r.setInvoiceType("PUR");
+            r.setInvoiceStatus("APP");
+            r.setSubmissionStatus("COM");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params)
+                    .containsEntry("MATURITY", "O,C")
+                    .containsEntry("TYPE_CODE_MATURITY", "O,C")
+                    .containsEntry("TYPE_CODE_MATURITY_DESCRIPTION", "Old Growth, Cants")
+                    .containsEntry("INVOICE_TYPE", "PUR")
+                    .containsEntry("INVOICE_STATUS", "APP")
+                    .containsEntry("SUBMISSION_STATUS", "COM");
+        }
+
+        @Test
+        void shouldUseDefaultFilterCodes_whenNoneProvided() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params)
+                    .containsEntry("MATURITY", "O,S,M")
+                    .containsEntry("TYPE_CODE_MATURITY_DESCRIPTION",
+                            "Old Growth, Second Growth, Mixed Growth")
+                    .containsEntry("INVOICE_TYPE", "ADJ,CAN,PUR,SAL")
+                    .containsEntry("INVOICE_STATUS", "PRO,UNA,APP,CAN,DFT,DVF,REJ,VER")
+                    .containsEntry("SUBMISSION_STATUS", "COM,INB,LOB,REJ");
+        }
+
+        @Test
+        void shouldSkipUnknownMaturityCodes() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setMaturityCodes("O,X,C");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params).containsEntry("TYPE_CODE_MATURITY_DESCRIPTION", "Old Growth, Cants");
+        }
+
+        @Test
+        void shouldReturnEmptyMaturityDescription_whenMaturityCodesBlank() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setMaturityCodes("");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params)
+                    .containsEntry("MATURITY", "")
+                    .containsEntry("TYPE_CODE_MATURITY_DESCRIPTION", "");
+        }
+    }
+
+    @Nested
+    @DisplayName("USER_ID parameter")
+    class UserIdParam {
+
+        @BeforeEach
+        void clearContextBefore() {
+            SecurityContextHolder.clearContext();
+        }
+
+        @AfterEach
+        void clearContextAfter() {
+            SecurityContextHolder.clearContext();
+        }
+
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> captureParams(R08ReportRequest r) {
+            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            service.generateReport(r);
+            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
+            return captor.getValue();
+        }
+
+        @Test
+        void shouldPreferAuthenticatedUsernameOverRequestUserId() {
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken("TESTUSER", null, List.of()));
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setUserId("CLIENTUSER");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params).containsEntry("USER_ID", "TESTUSER");
+        }
+
+        @Test
+        void shouldFallBackToRequestUserId_whenNoAuthenticatedUser() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+            r.setUserId("IDIRUSER");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params).containsEntry("USER_ID", "IDIRUSER");
+        }
+
+        @Test
+        void shouldOmitUserId_whenNoUserAvailable() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+
+            Map<String, Object> params = captureParams(r);
+
+            assertThat(params).doesNotContainKey("USER_ID");
         }
     }
 }

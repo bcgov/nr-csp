@@ -187,11 +187,17 @@ export const deleteInvoiceLineItem = (invoiceId: number, lineId: number): Promis
 // React Query hooks
 // ----------------------------------------------------------------------------
 
+// Invoice status is live, multi-user data: concurrent SUBMITTER/APPROVER
+// sessions must not see each other's stale status. Override the global 3h
+// aggressive cache to always refetch on mount and window focus.
 export const useInvoiceQuery = (id: number | undefined) =>
   useQuery({
     queryKey: [...QUERY_KEY, id],
     queryFn: () => getInvoice(id as number),
     enabled: id !== undefined && id !== null && !Number.isNaN(id),
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
 export const useCreateInvoiceMutation = () => {

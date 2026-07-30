@@ -17,7 +17,8 @@
   }
 
   &__title {
-    @include type.type-style('productive-heading-06', true);
+    // Match the R07 report screen's title (heading-05).
+    @include type.type-style('heading-05');
     margin-bottom: 0;
   }
 

@@ -95,7 +95,7 @@ public class InboxCriteriaValidator {
             addError(SUBMISSION_STATUS_KEY, new Object[]{submissionStatus});
         }
 
-        // Invoice Number max length (value is already trimmed by the time it reaches here)
+        // Invoice number: total length including wildcard characters must not exceed the column width.
         if (invoiceNum != null && invoiceNum.length() > MAX_INVOICE_NUM_LENGTH) {
             addError(INVOICE_NUM_LENGTH_KEY, new Object[]{MAX_INVOICE_NUM_LENGTH});
         }

@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@carbon/react';
 import { Summit, UserSearch } from '@carbon/pictograms-react';
-import React, { useState, useMemo, type ReactElement, type ReactNode } from 'react';
+import React, { useState, useMemo, useEffect, type ReactElement, type ReactNode } from 'react';
 
 import './index.scss';
 
@@ -30,6 +30,10 @@ export interface ResultsTableColumn<T> {
   key: keyof T & string;
   header: string;
   renderCell?: (row: T) => ReactNode;
+  /** Optional custom header renderer, e.g. to wrap the label in the same
+   * fixed-width box as the cells so the header lines up with the values. Takes
+   * precedence over `headerAlign`. */
+  renderHeader?: () => ReactNode;
   sortable?: boolean;
   headerAlign?: 'left' | 'center' | 'right';
   cellAlign?: 'left' | 'center' | 'right';
@@ -181,6 +185,22 @@ const ResultsTable = <T extends { id: string }>({
       ? sortedRows.slice((page - 1) * pageSize, page * pageSize)
       : sortedRows;
 
+  // Guard against a controlled `page` that exceeds the available pages — e.g. a
+  // persisted/restored page whose underlying data has since shrunk. Without this
+  // the table would render an empty page even though valid rows exist on earlier
+  // pages. Only acts when pagination is controlled and data has finished loading;
+  // it notifies the parent (which owns `page`) to snap back to the last real page.
+  useEffect(() => {
+    if (!onPaginationChange || isLoading) return;
+    if (page === undefined || !pageSize) return;
+    const total = totalItems ?? 0;
+    if (total <= 0) return; // no data (or unknown) — leave the empty-state alone
+    const lastPage = Math.max(1, Math.ceil(total / pageSize));
+    if (page > lastPage) {
+      onPaginationChange({ page: lastPage, pageSize });
+    }
+  }, [page, pageSize, totalItems, isLoading, onPaginationChange]);
+
   // Drives the header "expand all" chevron and toggle.
   const allExpanded = expandable && pageRows.length > 0 && pageRows.every((r) => expandedIds.has(r.id));
 
@@ -274,6 +294,16 @@ const ResultsTable = <T extends { id: string }>({
                 ) : null}
                 {tableHeaders.map((header) => {
                   const colDef = columns.find((c) => c.key === header.key);
+                  let headerContent: ReactNode;
+                  if (colDef?.renderHeader) {
+                    headerContent = colDef.renderHeader();
+                  } else if (colDef?.headerAlign) {
+                    headerContent = (
+                      <span style={{ display: 'block', textAlign: colDef.headerAlign }}>{header.header}</span>
+                    );
+                  } else {
+                    headerContent = header.header;
+                  }
                   return (
                     <TableHeader
                       key={header.key}
@@ -290,11 +320,7 @@ const ResultsTable = <T extends { id: string }>({
                         isSortable && sortableKeys.has(header.key) ? () => handleHeaderClick(header.key) : undefined
                       }
                     >
-                      {colDef?.headerAlign ? (
-                        <span style={{ display: 'block', textAlign: colDef.headerAlign }}>{header.header}</span>
-                      ) : (
-                        header.header
-                      )}
+                      {headerContent}
                     </TableHeader>
                   );
                 })}

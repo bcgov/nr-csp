@@ -4,6 +4,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.report.R11ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
@@ -71,7 +72,9 @@ public class R11Service {
         p.put("TYPE_CODE_MATURITY", maturity);
         p.put("TYPE_CODE_MATURITY_DESCRIPTION", maturityDesc);
 
-        if (r.getUserId() != null) p.put("USER_ID", r.getUserId());
+        // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.
+        String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());
+        if (idir != null) p.put("USER_ID", idir);
         return p;
     }
 

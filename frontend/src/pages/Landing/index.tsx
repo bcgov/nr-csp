@@ -69,8 +69,8 @@ export function LandingPage() {
             <Application size={32} className="landing-page__tile-icon" />
             <h3 className="landing-page__tile-heading">Authentication</h3>
             <p className="landing-page__tile-body">
-              Cognito OAuth via AWS Amplify. In development, toggle <code>VITE_MOCK_USER=true</code> to bypass the login
-              flow entirely.
+              Cognito OAuth via AWS Amplify. In development, set <code>mockUser: true</code> in{' '}
+              <code>amplify-config.js</code> to bypass the login flow entirely.
             </p>
           </Tile>
         </Column>

@@ -1,0 +1,615 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema targetNamespace="http://www.for.gov.bc.ca/schema/csp"
+xmlns="http://www.for.gov.bc.ca/schema/csp"
+xmlns:mof="http://www.for.gov.bc.ca/schema/base"
+xmlns:xs="http://www.w3.org/2001/XMLSchema"
+xmlns:xlink="http://www.w3.org/1999/xlink"
+elementFormDefault="qualified" version="1">
+    <xs:annotation>
+        <xs:documentation>BC MOF CSP Submission schema for use in the Electronic Submission Framework.  Copyright (c) 2013 BC Ministry of Forests, All Rights Reserved.</xs:documentation>
+        <xs:documentation>
+          NOTE: A submission must include 1 or more Invoices, and one Submitter Client; Invoices must include 1 or more Line Items.
+            Submission (1)
+              Submitter Client (1)
+                Invoice(s) (1-n)
+                  Line Item(s) (1-n)
+
+         	NOTE: all clients submitting to the CSP app must already be in the system in the LOG_SALE_PARTICIPANT table;
+         	submission clients are identified by the submitted submission ClientName value (LOG_SALE_PARTICIPANT.NAME)
+
+         	NOTE: enumerations for values will not be used in most cases in the Schema since these can change, i.e. code table changes,
+         	e.g. LOG_SALE_SPECIES_GRADE_XREF.LOG_SALE_GRADE_CODE could have entries added, deleted, updated. These specific values will
+         	be checked against the database tables in the Java validation code for CSP, not against this Schema.
+
+         	NOTE: "required" and "optional" use attributes are based on nullability in the database tables, and CSP business rules.
+        </xs:documentation>
+    </xs:annotation>
+    <xs:import namespace="http://www.for.gov.bc.ca/schema/base" schemaLocation="mof-simpleTypes.xsd"/>
+    <!-- This line will allow an XML file to validate using Eclipse, for CGI DEV only, must be commented out for ESF upload -->
+    <!-- xs:import namespace="http://www.for.gov.bc.ca/schema/base" schemaLocation="file:C:/dev/kepler/cspWkspc/csp/resources/esf/esfSchema/xsd/mof-simpleTypes.xsd"/ -->
+
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Simple Element Type definitions --------------------------------------------------------------------------------------------------------
+
+        	(Supplementary definitions to those in the mof-xs:simpleTypes.xsd Schema)
+        </xs:documentation>
+    </xs:annotation>
+
+    <xs:annotation>
+        <xs:documentation>Default (and required) format is YYYY-MM-DD</xs:documentation>
+    </xs:annotation>
+    <xs:simpleType name="CSPDate10">
+       <xs:restriction base="xs:date" />
+    </xs:simpleType>
+
+    <xs:simpleType name="AlphaNumeric15">
+        <xs:restriction base="xs:string">
+            <xs:maxLength value="15"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="AlphaNumeric40">
+        <xs:restriction base="xs:string">
+            <xs:maxLength value="40"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="AlphaNumeric60">
+        <xs:restriction base="xs:string">
+            <xs:maxLength value="60"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="AlphaNumeric100">
+        <xs:restriction base="xs:string">
+            <xs:maxLength value="100"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="AlphaNumeric4000">
+        <xs:restriction base="xs:string">
+            <xs:maxLength value="4000"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="Alpha8">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="/D{0,8}"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="Decimal7D2d">
+        <xs:restriction base="xs:decimal">
+            <xs:totalDigits value="7"/>
+            <xs:fractionDigits value="2"/>
+            <xs:maxInclusive value="99999.99" />
+            <xs:minInclusive value="-99999.99" />
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="Decimal10D2d">
+        <xs:restriction base="xs:decimal">
+            <xs:totalDigits value="10"/>
+            <xs:fractionDigits value="2"/>
+            <xs:maxInclusive value="99999999.99" />
+            <xs:minInclusive value="-99999999.99" />
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="Decimal18D3d">
+        <xs:restriction base="xs:decimal">
+            <xs:totalDigits value="18"/>
+            <xs:fractionDigits value="3"/>
+            <xs:maxInclusive value="999999999999999.999" />
+            <xs:minInclusive value="-999999999999999.999" />
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="Decimal14D6d">
+        <xs:restriction base="xs:decimal">
+            <xs:totalDigits value="14"/>
+            <xs:fractionDigits value="6"/>
+            <xs:maxInclusive value="99999999.999999" />
+            <xs:minInclusive value="-99999999.999999" />
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="Integer8D">
+        <xs:restriction base="xs:integer">
+            <xs:totalDigits value="8"/>
+            <xs:maxInclusive value="99999999"/>
+            <xs:minInclusive value="-99999999"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="Integer5D">
+	<xs:restriction base="xs:integer">
+	    <xs:totalDigits value="5"/>
+	    <xs:maxInclusive value="99999"/>
+	    <xs:minInclusive value="-99999"/>
+	</xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="sellerSubmissionType" final="#all">
+    	<xs:annotation>
+   	 	<xs:documentation>'Y'=Yes, 'N'=No</xs:documentation>
+   	</xs:annotation>
+   		<xs:restriction base="xs:string">
+			<xs:enumeration value="Y"/>
+			<xs:enumeration value="N"/>
+		</xs:restriction>
+    </xs:simpleType>
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Submission xs:element definitions --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+
+    <xs:annotation>
+        <xs:documentation>
+           A database flag to indicate that the month based on the submission date
+           is Complete. Submissions and invoices can still be submitted after the
+           Month Complete flag is set but they will generate a Warning message.
+           Enter a 'Y' value in the submission xml as soon as possible when there
+           are no more anticipated invoices or submissions for a particular month.
+           Required: No
+           Corresponds to CSP_SUBMISSION.MONTH_COMPLETE_IND
+           Allowed Value: Y
+        </xs:documentation>
+      </xs:annotation>
+    <xs:element name="monthComplete" type="mof:Alpha1" />
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Submitter Client xs:element definitions --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+
+    <xs:annotation>
+        <xs:documentation>
+           Flag that indicates if the client making the submission was the
+           seller on the invoices submitted.
+           Required: Yes
+           Allowed Value: 'Y' or 'N'
+        </xs:documentation>
+      </xs:annotation>
+    <xs:element name="sellerSubmission" type="sellerSubmissionType" />
+
+    <xs:annotation>
+        <xs:documentation>
+           Client Number of the client making the submission.
+           Required: Yes
+           Corresponds to CSP_SUBMISSION.CLIENT_NUMBER
+           This client number must already exist in the ministry system.
+        </xs:documentation>
+      </xs:annotation>
+    <xs:element name="submissionClientNumber" type="mof:AlphaNumeric8" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The client location code of the client making the submission.
+           A code to uniquely identify, within each client, the addresses of different
+           divisions or locations at which the client operates. The location code is
+           sequentially assigned starting with '00' for the client's permanent address.
+           Required: Yes
+           Corresponds to CSP_SUBMISSION.CLIENT_LOCN_CODE
+           This client location code must already exist in the ministry system.
+        </xs:documentation>
+      </xs:annotation>
+    <xs:element name="submissionClientLocnCode" type="mof:AlphaNumeric2" />
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Invoice xs:element definitions --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+
+    <xs:annotation>
+        <xs:documentation>
+           Date for the invoice. YYYY-MM-DD format.
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE.CLIENT_INVOICE_DATE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="invoiceDate" type="CSPDate10" />
+
+    <xs:annotation>
+        <xs:documentation>
+           More than one invoice possible per ESF submission.
+           Each invoice number must be unique within the submission.
+           Required: Yes
+           NOTE: current spec defines one invoice per submission for manually entered submissions (via CSP app)
+           Corresponds to COASTAL_LOG_SALE.CLIENT_INVOICE_NO
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="invoiceNumber" type="AlphaNumeric15" />
+
+    <xs:annotation>
+        <xs:documentation>
+            A coded value that uniquely identifies a COASTAL INVOICE TYPE CODE
+            (e.g. Sales/ Purchase / Adjustment / Cancellation).
+            Required: Yes
+            Corresponds to COASTAL_LOG_SALE.CSP_INVOICE_TYPE_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="invoiceType" type="mof:AlphaNumeric3" />
+
+    <xs:annotation>
+        <xs:documentation>
+            Required: No, and Conditional – if values are provided then one, and only one, set of replacesInvoiceNumbers or adjustsInvoiceNumber can be submitted
+            Invoice Numbers submitted must already exist in the CSP system (to be checked by CSP validation code).
+            Note: a set is a single character string of up to five invoice numbers separated by commas, e.g. "InvNum1,invNum3,InvNum81"
+            Corresponds to COASTAL_LOG_SALE_RLTD_INVC.CSP_INVOICE_REF_TYPE_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="replacesInvoiceNumbers" type="AlphaNumeric100" />
+
+    <xs:annotation>
+        <xs:documentation>
+            Required: No, and Conditional – if a value is provided then one, and only one, of replacesInvoiceNumbers or adjustsInvoiceNumber can be submitted
+            Invoice Numbers submitted must already exist in the CSP system (to be checked by CSP validation code).
+            Note: a set is a single character string of up to five invoice numbers separated by commas, e.g. "InvNum1,invNum3,InvNum81"
+            Corresponds to COASTAL_LOG_SALE_RLTD_INVC.CSP_INVOICE_REF_TYPE_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="adjustsInvoiceNumbers" type="AlphaNumeric100" />
+
+    <xs:annotation>
+        <xs:documentation>
+            Client number of the seller on the invoice
+            Corresponds to COASTAL_LOG_SALE.SELLER_CLIENT_NUMBER
+            Required: No
+            This client number must already exist in the ministry system.
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="sellerClientNumber" type="mof:AlphaNumeric8" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The client location code of the seller client on the invoice.
+           A code to uniquely identify, within each client, the addresses of different
+           divisions or locations at which the client operates. The location code is
+           sequentially assigned starting with '00' for the client's permanent address.
+           Required: No
+           Corresponds to COASTAL_LOG_SALE.SELLER_CLIENT_LOCN_CODE
+           This client location code must already exist in the ministry system.
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="sellerClientLocnCode" type="mof:AlphaNumeric2" />
+
+    <xs:annotation>
+        <xs:documentation>
+            Client number of the buyer on the invoice
+            Corresponds to COASTAL_LOG_SALE.BUYER_CLIENT_NUMBER
+            Required: No
+            This client number must already exist in the ministry system.
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="buyerClientNumber" type="mof:AlphaNumeric8" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The client location code of the buyer client on the invoice.
+           A code to uniquely identify, within each client, the addresses of different
+           divisions or locations at which the client operates. The location code is
+           sequentially assigned starting with '00' for the client's permanent address.
+           Required: No
+           Corresponds to COASTAL_LOG_SALE.BUYER_CLIENT_LOCN_CODE
+           This client location code must already exist in the ministry system.
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="buyerClientLocnCode" type="mof:AlphaNumeric2" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The business name of the other party to the invoice transaction.
+           Other party would be the non-submitter.
+           Required: Conditional, Required if the other party Client ID is not provided.
+           Other party would be the non-submitter.
+           Corresponds to LOG_SALE_PARTICIPANT.NAME
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="otherPartyName" type="AlphaNumeric60" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The city in which the other party business is located.
+           Other party would be the non-submitter.
+           Required: Conditional, Required if the other party Client ID is not provided.
+           Other party would be the non-submitter.
+           Corresponds to LOG_SALE_PARTICIPANT.CITY
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="otherPartyCity" type="mof:AlphaNumeric30" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The province or state in which the other party business is located.
+           Other party would be the non-submitter.
+           Required: Conditional, Required if the other party Client ID is not provided.
+           Other party would be the non-submitter.
+           Corresponds to LOG_SALE_PARTICIPANT.PROVINCE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="otherPartyProvState" type="mof:AlphaNumeric50" />
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Invoice Details xs:element definitions --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+
+    <xs:annotation>
+        <xs:documentation>
+           Indicates if timber on the invoice is old growth or second growth
+           (Cants are no longer used – may already be expired in db).
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE.LOG_SALE_TYPE_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="maturity" type="mof:AlphaNumeric1"/>
+
+    <xs:annotation>
+        <xs:documentation>
+           A location code that indicates where the sale took place.
+           The client can enter any log sale FOB location value.
+           These values are not checked against any db values.
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE.LOG_SALE_FOB_LOCATION
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="locationFOB" type="mof:AlphaNumeric120" />
+
+    <xs:annotation>
+        <xs:documentation>
+           Primary Sort Code for the invoice.
+           The code must exist in the CSP_SALE_PRICE_CONVERSION table.
+           Required: No
+           Corresponds to COASTAL_LOG_SALE.LOG_SALE_SORT_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="primarySortCode" type="mof:AlphaNumeric3" />
+
+    <xs:annotation>
+          <xs:documentation>
+             Primary Sort Code for the invoice.
+             Required: No
+             Corresponds to COASTAL_LOG_SALE.CLIENT_PRIMARY_SORT_CODE
+          </xs:documentation>
+      </xs:annotation>
+    <xs:element name="clientPrimarySortCode" type="AlphaNumeric100" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The total the client has on their invoice.
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE.CLIENT_TOTAL_INVOICE_AMT
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="totalAmount" type="Decimal10D2d" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The total volume on the invoice (m3)
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE.CLIENT_TOTAL_INVOICE_VOLUME
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="totalVolume" type="Decimal18D3d" />
+
+    <xs:annotation>
+        <xs:documentation>
+           The total number of pieces on the invoice
+           Required: No
+           Corresponds to COASTAL_LOG_SALE.CLIENT_TOTAL_INVOICE_PIECES
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="totalPieces" type="Integer8D" />
+
+    <xs:annotation>
+        <xs:documentation>
+           Required: Conditional – one, and only one, set of boom numbers, or timber marks, or weigh slips number must be submitted
+           (to be checked by CSP validation code).
+           Note: a set is a single character string of up to ten "numbers" separated by commas, e.g. "8r762r8,3498hcs,080283"
+           Corresponds to COASTAL_LOG_SALE_LOG_SOURCE.SOURCE_DOCUMENT_REFERENCE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="boomNumbers" type="AlphaNumeric100" />
+
+    <xs:annotation>
+        <xs:documentation>
+           Required: Conditional – one, and only one, set of boom numbers, or timber marks, or weigh slip numbers must be submitted
+           (to be checked by CSP validation code).
+           Allow up to 10 timber marks, delimited by commas (all one character string entry).
+           Note: a set is a single character string of up to ten "numbers" separated by commas, e.g. "8r762r8,3498hcs,080283"
+           Corresponds to COASTAL_LOG_SALE_LOG_SOURCE.SOURCE_DOCUMENT_REFERENCE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="timberMarks" type="AlphaNumeric100" />
+
+    <xs:annotation>
+        <xs:documentation>
+           Required: Conditional – One, and only one, set of boom numbers, or timber marks, or weigh slips number must be submitted
+           (to be checked by CSP validation code).
+           Note: a set is a single character string of up to ten "numbers" separated by commas, e.g. "8r762r8,3498hcs,080283"
+           Corresponds to COASTAL_LOG_SALE_LOG_SOURCE.SOURCE_DOCUMENT_REFERENCE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="weighSlipNumbers" type="AlphaNumeric100" />
+
+    <xs:annotation>
+        <xs:documentation>
+           One notes field per invoice to allow for miscellaneous notes pertaining to the invoice.
+           Notes provided specifically during manual submission/edit.
+           Required: No
+           Corresponds to COASTAL_LOG_SALE.REVIEWER_NOTES
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="reviewerNotes" type="mof:AlphaNumeric4000" />
+
+    <xs:annotation>
+        <xs:documentation>
+           One notes field per invoice to allow for miscellaneous notes pertaining to the invoice.
+           Notes provided specifically for ESF submission.
+           Required: No
+           Corresponds to COASTAL_LOG_SALE.SUBMITTER_NOTES
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="submitterNotes" type="mof:AlphaNumeric4000"/>
+
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Line Item xs:element definitions --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+
+    <xs:annotation>
+        <xs:documentation>
+            Required: Yes
+            The code must exist in the CSP_SALE_PRICE_CONVERSION table.
+            Corresponds to COASTAL_LOG_SALE_DETAIL.LOG_SALE_SORT_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="secondarySortCode" type="mof:AlphaNumeric3"/>
+
+    <xs:annotation>
+        <xs:documentation>
+            A code specific to the client business and included on an invoice as secondary sort.
+            Required: No
+            Corresponds to COASTAL_LOG_SALE_DETAIL.CLIENT_SECONDARY_SORT_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="clientSecondarySortCode" type="AlphaNumeric100"/>
+
+    <xs:annotation>
+        <xs:documentation>
+            Required: Yes
+            Corresponds to COASTAL_LOG_SALE_DETAIL.PIECES
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="numberOfPieces" type="Integer5D"/>
+
+    <xs:annotation>
+        <xs:documentation>
+           Species code used in combination with grade xs:element value to set the species/grade xref code
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE_DETAIL.CSP_SPECIES_GRADE_XREF_ID derived
+           from LOG_SALE_SPECIES_GRADE_XREF.LOG_SALE_SPECIES_CODE and LOG_SALE_SPECIES_GRADE_XREF.LOG_SALE_GRADE_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="species" type="mof:AlphaNumeric2"/>
+
+    <xs:annotation>
+        <xs:documentation>
+           Grade code used in combination with species xs:element value to set the species/grade xref code
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE_DETAIL.CSP_SPECIES_GRADE_XREF_ID derived
+           from LOG_SALE_SPECIES_GRADE_XREF.LOG_SALE_SPECIES_CODE and LOG_SALE_SPECIES_GRADE_XREF.LOG_SALE_GRADE_CODE
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="grade" type="mof:AlphaNumeric1"/>
+
+    <xs:annotation>
+        <xs:documentation>
+           Volume (m3) per species and grade combination on the invoice
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE_DETAIL.VOLUME
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="volume" type="Decimal14D6d"/>
+
+    <xs:annotation>
+        <xs:documentation>
+           Price (CAD$) per species and grade combination on the invoice
+           Required: Yes
+           Corresponds to COASTAL_LOG_SALE_DETAIL.VOLUME
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="price" type="Decimal7D2d"/>
+
+    <xs:annotation>
+        <xs:documentation>
+               -------------------- CSP Submission Type Definition --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+
+    <xs:element name="CSPSubmission" type="CSPSubmissionType"/>
+    <xs:complexType name="CSPSubmissionType">
+            <xs:sequence>
+            	<xs:element ref="monthComplete" minOccurs="0" maxOccurs="1"/>
+            	<xs:element ref="CSPSubmitter" minOccurs="1" maxOccurs="1"/>
+            	<xs:element ref="CSPInvoice" minOccurs="1" maxOccurs="unbounded"/>
+            </xs:sequence>
+    </xs:complexType>
+
+    <xs:element name="CSPSubmitter" type="CSPSubmitterType"/>
+    <xs:complexType name="CSPSubmitterType">
+            <xs:sequence>
+            	<xs:element ref="sellerSubmission" minOccurs="1" maxOccurs="1"/>
+            	<xs:element ref="submissionClientNumber" minOccurs="1" maxOccurs="1"/>
+            	<xs:element ref="submissionClientLocnCode" minOccurs="1" maxOccurs="1"/>
+            </xs:sequence>
+    </xs:complexType>
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Invoice Type Definition --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="CSPInvoice" type="CSPInvoiceType" />
+    <xs:complexType name="CSPInvoiceType">
+          <xs:sequence>
+	         <xs:element ref="invoiceDate" minOccurs="1" maxOccurs="1"/>
+	       <xs:element ref="invoiceNumber" minOccurs="1" maxOccurs="1"/>
+	        <xs:element ref="invoiceType" minOccurs="1" maxOccurs="1"/>
+	        <xs:element ref="replacesInvoiceNumbers" minOccurs="0" maxOccurs="1"/>
+	        <xs:element ref="adjustsInvoiceNumbers" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="sellerClientNumber" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="sellerClientLocnCode" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="buyerClientNumber" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="buyerClientLocnCode" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="otherPartyName" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="otherPartyCity" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="otherPartyProvState" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="CSPInvoiceDetails" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="CSPLineItem" minOccurs="1" maxOccurs="unbounded"/>
+          </xs:sequence>
+    </xs:complexType>
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Invoice Details Type Definition --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="CSPInvoiceDetails" type="CSPInvoiceDetailsType"/>
+    <xs:complexType name="CSPInvoiceDetailsType">
+          <xs:sequence>
+            <xs:element ref="maturity" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="locationFOB" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="primarySortCode" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="clientPrimarySortCode" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="totalAmount" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="totalVolume" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="totalPieces" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="boomNumbers" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="timberMarks" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="weighSlipNumbers" minOccurs="0"/>
+            <xs:element ref="submitterNotes" minOccurs="0"/>
+          </xs:sequence>
+    </xs:complexType>
+
+
+    <xs:annotation>
+        <xs:documentation>
+           -------------------- CSP Line Item Type Definition --------------------------------------------------------------------------------------------------------
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="CSPLineItem" type="CSPLineItemType" />
+    <xs:complexType name="CSPLineItemType">
+    	  <xs:sequence>
+            <xs:element ref="secondarySortCode" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="clientSecondarySortCode" minOccurs="0" maxOccurs="1"/>
+            <xs:element ref="numberOfPieces" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="species" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="grade" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="volume" minOccurs="1" maxOccurs="1"/>
+            <xs:element ref="price" minOccurs="1" maxOccurs="1"/>
+          </xs:sequence>
+    </xs:complexType>
+
+
+</xs:schema>
+

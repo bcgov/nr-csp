@@ -10,5 +10,6 @@ public record InboxCriteria(
         String submissionStatus,
         String invoiceNum,
         String submitterClientNum,
-        String submitterLocNum
+        String submitterLocNum,
+        String keyword
 ) {}

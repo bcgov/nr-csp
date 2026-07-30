@@ -72,6 +72,9 @@ public interface InboxApi {
             @Parameter(description = "Submitter location code (set by client autocomplete selection, paired with submitterClientNum).")
             @RequestParam(required = false) String submitterLocNum,
 
+            @Parameter(description = "Free-text keyword search (case-insensitive contains match) across submission ID, status, type, and date.")
+            @RequestParam(required = false) String keyword,
+
             @ParameterObject @PageableDefault(size = 100, sort = "submissionDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable
     );
 }

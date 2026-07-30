@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.report.R13ShowOptions;
 import ca.bc.gov.nrs.csp.backend.exception.ReportGenerationException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.LookupItem;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
@@ -88,12 +89,10 @@ public class R13Service {
             try {
                 log.info("Compiling JRXML for cache key: {}", key);
                 String jrxml = loadTemplate(templatePath);
-                if (showOptions.hasAnyHiddenColumn()) {
-                    jrxml = modifyTemplateContent(jrxml, showOptions.toShowMap());
-                }
+                jrxml = modifyTemplateContent(jrxml, showOptions.toShowMap());
                 return compileReport(jrxml);
             } catch (Exception e) {
-                throw new ReportGenerationException("Failed to compile JRXML: " + templatePath, e);
+                throw new ReportGenerationException("Failed to compile JRXML template.", e);
             }
         });
 
@@ -201,12 +200,6 @@ public class R13Service {
         }
         pairs.sort((a, b) -> Integer.compare((Integer) a[1], (Integer) b[1]));
 
-        boolean hasPRICE = pairs.stream().anyMatch(p -> "PRICE".equals(p[0]));
-        boolean hasCONVERSION_FACTOR = pairs.stream().anyMatch(p -> "CONVERSION_FACTOR".equals(p[0]));
-        if (hasPRICE && hasCONVERSION_FACTOR) {
-            pairs.removeIf(p -> "CONVERSION_FACTOR".equals(p[0]));
-        }
-
         int m = pairs.isEmpty() ? 1 : pairs.size();
         int colWidth = width / m;
         int index = 0;
@@ -226,10 +219,6 @@ public class R13Service {
                 allNs.addAll(findReportElements(doc, "columnHeader", "staticText", totalKey));
                 allNs.addAll(findReportElements(doc, "detail",       "textField",  totalKey));
                 allNs.addAll(findReportElements(doc, "summary",      "textField",  totalKey));
-            }
-            if ("PRICE".equals(key) && hasCONVERSION_FACTOR) {
-                allNs.addAll(findReportElements(doc, "columnHeader", "staticText", "CONVERSION_FACTOR"));
-                allNs.addAll(findReportElements(doc, "detail",       "textField",  "CONVERSION_FACTOR"));
             }
 
             for (Element n : allNs) {
@@ -351,8 +340,10 @@ public class R13Service {
 
         Map<String, Object> p = new HashMap<>();
 
-        p.put("USER_ID",      r.getUserId());
-        p.put("USER_NAME",    r.getUserName());
+        // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.
+        String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());
+        p.put("USER_ID",      idir);
+        p.put("USER_NAME",    r.getUserName() != null ? r.getUserName() : idir);
         p.put("REPORT_NAME",  r.getReportName());
 
         p.put("INVOICE_DATE_FROM", r.getInvoiceDateFrom());
