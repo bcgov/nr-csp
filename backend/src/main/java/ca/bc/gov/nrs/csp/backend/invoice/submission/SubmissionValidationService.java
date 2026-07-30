@@ -35,6 +35,16 @@ public class SubmissionValidationService {
   }
 
   /**
+   * Structural validation that also returns the parsed JAXB tree, so a caller
+   * can both report structural errors and surface the parsed content (e.g. to
+   * populate the upload form). On a parse/schema failure the outcome's
+   * submission is null and its result carries the structural errors.
+   */
+  public StructuralValidationService.ValidationOutcome parse(byte[] xml) {
+    return structuralValidationService.validateAndParse(xml);
+  }
+
+  /**
    * Phase 2 — business-rule validation. Parses the submission first (the rules
    * operate on the JAXB tree); on a parse/schema failure, returns those
    * structural errors since business rules cannot run on an unparseable document.
@@ -45,8 +55,18 @@ public class SubmissionValidationService {
     if (!structural.result().valid() || structural.submission() == null) {
       return structural.result();
     }
-    BusinessValidationOutcome business =
-        businessValidationService.validate(structural.submission());
+    return validateBusiness(structural.submission());
+  }
+
+  /**
+   * Phase 2 on an already-parsed submission tree. Used by the submit path, which
+   * parses once, applies the user's metadata edits, then validates the exact tree
+   * it is about to persist — so what is validated is what is saved. The tree is
+   * passed as {@code Object} to keep this module decoupled from the generated
+   * types; {@link BusinessValidationService} casts at its own boundary.
+   */
+  public SubmissionValidationResult validateBusiness(Object parsedSubmission) {
+    BusinessValidationOutcome business = businessValidationService.validate(parsedSubmission);
     return new SubmissionValidationResult(
         business.valid(), business.messages(), business.acceptance());
   }

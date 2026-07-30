@@ -103,16 +103,18 @@ objects:
       JASPER_SERVER_PUT_URL: ${JASPER_SERVER_PUT_URL}
       JASPER_SERVER_REPORT_URI_BASE: ${JASPER_SERVER_REPORT_URI_BASE}
 
+  # ── NetworkPolicy: ingress from OpenShift router ──────────
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
-      name: ${NAME}-${ZONE}-frontend-ingress
+      name: ${NAME}-frontend-${ZONE}-ingress
       labels:
-        app: ${NAME}-${ZONE}
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
     spec:
       podSelector:
         matchLabels:
-          deployment: ${NAME}-${ZONE}-frontend
+          app: ${NAME}-frontend-${ZONE}
       ingress:
         - from:
             - namespaceSelector:
@@ -120,21 +122,26 @@ objects:
                   network.openshift.io/policy-group: ingress
       policyTypes:
         - Ingress
+
+  # ── NetworkPolicy: ingress from same-zone frontend + cluster monitoring ──
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
-      name: ${NAME}-${ZONE}-backend-ingress
+      name: ${NAME}-backend-${ZONE}-ingress
       labels:
-        app: ${NAME}-${ZONE}
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
     spec:
       podSelector:
         matchLabels:
-          deployment: ${NAME}-${ZONE}-backend
+          app: ${NAME}-backend-${ZONE}
       ingress:
         - from:
             - podSelector:
                 matchLabels:
-                  app: ${NAME}-${ZONE}
-                  deployment: ${NAME}-${ZONE}-frontend
+                  app: ${NAME}-frontend-${ZONE}
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: monitoring
       policyTypes:
         - Ingress

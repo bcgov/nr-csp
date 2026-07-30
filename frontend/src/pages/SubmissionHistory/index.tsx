@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Grid, Column, IconButton, Link } from '@carbon/react';
 import { View, Chat } from '@carbon/icons-react';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +7,7 @@ import PageTitle from '@/components/core/PageTitle';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import { ROUTES } from '@/routes/routePaths';
 import { formatShortDate } from '@/utils/format';
+import { usePersistentState, setSerializer } from '@/hooks/usePersistentState';
 import {
   type SubmissionHistoryListParams,
   type SubmissionHistoryRowResponse,
@@ -49,10 +49,11 @@ function toSubmissionRow(r: SubmissionHistoryRowResponse, index: number): Submis
 export function SubmissionHistoryPage() {
   const navigate = useNavigate();
 
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortParam, setSortParam] = useState<string | undefined>(undefined);
-  const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
+  const NS = 'csp.table.submissionHistory.v1';
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 10);
+  const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
+  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
+  const [expandedRowIds, setExpandedRowIds] = usePersistentState<Set<string>>(NS, 'expanded', new Set(), setSerializer);
 
   const queryParams: SubmissionHistoryListParams = {
     page: currentPage - 1, // Spring is 0-indexed; Carbon pagination is 1-indexed.

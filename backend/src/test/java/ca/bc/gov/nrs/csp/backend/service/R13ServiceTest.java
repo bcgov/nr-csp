@@ -653,36 +653,36 @@ class R13ServiceTest {
             Document result = ReflectionTestUtils.invokeMethod(service, "relocateFields", doc, 800);
 
             assertThat(result).isNotNull();
-            // 4 columns remain (CONVERSION_FACTOR merges into PRICE; BAD/NOX skipped) -> width 200 each
+            // 5 columns remain (CONVERSION_FACTOR is its own column, matching legacy; BAD/NOX skipped) -> width 160 each
             Element ePieces = find(result, "columnHeader", "staticText", "PIECES");
             assertThat(ePieces).isNotNull();
             assertThat(ePieces.attributeValue("x")).isEqualTo("0");
 
             Element eVolume = find(result, "columnHeader", "staticText", "VOLUME");
             assertThat(eVolume).isNotNull();
-            assertThat(eVolume.attributeValue("x")).isEqualTo("200");
+            assertThat(eVolume.attributeValue("x")).isEqualTo("160");
 
             Element ePrice = find(result, "columnHeader", "staticText", "PRICE");
             assertThat(ePrice).isNotNull();
-            assertThat(ePrice.attributeValue("x")).isEqualTo("400");
+            assertThat(ePrice.attributeValue("x")).isEqualTo("320");
 
-            // CONVERSION_FACTOR follows PRICE
+            // CONVERSION_FACTOR gets its own column slot, immediately after PRICE
             Element eConvHead = find(result, "columnHeader", "staticText", "CONVERSION_FACTOR");
             assertThat(eConvHead).isNotNull();
-            assertThat(eConvHead.attributeValue("x")).isEqualTo("400");
+            assertThat(eConvHead.attributeValue("x")).isEqualTo("480");
 
             Element eConvDetail = find(result, "detail", "textField", "CONVERSION_FACTOR");
             assertThat(eConvDetail).isNotNull();
-            assertThat(eConvDetail.attributeValue("x")).isEqualTo("400");
+            assertThat(eConvDetail.attributeValue("x")).isEqualTo("480");
 
             Element eAmount = find(result, "columnHeader", "staticText", "AMOUNT");
             assertThat(eAmount).isNotNull();
-            assertThat(eAmount.attributeValue("x")).isEqualTo("600");
+            assertThat(eAmount.attributeValue("x")).isEqualTo("640");
 
             // TOTAL_ companion column moves with its base column
             Element eTotalVol = find(result, "detail", "textField", "TOTAL_VOLUME");
             assertThat(eTotalVol).isNotNull();
-            assertThat(eTotalVol.attributeValue("x")).isEqualTo("200");
+            assertThat(eTotalVol.attributeValue("x")).isEqualTo("160");
 
             // Summary fields are relocated too
             Element sPieces = find(result, "summary", "textField", "PIECES");
@@ -691,7 +691,7 @@ class R13ServiceTest {
 
             Element sAmount = find(result, "summary", "textField", "AMOUNT");
             assertThat(sAmount).isNotNull();
-            assertThat(sAmount.attributeValue("x")).isEqualTo("600");
+            assertThat(sAmount.attributeValue("x")).isEqualTo("640");
 
             // TOTAL_LABEL sits immediately left of the leftmost summary field (0 - width 60)
             Element totalLabel = find(result, "summary", "staticText", "TOTAL_LABEL");

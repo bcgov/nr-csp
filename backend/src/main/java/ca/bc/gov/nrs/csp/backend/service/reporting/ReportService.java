@@ -64,7 +64,7 @@ public class ReportService {
              Connection conn = dataSource.getConnection()) {
 
             if (stream == null) {
-                throw new ReportGenerationException("Report template not found on classpath: " + templatePath, null);
+                throw new ReportGenerationException("Report template not found on classpath.", null);
             }
 
             JasperReport compiled = JasperCompileManager.compileReport(stream);
@@ -77,7 +77,7 @@ public class ReportService {
         } catch (ReportGenerationException e) {
             throw e;
         } catch (Exception e) {
-            throw new ReportGenerationException("Failed to render local report: " + templatePath, e);
+            throw new ReportGenerationException("Failed to render local report.", e);
         }
     }
 
@@ -104,7 +104,7 @@ public class ReportService {
                     .retrieve()
                     .body(byte[].class);
         } catch (Exception e) {
-            throw new ReportGenerationException("Failed to fetch report from server: " + reportUri, e);
+            throw new ReportGenerationException("Failed to fetch report from server.", e);
         }
     }
 }

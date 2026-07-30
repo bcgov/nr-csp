@@ -1,0 +1,432 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+@use '@carbon/react/scss/theme' as theme;
+
+.upload-submission-page {
+  padding-top: $spacing-05;
+  padding-bottom: $spacing-07;
+
+  .cds--css-grid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  // Inset every section to one shared left/right page gutter. Cards sit at this
+  // gutter; their own title band / body padding insets the content further.
+  .page-title-col,
+  &__section {
+    padding-left: $spacing-07;
+    padding-right: $spacing-07;
+  }
+
+  .page-title-col {
+    margin-bottom: $spacing-05;
+
+    // Compact page heading — the full-size heading reads as oversized here.
+    .title-container h1 {
+      @include type.type-style('heading-03');
+      font-size: 1rem; // 16px per design
+    }
+  }
+
+  &__section {
+    margin-bottom: $spacing-06;
+  }
+
+  // ── Cards ─────────────────────────────────────────────────────────────────
+  // Upload / invoice / line-item blocks render as bordered cards with a grey
+  // title band, matching the detail-section cards below.
+  &__card {
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$background;
+  }
+
+  &__card-title {
+    @include type.type-style('heading-03');
+    font-size: 1rem; // 16px per design
+    font-weight: 400; // regular weight per design (heading-03 is otherwise 600)
+    margin: 0;
+    padding: $spacing-05; // 16px all around
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
+
+    // When the title shares its band with a count line, drop the band styling
+    // (the wrapping header carries it) so the two lines group together.
+    &--flush {
+      padding: 0;
+      border-bottom: none;
+    }
+  }
+
+  // Title + entry-count band for the invoice / line-item tables. Carries the
+  // Clear / Submit actions on the right for the invoice card.
+  &__card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-05;
+    flex-wrap: wrap;
+    padding: $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-04;
+  }
+
+  &__card-count {
+    @include type.type-style('label-01');
+    font-size: 0.875rem; // 14px
+    color: theme.$text-secondary;
+    margin: $spacing-02 0 0;
+  }
+
+  // Upload card body: sits on the white surface so the dashed drop zone reads
+  // against it.
+  &__card-body {
+    padding: $spacing-05;
+    background: theme.$layer-01;
+  }
+
+  &__card-table {
+    background: theme.$layer-01;
+  }
+
+  &__notification {
+    max-inline-size: 100%;
+    margin-bottom: $spacing-05;
+
+    .cds--inline-notification {
+      max-inline-size: 100%;
+    }
+  }
+
+  // "line N, col N" source location in the validation-issues table. code-02 is
+  // the 14px monospace style, matching the body text size of the other columns.
+  &__issue-location {
+    @include type.type-style('code-02');
+    white-space: nowrap;
+    color: theme.$text-secondary;
+  }
+
+  // The structural issues table's "Detail" column can be long prose, so let the
+  // cells wrap and top-align (overriding the data-preview cell's inline-flex,
+  // which is meant for short values + an issue marker). Scoped so the invoice /
+  // line-item tables keep their single-line layout.
+  &__issues-table {
+    .data-preview-table__cell {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    .cds--data-table td {
+      vertical-align: middle;
+    }
+
+    // Bold the column headers (Issue / File location / Detail).
+    .cds--data-table thead th,
+    .cds--data-table thead .cds--table-header-label {
+      font-weight: 700;
+    }
+  }
+
+  // Upload progress / selected-file line inside the upload card body.
+  &__upload-status {
+    margin-top: $spacing-04;
+  }
+
+  &__file-name {
+    @include type.type-style('label-01');
+    color: theme.$text-secondary;
+  }
+
+  // Per-issue warning/error banners stacked beneath the status notification,
+  // matching the InlineNotification style used elsewhere in CSP.
+  &__issue-banner {
+    max-inline-size: 100%;
+    margin-top: $spacing-03;
+
+    .cds--inline-notification {
+      max-inline-size: 100%;
+    }
+  }
+
+  // ── Editable metadata cards (Metadata / Details / Submitter) ───────────────
+  // A fixed 2-column grid of Carbon inputs inside the card body, autofilled from
+  // the parsed submission and editable by the user.
+  &__field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $spacing-05;
+    padding: $spacing-05;
+
+    // Stack to a single column on narrow viewports.
+    @media (max-width: 42rem) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    min-width: 0;
+  }
+
+  // Expand / collapse-all links beneath the invoice count, matching the
+  // ViewSubmission page's invoices header.
+  &__expand-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-03;
+    margin-top: $spacing-03;
+    color: theme.$text-secondary;
+  }
+
+  // ── Expandable invoice table ───────────────────────────────────────────────
+  // Each invoice row expands to reveal its own line items. Parent rows read as a
+  // light-grey band and the expanded panel sits on a white surface — mirroring
+  // the ViewSubmission page.
+  &__invoice-table {
+    // Parent invoice rows: light-grey band. Make the white top border Carbon
+    // adds between rows transparent so rows separate with one subtle line.
+    .cds--data-table tbody tr.cds--parent-row > td {
+      background-color: theme.$background;
+      border-block-start-color: transparent;
+    }
+
+    // The expanded content row and its inner container sit on white; zero their
+    // padding so the line-items panel controls its own spacing.
+    .cds--data-table tbody tr.cds--parent-row.cds--expandable-row + tr[data-child-row] > td,
+    .cds--child-row-inner-container {
+      background-color: theme.$layer-01;
+      padding: 0;
+    }
+
+    // Carbon's expandable rule (`tr[data-child-row] td { padding-inline-start:
+    // 3.5rem }`) leaks onto the nested line-item table's body cells, shifting
+    // them right of their headers. Reset the nested cells to the standard inline
+    // padding so the columns line up under their headers. The extra
+    // `.cds--data-table--sm` class lifts specificity enough to beat Carbon's.
+    .cds--child-row-inner-container .cds--data-table.cds--data-table--sm tbody td {
+      padding-inline: $spacing-05 !important;
+    }
+  }
+
+  // ── Expanded line-items panel ──────────────────────────────────────────────
+  // Nested inside each expanded invoice row: a bordered card with a grey title
+  // band holding that invoice's line-items table. Matches the ViewSubmission
+  // invoice-detail line-items block.
+  &__line-items-panel {
+    // Inset the card from the expanded row edges (small top/bottom, large left
+    // to clear the expand column, moderate right), per the ViewSubmission page.
+    padding: $spacing-02 $spacing-06 $spacing-03 $spacing-09;
+    background: theme.$layer-01;
+  }
+
+  // Expanded "Invoice details" card, mirroring the ViewSubmission page: a
+  // bordered white card with a grey title band and a fixed 3-column field grid
+  // (overriding DetailSection's responsive auto-fill layout).
+  &__invoice-details.detail-section {
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$layer-01;
+    margin-bottom: $spacing-05;
+  }
+
+  &__invoice-details .detail-section__title {
+    @include type.type-style('heading-compact-01');
+    margin: 0;
+    padding: $spacing-04 $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid theme.$border-subtle-02;
+  }
+
+  &__invoice-details .detail-section__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: $spacing-05;
+  }
+
+  // Italic "(empty)" placeholder for blank detail fields.
+  &__detail-empty {
+    color: theme.$text-secondary;
+    font-style: italic;
+  }
+
+  // A detail value paired with its inline error/warning marker.
+  &__detail-value {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  // The per-field error/warning icon shown beside a flagged detail field.
+  .invoice-field-issue {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+
+    &--error {
+      color: theme.$support-error;
+    }
+
+    &--warning {
+      color: theme.$support-warning;
+    }
+  }
+
+  &__line-items {
+    border: 1px solid #e0e0e0;
+    background: theme.$layer-01;
+  }
+
+  &__line-items-title {
+    @include type.type-style('heading-compact-01');
+    margin: 0;
+    padding: $spacing-03 $spacing-05;
+    background: theme.$background;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  // Compact, low-emphasis line-item headers, exact to the ViewSubmission page:
+  // 12px / 16px line-height, normal weight, secondary text, on the grey band.
+  &__line-items .cds--data-table thead th {
+    background-color: theme.$background;
+    color: theme.$text-secondary;
+    padding-block: $spacing-03;
+    padding-inline: $spacing-05;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 400;
+
+    .cds--table-header-label {
+      font-size: 0.75rem;
+      line-height: 1rem;
+      font-weight: 400;
+      color: theme.$text-secondary;
+    }
+  }
+
+  // ── Per-invoice flags ──────────────────────────────────────────────────────
+  // Invoice-number cell: the number sits beside its severity badge.
+  &__invoice-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-04;
+  }
+
+  // Left severity accent on a flagged invoice row. An inset box-shadow on the
+  // first cell reads as a bar at the row's start without shifting the layout.
+  &__invoice-row--error > td:first-child {
+    box-shadow: inset $spacing-02 0 0 0 theme.$support-error;
+  }
+
+  &__invoice-row--warning > td:first-child {
+    box-shadow: inset $spacing-02 0 0 0 theme.$support-warning;
+  }
+
+  // Compact severity badge shown on the invoice row. Errors and warnings render
+  // as separate icon+text segments, so a mixed invoice reads as a red "N errors"
+  // segment next to an amber "N warnings" segment.
+  .invoice-issue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-04;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &__segment {
+      display: inline-flex;
+      align-items: center;
+      gap: $spacing-02;
+
+      &--error {
+        color: theme.$support-error;
+      }
+
+      &--warning {
+        color: theme.$support-warning;
+      }
+    }
+
+    // The "No issues" check renders directly in the wrapper (no segment), so it
+    // needs the tight icon/text gap rather than the inter-segment spacing. Green
+    // to read as a positive "clean" status, matching the error/warning colours.
+    &--none {
+      gap: $spacing-02;
+      color: theme.$support-success;
+      font-weight: 400;
+    }
+  }
+
+  // Local per-invoice issue list at the top of the expanded panel: a bordered
+  // card with a grey title band, matching the line-items block below it.
+  .invoice-issue-list {
+    margin-bottom: $spacing-05;
+    border: 1px solid theme.$border-subtle-02;
+    background: theme.$layer-01;
+
+    &__title {
+      @include type.type-style('heading-compact-01');
+      margin: 0;
+      padding: $spacing-03 $spacing-05;
+      background: theme.$background;
+      border-bottom: 1px solid theme.$border-subtle-02;
+    }
+
+    &__items {
+      margin: 0;
+      padding: $spacing-04 $spacing-05;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-03;
+    }
+
+    &__item {
+      @include type.type-style('body-01');
+      display: flex;
+      align-items: flex-start;
+      gap: $spacing-03;
+
+      &--error .invoice-issue-list__icon {
+        color: theme.$support-error;
+      }
+
+      &--warning .invoice-issue-list__icon {
+        color: theme.$support-warning;
+      }
+    }
+
+    &__icon {
+      flex-shrink: 0;
+      margin-top: 0.125rem; // nudge the 16px icon onto the first text line
+    }
+  }
+}
+
+// The global g10 (light) theme forces every .cds--text-input to grey (#f4f4f4).
+// Give these editable metadata inputs a plain white fill so they read as active
+// fields against the card. Uses an explicit #ffffff rather than var(--cds-field-02):
+// that token is layer-relative and resolves to grey (#f4f4f4) inside a layer
+// context, which is why the earlier attempt still rendered grey. Scoped to g10
+// (higher specificity than the global rule so it wins); g100 keeps Carbon's dark
+// field.
+:root[data-carbon-theme='g10'] .upload-submission-page__field .cds--text-input {
+  background-color: #ffffff !important;
+}
+
+// Carbon text inputs default to a bottom underline only (no box), so a white
+// field on the white card is indistinguishable from its surface. Add a full
+// border so every metadata input reads as an editable box in both themes.
+// Excludes the invalid/warning states: Carbon draws its own red error / amber
+// warning outline there (the same treatment the report pages use), which must
+// stand on its own without a competing grey border.
+:root[data-carbon-theme='g10']
+  .upload-submission-page__field
+  .cds--text-input:not(.cds--text-input--invalid, .cds--text-input--warning),
+:root[data-carbon-theme='g100']
+  .upload-submission-page__field
+  .cds--text-input:not(.cds--text-input--invalid, .cds--text-input--warning) {
+  border: 1px solid var(--cds-border-strong-01) !important;
+}

@@ -10,6 +10,10 @@ export interface DetailItem {
    * useful for long free-text values (notes, descriptions) that should run the
    * full width rather than wrap inside one narrow column. */
   fullWidth?: boolean;
+  /** Error text shown beneath the value; also marks the item invalid. */
+  errorText?: string;
+  /** Warning text shown beneath the value. */
+  warningText?: string;
 }
 
 interface DetailSectionProps {
@@ -36,17 +40,21 @@ const DetailSection: FC<DetailSectionProps> = ({ title, items, children, classNa
   <section className={className ? `${className} detail-section` : 'detail-section'}>
     {title ? <h2 className="detail-section__title">{title}</h2> : null}
     <dl className="detail-section__grid">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className={item.fullWidth ? 'detail-section__item detail-section__item--full' : 'detail-section__item'}
-        >
-          <dt className="detail-section__label">{item.label}</dt>
-          <dd className="detail-section__value">
-            {item.value === null || item.value === undefined || item.value === '' ? '—' : item.value}
-          </dd>
-        </div>
-      ))}
+      {items.map((item) => {
+        const classes = ['detail-section__item'];
+        if (item.fullWidth) classes.push('detail-section__item--full');
+        if (item.errorText) classes.push('detail-section__item--error');
+        return (
+          <div key={item.label} className={classes.join(' ')}>
+            <dt className="detail-section__label">{item.label}</dt>
+            <dd className="detail-section__value">
+              {item.value === null || item.value === undefined || item.value === '' ? '—' : item.value}
+            </dd>
+            {item.errorText ? <p className="detail-section__error">{item.errorText}</p> : null}
+            {item.warningText ? <p className="detail-section__warning">{item.warningText}</p> : null}
+          </div>
+        );
+      })}
     </dl>
     {children}
   </section>

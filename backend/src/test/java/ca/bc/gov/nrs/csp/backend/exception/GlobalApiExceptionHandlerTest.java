@@ -141,6 +141,7 @@ class GlobalApiExceptionHandlerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals("DATABASE_ERROR", response.getBody().code());
+        assertEquals("A database error occurred while processing the request.", response.getBody().message());
     }
 
     @Test
@@ -150,6 +151,7 @@ class GlobalApiExceptionHandlerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals("REPORT_ERROR", response.getBody().code());
+        assertEquals("An error occurred while generating the report.", response.getBody().message());
     }
 
     @Test

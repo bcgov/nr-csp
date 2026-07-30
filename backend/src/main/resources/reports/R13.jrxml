@@ -605,7 +605,7 @@
 			<property name="com.jaspersoft.studio.unit.height" value="px"/>
 		</element>
 		<element kind="staticText" uuid="db0ac38b-7eb2-495f-8479-5e04c514243e" key="CONVERSION_FACTOR" x="368" y="4" width="55" height="24" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
-			<text><![CDATA[Relative Price]]></text>
+			<text><![CDATA[Relative Price Conversion Factor]]></text>
 			<property name="com.jaspersoft.studio.unit.y" value="px"/>
 			<property name="com.jaspersoft.studio.unit.height" value="px"/>
 		</element>

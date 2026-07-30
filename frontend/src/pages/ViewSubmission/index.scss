@@ -153,6 +153,16 @@
     }
   }
 
+  // Contain the wide 11-column invoices table within the section: give the body
+  // its own horizontal scroll boundary so the table scrolls here rather than
+  // spilling past the card and off-screen. (ResultsTable sets the inner Carbon
+  // containers to `overflow: visible` so icon tooltips can escape their cells;
+  // this table has no in-cell tooltips, so a scroll boundary on the body is safe
+  // and keeps the card edge-to-edge.)
+  &__invoices-body {
+    overflow-x: auto;
+  }
+
   // Keep the invoices table's column headers on a single line. This full-width
   // table has 11 columns, so it gets tight enough that Carbon wraps labels like
   // "Total Pieces" across two lines — pin them to one line instead. (The nested

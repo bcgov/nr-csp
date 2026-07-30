@@ -88,6 +88,7 @@ const setDate = (label: RegExp, value: string) => {
 describe('SearchPage interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     mockGetClientsByName.mockResolvedValue([]);
     mockUseSearchQuery.mockReturnValue({ data: emptyPage, isLoading: false, isError: false } as never);
     vi.mocked(useInvoiceStatusesQuery).mockReturnValue({ data: mockStatusItems, isLoading: false } as never);
@@ -144,7 +145,7 @@ describe('SearchPage interactions', () => {
       sellerSubmitter: true,
       maturity: 'C',
       page: 0,
-      size: 20,
+      size: 100,
     });
   });
 
@@ -239,15 +240,17 @@ describe('SearchPage interactions', () => {
   });
 
   it('updates page and page size through the pagination bar', () => {
+    // totalElements must exceed the default page size (100) so a second page exists
+    // for the "next page" click below to actually navigate to.
     mockUseSearchQuery.mockReturnValue({
-      data: { content: [mockSearchResult], totalElements: 90, totalPages: 5, size: 20, number: 0 },
+      data: { content: [mockSearchResult], totalElements: 250, totalPages: 3, size: 100, number: 0 },
       isLoading: false,
       isError: false,
     } as never);
     renderSearchPage();
 
     fireEvent.click(screen.getByRole('button', { name: /next page/i }));
-    expect(lastQueryParams()).toMatchObject({ page: 1, size: 20 });
+    expect(lastQueryParams()).toMatchObject({ page: 1, size: 100 });
 
     fireEvent.change(screen.getByLabelText('Invoices per page:'), { target: { value: '40' } });
     expect(lastQueryParams()).toMatchObject({ size: 40 });

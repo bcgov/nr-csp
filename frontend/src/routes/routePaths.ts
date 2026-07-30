@@ -3,6 +3,7 @@ export const ROUTES = {
   LOGOUT: '/logout',
   SEARCH: '/search',
   SUBMISSION_HISTORY: '/submission-history',
+  UPLOAD_SUBMISSION: '/upload-submission',
   INBOX: '/inbox',
   INVOICE: '/invoice',
   SORT_CODE: '/sort-code',
