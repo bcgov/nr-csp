@@ -49,6 +49,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -66,6 +67,7 @@ public class InvoiceService {
     private final CommonValidation commonValidation;
     private final PriceConversionService priceConversionService;
     private final InvoiceMapper mapper;
+    private final Clock clock;
 
     public InvoiceService(InvoiceRepository invoiceRepo,
                           LineItemRepository lineItemRepo,
@@ -73,7 +75,8 @@ public class InvoiceService {
                           LogSaleParticipantRepository participantRepo,
                           CommonValidation commonValidation,
                           PriceConversionService priceConversionService,
-                          InvoiceMapper mapper) {
+                          InvoiceMapper mapper,
+                          Clock clock) {
         this.invoiceRepo = invoiceRepo;
         this.lineItemRepo = lineItemRepo;
         this.submissionRepo = submissionRepo;
@@ -81,6 +84,7 @@ public class InvoiceService {
         this.commonValidation = commonValidation;
         this.priceConversionService = priceConversionService;
         this.mapper = mapper;
+        this.clock = clock;
     }
 
     // ---------------------------------------------------------------
@@ -540,7 +544,7 @@ public class InvoiceService {
     // Package-private (not private) so service unit tests can stub it on a spy
     // and exercise this service's orchestration without the full validator.
     InvoiceValidator newValidator() {
-        return new InvoiceValidator(invoiceRepo, commonValidation);
+        return new InvoiceValidator(invoiceRepo, commonValidation, clock);
     }
 
     private void throwIfErrors(ValidationResult result, String message) {

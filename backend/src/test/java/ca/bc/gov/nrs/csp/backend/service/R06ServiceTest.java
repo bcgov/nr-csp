@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +45,7 @@ class R06ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R06Service(jasperServerService, searchService);
+        service = new R06Service(jasperServerService, searchService, Clock.systemUTC());
     }
 
     private R06ReportRequest baseRequest() {
