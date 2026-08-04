@@ -239,9 +239,9 @@ const rewriteLineLabel = (text: string, labelMap: Map<number, string>): string =
     return ''; // strip the trailing label from the body
   });
   const tidied = body
-    .replace(/\s*\.\s*$/, '.')
     .replace(/\s{2,}/g, ' ')
-    .trim();
+    .trim()
+    .replace(/\s\.$/, '.');
   return prefix + tidied;
 };
 
@@ -392,8 +392,8 @@ export function InvoicePage() {
   const computedNewLineAmount = (() => {
     // Empty price/volume count as 0 so the amount still calculates (e.g.
     // price × 0 = 0.00) instead of showing blank.
-    const p = parseFloat(newLinePrice) || 0;
-    const v = parseFloat(newLineVolume) || 0;
+    const p = Number.parseFloat(newLinePrice) || 0;
+    const v = Number.parseFloat(newLineVolume) || 0;
     return (Math.round(p * v * 100) / 100).toFixed(2);
   })();
 
