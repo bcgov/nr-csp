@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,7 +38,7 @@ class R12ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R12Service(jasperServerService);
+        service = new R12Service(jasperServerService, Clock.systemUTC());
     }
 
     private R12ReportRequest baseRequest() {
