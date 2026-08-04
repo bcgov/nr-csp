@@ -239,9 +239,9 @@ const rewriteLineLabel = (text: string, labelMap: Map<number, string>): string =
     return ''; // strip the trailing label from the body
   });
   const tidied = body
-    .replace(/\s*\.\s*$/, '.')
     .replace(/\s{2,}/g, ' ')
-    .trim();
+    .trim()
+    .replace(/\s\.$/, '.');
   return prefix + tidied;
 };
 
