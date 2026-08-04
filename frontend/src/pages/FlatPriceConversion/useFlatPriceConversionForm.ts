@@ -49,7 +49,7 @@ export function validateFlatPriceConversionForm(values: FormValues): FormErrors 
     errors.flatPriceConversion = 'Flat price conversion is required.';
   } else {
     const num = Number(values.flatPriceConversion);
-    if (isNaN(num) || !Number.isInteger(num) || num < 1 || num > 999) {
+    if (Number.isNaN(num) || !Number.isInteger(num) || num < 1 || num > 999) {
       errors.flatPriceConversion = 'Must be a number between 1 and 999.';
     }
   }
