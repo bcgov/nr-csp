@@ -19,7 +19,6 @@ class JasperServerPropertiesTest {
                 "/reports/CSP/",
                 "jasper-user",
                 "jasper-pass",
-                true,
                 60);
     }
 
@@ -33,7 +32,6 @@ class JasperServerPropertiesTest {
         assertThat(props.reportUriBase()).isEqualTo("/reports/CSP/");
         assertThat(props.username()).isEqualTo("jasper-user");
         assertThat(props.password()).isEqualTo("jasper-pass");
-        assertThat(props.sslVerify()).isTrue();
         assertThat(props.readTimeoutSeconds()).isEqualTo(60);
     }
 
@@ -50,7 +48,6 @@ class JasperServerPropertiesTest {
                 "/reports/CSP/",
                 "jasper-user",
                 "jasper-pass",
-                false,
                 30);
         assertThat(sample()).isNotEqualTo(different);
     }
@@ -73,7 +70,6 @@ class JasperServerPropertiesTest {
                 "jasper.server.report-uri-base", "/reports/CSP/",
                 "jasper.server.username", "jasper-user",
                 "jasper.server.password", "jasper-pass",
-                "jasper.server.ssl-verify", "true",
                 "jasper.server.read-timeout-seconds", "60"));
 
         JasperServerProperties bound = new Binder(source)

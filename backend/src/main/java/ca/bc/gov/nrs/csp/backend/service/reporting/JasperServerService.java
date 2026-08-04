@@ -7,7 +7,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
-import javax.net.ssl.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,9 +15,6 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,20 +36,12 @@ public class JasperServerService {
     private static final long SESSION_TTL_SECONDS = 20L * 60;
 
     private final JasperServerProperties props;
-    private final SSLContext sslContext;
-    private final HostnameVerifier hostnameVerifier;
 
     private volatile String cachedSessionCookie;
     private volatile Instant sessionExpiresAt = Instant.EPOCH;
 
     public JasperServerService(JasperServerProperties props) {
         this.props = props;
-        try {
-            this.sslContext = buildSslContext(props.sslVerify());
-            this.hostnameVerifier = buildHostnameVerifier(props.sslVerify());
-        } catch (NoSuchAlgorithmException | KeyManagementException e) {
-            throw new ReportGenerationException("Failed to initialise SSL context for JasperReports Server", e);
-        }
     }
 
     /**
@@ -197,10 +185,6 @@ public class JasperServerService {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setConnectTimeout(10_000);
         conn.setReadTimeout(props.readTimeoutSeconds() * 1_000);
-        if (conn instanceof HttpsURLConnection https) {
-            https.setSSLSocketFactory(sslContext.getSocketFactory());
-            https.setHostnameVerifier(hostnameVerifier);
-        }
         return conn;
     }
 
@@ -214,28 +198,5 @@ public class JasperServerService {
 
     private static String encode(String value) {
         return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private static SSLContext buildSslContext(boolean verify)
-            throws NoSuchAlgorithmException, KeyManagementException {
-        SSLContext ctx = SSLContext.getInstance("TLSv1.2");
-        if (verify) {
-            ctx.init(null, null, new java.security.SecureRandom());
-        } else {
-            log.warn("SSL certificate verification is DISABLED — do not use in production.");
-            TrustManager[] trustAll = {new X509TrustManager() {
-                public X509Certificate[] getAcceptedIssuers() { return null; }
-                public void checkClientTrusted(X509Certificate[] c, String a) {}
-                public void checkServerTrusted(X509Certificate[] c, String a) {}
-            }};
-            ctx.init(null, trustAll, new java.security.SecureRandom());
-        }
-        return ctx;
-    }
-
-    private static HostnameVerifier buildHostnameVerifier(boolean verify) {
-        if (verify) return HttpsURLConnection.getDefaultHostnameVerifier();
-        log.warn("Hostname verification is DISABLED — do not use in production.");
-        return (hostname, session) -> true;
     }
 }

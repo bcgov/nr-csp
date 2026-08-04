@@ -10,8 +10,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -50,7 +48,6 @@ class JasperServerServiceTest {
                 "/reports/CSP/",
                 "csp user",
                 "p&ss word",
-                true,
                 5);
     }
 
@@ -293,30 +290,4 @@ class JasperServerServiceTest {
         }
     }
 
-    @Nested
-    @DisplayName("SSL configuration")
-    class SslConfiguration {
-
-        @Test
-        void shouldUseDefaultHostnameVerifier_whenSslVerifyEnabled() {
-            assertThat(ReflectionTestUtils.getField(service, "hostnameVerifier"))
-                    .isSameAs(HttpsURLConnection.getDefaultHostnameVerifier());
-            assertThat(ReflectionTestUtils.getField(service, "sslContext")).isNotNull();
-        }
-
-        @Test
-        void shouldTrustAllHostnames_whenSslVerifyDisabled() {
-            JasperServerService insecure = new JasperServerService(new JasperServerProperties(
-                    "https://jasper.example.com/login",
-                    "https://jasper.example.com/fetch/",
-                    "https://jasper.example.com/put",
-                    "/reports/CSP/",
-                    "user", "pass", false, 5));
-
-            HostnameVerifier verifier =
-                    (HostnameVerifier) ReflectionTestUtils.getField(insecure, "hostnameVerifier");
-            assertThat(verifier.verify("any-host.example.com", null)).isTrue();
-            assertThat(ReflectionTestUtils.getField(insecure, "sslContext")).isNotNull();
-        }
-    }
 }

@@ -37,7 +37,6 @@ class ReportServiceTest {
                 "/reports/CSP/",
                 "user",
                 "pass",
-                true,
                 5);
         return new ReportService(dataSource, props);
     }

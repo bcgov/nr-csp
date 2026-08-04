@@ -13,3 +13,9 @@ KSV021
 # OpenShift restricted SCC forbids seccomp: "seccomp may not be set".
 KSV030
 KSV104
+
+# GHSA-qwww-vcr4-c8h2: react-router CSRF bypass in unstable RSC (React Server
+# Components) mode, fixed only in react-router 8.3.0. Not exploitable here:
+# the frontend is a client-side Vite SPA and does not use the RSC APIs.
+# Remove this entry when react-router is upgraded to >= 8.3.0.
+GHSA-qwww-vcr4-c8h2
