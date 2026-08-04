@@ -18,6 +18,7 @@ import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +31,7 @@ public class InvoiceValidator {
 
     private final InvoiceRepository invoiceRepo;
     private final CommonValidation commonValidation;
+    private final Clock clock;
     private final List<ValidationMessage> messages = new ArrayList<>();
 
     private boolean manual;
@@ -38,9 +40,10 @@ public class InvoiceValidator {
     private String buyerClientNum;
     private String buyerClientLoc;
 
-    public InvoiceValidator(InvoiceRepository invoiceRepo, CommonValidation commonValidation) {
+    public InvoiceValidator(InvoiceRepository invoiceRepo, CommonValidation commonValidation, Clock clock) {
         this.invoiceRepo = invoiceRepo;
         this.commonValidation = commonValidation;
+        this.clock = clock;
     }
 
     public ValidationResult validate(InvoiceDetails details,
@@ -594,7 +597,7 @@ public class InvoiceValidator {
 
     private boolean checkInvoiceDateNotFuture(LocalDate invDate, String invoiceNumber, String messageKey) {
         if (invDate == null) return true;
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         if (invDate.isAfter(today)) {
             log.debug("InvoiceValidator: invoice date in future");
             addError(messageKey, new Object[]{invoiceNumber, today});

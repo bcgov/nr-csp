@@ -2,10 +2,10 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R12ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
-import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRunner;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R12Validator;
@@ -13,8 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -26,9 +26,11 @@ public class R12Service {
     private static final Logger log = LoggerFactory.getLogger(R12Service.class);
 
     private final JasperServerService jasperServerService;
+    private final Clock clock;
 
-    public R12Service(JasperServerService jasperServerService) {
+    public R12Service(JasperServerService jasperServerService, Clock clock) {
         this.jasperServerService = jasperServerService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R12ReportRequest request) {
@@ -36,18 +38,8 @@ public class R12Service {
         String format = request.getReportFormat().getValue();
         log.info("Generating R12 report format={}", format);
 
-        Map<String, Object> params = buildParams(request);
-        params.put("RUN_OUTPUT_FORMAT", format);
-
-        byte[] data = jasperServerService.generateReport("R12", params);
-        if (data == null || data.length == 0) {
-            throw new ResourceNotFoundException("The R12 report returned no data.");
-        }
-
-        String filename = String.format("R12_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
-                request.getReportFormat().getExtension());
-        return new ReportResult(data, filename);
+        return JasperReportRunner.run(jasperServerService, clock, "R12",
+                request.getReportFormat(), buildParams(request));
     }
 
     private void validate(R12ReportRequest r) {

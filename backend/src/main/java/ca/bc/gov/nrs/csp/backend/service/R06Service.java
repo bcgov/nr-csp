@@ -1,10 +1,10 @@
 package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R06ReportRequest;
-import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRunner;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R06Validator;
@@ -12,8 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,10 +23,12 @@ public class R06Service {
 
     private final JasperServerService jasperServerService;
     private final SearchService searchService;
+    private final Clock clock;
 
-    public R06Service(JasperServerService jasperServerService, SearchService searchService) {
+    public R06Service(JasperServerService jasperServerService, SearchService searchService, Clock clock) {
         this.jasperServerService = jasperServerService;
         this.searchService = searchService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R06ReportRequest request) {
@@ -35,18 +36,8 @@ public class R06Service {
         String format = request.getReportFormat().getValue();
         log.info("Generating R06 report format={}", format);
 
-        Map<String, Object> params = buildParams(request);
-        params.put("RUN_OUTPUT_FORMAT", format);
-
-        byte[] data = jasperServerService.generateReport("R06", params);
-        if (data == null || data.length == 0) {
-            throw new ResourceNotFoundException("The R06 report returned no data.");
-        }
-
-        String filename = String.format("R06_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
-                request.getReportFormat().getExtension());
-        return new ReportResult(data, filename);
+        return JasperReportRunner.run(jasperServerService, clock, "R06",
+                request.getReportFormat(), buildParams(request));
     }
 
     private void validate(R06ReportRequest r) {
