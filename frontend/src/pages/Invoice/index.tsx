@@ -392,8 +392,8 @@ export function InvoicePage() {
   const computedNewLineAmount = (() => {
     // Empty price/volume count as 0 so the amount still calculates (e.g.
     // price × 0 = 0.00) instead of showing blank.
-    const p = parseFloat(newLinePrice) || 0;
-    const v = parseFloat(newLineVolume) || 0;
+    const p = Number.parseFloat(newLinePrice) || 0;
+    const v = Number.parseFloat(newLineVolume) || 0;
     return (Math.round(p * v * 100) / 100).toFixed(2);
   })();
 
