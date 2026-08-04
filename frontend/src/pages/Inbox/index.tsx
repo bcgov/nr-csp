@@ -103,7 +103,7 @@ export function InboxPage() {
     return firstError ?? axiosError?.response?.data?.message ?? 'Failed to load results. Please try again.';
   })();
 
-  const rows: InboxRow[] = (data?.content ?? []).map(toInboxRow);
+  const rows: InboxRow[] = (data?.content ?? []).map((r, index) => toInboxRow(r, index));
   const totalElements = data?.totalElements ?? 0;
 
   const inboxColumns: ResultsTableColumn<InboxRow>[] = [

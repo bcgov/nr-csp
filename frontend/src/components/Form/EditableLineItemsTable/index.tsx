@@ -111,8 +111,8 @@ export default function EditableLineItemsTable({
 
   const editComputedAmount = (() => {
     if (!editDraft) return '';
-    const p = parseFloat(editDraft.price);
-    const v = parseFloat(editDraft.volume);
+    const p = Number.parseFloat(editDraft.price);
+    const v = Number.parseFloat(editDraft.volume);
     if (Number.isNaN(p) || Number.isNaN(v)) return '';
     return (Math.round(p * v * 100) / 100).toFixed(2);
   })();

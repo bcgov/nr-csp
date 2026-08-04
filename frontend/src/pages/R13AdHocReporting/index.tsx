@@ -282,7 +282,7 @@ export function R13AdHocReportingPage() {
   //      start = March 15 + timeFrame '02' → April 30
   const calculatedEndDate = React.useMemo((): Date | null => {
     if (!filters.startDate || !filters.timeFrame) return null;
-    const months = parseInt(filters.timeFrame, 10);
+    const months = Number.parseInt(filters.timeFrame, 10);
     // Build a LOCAL-midnight last-day-of-month date so it stays consistent with
     // startDate (DateInput emits local-midnight) and with the local-component
     // formatters used for display (formatDisplayDateV2) and the request payload
