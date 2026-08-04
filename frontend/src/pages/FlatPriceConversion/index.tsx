@@ -434,9 +434,9 @@ export function FlatPriceConversionPage() {
           />
         </Column>
         <Column sm={4} md={8} lg={4} className="flat-price-conversion-page__search-col">
-          <label className="flat-price-conversion-page__search-label-spacer" aria-hidden="true">
+          <div className="flat-price-conversion-page__search-label-spacer" aria-hidden="true">
             &nbsp;
-          </label>
+          </div>
           <Button kind="primary" size="md" renderIcon={SearchIcon} iconDescription="Search" onClick={handleSearch}>
             Search
           </Button>
