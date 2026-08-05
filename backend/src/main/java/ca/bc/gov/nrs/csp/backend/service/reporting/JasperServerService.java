@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.exception.ReportGenerationException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import javax.net.ssl.*;
@@ -39,6 +40,9 @@ public class JasperServerService {
 
     private static final long SESSION_TTL_SECONDS = 20L * 60;
 
+    /** The only Spring profile under which TLS verification is permitted to be disabled. */
+    private static final String LOCAL_PROFILE = "local";
+
     private final JasperServerProperties props;
     private final SSLContext sslContext;
     private final HostnameVerifier hostnameVerifier;
@@ -46,14 +50,34 @@ public class JasperServerService {
     private volatile String cachedSessionCookie;
     private volatile Instant sessionExpiresAt = Instant.EPOCH;
 
-    public JasperServerService(JasperServerProperties props) {
+    public JasperServerService(JasperServerProperties props, Environment environment) {
         this.props = props;
+        // Fail-fast guard: disabling TLS certificate/hostname verification is a local-development
+        // convenience only. Every deployed environment (dev/test/prod OpenShift zones) runs the
+        // 'prod' profile, so refusing any non-'local' profile means a misconfigured
+        // JASPER_SERVER_SSL_VERIFY=false can never silently downgrade a deployed instance.
+        if (!props.sslVerify() && !isLocalProfile(environment)) {
+            throw new IllegalStateException(
+                    "Refusing to start: JASPER_SERVER_SSL_VERIFY=false disables TLS certificate and "
+                    + "hostname verification, which is only permitted under the '" + LOCAL_PROFILE
+                    + "' Spring profile. Set JASPER_SERVER_SSL_VERIFY=true, or run with "
+                    + "SPRING_PROFILES_ACTIVE=" + LOCAL_PROFILE + " for local development.");
+        }
         try {
             this.sslContext = buildSslContext(props.sslVerify());
             this.hostnameVerifier = buildHostnameVerifier(props.sslVerify());
         } catch (NoSuchAlgorithmException | KeyManagementException e) {
             throw new ReportGenerationException("Failed to initialise SSL context for JasperReports Server", e);
         }
+    }
+
+    private static boolean isLocalProfile(Environment environment) {
+        for (String profile : environment.getActiveProfiles()) {
+            if (LOCAL_PROFILE.equalsIgnoreCase(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -236,6 +260,10 @@ public class JasperServerService {
     private static HostnameVerifier buildHostnameVerifier(boolean verify) {
         if (verify) return HttpsURLConnection.getDefaultHostnameVerifier();
         log.warn("Hostname verification is DISABLED — do not use in production.");
-        return (hostname, session) -> true;
+        // Reachable only when JASPER_SERVER_SSL_VERIFY=false, which the constructor's fail-fast
+        // guard permits exclusively under the 'local' Spring profile (local development against a
+        // JasperReports Server with an untrusted/self-signed certificate). Deployed environments
+        // run the 'prod' profile and cannot reach this branch. Risk accepted for local dev only.
+        return (hostname, session) -> true; // codeql[java/unsafe-hostname-verification]
     }
 }

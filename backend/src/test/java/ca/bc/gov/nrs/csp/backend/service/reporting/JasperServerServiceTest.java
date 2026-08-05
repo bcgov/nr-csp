@@ -8,6 +8,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.net.ssl.HostnameVerifier;
@@ -34,7 +36,16 @@ class JasperServerServiceTest {
     @BeforeEach
     void setUp() throws IOException {
         server = StubHttpServer.start();
-        service = new JasperServerService(props(server.baseUrl()));
+        service = new JasperServerService(props(server.baseUrl()), env());
+    }
+
+    /** A Spring {@link Environment} with the given active profiles (none = default). */
+    private static Environment env(String... activeProfiles) {
+        StandardEnvironment environment = new StandardEnvironment();
+        if (activeProfiles.length > 0) {
+            environment.setActiveProfiles(activeProfiles);
+        }
+        return environment;
     }
 
     @AfterEach
@@ -283,7 +294,7 @@ class JasperServerServiceTest {
                 unusedPort = socket.getLocalPort();
             }
             JasperServerService unreachable =
-                    new JasperServerService(props("http://127.0.0.1:" + unusedPort));
+                    new JasperServerService(props("http://127.0.0.1:" + unusedPort), env());
             Map<String, Object> params = pdfParams();
 
             assertThatThrownBy(() -> unreachable.generateReport("R06", params))
@@ -305,18 +316,41 @@ class JasperServerServiceTest {
         }
 
         @Test
-        void shouldTrustAllHostnames_whenSslVerifyDisabled() {
-            JasperServerService insecure = new JasperServerService(new JasperServerProperties(
-                    "https://jasper.example.com/login",
-                    "https://jasper.example.com/fetch/",
-                    "https://jasper.example.com/put",
-                    "/reports/CSP/",
-                    "user", "pass", false, 5));
+        void shouldTrustAllHostnames_whenSslVerifyDisabledUnderLocalProfile() {
+            JasperServerService insecure = new JasperServerService(insecureProps(), env("local"));
 
             HostnameVerifier verifier =
                     (HostnameVerifier) ReflectionTestUtils.getField(insecure, "hostnameVerifier");
             assertThat(verifier.verify("any-host.example.com", null)).isTrue();
             assertThat(ReflectionTestUtils.getField(insecure, "sslContext")).isNotNull();
+        }
+
+        @Test
+        void shouldRefuseToStart_whenSslVerifyDisabledAndProfileIsNotLocal() {
+            JasperServerProperties props = insecureProps();
+
+            assertThatThrownBy(() -> new JasperServerService(props, env("prod")))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Refusing to start")
+                    .hasMessageContaining("local");
+        }
+
+        @Test
+        void shouldRefuseToStart_whenSslVerifyDisabledAndNoActiveProfile() {
+            JasperServerProperties props = insecureProps();
+
+            assertThatThrownBy(() -> new JasperServerService(props, env()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Refusing to start");
+        }
+
+        private static JasperServerProperties insecureProps() {
+            return new JasperServerProperties(
+                    "https://jasper.example.com/login",
+                    "https://jasper.example.com/fetch/",
+                    "https://jasper.example.com/put",
+                    "/reports/CSP/",
+                    "user", "pass", false, 5);
         }
     }
 }
