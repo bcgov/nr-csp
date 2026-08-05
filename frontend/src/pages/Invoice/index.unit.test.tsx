@@ -39,7 +39,7 @@ const h = vi.hoisted(() => {
   };
 });
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useParams: () => h.params,
   useNavigate: () => h.navigate,
   useLocation: () => ({ pathname: '/invoice', search: '', state: null }),

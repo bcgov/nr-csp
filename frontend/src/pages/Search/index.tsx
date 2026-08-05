@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
 

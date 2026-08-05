@@ -1,7 +1,7 @@
 import { ArrowLeft } from '@carbon/icons-react';
 import { Grid, Column, Link, Loading } from '@carbon/react';
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 
 import DetailSection, { type DetailItem } from '@/components/core/DetailSection';
 import PageTitle from '@/components/core/PageTitle';

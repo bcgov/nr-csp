@@ -1,6 +1,6 @@
 import { SideNav, SideNavItems, SideNavLink } from '@carbon/react';
 import { type FC } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 
 import { useLayout } from '@/context/layout/useLayout';
 import { NAVIGATION_ITEMS } from '@/routes/navigation';
