@@ -7,7 +7,7 @@ import {
   SkipToContent,
 } from '@carbon/react';
 import { type FC } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 import { LayoutHeaderPanel } from '@/components/Layout/LayoutHeaderPanel';
 import { LayoutSideNav } from '@/components/Layout/LayoutSideNav';

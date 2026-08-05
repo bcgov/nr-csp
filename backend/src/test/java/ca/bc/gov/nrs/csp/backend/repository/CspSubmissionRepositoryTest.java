@@ -191,7 +191,9 @@ class CspSubmissionRepositoryTest {
                 .contains("INSERT INTO THE.csp_submission")
                 .contains("THE.CSP_SUBMISSION_SEQ.NEXTVAL")
                 .contains("submitter_email, submitter_phone")
-                .contains(":submitterEmail, :submitterPhone");
+                .contains(":submitterEmail, :submitterPhone")
+                // Manual entry is NOT assigned a business submission number.
+                .doesNotContain("CSP_ELECTRONIC_SUBMISSION_SEQ");
         assertThat(keyColumnsCaptor.getValue()).containsExactly("CSP_SUBMISSION_ID");
 
         MapSqlParameterSource params = paramsCaptor.getValue();
@@ -213,8 +215,14 @@ class CspSubmissionRepositoryTest {
 
         assertThat(id).isEqualTo(777L);
 
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc).update(anyString(), paramsCaptor.capture(), any(KeyHolder.class), any(String[].class));
+        verify(jdbc).update(sqlCaptor.capture(), paramsCaptor.capture(), any(KeyHolder.class), any(String[].class));
+
+        // The upload path is assigned a business submission number from the electronic sequence.
+        assertThat(sqlCaptor.getValue())
+                .contains("submission_id, ")
+                .contains("THE.CSP_ELECTRONIC_SUBMISSION_SEQ.NEXTVAL");
 
         MapSqlParameterSource params = paramsCaptor.getValue();
         assertThat(params.getValue("monthComplete")).isEqualTo("Y");

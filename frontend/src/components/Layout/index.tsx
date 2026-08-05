@@ -1,5 +1,5 @@
 import { Content, HeaderContainer, Loading, ToastNotification } from '@carbon/react';
-import { Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router';
 
 import { useAuth } from '@/context/auth/useAuth';
 import { useNotification } from '@/context/notification/useNotification';

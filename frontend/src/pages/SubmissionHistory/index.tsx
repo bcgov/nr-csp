@@ -1,6 +1,6 @@
 import { Grid, Column, IconButton, Link } from '@carbon/react';
 import { View, Chat } from '@carbon/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import PageTitle from '@/components/core/PageTitle';
