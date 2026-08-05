@@ -328,8 +328,9 @@ class JasperServerServiceTest {
         @Test
         void shouldRefuseToStart_whenSslVerifyDisabledAndProfileIsNotLocal() {
             JasperServerProperties props = insecureProps();
+            Environment prodEnv = env("prod");
 
-            assertThatThrownBy(() -> new JasperServerService(props, env("prod")))
+            assertThatThrownBy(() -> new JasperServerService(props, prodEnv))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Refusing to start")
                     .hasMessageContaining("local");
@@ -338,8 +339,9 @@ class JasperServerServiceTest {
         @Test
         void shouldRefuseToStart_whenSslVerifyDisabledAndNoActiveProfile() {
             JasperServerProperties props = insecureProps();
+            Environment noProfileEnv = env();
 
-            assertThatThrownBy(() -> new JasperServerService(props, env()))
+            assertThatThrownBy(() -> new JasperServerService(props, noProfileEnv))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Refusing to start");
         }
