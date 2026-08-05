@@ -137,7 +137,7 @@ export function ViewSubmissionPage() {
             {data.submissionId ? (
               <>
                 {' · '}
-                Submission ID {data.submissionId}
+                Submission ID <strong>{data.submissionId}</strong>
               </>
             ) : null}
             {' · '}

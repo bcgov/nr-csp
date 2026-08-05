@@ -72,33 +72,47 @@ public class CspSubmissionRepository {
 
     public Long insertSubmission(String clientNumber, String clientLocnCode, String statusCode, String userId) {
         // Single manually-entered invoice: month not complete, one invoice. The manual
-        // entry path carries no submitter contact details, so email/phone are left null.
+        // entry path carries no submitter contact details (email/phone left null) and is
+        // NOT assigned a business submission number — that belongs to the upload path.
         return insertSubmission(
-                new NewSubmission(clientNumber, clientLocnCode, statusCode, "N", 1, null, null), userId);
+                new NewSubmission(clientNumber, clientLocnCode, statusCode, "N", 1, null, null), false, userId);
     }
 
     /**
-     * Inserts a submission. Used by the CSP XML upload path, where a submission carries
-     * many invoices and the month-complete indicator comes from the uploaded document.
+     * Inserts a submission from the CSP XML upload path, where a submission carries many
+     * invoices and the month-complete indicator comes from the uploaded document. Assigns
+     * a business submission number ({@code submission_id}) from
+     * {@code CSP_ELECTRONIC_SUBMISSION_SEQ}.
      */
     public Long insertSubmission(NewSubmission submission, String userId) {
+        return insertSubmission(submission, true, userId);
+    }
+
+    /**
+     * Shared INSERT. Only the upload path ({@code allocateSubmissionNumber == true}) is
+     * assigned a business submission number ({@code submission_id}) from
+     * {@code CSP_ELECTRONIC_SUBMISSION_SEQ}; manual entry leaves that column null.
+     */
+    private Long insertSubmission(NewSubmission submission, boolean allocateSubmissionNumber, String userId) {
+        String submissionIdColumn = allocateSubmissionNumber ? "submission_id, " : "";
+        String submissionIdValue = allocateSubmissionNumber ? "THE.CSP_ELECTRONIC_SUBMISSION_SEQ.NEXTVAL, " : "";
         String sql = """
                 INSERT INTO THE.csp_submission (
                     csp_submission_id, csp_submission_status_code,
                     client_number, client_locn_code,
                     month_complete_ind, number_invoices_submitted,
                     submitter_email, submitter_phone,
-                    revision_count,
+                    %srevision_count,
                     entry_userid, entry_timestamp, update_userid, update_timestamp
                 ) VALUES (
                     THE.CSP_SUBMISSION_SEQ.NEXTVAL, :status,
                     :clientNumber, :clientLocnCode,
                     :monthComplete, :invoiceCount,
                     :submitterEmail, :submitterPhone,
-                    0,
+                    %s0,
                     :userId, SYSDATE, :userId, SYSDATE
                 )
-                """;
+                """.formatted(submissionIdColumn, submissionIdValue);
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("status", submission.statusCode())
                 .addValue("clientNumber", submission.clientNumber())
