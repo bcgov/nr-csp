@@ -20,7 +20,7 @@ import {
   TextInput,
 } from '@carbon/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router';
 
 import FormModal from '@/components/core/FormModal';
 import PageTitle from '@/components/core/PageTitle';

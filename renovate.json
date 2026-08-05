@@ -3,5 +3,12 @@
   "description": "Presets from https://github.com/bcgov/renovate-config",
   "extends": [
     "github>bcgov/renovate-config#2026.04"
+  ],
+  "packageRules": [
+    {
+      "description": "Freeze @bcgov-nr/nr-theme at 1.8.9 — 1.9.x changes global font rendering (BCSans). Do not auto-update.",
+      "matchPackageNames": ["@bcgov-nr/nr-theme"],
+      "enabled": false
+    }
   ]
 }
