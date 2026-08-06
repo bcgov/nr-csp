@@ -249,6 +249,7 @@ export function InvoicePage() {
   const { id: idParam } = useParams<{ id?: string }>();
   const invoiceId = idParam ? Number(idParam) : undefined;
   const isExisting = invoiceId !== undefined && !Number.isNaN(invoiceId);
+  const hasInvalidId = idParam !== undefined && !isExisting;
   const navigate = useNavigate();
   const location = useLocation();
   const { addNotification } = useNotification();
@@ -273,7 +274,12 @@ export function InvoicePage() {
   // -----------------------------------------------------------------
   // Server data — loaded invoice + mutations
   // -----------------------------------------------------------------
-  const { data: loadedInvoice, isLoading: invoiceLoading } = useInvoiceQuery(invoiceId);
+  const {
+    data: loadedInvoice,
+    isLoading: invoiceLoading,
+    isError: invoiceLoadError,
+    error: invoiceError,
+  } = useInvoiceQuery(invoiceId);
   const createMutation = useCreateInvoiceMutation();
   const updateMutation = useUpdateInvoiceMutation();
   const submitMutation = useSubmitInvoiceMutation();
@@ -338,6 +344,17 @@ export function InvoicePage() {
   }, [isExisting, invoiceLoading, loadedInvoice, clientsResolved]);
 
   const isLoadingInvoice = isExisting && !initialLoadComplete;
+
+  const invoiceNotFound = hasInvalidId || (isExisting && invoiceLoadError);
+  const invoiceNotFoundMessage = (() => {
+    if (!invoiceNotFound) return null;
+    const axiosError = invoiceError as { response?: { status?: number; data?: { message?: string } } } | null;
+    const status = axiosError?.response?.status;
+    if (hasInvalidId || status === 404) {
+      return 'Invoice not found. It may have been removed, or the link is incorrect.';
+    }
+    return axiosError?.response?.data?.message ?? 'Failed to load the invoice. Please try again.';
+  })();
 
   // Section 3 — Invoice detail information
   const [maturityCode, setMaturityCode] = useState('');
@@ -1598,8 +1615,9 @@ export function InvoicePage() {
       <Grid>
         <PageTitle title="Invoice" breadCrumbs={breadCrumbs}>
           <span className="invoice-page__status-tag">
-            {/* Hide the status icon entirely while the page is loading. */}
-            {isLoadingInvoice ? null : isExisting && loadedInvoice ? (
+            {/* Hide the status icon entirely while the page is loading or when
+                the requested invoice can't be found. */}
+            {isLoadingInvoice || invoiceNotFound ? null : isExisting && loadedInvoice ? (
               <InvoiceStatusTag status={loadedInvoice.invStatus} />
             ) : (
               <InvoiceDetailsTag label="New" />
@@ -1640,7 +1658,18 @@ export function InvoicePage() {
         ) : null}
 
         <Column sm={4} md={8} lg={16}>
-          {isLoadingInvoice ? (
+          {invoiceNotFound ? (
+            <div className="invoice-page__error-col">
+              <InlineNotification
+                className="invoice-page__error"
+                kind="error"
+                title="Invoice not found"
+                subtitle={invoiceNotFoundMessage ?? ''}
+                lowContrast
+                hideCloseButton
+              />
+            </div>
+          ) : isLoadingInvoice ? (
             <InvoiceFormSkeleton />
           ) : (
             <Accordion className="invoice-page__accordion" align="end">
@@ -2065,7 +2094,7 @@ export function InvoicePage() {
         {/* Action buttons row                                  */}
         {/* --------------------------------------------------- */}
         <Column sm={4} md={8} lg={16}>
-          {isLoadingInvoice ? (
+          {invoiceNotFound ? null : isLoadingInvoice ? (
             <div className="invoice-page__actions">
               {[1, 2, 3, 4, 5, 6, 7].map((i) => (
                 <div key={i} style={{ flex: '1 1 0' }}>
