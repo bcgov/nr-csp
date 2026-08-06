@@ -260,8 +260,7 @@
   }
 
   &__error {
-    @include type.type-style('body-01');
-    color: var(--cds-text-error, #da1e28);
+    max-width: 100%;
   }
 }
 
