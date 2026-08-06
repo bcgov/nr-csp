@@ -1693,7 +1693,7 @@ export function InvoicePage() {
                       id="inv-number"
                       labelText={<RequiredLabel>Invoice number</RequiredLabel>}
                       value={invNumber}
-                      onChange={(e) => setInvNumber(e.target.value)}
+                      onChange={(e) => setInvNumber(e.target.value.toUpperCase())}
                       invalid={!!displayFieldErrors.invNumber}
                       invalidText={displayFieldErrors.invNumber}
                       disabled={!canEdit}
