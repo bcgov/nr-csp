@@ -890,6 +890,7 @@ class InvoiceValidatorTest {
         String maturity = "M";
         String fobCode = "FOB01";
         String primarySortCode = "SORT01";
+        String clientPrimarySortCode = "SORT01";
         BigDecimal totalAmt = BigDecimal.ZERO;
         Integer totalPieces = 0;
         BigDecimal totalVol = BigDecimal.ZERO;
@@ -914,7 +915,7 @@ class InvoiceValidatorTest {
 
         InvoiceDetails build() {
             return new InvoiceDetails(invID, invNumber, invoiceDate, invStatus, invType, maturity,
-                    fobCode, primarySortCode, totalAmt, totalPieces, totalVol, submitterClientNum,
+                    fobCode, primarySortCode, clientPrimarySortCode, totalAmt, totalPieces, totalVol, submitterClientNum,
                     submitterLocation, submittedBy, clientNumber, clientLocation, otherClientNum,
                     otherClientLocation, otherClientName, otherClientCity, otherClientProvState,
                     boomNumbers, timberMarks, weightSlips, replaceInvNum, adjustInvNum, reviewComments,

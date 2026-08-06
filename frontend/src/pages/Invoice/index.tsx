@@ -676,11 +676,7 @@ export function InvoicePage() {
     setMaturityCode(loadedInvoice.maturity ?? '');
     setFobCodeValue(loadedInvoice.fobCode ?? '');
     setPrimarySortCodeValue(loadedInvoice.primarySortCode ?? '');
-    // The backend stores the same value in both `log_sale_sort_code` and
-    // `client_primary_sort_code` columns but only returns the former on the
-    // DTO. Mirror it into the Client-primary-sort TextArea so the field
-    // doesn't appear blank on a loaded invoice.
-    setClientPrimarySortCode(loadedInvoice.primarySortCode ?? '');
+    setClientPrimarySortCode(loadedInvoice.clientPrimarySortCode ?? '');
     setBoomNumbers(loadedInvoice.boomNumbers ?? []);
     setTimberMarks(loadedInvoice.timberMarks ?? []);
     setWeighSlips(loadedInvoice.weightSlips ?? []);
@@ -1076,6 +1072,7 @@ export function InvoicePage() {
       maturity: maturityCode || null,
       fobCode: fobCodeValue || null,
       primarySortCode: primarySortCodeValue || null,
+      clientPrimarySortCode: clientPrimarySortCode || null,
       totalAmt: totalAmount,
       totalPieces,
       totalVol: totalVolume,

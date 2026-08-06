@@ -286,6 +286,18 @@ describe('InvoicePage — action flows', () => {
     expect(h.mutations.update.mutate).toHaveBeenCalled();
   });
 
+  it('Save keeps the client primary sort code independent of the primary sort code', async () => {
+    await renderLoaded({ invStatus: 'DFT', primarySortCode: 'SORT01', clientPrimarySortCode: 'CLIENT-XYZ' });
+    expect(screen.getByLabelText('Client primary sort code')).toHaveValue('CLIENT-XYZ');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(h.mutations.update.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({ primarySortCode: 'SORT01', clientPrimarySortCode: 'CLIENT-XYZ' }),
+      }),
+      expect.anything(),
+    );
+  });
+
   it('Submit fires the submit mutation with the invoice id', async () => {
     await renderLoaded({ invStatus: 'DFT' });
     await userEvent.click(screen.getByRole('button', { name: 'Submit' }));

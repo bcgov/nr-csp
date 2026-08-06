@@ -43,6 +43,7 @@ export interface CreateInvoiceRequest {
   maturity?: string | null;
   fobCode?: string | null;
   primarySortCode?: string | null;
+  clientPrimarySortCode?: string | null;
   totalAmt?: number | null;
   totalPieces?: number | null;
   totalVol?: number | null;
@@ -99,6 +100,7 @@ export interface InvoiceResponse {
   maturity: string | null;
   fobCode: string | null;
   primarySortCode: string | null;
+  clientPrimarySortCode: string | null;
   totalAmt: number | null;
   totalPieces: number | null;
   totalVol: number | null;

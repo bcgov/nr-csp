@@ -30,6 +30,8 @@ public record CreateInvoiceRequest(
         String fobCode,
         @Schema(description = "Primary sort code", example = "A")
         String primarySortCode,
+        @Schema(description = "Client's own primary sort code", example = "A")
+        String clientPrimarySortCode,
         @Schema(description = "Submitted total amount", example = "1250.75")
         BigDecimal totalAmt,
         @Schema(description = "Submitted total pieces", example = "100")
