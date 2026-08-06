@@ -1,0 +1,118 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="r06_subreport1" language="java" pageWidth="555" pageHeight="802" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b6445526-0f7d-4162-81d2-64557abd20ec">
+	<property name="ireport.zoom" value="1.771561000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R06"/>
+	<property name="ireport.jasperserver.url" value="http://localhost:8080/jasperserver/services/repository"/>
+	<parameter name="SUBREPORT_DIR" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA["C:\\Temp\\R06-evennew\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="COASTAL_LOG_SALE_ID" forPrompting="false" class="java.math.BigDecimal">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="REPORT_CURSOR" forPrompting="false" class="java.sql.ResultSet"/>
+	<query language="plsql"><![CDATA[{call CSP_SP_SUBRPT1_06 ($P{REPORT_CURSOR}, $P{COASTAL_LOG_SALE_ID})}]]></query>
+	<field name="GROUPNUM" class="java.math.BigDecimal"/>
+	<field name="LOG_SALE_SORT_CODE" class="java.lang.String"/>
+	<field name="SORTCODEDESC" class="java.lang.String"/>
+	<field name="LOG_SALE_SPECIES_CODE" class="java.lang.String"/>
+	<field name="SUM(ID.PIECES)" class="java.math.BigDecimal"/>
+	<field name="SUM(ID.VOLUME)" class="java.math.BigDecimal"/>
+	<field name="AMOUNT" class="java.math.BigDecimal"/>
+	<field name="CONVERSIONPRICE" class="java.lang.String"/>
+	<variable name="GTPeices" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{SUM(ID.PIECES)}]]></expression>
+	</variable>
+	<variable name="GTVolume" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{SUM(ID.VOLUME)}]]></expression>
+	</variable>
+	<variable name="GTAmount" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMOUNT}.setScale(2,java.math.RoundingMode.HALF_UP)]]></expression>
+	</variable>
+	<pageHeader height="50">
+		<element kind="staticText" uuid="9b83d8d2-cec0-4ca3-ad0c-729e66dd9b89" x="10" y="12" width="200" height="20" fontSize="10.0" bold="true">
+			<text><![CDATA[Invoice Groups]]></text>
+		</element>
+		<element kind="line" uuid="8eab720d-eca7-4576-ad6e-5c2d0149b668" x="0" y="49" width="470" height="1"/>
+	</pageHeader>
+	<columnHeader height="36" splitType="Stretch">
+		<element kind="staticText" uuid="a8c9f178-332b-4dc8-aa75-35fa803d0525" x="0" y="1" width="33" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Center">
+			<text><![CDATA[Group #]]></text>
+		</element>
+		<element kind="staticText" uuid="223f0e06-9cdc-416b-b00e-3e289aabc30b" x="100" y="1" width="51" height="20" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Description]]></text>
+		</element>
+		<element kind="staticText" uuid="2a959aff-d368-4707-a1aa-aadd1aa67b9d" x="289" y="1" width="61" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Total Volume]]></text>
+		</element>
+		<element kind="staticText" uuid="94c03422-6dd6-4155-a0ac-30c377ffd365" x="36" y="1" width="64" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Center">
+			<text><![CDATA[Secondary Sort]]></text>
+		</element>
+		<element kind="staticText" uuid="9769c251-78de-4330-9329-b3fb00810c35" x="223" y="1" width="61" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Total Pieces]]></text>
+		</element>
+		<element kind="staticText" uuid="4e73ea6b-57bd-4254-a64e-83c9ec7e8fa0" x="355" y="1" width="61" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Total Amount]]></text>
+		</element>
+		<element kind="staticText" uuid="8b0b5d97-27a0-4cf8-b70a-ed88a1ce76d9" x="187" y="1" width="36" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Center">
+			<text><![CDATA[Species]]></text>
+		</element>
+		<element kind="staticText" uuid="6c172728-ad70-4472-96b9-a8211d486275" x="416" y="1" width="54" height="31" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Price Conversion]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14" splitType="Stretch">
+			<element kind="textField" uuid="ef9e43a4-ae1d-44c9-ae11-3c61a1b95ede" x="0" y="0" width="33" height="13" fontSize="8.0" hTextAlign="Center">
+				<expression><![CDATA[$F{GROUPNUM}]]></expression>
+			</element>
+			<element kind="textField" uuid="f040aa46-402e-41fc-8c5e-a5141d7e0e1a" x="36" y="0" width="64" height="13" fontSize="8.0" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_SORT_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="ab2c35b3-f82d-450a-8302-96b887b5fba1" x="100" y="0" width="87" height="13" fontSize="8.0">
+				<expression><![CDATA[$F{SORTCODEDESC}]]></expression>
+			</element>
+			<element kind="textField" uuid="24077800-6cda-416e-b266-4835164a3da2" x="187" y="0" width="36" height="13" fontSize="8.0" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_SPECIES_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="23af45c7-cd7e-4425-a7b4-6bc566fdd9bc" x="223" y="0" width="61" height="13" fontSize="8.0" pattern="##,##0;-##,##0" hTextAlign="Right">
+				<expression><![CDATA[$F{SUM(ID.PIECES)}]]></expression>
+			</element>
+			<element kind="textField" uuid="17431920-c4e0-4ac4-a762-890f71d48a84" x="289" y="0" width="61" height="13" fontSize="8.0" pattern="##,###,##0.000;-##,###,##0.000" hTextAlign="Right">
+				<expression><![CDATA[$F{SUM(ID.VOLUME)}]]></expression>
+			</element>
+			<element kind="textField" uuid="e7ce64bf-77fc-43ea-a766-0deeba5b8720" x="355" y="0" width="61" height="13" fontSize="8.0" pattern="¤ ##,##0.00" hTextAlign="Right">
+				<expression><![CDATA[$F{AMOUNT}.setScale(2,java.math.RoundingMode.HALF_UP)]]></expression>
+			</element>
+			<element kind="textField" uuid="7d12ae6d-aedf-404e-bef0-0c5ad1ffae42" x="416" y="0" width="54" height="13" fontSize="8.0" pattern="#,###,##0.00;-#,###,##0.00" hTextAlign="Right">
+				<expression><![CDATA[$F{CONVERSIONPRICE}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<summary height="130">
+		<element kind="line" uuid="2a47d292-5b3b-4fdf-9851-614592643b96" x="0" y="0" width="470" height="1"/>
+		<element kind="textField" uuid="c8d6660c-1d2b-45f0-a233-d4efc1a2780c" x="223" y="1" width="61" height="13" fontSize="8.0" pattern="##,##0;-##,##0" hTextAlign="Right">
+			<expression><![CDATA[$V{GTPeices}]]></expression>
+		</element>
+		<element kind="textField" uuid="33de9beb-2595-44bc-979a-5c666d723372" x="289" y="1" width="61" height="13" fontSize="8.0" pattern="##,###,##0.000;-##,###,##0.000" blankWhenNull="false" hTextAlign="Right">
+			<expression><![CDATA[$V{GTVolume}]]></expression>
+		</element>
+		<element kind="textField" uuid="4bfffe36-6bc3-4d27-a5c3-ca587c6ad3b9" x="355" y="1" width="61" height="13" fontSize="8.0" pattern="¤ ##,##0.00" hTextAlign="Right">
+			<expression><![CDATA[$V{GTAmount}.setScale(2,java.math.RoundingMode.HALF_UP)]]></expression>
+		</element>
+		<element kind="subreport" uuid="2cfc2abe-f18c-423a-98be-0910bea969f2" positionType="Float" x="0" y="30" width="555" height="100" usingCache="false">
+			<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+			<expression><![CDATA["repo:r06_subreport2.jrxml"]]></expression>
+			<parameter name="SUBREPORT_DIR">
+				<expression><![CDATA[$P{SUBREPORT_DIR}]]></expression>
+			</parameter>
+			<parameter name="REPORT_CURSOR">
+				<expression><![CDATA[$P{REPORT_CURSOR}]]></expression>
+			</parameter>
+			<parameter name="COASTAL_LOG_SALE_ID">
+				<expression><![CDATA[$P{COASTAL_LOG_SALE_ID}]]></expression>
+			</parameter>
+		</element>
+	</summary>
+</jasperReport>

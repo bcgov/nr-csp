@@ -2,40 +2,68 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R07ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
+import ca.bc.gov.nrs.csp.backend.exception.ReportGenerationException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.repository.CspSubmissionRepository;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R07Validator;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JasperCompileManager;
+import net.sf.jasperreports.engine.JasperExportManager;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.export.JRCsvExporter;
+import net.sf.jasperreports.export.SimpleCsvExporterConfiguration;
+import net.sf.jasperreports.export.SimpleExporterInput;
+import net.sf.jasperreports.export.SimpleWriterExporterOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class R07Service {
 
     private static final Logger log = LoggerFactory.getLogger(R07Service.class);
 
-    private final JasperServerService jasperServerService;
+    private final DataSource dataSource;
     private final SearchService searchService;
     private final CspSubmissionRepository cspSubmissionRepository;
 
-    public R07Service(JasperServerService jasperServerService, SearchService searchService,
+    /** Cache of compiled JasperReport objects keyed by template classpath path. */
+    private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
+
+    @Value("${jasper.report.r07.template:/reports/R07.jrxml}")
+    private String r07TemplatePath;
+
+    @Value("${jasper.report.r07.csv.template:/reports/R07_CSV.jrxml}")
+    private String r07CsvTemplatePath;
+
+    public R07Service(DataSource dataSource, SearchService searchService,
                       CspSubmissionRepository cspSubmissionRepository) {
-        this.jasperServerService = jasperServerService;
+        this.dataSource = dataSource;
         this.searchService = searchService;
         this.cspSubmissionRepository = cspSubmissionRepository;
     }
@@ -44,20 +72,32 @@ public class R07Service {
         validate(request);
         String format = request.getReportFormat().getValue();
         log.info("Generating R07 report format={}", format);
+        String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
+        String templatePath = "CSV".equalsIgnoreCase(format) ? r07CsvTemplatePath : r07TemplatePath;
+
+        JasperReport jasperReport = compiledReportCache.computeIfAbsent(templatePath, path -> {
+            try {
+                log.info("Compiling JRXML: {}", path);
+                return compileReport(loadTemplate(path));
+            } catch (Exception e) {
+                throw new ReportGenerationException("Failed to compile JRXML template.", e);
+            }
+        });
 
         Map<String, Object> params = buildParams(request);
-        params.put("RUN_OUTPUT_FORMAT", format);
+        JasperPrint jasperPrint = fillReport(jasperReport, params);
 
-        byte[] data = jasperServerService.generateReport("R07", params);
-        if (data == null || data.length == 0) {
-            throw new ResourceNotFoundException("The R07 report returned no data.");
+        if (jasperPrint.getPages().isEmpty()) {
+            throw new ResourceNotFoundException("The R07 report returned no data for the given parameters.");
         }
 
+        byte[] data = exportReport(jasperPrint, format);
         String filename = String.format("R07_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
-                request.getReportFormat().getExtension());
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
         return new ReportResult(data, filename);
     }
+
+    // ── Validation ────────────────────────────────────────────────────────────
 
     private void validate(R07ReportRequest r) {
         ValidationResult result = new R07Validator(cspSubmissionRepository, searchService).validate(r);
@@ -65,6 +105,59 @@ public class R07Service {
             throw new ValidationException("R07 report failed validation.", result);
         }
     }
+
+    // ── JRXML loading and compilation ─────────────────────────────────────────
+
+    private String loadTemplate(String templatePath) throws IOException {
+        try (InputStream stream = getClass().getResourceAsStream(templatePath)) {
+            if (stream == null) {
+                throw new IOException("JRXML template not found on classpath: " + templatePath);
+            }
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private JasperReport compileReport(String jrxmlContent) throws JRException {
+        try (InputStream stream = new ByteArrayInputStream(jrxmlContent.getBytes(StandardCharsets.UTF_8))) {
+            return JasperCompileManager.compileReport(stream);
+        } catch (IOException e) {
+            throw new JRException("Failed to compile JRXML template", e);
+        }
+    }
+
+    // ── Report fill / export ───────────────────────────────────────────────────
+
+    private JasperPrint fillReport(JasperReport report, Map<String, Object> params) {
+        try (Connection conn = dataSource.getConnection()) {
+            return JasperFillManager.fillReport(report, params, conn);
+        } catch (JRException | SQLException e) {
+            throw new ReportGenerationException("Failed to fill R07 report from database", e);
+        }
+    }
+
+    private byte[] exportReport(JasperPrint jasperPrint, String format) {
+        try {
+            return switch (format.toLowerCase()) {
+                case "pdf" -> JasperExportManager.exportReportToPdf(jasperPrint);
+                case "csv" -> exportToCsv(jasperPrint);
+                default -> throw new ReportGenerationException("Unsupported report format: " + format, null);
+            };
+        } catch (JRException e) {
+            throw new ReportGenerationException("Failed to export R07 report to " + format, e);
+        }
+    }
+
+    private byte[] exportToCsv(JasperPrint jasperPrint) throws JRException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        JRCsvExporter exporter = new JRCsvExporter();
+        exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+        exporter.setExporterOutput(new SimpleWriterExporterOutput(out));
+        exporter.setConfiguration(new SimpleCsvExporterConfiguration());
+        exporter.exportReport();
+        return out.toByteArray();
+    }
+
+    // ── Parameter building ─────────────────────────────────────────────────────
 
     private Map<String, Object> buildParams(R07ReportRequest r) {
         Map<String, Object> p = new HashMap<>();
@@ -89,10 +182,11 @@ public class R07Service {
         }
         if (r.getShowReplacesAdjusts() != null) p.put("SHOW_REPLACES_ADJUSTS", String.valueOf(r.getShowReplacesAdjusts()));
 
-        String maturity = r.getMaturityCodes() != null ? r.getMaturityCodes() : "O,S,M";
-        p.put("MATURITY", maturity);
-        p.put("TYPE_CODE_MATURITY", maturity);
-        p.put("TYPE_CODE_MATURITY_DESCRIPTION", buildMaturityDescription(maturity));
+        // MATURITY is the only maturity parameter R07.jrxml declares — the stored proc computes
+        // its own description text; there is no TYPE_CODE_MATURITY/TYPE_CODE_MATURITY_DESCRIPTION
+        // parameter in the report design (verified against both the JR7-converted and the
+        // original pre-conversion export).
+        p.put("MATURITY", r.getMaturityCodes() != null ? r.getMaturityCodes() : "O,S,M");
         p.put("INVOICE_TYPE",      r.getInvoiceType() != null ? r.getInvoiceType() : "ADJ,CAN,PUR,SAL");
         p.put("INVOICE_STATUS",    r.getInvoiceStatus() != null ? r.getInvoiceStatus() : "PRO,UNA,APP,CAN,DFT,DVF,REJ,VER");
         p.put("SUBMISSION_STATUS", r.getSubmissionStatus() != null ? r.getSubmissionStatus() : "COM,INB,LOB,REJ");
@@ -122,19 +216,6 @@ public class R07Service {
             return results.isEmpty() ? null : results.get(0);
         }
         return null;
-    }
-
-    private static String buildMaturityDescription(String codes) {
-        if (codes == null || codes.isBlank()) return "";
-        Map<String, String> map = new LinkedHashMap<>();
-        map.put("O", "Old Growth"); map.put("S", "Second Growth");
-        map.put("M", "Mixed Growth"); map.put("C", "Cants");
-        StringBuilder sb = new StringBuilder();
-        for (String code : codes.split(",")) {
-            String label = map.get(code.trim());
-            if (label != null) { if (sb.length() > 0) sb.append(", "); sb.append(label); }
-        }
-        return sb.toString();
     }
 
     private static String autoDateTo(String dateFrom, String dateTo, String timeFrame) {

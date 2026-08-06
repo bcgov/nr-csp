@@ -1,0 +1,203 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="R12_CSV" language="java" printOrder="Horizontal" pageWidth="720" pageHeight="79200" columnWidth="680" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="c0e850eb-0c21-42bf-8d78-367dabb09950" ignorePagination="true">
+	<property name="ireport.zoom" value="1.9487171000000025"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.callouts" value="##Wed Feb 05 13:03:00 AST 2014"/>
+	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R12_CSV"/>
+	<property name="ireport.jasperserver.url" value="https://d1apps.cgi-dev.ca/int/nrsrs/"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="CSP_ISP_Adapter"/>
+	<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+	<property name="com.jaspersoft.jrs.export.csv.paginated" value="false"/>
+	<property name="ireport.jasperserver.user" value="jasperadmin"/>
+	<property name="com.jaspersoft.studio.report.unit.description" value="R12 - CFPA Detailed Data Extract Report, CSV friendly version"/>
+	<property name="com.jaspersoft.studio.unit." value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.pageHeight" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.pageWidth" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.topMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.bottomMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.leftMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.rightMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.columnWidth" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.columnSpacing" value="pixel"/>
+	<parameter name="LOG_SALE_TYPE_CODE" forPrompting="false" class="java.lang.String"/>
+	<parameter name="USER_ID" forPrompting="false" class="java.lang.String"/>
+	<parameter name="YEAR" class="java.lang.String"/>
+	<parameter name="MONTH" class="java.lang.String"/>
+	<parameter name="INVOICE_DATE_FROM" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="INVOICE_DATE_TO" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TIME_FRAME" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="REPORT_CURSOR" forPrompting="false" class="java.sql.ResultSet"/>
+	<query language="plsql"><![CDATA[{call CSP_SP_RPT_12 ($P{REPORT_CURSOR}, $P{MONTH}, $P{YEAR}, $P{LOG_SALE_TYPE_CODE}, $P{INVOICE_DATE_FROM}, $P{INVOICE_DATE_TO})}]]></query>
+	<field name="LOG_SALE_TYPE_CODE" class="java.lang.String"/>
+	<field name="CLIENT_INVOICE_DATE" class="java.sql.Timestamp"/>
+	<field name="LOG_SALE_SORT_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_SPECIES_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_GRADE_CODE" class="java.lang.String"/>
+	<field name="PIECES" class="java.math.BigDecimal"/>
+	<field name="VOLUME" class="java.math.BigDecimal"/>
+	<field name="AVG_PRICE" class="java.math.BigDecimal"/>
+	<field name="AMOUNT" class="java.math.BigDecimal"/>
+	<field name="COASTAL_LOG_SALE_ID" class="java.lang.String"/>
+	<field name="COASTAL_LOG_SALE_DETAIL_ID" class="java.lang.Long"/>
+	<field name="MATURITY" class="java.lang.String"/>
+	<field name="SORD_CODE_DESC" class="java.lang.String"/>
+	<field name="SPECIES_DESC" class="java.lang.String"/>
+	<field name="GREAD_DESC" class="java.lang.String"/>
+	<variable name="PTotal2" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{PIECES}]]></expression>
+	</variable>
+	<variable name="VTotal2" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{VOLUME}]]></expression>
+	</variable>
+	<variable name="Col1" calculation="System" class="java.math.BigDecimal"/>
+	<variable name="Col2" calculation="System" class="java.math.BigDecimal"/>
+	<background splitType="Stretch"/>
+	<title height="150">
+		<printWhenExpression><![CDATA[( 1==2 ? true : false )]]></printWhenExpression>
+		<element kind="staticText" uuid="82c7d299-dd8b-4ad7-9d99-eaeb0d333515" x="0" y="0" width="264" height="26" markup="none" fontSize="14.0" hTextAlign="Center">
+			<text><![CDATA[Government of British Columbia]]></text>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="bbee0452-15b9-4909-a744-a2d56d25bdee" x="0" y="26" width="264" height="13" markup="none" fontSize="8.0" hTextAlign="Center">
+			<text><![CDATA[R12 - CFPA Detailed Data Extract Report CSV]]></text>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="eabe08ed-fb75-4535-b720-0886b3d801d6" x="0" y="39" width="84" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[User ID:]]></text>
+		</element>
+		<element kind="textField" uuid="e417a947-e714-4309-a430-507ac2031e30" x="84" y="39" width="51" height="13" fontSize="8.0">
+			<expression><![CDATA[$P{USER_ID}]]></expression>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="be90c17d-2f1e-4bb7-b965-79b74e5fff11" x="0" y="56" width="84" height="13" markup="none" fontSize="8.0" bold="true" italic="false">
+			<text><![CDATA[Report ID:]]></text>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="9822627e-d5a2-4f31-9a7c-f1b531651424" x="0" y="69" width="84" height="13" markup="none" fontSize="8.0" bold="true" italic="false">
+			<text><![CDATA[Run Date:]]></text>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="03b71a52-d27f-4453-b6b7-4b00f4879129" x="0" y="82" width="84" height="13" markup="none" fontSize="8.0" bold="true" italic="false">
+			<text><![CDATA[Run Time:]]></text>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="textField" uuid="b2a21c79-1466-46a0-80c6-2fe4d99580ca" x="84" y="82" width="51" height="13" markup="none" fontSize="8.0" pattern="">
+			<expression><![CDATA[new SimpleDateFormat("hh:mm a").format(new Date())]]></expression>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="textField" uuid="6c23ce74-cff4-4135-b748-d1e22946451d" x="84" y="69" width="51" height="13" markup="none" fontSize="8.0">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new Date())]]></expression>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="2f3083c4-c0e3-4419-8479-facbc9937e17" x="84" y="56" width="51" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[CSP-R12]]></text>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="textField" uuid="16673536-2c5b-4576-9c9b-a2b1086a056f" x="0" y="95" width="84" height="13" fontSize="8.0" bold="true" hTextAlign="Center">
+			<printWhenExpression><![CDATA[$P{YEAR} != null]]></printWhenExpression>
+			<expression><![CDATA["Transaction Month:"]]></expression>
+		</element>
+		<element kind="textField" uuid="4db511df-c7ef-4a91-aedb-0251a7a8822c" x="84" y="95" width="51" height="13" fontSize="8.0" pattern="" hTextAlign="Right">
+			<expression><![CDATA[$P{MONTH} + " / " + $P{YEAR}]]></expression>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="textField" uuid="4758f856-7947-4480-a6b0-22866ad2574f" x="0" y="109" width="311" height="13" fontSize="8.0" pattern="" blankWhenNull="true">
+			<printWhenExpression><![CDATA[$P{INVOICE_DATE_FROM} != null]]></printWhenExpression>
+			<expression><![CDATA["For the " + $P{TIME_FRAME} + " month period from " + new SimpleDateFormat("MMMMM dd, yyyy").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_FROM})) + " To " + new SimpleDateFormat("MMMMM dd, yyyy").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_TO}))]]></expression>
+		</element>
+		<property name="local_mesure_unitheight" value="pixel"/>
+		<property name="com.jaspersoft.studio.unit.height" value="px"/>
+	</title>
+	<columnHeader height="19">
+		<element kind="staticText" uuid="a64ba577-6631-446e-bc24-f6a1c87bc456" x="0" y="0" width="84" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true" italic="false">
+			<text><![CDATA[Invoice Date]]></text>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="5604dbb7-a494-4351-b3d1-55480a1544f3" x="84" y="0" width="51" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Maturity]]></text>
+		</element>
+		<element kind="staticText" uuid="024e6910-6633-4c4e-b955-528de493384e" x="196" y="0" width="68" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Sort Code]]></text>
+		</element>
+		<element kind="staticText" uuid="8d09fc18-16c0-40b5-9c49-2f566e956518" x="135" y="0" width="61" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Species]]></text>
+		</element>
+		<element kind="staticText" uuid="060312f7-e96e-4798-89e8-437171c0c313" x="264" y="0" width="47" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Grade]]></text>
+		</element>
+		<element kind="staticText" uuid="fb0dc6d9-9516-44b4-a617-f6bbe19bb2de" x="311" y="0" width="64" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[# Pieces]]></text>
+		</element>
+		<element kind="staticText" uuid="120d17e2-689e-4c8e-9c22-c32072823977" x="375" y="0" width="78" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[M3 Volume]]></text>
+		</element>
+		<element kind="staticText" uuid="96ec83a5-95a1-4ffa-a362-3ebfbe4456b1" x="453" y="0" width="86" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Value$ / M3]]></text>
+		</element>
+		<element kind="staticText" uuid="96ec83a5-95a1-4ffa-a362-3ebfbe4456b1" x="539" y="0" width="75" height="13" forecolor="#FFFFFF" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Value $]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="17">
+			<element kind="textField" uuid="8ed791ff-3a1b-4f11-98b5-d486edce76c2" x="0" y="0" width="84" height="13" fontSize="8.0" pattern="MM/dd/yyyy" blankWhenNull="true">
+				<expression><![CDATA[$F{CLIENT_INVOICE_DATE}]]></expression>
+				<property name="com.jaspersoft.studio.unit.x" value="px"/>
+			</element>
+			<element kind="textField" uuid="3cf9db6e-a8f7-4821-88e7-0bc817684ffe" x="196" y="0" width="68" height="13" fontSize="8.0" blankWhenNull="true">
+				<expression><![CDATA[$F{LOG_SALE_SORT_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="94d95d2c-5f20-4bd8-8faf-d3b1074af8e2" x="135" y="0" width="61" height="13" fontSize="8.0" blankWhenNull="true">
+				<expression><![CDATA[$F{LOG_SALE_SPECIES_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="7321c793-4800-42a5-ade6-793fa7279445" x="264" y="0" width="47" height="13" fontSize="8.0" blankWhenNull="true">
+				<expression><![CDATA[$F{LOG_SALE_GRADE_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="f20b6aa5-7bfb-45e8-9c98-2dec09e68f4d" x="311" y="0" width="64" height="13" fontSize="8.0" pattern="#,##0;-#,##0" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{PIECES}]]></expression>
+			</element>
+			<element kind="textField" uuid="e48d23d4-0601-41d2-b5f8-9ce986d55500" x="375" y="0" width="78" height="13" fontSize="8.0" pattern="###,##0.000" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{VOLUME}]]></expression>
+			</element>
+			<element kind="textField" uuid="8b77301c-4acb-4ac3-afcf-daf38073e3a9" x="453" y="0" width="86" height="13" fontSize="8.0" pattern="¤ #,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{AVG_PRICE}]]></expression>
+			</element>
+			<element kind="textField" uuid="006eb783-200a-4427-8863-d86bff4669c3" x="84" y="0" width="51" height="13" fontSize="8.0" blankWhenNull="true" bold="false">
+				<expression><![CDATA[$F{LOG_SALE_TYPE_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="8b77301c-4acb-4ac3-afcf-daf38073e3a9" x="539" y="0" width="75" height="13" fontSize="8.0" pattern="¤ #,###,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{AMOUNT}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<summary height="37" splitType="Stretch">
+		<printWhenExpression><![CDATA[( 1==2 ? true : false )]]></printWhenExpression>
+		<element kind="textField" uuid="c55a1810-8353-4dc5-abfc-339245c29082" x="311" y="19" width="64" height="13" fontSize="8.0" pattern="#,##0;-#,##0" hTextAlign="Right">
+			<expression><![CDATA[$V{PTotal2}]]></expression>
+		</element>
+		<element kind="textField" uuid="0c6d36ce-44c6-4aae-8705-de319fa7d653" x="375" y="19" width="78" height="13" fontSize="8.0" pattern=" ##,##0.000;-##,##0.000" hTextAlign="Right">
+			<expression><![CDATA[$V{VTotal2}]]></expression>
+		</element>
+		<element kind="staticText" uuid="1e606f9a-6d8c-4829-9540-d44dcc9bfd21" x="264" y="19" width="47" height="13" markup="none" fontSize="6.0" bold="true">
+			<text><![CDATA[Grand Total:]]></text>
+		</element>
+		<element kind="elementGroup"/>
+		<element kind="textField" uuid="4e73dddc-f5a0-4829-838c-b81d86ade942" x="135" y="19" width="61" height="13" fontSize="8.0" pattern="##,###,##0" bold="true">
+			<expression><![CDATA[$V{REPORT_COUNT} + " Records"]]></expression>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+	</summary>
+</jasperReport>

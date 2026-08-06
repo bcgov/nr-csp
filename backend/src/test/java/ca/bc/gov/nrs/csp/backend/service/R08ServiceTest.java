@@ -3,40 +3,41 @@ package ca.bc.gov.nrs.csp.backend.service;
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R08ReportRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.ReportFormat;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
+import ca.bc.gov.nrs.csp.backend.exception.ReportGenerationException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
-import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.base.JRBasePrintPage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class R08ServiceTest {
 
     @Mock
-    JasperServerService jasperServerService;
+    DataSource dataSource;
     @Mock
     SearchService searchService;
 
@@ -47,7 +48,9 @@ class R08ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R08Service(jasperServerService, searchService);
+        service = new R08Service(dataSource, searchService);
+        ReflectionTestUtils.setField(service, "r08TemplatePath", "/reports/R08.jrxml");
+        ReflectionTestUtils.setField(service, "r08CsvTemplatePath", "/reports/R08_CSV.jrxml");
     }
 
     private R08ReportRequest baseRequest() {
@@ -90,76 +93,114 @@ class R08ServiceTest {
         void shouldAccept_whenDateFromProvided() {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            assertThat(service.generateReport(r)).isNotNull();
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isNotInstanceOf(ValidationException.class);
         }
 
         @Test
         void shouldAccept_whenSubmissionNumberProvided() {
             R08ReportRequest r = baseRequest();
             r.setSubmissionNumber("12345");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            assertThat(service.generateReport(r)).isNotNull();
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isNotInstanceOf(ValidationException.class);
         }
 
         @Test
         void shouldAccept_whenSubmissionYearMonthProvided() {
             R08ReportRequest r = baseRequest();
             r.setSubmissionYearMonth("202001");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            assertThat(service.generateReport(r)).isNotNull();
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isNotInstanceOf(ValidationException.class);
         }
     }
 
     @Nested
-    @DisplayName("generateReport()")
-    class GenerateReport {
+    @DisplayName("generateReport() — compile/fill failures")
+    class GenerateReportFailures {
 
         @Test
-        void shouldReturnResult_whenJasperReturnsData() {
+        void shouldThrowReportGenerationException_whenTemplateNotFoundOnClasspath() {
+            ReflectionTestUtils.setField(service, "r08TemplatePath", "/reports/DOES_NOT_EXIST.jrxml");
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{42});
 
-            ReportResult result = service.generateReport(r);
-
-            assertThat(result.data()).isEqualTo(new byte[]{42});
-            assertThat(result.filename()).startsWith("R08_").endsWith(".pdf");
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ReportGenerationException.class)
+                    .hasMessageContaining("Failed to compile JRXML");
         }
 
         @Test
-        void shouldReturnCsvFilename_whenFormatIsCsv() {
+        void shouldThrowReportGenerationException_whenConnectionCannotBeObtained() throws Exception {
+            given(dataSource.getConnection()).willThrow(new SQLException("boom"));
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ReportGenerationException.class)
+                    .hasMessageContaining("Failed to fill R08 report from database")
+                    .hasCauseInstanceOf(SQLException.class);
+        }
+
+        @Test
+        void shouldThrowResourceNotFound_whenReportHasNoPages() {
+            R08ReportRequest r = baseRequest();
+            r.setDateFrom("20200101");
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("R08");
+        }
+
+        @Test
+        void shouldCompileCsvTemplateWithoutError_whenFormatIsCsv() {
             R08ReportRequest r = baseRequest();
             r.setReportFormat(ReportFormat.CSV);
             r.setDateFrom("20200101");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
-
-            assertThat(service.generateReport(r).filename()).endsWith(".csv");
-        }
-
-        @Test
-        void shouldThrowResourceNotFound_whenJasperReturnsEmpty() {
-            R08ReportRequest r = baseRequest();
-            r.setDateFrom("20200101");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[0]);
 
             assertThatThrownBy(() -> service.generateReport(r))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("R08");
         }
+    }
+
+    @Nested
+    @DisplayName("exportReport() — output formats")
+    class ExportReport {
+
+        private JasperPrint printWithOnePage() {
+            JasperPrint print = new JasperPrint();
+            print.setName("R08Test");
+            print.setPageWidth(612);
+            print.setPageHeight(792);
+            print.addPage(new JRBasePrintPage());
+            return print;
+        }
 
         @Test
-        void shouldThrowResourceNotFound_whenJasperReturnsNull() {
-            R08ReportRequest r = baseRequest();
-            r.setDateFrom("20200101");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(null);
+        void shouldExportPdf() {
+            byte[] data = ReflectionTestUtils.invokeMethod(service, "exportReport", printWithOnePage(), "PDF");
 
-            assertThatThrownBy(() -> service.generateReport(r))
-                    .isInstanceOf(ResourceNotFoundException.class)
-                    .hasMessageContaining("R08");
+            assertThat(data).isNotEmpty();
+            assertThat(new String(data, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        }
+
+        @Test
+        void shouldExportCsv() {
+            byte[] data = ReflectionTestUtils.invokeMethod(service, "exportReport", printWithOnePage(), "CSV");
+
+            assertThat(data).isNotNull();
+        }
+
+        @Test
+        void shouldThrowReportGenerationException_whenFormatUnsupported() {
+            JasperPrint print = printWithOnePage();
+
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "exportReport", print, "XLSX"))
+                    .isInstanceOf(ReportGenerationException.class)
+                    .hasMessageContaining("Unsupported report format: XLSX");
         }
     }
 
@@ -167,20 +208,18 @@ class R08ServiceTest {
     @DisplayName("resolveClient()")
     class ResolveClient {
 
+        private Map<String, Object> buildParams(R08ReportRequest r) {
+            return ReflectionTestUtils.invokeMethod(service, "buildParams", r);
+        }
+
         @Test
         void shouldResolveSellerNameFromNumber() {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
             r.setSellerClientNumber("1");
             given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME));
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .containsEntry("SELLER_NUMBER", "00000001")
                     .containsEntry("SELLER_NAME", "Acme Logging")
@@ -193,14 +232,8 @@ class R08ServiceTest {
             r.setDateFrom("20200101");
             r.setSellerClientName("Acme");
             given(searchService.findClientsByName("Acme")).willReturn(List.of(ACME));
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .containsEntry("SELLER_NUMBER", "00000001")
                     .containsEntry("SELLER_NAME", "Acme Logging");
@@ -212,14 +245,8 @@ class R08ServiceTest {
             r.setDateFrom("20200101");
             r.setBuyerClientNumber("1");
             given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME));
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .containsEntry("BUYER_NUMBER", "00000001")
                     .containsEntry("BUYER_NAME", "Acme Logging")
@@ -275,14 +302,8 @@ class R08ServiceTest {
         void shouldNotSetClientParams_whenNoClientProvided() {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .doesNotContainKey("SELLER_NUMBER")
                     .doesNotContainKey("BUYER_NUMBER");
@@ -295,14 +316,8 @@ class R08ServiceTest {
             r.setSellerClientNumber("   ");
             r.setSellerClientName("Acme");
             given(searchService.findClientsByName("Acme")).willReturn(List.of(ACME));
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .containsEntry("SELLER_NUMBER", "00000001")
                     .containsEntry("SELLER_NAME", "Acme Logging");
@@ -313,54 +328,34 @@ class R08ServiceTest {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
             r.setSellerClientName("   ");
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .doesNotContainKey("SELLER_NUMBER")
                     .doesNotContainKey("SELLER_NAME");
         }
 
         @Test
-        void shouldNotSetSellerParams_whenNumberLookupBecomesEmptyAfterValidation() {
+        void shouldNotSetSellerParams_whenNumberLookupReturnsEmpty() {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
             r.setSellerClientNumber("1");
-            // Validation lookup succeeds, but the second lookup inside buildParams returns empty.
-            given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME), List.of());
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+            given(searchService.findClientsByNumber("1")).willReturn(List.of());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .doesNotContainKey("SELLER_NUMBER")
                     .doesNotContainKey("SELLER_NAME");
         }
 
         @Test
-        void shouldNotSetSellerParams_whenNameLookupBecomesEmptyAfterValidation() {
+        void shouldNotSetSellerParams_whenNameLookupReturnsEmpty() {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
             r.setSellerClientName("Acme");
-            // Validation lookup succeeds, but the second lookup inside buildParams returns empty.
-            given(searchService.findClientsByName("Acme")).willReturn(List.of(ACME), List.of());
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
+            given(searchService.findClientsByName("Acme")).willReturn(List.of());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params)
                     .doesNotContainKey("SELLER_NUMBER")
                     .doesNotContainKey("SELLER_NAME");
@@ -373,14 +368,8 @@ class R08ServiceTest {
             r.setSellerClientNumber("1");
             r.setSellerLocCode("01");
             given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME, ACME_BRANCH));
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params).containsEntry("SELLER_CLIENT_LOCN_CODE", "01");
         }
 
@@ -391,14 +380,8 @@ class R08ServiceTest {
             r.setSellerClientNumber("1");
             r.setSellerLocCode("   ");
             given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME_BRANCH, ACME));
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params).containsEntry("SELLER_CLIENT_LOCN_CODE", "00");
         }
 
@@ -409,14 +392,8 @@ class R08ServiceTest {
             r.setSellerClientNumber("1");
             r.setSellerLocCode("99");
             given(searchService.findClientsByNumber("1")).willReturn(List.of(ACME_BRANCH, ACME));
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-
-            Map<String, Object> params = captor.getValue();
+            Map<String, Object> params = buildParams(r);
             assertThat(params).containsEntry("SELLER_CLIENT_LOCN_CODE", "01");
         }
     }
@@ -425,13 +402,8 @@ class R08ServiceTest {
     @DisplayName("buildParams()")
     class BuildParams {
 
-        @SuppressWarnings("unchecked")
-        private Map<String, Object> captureParams(R08ReportRequest r) {
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-            return captor.getValue();
+        private Map<String, Object> buildParams(R08ReportRequest r) {
+            return ReflectionTestUtils.invokeMethod(service, "buildParams", r);
         }
 
         @Test
@@ -439,7 +411,7 @@ class R08ServiceTest {
             R08ReportRequest r = baseRequest();
             r.setSubmissionYearMonth("202003");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params)
                     .containsEntry("YEAR", "2020")
@@ -452,7 +424,7 @@ class R08ServiceTest {
             r.setDateFrom("20200101");
             r.setTimeFrame("3");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params).containsEntry("INVOICE_DATE_TO", "20200430");
         }
@@ -462,7 +434,7 @@ class R08ServiceTest {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params).containsEntry("INVOICE_DATE_TO", "20200131");
         }
@@ -474,7 +446,7 @@ class R08ServiceTest {
             r.setYear(2021);
             r.setMonth(5);
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params)
                     .containsEntry("YEAR", "2021")
@@ -489,7 +461,7 @@ class R08ServiceTest {
             r.setMonth(5);
             r.setSubmissionYearMonth("");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params)
                     .containsEntry("YEAR", "2021")
@@ -503,7 +475,7 @@ class R08ServiceTest {
             r.setMonth(7);
             r.setSubmissionYearMonth("202003");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params)
                     .containsEntry("YEAR", "2020")
@@ -516,7 +488,7 @@ class R08ServiceTest {
             r.setDateFrom("20200101");
             r.setDateTo("20200315");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params)
                     .containsEntry("INVOICE_DATE_FROM", "20200101")
@@ -529,7 +501,7 @@ class R08ServiceTest {
             r.setDateFrom("20200115");
             r.setTimeFrame("   ");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params).containsEntry("INVOICE_DATE_TO", "20200131");
         }
@@ -552,17 +524,16 @@ class R08ServiceTest {
             r.setMaturityCodes("O,C");
             r.setInvoiceType("PUR");
             r.setInvoiceStatus("APP");
-            r.setSubmissionStatus("COM");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params)
                     .containsEntry("MATURITY", "O,C")
-                    .containsEntry("TYPE_CODE_MATURITY", "O,C")
-                    .containsEntry("TYPE_CODE_MATURITY_DESCRIPTION", "Old Growth, Cants")
                     .containsEntry("INVOICE_TYPE", "PUR")
                     .containsEntry("INVOICE_STATUS", "APP")
-                    .containsEntry("SUBMISSION_STATUS", "COM");
+                    // R08.jrxml declares no SUBMISSION_STATUS parameter — the request field is
+                    // still bean-validated but never reaches the stored proc; not sent as a param.
+                    .doesNotContainKey("SUBMISSION_STATUS");
         }
 
         @Test
@@ -570,39 +541,13 @@ class R08ServiceTest {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params)
                     .containsEntry("MATURITY", "O,S,M")
-                    .containsEntry("TYPE_CODE_MATURITY_DESCRIPTION",
-                            "Old Growth, Second Growth, Mixed Growth")
                     .containsEntry("INVOICE_TYPE", "ADJ,CAN,PUR,SAL")
                     .containsEntry("INVOICE_STATUS", "PRO,UNA,APP,CAN,DFT,DVF,REJ,VER")
-                    .containsEntry("SUBMISSION_STATUS", "COM,INB,LOB,REJ");
-        }
-
-        @Test
-        void shouldSkipUnknownMaturityCodes() {
-            R08ReportRequest r = baseRequest();
-            r.setDateFrom("20200101");
-            r.setMaturityCodes("O,X,C");
-
-            Map<String, Object> params = captureParams(r);
-
-            assertThat(params).containsEntry("TYPE_CODE_MATURITY_DESCRIPTION", "Old Growth, Cants");
-        }
-
-        @Test
-        void shouldReturnEmptyMaturityDescription_whenMaturityCodesBlank() {
-            R08ReportRequest r = baseRequest();
-            r.setDateFrom("20200101");
-            r.setMaturityCodes("");
-
-            Map<String, Object> params = captureParams(r);
-
-            assertThat(params)
-                    .containsEntry("MATURITY", "")
-                    .containsEntry("TYPE_CODE_MATURITY_DESCRIPTION", "");
+                    .doesNotContainKey("SUBMISSION_STATUS");
         }
     }
 
@@ -620,13 +565,8 @@ class R08ServiceTest {
             SecurityContextHolder.clearContext();
         }
 
-        @SuppressWarnings("unchecked")
-        private Map<String, Object> captureParams(R08ReportRequest r) {
-            given(jasperServerService.generateReport(eq("R08"), any())).willReturn(new byte[]{1});
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
-            service.generateReport(r);
-            verify(jasperServerService).generateReport(eq("R08"), captor.capture());
-            return captor.getValue();
+        private Map<String, Object> buildParams(R08ReportRequest r) {
+            return ReflectionTestUtils.invokeMethod(service, "buildParams", r);
         }
 
         @Test
@@ -637,7 +577,7 @@ class R08ServiceTest {
             r.setDateFrom("20200101");
             r.setUserId("CLIENTUSER");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params).containsEntry("USER_ID", "TESTUSER");
         }
@@ -648,7 +588,7 @@ class R08ServiceTest {
             r.setDateFrom("20200101");
             r.setUserId("IDIRUSER");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params).containsEntry("USER_ID", "IDIRUSER");
         }
@@ -658,7 +598,7 @@ class R08ServiceTest {
             R08ReportRequest r = baseRequest();
             r.setDateFrom("20200101");
 
-            Map<String, Object> params = captureParams(r);
+            Map<String, Object> params = buildParams(r);
 
             assertThat(params).doesNotContainKey("USER_ID");
         }

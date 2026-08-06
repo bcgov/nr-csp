@@ -1,0 +1,192 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="r11_subreport" language="java" pageWidth="612" pageHeight="792" columnWidth="572" leftMargin="0" rightMargin="0" topMargin="2" bottomMargin="0" uuid="c0e850eb-0c21-42bf-8d78-367dabb09950">
+	<property name="ireport.zoom" value="1.5"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R11"/>
+	<property name="ireport.jasperserver.url" value="http://localhost:8080/jasperserver/services/repository"/>
+	<style name="Crosstab Data Text" hTextAlign="Center" hImageAlign="Center">
+		<conditionalStyle forecolor="#BF3F3F">
+			<conditionExpression><![CDATA[!$P{MODELING_CODE}.equals("P")]]></conditionExpression>
+		</conditionalStyle>
+	</style>
+	<style name="StyleR11">
+		<conditionalStyle forecolor="#BF3F3F">
+			<conditionExpression><![CDATA[!$P{MODELING_CODE}.equals("P")]]></conditionExpression>
+		</conditionalStyle>
+	</style>
+	<style name="StyleR11ReportType" style="StyleR11">
+		<conditionalStyle mode="Transparent" fontName="SansSerif" fontSize="10.0" bold="true" underline="false">
+			<conditionExpression><![CDATA[!$P{MODELING_CODE}.equals("P")]]></conditionExpression>
+		</conditionalStyle>
+		<conditionalStyle fontSize="8.0">
+			<conditionExpression><![CDATA[$P{MODELING_CODE}.equals("P")]]></conditionExpression>
+		</conditionalStyle>
+	</style>
+	<parameter name="INVOICE_DATE_FROM" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="INVOICE_DATE_TO" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TYPE_CODE_MATURITY" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TYPE_CODE_MATURITY_DESCRIPTION" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="MODELING_CODE" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="USER_ID" forPrompting="false" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA["C:\\Temp\\R11-supernew\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="REPORT_CURSOR" forPrompting="false" class="java.sql.ResultSet"/>
+	<query language="plsql"><![CDATA[{call CSP_SP_RPT_11_SUB ($P{REPORT_CURSOR}, $P{INVOICE_DATE_FROM}, $P{INVOICE_DATE_TO}, $P{MODELING_CODE}, $P{TYPE_CODE_MATURITY})}]]></query>
+	<field name="LOG_SALE_GRADE_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_SPECIES_CODE" class="java.lang.String"/>
+	<field name="SPECIES_DESCRIPTION" class="java.lang.String"/>
+	<field name="CODE_DESCRIPTION" class="java.lang.String"/>
+	<field name="VOLUME" class="java.math.BigDecimal"/>
+	<field name="PRICE" class="java.math.BigDecimal"/>
+	<field name="AMV" class="java.math.BigDecimal"/>
+	<field name="PCS" class="java.math.BigDecimal"/>
+	<variable name="xTab" class="java.lang.String"/>
+	<background splitType="Stretch"/>
+	<title height="1">
+		<property name="local_mesure_unitheight" value="pixel"/>
+		<property name="com.jaspersoft.studio.unit.height" value="px"/>
+	</title>
+	<pageHeader height="20" splitType="Stretch">
+		<element kind="staticText" uuid="fe912d98-6c7f-4e23-b53c-bc96af3d71ea" x="125" y="0" width="13" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<text><![CDATA[To:]]></text>
+		</element>
+		<element kind="staticText" uuid="affdfcc5-9bb5-4124-acf9-638b1d78580a" x="0" y="0" width="62" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<text><![CDATA[Report Range:]]></text>
+		</element>
+		<element kind="textField" uuid="4497be69-ca7c-4c33-b463-97f80f158739" x="62" y="0" width="63" height="13" fontSize="8.0" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_FROM}))]]></expression>
+		</element>
+		<element kind="textField" uuid="a3502093-723e-4166-ad2e-a43105654eca" x="140" y="0" width="70" height="13" fontSize="8.0" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_TO}))]]></expression>
+		</element>
+		<element kind="staticText" uuid="996ba21f-d317-4f00-b2a2-d131fb528e7b" x="411" y="0" width="56" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<text><![CDATA[Report Type:]]></text>
+		</element>
+		<element kind="staticText" uuid="59db6a61-cac5-4f1c-a54c-e6b5116f8f45" x="213" y="0" width="37" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<text><![CDATA[Maturity:]]></text>
+		</element>
+		<element kind="textField" uuid="3310e1c5-7073-4ba6-a28d-74f5b158026d" x="469" y="0" width="105" height="13" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11ReportType">
+			<paragraph leftIndent="2"/>
+			<expression><![CDATA[$P{MODELING_CODE}.equals("P") ? "Production" : $P{MODELING_CODE}.equals("M1") ? "Scenario 1" : $P{MODELING_CODE}.equals("M2") ? "Scenario 2" : "Scenario 3"]]></expression>
+		</element>
+		<element kind="line" uuid="0a40ca7d-1214-487b-be24-33bc5fb9e1f2" x="0" y="17" width="572" height="1">
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="textField" uuid="3b7688e0-c7a3-42ce-843f-8741c2979a38" x="250" y="0" width="161" height="13" markup="none" fontSize="8.0" bold="false" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<expression><![CDATA[$P{TYPE_CODE_MATURITY_DESCRIPTION}]]></expression>
+		</element>
+	</pageHeader>
+	<columnFooter height="26" splitType="Stretch"/>
+	<summary height="138" splitType="Stretch">
+		<element kind="crosstab" uuid="e4082e3a-1779-4f01-89be-aec6f4556d6b" x="0" y="0" width="572" height="61" columnBreakOffset="5" ignoreWidth="true" style="StyleR11">
+			<parametersMapExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}]]></parametersMapExpression>
+			<dataset/>
+			<headerCell>
+				<element kind="staticText" uuid="d84d8668-f072-43a9-b95f-7626936bd660" x="0" y="0" width="27" height="21" fontSize="8.0" bold="true" underline="true" style="Crosstab Data Text">
+					<text><![CDATA[Grade]]></text>
+				</element>
+			</headerCell>
+			<rowGroup name="LOG_SALE_GRADE_CODE" width="50">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{LOG_SALE_GRADE_CODE}]]></expression>
+				</bucket>
+				<header mode="Transparent" backcolor="#C3CFD9">
+					<element kind="textField" uuid="4b4ad04c-cca0-4be8-bc99-18b994f6982e" x="0" y="0" width="27" height="27" fontSize="8.0" pattern="#,##0.00" bold="true" hTextAlign="Left" style="Crosstab Data Text">
+						<expression><![CDATA[$V{LOG_SALE_GRADE_CODE}]]></expression>
+					</element>
+					<element kind="staticText" uuid="4c272c1e-cabf-47cc-a88b-37e82c3e924d" x="27" y="0" width="23" height="13" fontSize="8.0" bold="true" style="Crosstab Data Text">
+						<text><![CDATA[AMV:]]></text>
+					</element>
+					<element kind="staticText" uuid="404d9656-a3e2-4237-b1ca-19bb2fe64489" x="27" y="13" width="23" height="14" fontSize="8.0" bold="true" style="Crosstab Data Text">
+						<text><![CDATA[%:]]></text>
+					</element>
+				</header>
+				<totalHeader/>
+			</rowGroup>
+			<columnGroup name="SPECIES_DESCRIPTION" height="21">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{SPECIES_DESCRIPTION}]]></expression>
+				</bucket>
+				<header mode="Transparent" backcolor="#C3CFD9">
+					<element kind="textField" uuid="ab6111d8-da5c-43d0-9d82-e60ccbc14a03" x="0" y="0" width="49" height="21" fontSize="8.0" pattern="#,##0.00" blankWhenNull="false" bold="true" underline="true" hTextAlign="Right" style="Crosstab Data Text">
+						<expression><![CDATA[$V{SPECIES_DESCRIPTION}]]></expression>
+					</element>
+				</header>
+				<totalHeader/>
+			</columnGroup>
+			<measure name="AMVMeasure" calculation="Count" class="java.math.BigDecimal">
+				<expression><![CDATA[$F{AMV}]]></expression>
+			</measure>
+			<measure name="%Measure" calculation="Count" class="java.math.BigDecimal">
+				<expression><![CDATA[$F{PCS}]]></expression>
+			</measure>
+			<cell width="49" height="27">
+				<contents>
+					<element kind="textField" uuid="6a7573fb-75c2-46e6-8c0a-04b2b6e4fd0a" x="0" y="0" width="49" height="13" fontSize="8.0" pattern="#,##0.00" blankWhenNull="true" hTextAlign="Right" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+					<element kind="textField" uuid="fb053b7b-117f-49d5-b0e7-f0e7cf590b6c" x="0" y="13" width="49" height="14" fontSize="8.0" pattern="#,##0.00" blankWhenNull="true" hTextAlign="Right" style="Crosstab Data Text">
+						<expression><![CDATA[$V{%Measure}.doubleValue() * 100]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell height="25" rowTotalGroup="LOG_SALE_GRADE_CODE">
+				<contents mode="Transparent" backcolor="#E6F3FF">
+					<element kind="textField" uuid="39255b21-e3ab-4b7c-91fc-a475633eaf38" x="0" y="0" width="50" height="25" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell width="50" columnTotalGroup="SPECIES_DESCRIPTION">
+				<contents mode="Transparent" backcolor="#E6F3FF">
+					<element kind="textField" uuid="3973ba46-570d-4b01-8b94-d5da82d497b0" x="0" y="0" width="50" height="25" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell rowTotalGroup="LOG_SALE_GRADE_CODE" columnTotalGroup="SPECIES_DESCRIPTION">
+				<contents mode="Transparent" backcolor="#E6F3FF">
+					<element kind="textField" uuid="03ce3e40-5859-42df-8688-97af371a2477" x="0" y="0" width="50" height="25" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<parameter name="MODELING_CODE" class="java.lang.String"/>
+		</element>
+		<element kind="subreport" uuid="b7f4c8c6-d0f3-41ce-a3be-bf78d37f8a60" positionType="Float" x="0" y="61" width="572" height="75">
+			<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+			<expression><![CDATA["repo:r11_xtab_subreport.jrxml"]]></expression>
+			<parameter name="SUBREPORT_DIR">
+				<expression><![CDATA[$P{SUBREPORT_DIR}]]></expression>
+			</parameter>
+			<parameter name="INVOICE_DATE_FROM">
+				<expression><![CDATA[$P{INVOICE_DATE_FROM}]]></expression>
+			</parameter>
+			<parameter name="INVOICE_DATE_TO">
+				<expression><![CDATA[$P{INVOICE_DATE_TO}]]></expression>
+			</parameter>
+			<parameter name="USER_ID">
+				<expression><![CDATA[$P{USER_ID}]]></expression>
+			</parameter>
+			<parameter name="MODELING_CODE">
+				<expression><![CDATA[$P{MODELING_CODE}]]></expression>
+			</parameter>
+			<parameter name="TYPE_CODE_MATURITY">
+				<expression><![CDATA[$P{TYPE_CODE_MATURITY}]]></expression>
+			</parameter>
+		</element>
+	</summary>
+</jasperReport>
