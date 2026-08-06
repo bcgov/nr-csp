@@ -264,6 +264,6 @@ public class JasperServerService {
         // guard permits exclusively under the 'local' Spring profile (local development against a
         // JasperReports Server with an untrusted/self-signed certificate). Deployed environments
         // run the 'prod' profile and cannot reach this branch. Risk accepted for local dev only.
-        return (hostname, session) -> true; // codeql[java/unsafe-hostname-verification]
+        return (hostname, session) -> true;
     }
 }
