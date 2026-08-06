@@ -174,7 +174,7 @@ export default function EditableLineItemsTable({
             labelText=""
             hideLabel
             value={editDraft.clientSecondarySort}
-            onChange={(e) => onDraftChange({ ...editDraft, clientSecondarySort: e.target.value })}
+            onChange={(e) => onDraftChange({ ...editDraft, clientSecondarySort: e.target.value.toUpperCase() })}
             size="sm"
           />
         );

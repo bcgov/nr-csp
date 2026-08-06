@@ -2306,7 +2306,7 @@ export function InvoicePage() {
               id="new-line-client-sort"
               labelText="Client Secondary Sort Code"
               value={newLineClientSort}
-              onChange={(e) => setNewLineClientSort(e.target.value)}
+              onChange={(e) => setNewLineClientSort(e.target.value.toUpperCase())}
               size="md"
             />
           </Column>
