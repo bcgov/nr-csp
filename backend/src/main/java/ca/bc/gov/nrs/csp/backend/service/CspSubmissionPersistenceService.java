@@ -137,6 +137,7 @@ public class CspSubmissionPersistenceService {
         d == null ? null : d.getMaturity(),
         d == null ? null : d.getLocationFOB(),
         d == null ? null : d.getPrimarySortCode(),
+        d == null ? null : d.getClientPrimarySortCode(),
         d == null ? null : d.getTotalAmount(),
         d == null ? null : d.getTotalPieces(),
         d == null ? null : d.getTotalVolume(),

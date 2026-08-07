@@ -1,5 +1,5 @@
-import { IconButton, TextInput } from '@carbon/react';
 import { Checkmark, Close, Edit, TrashCan } from '@carbon/icons-react';
+import { IconButton, TextInput } from '@carbon/react';
 
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import SingleSelect from '@/components/Form/SingleSelect';
@@ -174,7 +174,7 @@ export default function EditableLineItemsTable({
             labelText=""
             hideLabel
             value={editDraft.clientSecondarySort}
-            onChange={(e) => onDraftChange({ ...editDraft, clientSecondarySort: e.target.value })}
+            onChange={(e) => onDraftChange({ ...editDraft, clientSecondarySort: e.target.value.toUpperCase() })}
             size="sm"
           />
         );

@@ -249,6 +249,7 @@ export function InvoicePage() {
   const { id: idParam } = useParams<{ id?: string }>();
   const invoiceId = idParam ? Number(idParam) : undefined;
   const isExisting = invoiceId !== undefined && !Number.isNaN(invoiceId);
+  const hasInvalidId = idParam !== undefined && !isExisting;
   const navigate = useNavigate();
   const location = useLocation();
   const { addNotification } = useNotification();
@@ -273,7 +274,12 @@ export function InvoicePage() {
   // -----------------------------------------------------------------
   // Server data — loaded invoice + mutations
   // -----------------------------------------------------------------
-  const { data: loadedInvoice, isLoading: invoiceLoading } = useInvoiceQuery(invoiceId);
+  const {
+    data: loadedInvoice,
+    isLoading: invoiceLoading,
+    isError: invoiceLoadError,
+    error: invoiceError,
+  } = useInvoiceQuery(invoiceId);
   const createMutation = useCreateInvoiceMutation();
   const updateMutation = useUpdateInvoiceMutation();
   const submitMutation = useSubmitInvoiceMutation();
@@ -338,6 +344,17 @@ export function InvoicePage() {
   }, [isExisting, invoiceLoading, loadedInvoice, clientsResolved]);
 
   const isLoadingInvoice = isExisting && !initialLoadComplete;
+
+  const invoiceNotFound = hasInvalidId || (isExisting && invoiceLoadError);
+  const invoiceNotFoundMessage = (() => {
+    if (!invoiceNotFound) return null;
+    const axiosError = invoiceError as { response?: { status?: number; data?: { message?: string } } } | null;
+    const status = axiosError?.response?.status;
+    if (hasInvalidId || status === 404) {
+      return 'Invoice not found. It may have been removed, or the link is incorrect.';
+    }
+    return axiosError?.response?.data?.message ?? 'Failed to load the invoice. Please try again.';
+  })();
 
   // Section 3 — Invoice detail information
   const [maturityCode, setMaturityCode] = useState('');
@@ -429,6 +446,9 @@ export function InvoicePage() {
     submittedBy: submittedByCode,
     submitterLocation: submittingClientLocation,
     otherClientLocation,
+    clientPrimarySortCode,
+    reviewerComment,
+    submitterComment,
   };
   const clientFieldErrors = useMemo(
     // Validator pushes message keys; map them to fields (same key->field +
@@ -436,7 +456,17 @@ export function InvoicePage() {
     () => splitMessages(validateInvoiceFields(invoiceFieldValues).messages, CLIENT_MESSAGE_KEY_TO_FIELD).fieldErrors,
     // Re-derive whenever any validated field changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [invNumber, invDate, invTypeCode, submittedByCode, submittingClientLocation, otherClientLocation],
+    [
+      invNumber,
+      invDate,
+      invTypeCode,
+      submittedByCode,
+      submittingClientLocation,
+      otherClientLocation,
+      clientPrimarySortCode,
+      reviewerComment,
+      submitterComment,
+    ],
   );
   // Map each structural error key to the value of the field it belongs to
   const errorFieldValues: Record<string, string> = {
@@ -446,6 +476,9 @@ export function InvoicePage() {
     submittedBy: submittedByCode,
     submittingClientLocation,
     otherClientLocation,
+    clientPrimarySortCode,
+    reviewerComment,
+    submitterComment,
   };
   // Server (business-rule) errors always show; the live structural ones show
   // only for fields that currently have a value.
@@ -467,6 +500,9 @@ export function InvoicePage() {
       submittedByCode,
       submittingClientLocation,
       otherClientLocation,
+      clientPrimarySortCode,
+      reviewerComment,
+      submitterComment,
     ],
   );
   const hasStructuralErrors = Object.keys(clientFieldErrors).length > 0;
@@ -659,11 +695,7 @@ export function InvoicePage() {
     setMaturityCode(loadedInvoice.maturity ?? '');
     setFobCodeValue(loadedInvoice.fobCode ?? '');
     setPrimarySortCodeValue(loadedInvoice.primarySortCode ?? '');
-    // The backend stores the same value in both `log_sale_sort_code` and
-    // `client_primary_sort_code` columns but only returns the former on the
-    // DTO. Mirror it into the Client-primary-sort TextArea so the field
-    // doesn't appear blank on a loaded invoice.
-    setClientPrimarySortCode(loadedInvoice.primarySortCode ?? '');
+    setClientPrimarySortCode(loadedInvoice.clientPrimarySortCode ?? '');
     setBoomNumbers(loadedInvoice.boomNumbers ?? []);
     setTimberMarks(loadedInvoice.timberMarks ?? []);
     setWeighSlips(loadedInvoice.weightSlips ?? []);
@@ -1059,6 +1091,7 @@ export function InvoicePage() {
       maturity: maturityCode || null,
       fobCode: fobCodeValue || null,
       primarySortCode: primarySortCodeValue || null,
+      clientPrimarySortCode: clientPrimarySortCode || null,
       totalAmt: totalAmount,
       totalPieces,
       totalVol: totalVolume,
@@ -1598,12 +1631,15 @@ export function InvoicePage() {
       <Grid>
         <PageTitle title="Invoice" breadCrumbs={breadCrumbs}>
           <span className="invoice-page__status-tag">
-            {/* Hide the status icon entirely while the page is loading. */}
-            {isLoadingInvoice ? null : isExisting && loadedInvoice ? (
-              <InvoiceStatusTag status={loadedInvoice.invStatus} />
-            ) : (
-              <InvoiceDetailsTag label="New" />
-            )}
+            {/* Hide the status icon entirely while the page is loading or when
+                the requested invoice can't be found. */}
+            {!isLoadingInvoice &&
+              !invoiceNotFound &&
+              (isExisting && loadedInvoice ? (
+                <InvoiceStatusTag status={loadedInvoice.invStatus} />
+              ) : (
+                <InvoiceDetailsTag label="New" />
+              ))}
           </span>
         </PageTitle>
 
@@ -1640,9 +1676,20 @@ export function InvoicePage() {
         ) : null}
 
         <Column sm={4} md={8} lg={16}>
-          {isLoadingInvoice ? (
-            <InvoiceFormSkeleton />
-          ) : (
+          {invoiceNotFound && (
+            <div className="invoice-page__error-col">
+              <InlineNotification
+                className="invoice-page__error"
+                kind="error"
+                title="Invoice not found"
+                subtitle={invoiceNotFoundMessage ?? ''}
+                lowContrast
+                hideCloseButton
+              />
+            </div>
+          )}
+          {!invoiceNotFound && isLoadingInvoice && <InvoiceFormSkeleton />}
+          {!invoiceNotFound && !isLoadingInvoice && (
             <Accordion className="invoice-page__accordion" align="end">
               {/* ------------------------------------------------- */}
               {/* Section 1 — Invoice details                       */}
@@ -1667,7 +1714,7 @@ export function InvoicePage() {
                       id="inv-number"
                       labelText={<RequiredLabel>Invoice number</RequiredLabel>}
                       value={invNumber}
-                      onChange={(e) => setInvNumber(e.target.value)}
+                      onChange={(e) => setInvNumber(e.target.value.toUpperCase())}
                       invalid={!!displayFieldErrors.invNumber}
                       invalidText={displayFieldErrors.invNumber}
                       disabled={!canEdit}
@@ -1960,6 +2007,8 @@ export function InvoicePage() {
                       onChange={(e) => setClientPrimarySortCode(e.target.value)}
                       rows={6}
                       disabled={!canEdit}
+                      invalid={!!displayFieldErrors.clientPrimarySortCode}
+                      invalidText={displayFieldErrors.clientPrimarySortCode}
                     />
                   </Column>
 
@@ -1986,6 +2035,8 @@ export function InvoicePage() {
                       onChange={(e) => setSubmitterComment(e.target.value)}
                       rows={6}
                       disabled={!canEdit}
+                      invalid={!!displayFieldErrors.submitterComment}
+                      invalidText={displayFieldErrors.submitterComment}
                     />
                   </Column>
                 </Grid>
@@ -2065,103 +2116,104 @@ export function InvoicePage() {
         {/* Action buttons row                                  */}
         {/* --------------------------------------------------- */}
         <Column sm={4} md={8} lg={16}>
-          {isLoadingInvoice ? (
-            <div className="invoice-page__actions">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div key={i} style={{ flex: '1 1 0' }}>
-                  <ButtonSkeleton style={{ width: '100%' }} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="invoice-page__actions">
-              <Button
-                kind="primary"
-                size="md"
-                className="invoice-page__action-btn"
-                renderIcon={savePending ? undefined : Save}
-                onClick={handleSave}
-                disabled={!canEdit || !canSavePerm || hasAnyFieldError || !requiredFieldsFilled || anyMutationPending}
-              >
-                {actionLabel(savePending, 'Save')}
-              </Button>
-              <Button
-                kind="tertiary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--submit"
-                onClick={handleSubmit}
-                disabled={
-                  !canSubmit ||
-                  !canSubmitPerm ||
-                  hasAnyFieldError ||
-                  !requiredFieldsFilled ||
-                  !hasLineItems ||
-                  anyMutationPending
-                }
-              >
-                {actionLabel(submitMutation.isPending, 'Submit')}
-              </Button>
-              {canUnapprove ? (
+          {!invoiceNotFound &&
+            (isLoadingInvoice ? (
+              <div className="invoice-page__actions">
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <div key={i} style={{ flex: '1 1 0' }}>
+                    <ButtonSkeleton style={{ width: '100%' }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="invoice-page__actions">
+                <Button
+                  kind="primary"
+                  size="md"
+                  className="invoice-page__action-btn"
+                  renderIcon={savePending ? undefined : Save}
+                  onClick={handleSave}
+                  disabled={!canEdit || !canSavePerm || hasAnyFieldError || !requiredFieldsFilled || anyMutationPending}
+                >
+                  {actionLabel(savePending, 'Save')}
+                </Button>
+                <Button
+                  kind="tertiary"
+                  size="md"
+                  className="invoice-page__action-btn invoice-page__action-btn--submit"
+                  onClick={handleSubmit}
+                  disabled={
+                    !canSubmit ||
+                    !canSubmitPerm ||
+                    hasAnyFieldError ||
+                    !requiredFieldsFilled ||
+                    !hasLineItems ||
+                    anyMutationPending
+                  }
+                >
+                  {actionLabel(submitMutation.isPending, 'Submit')}
+                </Button>
+                {canUnapprove ? (
+                  <Button
+                    kind="tertiary"
+                    size="md"
+                    className="invoice-page__action-btn invoice-page__action-btn--reject"
+                    onClick={handleUnapprove}
+                    disabled={anyMutationPending}
+                  >
+                    {actionLabel(unapprovePending, 'Unapprove')}
+                  </Button>
+                ) : (
+                  <Button
+                    kind="primary"
+                    size="md"
+                    className="invoice-page__action-btn invoice-page__action-btn--approve"
+                    renderIcon={approvePending ? undefined : Checkmark}
+                    onClick={handleApprove}
+                    disabled={!canChangeStatus || !canApprovePerm || anyMutationPending}
+                  >
+                    {actionLabel(approvePending, 'Approve')}
+                  </Button>
+                )}
+                <Button
+                  kind="primary"
+                  size="md"
+                  className="invoice-page__action-btn invoice-page__action-btn--success"
+                  onClick={handleDuplicate}
+                  disabled={!canDuplicate || !canDuplicatePerm || anyMutationPending}
+                >
+                  {actionLabel(duplicateMutation.isPending, 'Duplicate')}
+                </Button>
+                <Button
+                  kind="tertiary"
+                  size="md"
+                  className="invoice-page__action-btn invoice-page__action-btn--cancel"
+                  onClick={handleCancel}
+                  disabled={!canChangeStatus || !canCancelPerm || anyMutationPending}
+                >
+                  {actionLabel(cancelPending, 'Cancel')}
+                </Button>
                 <Button
                   kind="tertiary"
                   size="md"
                   className="invoice-page__action-btn invoice-page__action-btn--reject"
-                  onClick={handleUnapprove}
-                  disabled={anyMutationPending}
+                  onClick={handleReject}
+                  disabled={!canChangeStatus || !canRejectPerm || anyMutationPending}
                 >
-                  {actionLabel(unapprovePending, 'Unapprove')}
+                  {actionLabel(rejectPending, 'Reject')}
                 </Button>
-              ) : (
                 <Button
-                  kind="primary"
+                  kind="danger"
                   size="md"
-                  className="invoice-page__action-btn invoice-page__action-btn--approve"
-                  renderIcon={approvePending ? undefined : Checkmark}
-                  onClick={handleApprove}
-                  disabled={!canChangeStatus || !canApprovePerm || anyMutationPending}
+                  className="invoice-page__action-btn invoice-page__action-btn--delete"
+                  renderIcon={deleteMutation.isPending ? undefined : TrashCan}
+                  onClick={requestDeleteInvoice}
+                  disabled={!canDelete || !canDeletePerm || anyMutationPending}
                 >
-                  {actionLabel(approvePending, 'Approve')}
+                  {actionLabel(deleteMutation.isPending, 'Delete')}
                 </Button>
-              )}
-              <Button
-                kind="primary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--success"
-                onClick={handleDuplicate}
-                disabled={!canDuplicate || !canDuplicatePerm || anyMutationPending}
-              >
-                {actionLabel(duplicateMutation.isPending, 'Duplicate')}
-              </Button>
-              <Button
-                kind="tertiary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--cancel"
-                onClick={handleCancel}
-                disabled={!canChangeStatus || !canCancelPerm || anyMutationPending}
-              >
-                {actionLabel(cancelPending, 'Cancel')}
-              </Button>
-              <Button
-                kind="tertiary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--reject"
-                onClick={handleReject}
-                disabled={!canChangeStatus || !canRejectPerm || anyMutationPending}
-              >
-                {actionLabel(rejectPending, 'Reject')}
-              </Button>
-              <Button
-                kind="danger"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--delete"
-                renderIcon={deleteMutation.isPending ? undefined : TrashCan}
-                onClick={requestDeleteInvoice}
-                disabled={!canDelete || !canDeletePerm || anyMutationPending}
-              >
-                {actionLabel(deleteMutation.isPending, 'Delete')}
-              </Button>
-            </div>
-          )}
+              </div>
+            ))}
         </Column>
       </Grid>
 
@@ -2277,7 +2329,7 @@ export function InvoicePage() {
               id="new-line-client-sort"
               labelText="Client Secondary Sort Code"
               value={newLineClientSort}
-              onChange={(e) => setNewLineClientSort(e.target.value)}
+              onChange={(e) => setNewLineClientSort(e.target.value.toUpperCase())}
               size="md"
             />
           </Column>

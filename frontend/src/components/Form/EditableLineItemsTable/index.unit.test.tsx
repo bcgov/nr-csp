@@ -163,6 +163,17 @@ describe('EditableLineItemsTable', () => {
     expect(handlers.onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ volume: '2.50' }));
   });
 
+  it('uppercases typed characters in the client secondary sort code', async () => {
+    const user = userEvent.setup();
+    arrange({ editDraft: DRAFT });
+
+    // The client-secondary-sort input is the only field showing "C01" in the edit row.
+    const clientSort = screen.getByDisplayValue('C01');
+    await user.type(clientSort, 'x');
+
+    expect(handlers.onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ clientSecondarySort: 'C01X' }));
+  });
+
   it('saves and cancels through the row action buttons', async () => {
     const user = userEvent.setup();
     arrange({ editDraft: DRAFT });

@@ -1,5 +1,5 @@
 import { ArrowLeft } from '@carbon/icons-react';
-import { Grid, Column, Link, Loading } from '@carbon/react';
+import { Grid, Column, InlineNotification, Link, Loading } from '@carbon/react';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
@@ -38,11 +38,19 @@ export function ViewSubmissionPage() {
 
   const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
 
-  const apiErrorMessage = (() => {
+  const apiError = (() => {
     if (!isError) return null;
     const axiosError = error as { response?: { status?: number; data?: { message?: string } } };
-    if (axiosError?.response?.status === 404) return 'Submission not found.';
-    return axiosError?.response?.data?.message ?? 'Failed to load the submission. Please try again.';
+    if (axiosError?.response?.status === 404) {
+      return {
+        title: 'Submission not found',
+        subtitle: 'It may have been removed, or the link is incorrect.',
+      };
+    }
+    return {
+      title: 'Unable to load submission',
+      subtitle: axiosError?.response?.data?.message ?? 'Failed to load the submission. Please try again.',
+    };
   })();
 
   const metadataItems: DetailItem[] = data
@@ -115,7 +123,14 @@ export function ViewSubmissionPage() {
     if (isError) {
       return (
         <Column lg={16} md={8} sm={4} className="view-submission-page__error-col">
-          <p className="view-submission-page__error">{apiErrorMessage}</p>
+          <InlineNotification
+            className="view-submission-page__error"
+            kind="error"
+            title={apiError?.title ?? 'Unable to load submission'}
+            subtitle={apiError?.subtitle ?? ''}
+            lowContrast
+            hideCloseButton
+          />
         </Column>
       );
     }

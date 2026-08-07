@@ -661,7 +661,7 @@ public class InvoiceService {
     private InvoiceDetails withId(InvoiceDetails details, Long newId, String status) {
         return new InvoiceDetails(
                 newId, details.invNumber(), details.invoiceDate(), status, details.invType(),
-                details.maturity(), details.fobCode(), details.primarySortCode(),
+                details.maturity(), details.fobCode(), details.primarySortCode(), details.clientPrimarySortCode(),
                 details.totalAmt(), details.totalPieces(), details.totalVol(),
                 details.submitterClientNum(), details.submitterLocation(), details.submittedBy(),
                 details.clientNumber(), details.clientLocation(),
@@ -676,7 +676,7 @@ public class InvoiceService {
     private InvoiceDetails withReviewComments(InvoiceDetails details, String reviewComments) {
         return new InvoiceDetails(
                 details.invID(), details.invNumber(), details.invoiceDate(), details.invStatus(), details.invType(),
-                details.maturity(), details.fobCode(), details.primarySortCode(),
+                details.maturity(), details.fobCode(), details.primarySortCode(), details.clientPrimarySortCode(),
                 details.totalAmt(), details.totalPieces(), details.totalVol(),
                 details.submitterClientNum(), details.submitterLocation(), details.submittedBy(),
                 details.clientNumber(), details.clientLocation(),
@@ -691,7 +691,7 @@ public class InvoiceService {
     private InvoiceDetails withReviewCommentsAndStatus(InvoiceDetails details, String reviewComments, String status) {
         return new InvoiceDetails(
                 details.invID(), details.invNumber(), details.invoiceDate(), status, details.invType(),
-                details.maturity(), details.fobCode(), details.primarySortCode(),
+                details.maturity(), details.fobCode(), details.primarySortCode(), details.clientPrimarySortCode(),
                 details.totalAmt(), details.totalPieces(), details.totalVol(),
                 details.submitterClientNum(), details.submitterLocation(), details.submittedBy(),
                 details.clientNumber(), details.clientLocation(),

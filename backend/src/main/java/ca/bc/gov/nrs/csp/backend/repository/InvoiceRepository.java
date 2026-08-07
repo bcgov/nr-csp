@@ -211,6 +211,7 @@ public class InvoiceRepository {
                        cls.log_sale_type_code AS maturity,
                        cls.log_sale_fob_location AS fob_code,
                        cls.log_sale_sort_code AS primary_sort_code,
+                       cls.client_primary_sort_code AS client_primary_sort_code,
                        cls.client_total_invoice_amt AS total_amt,
                        cls.client_total_invoice_pieces AS total_pieces,
                        cls.client_total_invoice_volume AS total_vol,
@@ -289,6 +290,7 @@ public class InvoiceRepository {
                 rs.getString("maturity"),
                 rs.getString("fob_code"),
                 rs.getString("primary_sort_code"),
+                rs.getString("client_primary_sort_code"),
                 rs.getBigDecimal("total_amt"),
                 rs.getObject("total_pieces", Integer.class),
                 rs.getBigDecimal("total_vol"),
@@ -433,7 +435,7 @@ public class InvoiceRepository {
                 .addValue("maturity", details.maturity())
                 .addValue("fobCode", details.fobCode())
                 .addValue("primarySortCode", details.primarySortCode())
-                .addValue("clientPrimarySortCode", details.primarySortCode())
+                .addValue("clientPrimarySortCode", details.clientPrimarySortCode())
                 .addValue("sellerClientNumber", sellerClientNumber)
                 .addValue("sellerClientLocnCode", sellerClientLocnCode)
                 .addValue("buyerClientNumber", buyerClientNumber)
@@ -497,7 +499,7 @@ public class InvoiceRepository {
                 .addValue("maturity", details.maturity())
                 .addValue("fobCode", details.fobCode())
                 .addValue("primarySortCode", details.primarySortCode())
-                .addValue("clientPrimarySortCode", details.primarySortCode())
+                .addValue("clientPrimarySortCode", details.clientPrimarySortCode())
                 .addValue("sellerClientNumber", sellerClientNumber)
                 .addValue("sellerClientLocnCode", sellerClientLocnCode)
                 .addValue("buyerClientNumber", buyerClientNumber)

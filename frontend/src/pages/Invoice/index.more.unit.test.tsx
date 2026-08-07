@@ -748,6 +748,13 @@ describe('InvoicePage — add new line item', () => {
     expect(within(dialog).getByLabelText(/#Pieces/)).toHaveValue('');
     expect(within(dialog).getByRole('button', { name: 'Add new item' })).toBeDisabled();
   });
+
+  it('uppercases characters typed into the client secondary sort code field', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    const dialog = await openAddModal();
+    fireEvent.change(within(dialog).getByLabelText('Client Secondary Sort Code'), { target: { value: 'abc' } });
+    expect(within(dialog).getByLabelText('Client Secondary Sort Code')).toHaveValue('ABC');
+  });
 });
 
 // ---------------------------------------------------------------------------

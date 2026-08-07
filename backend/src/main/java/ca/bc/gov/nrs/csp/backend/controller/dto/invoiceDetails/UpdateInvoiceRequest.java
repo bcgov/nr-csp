@@ -15,6 +15,7 @@ import java.util.List;
 public record UpdateInvoiceRequest(
         @NotBlank
         @Pattern(regexp = "^[A-Z0-9-]+$")
+        @Size(max = 15)
         @Schema(description = "Client-supplied invoice number", example = "INV-2026-001")
         String invNumber,
         @NotNull
@@ -30,6 +31,9 @@ public record UpdateInvoiceRequest(
         String fobCode,
         @Schema(description = "Primary sort code", example = "SORT01")
         String primarySortCode,
+        @Size(max = 100)
+        @Schema(description = "Client's own primary sort code", example = "SORT01")
+        String clientPrimarySortCode,
         @Schema(description = "Submitted total amount", example = "1250.75")
         BigDecimal totalAmt,
         @Schema(description = "Submitted total pieces", example = "100")
@@ -79,8 +83,10 @@ public record UpdateInvoiceRequest(
         String replaceInvNum,
         @Schema(description = "CSV of adjusted invoice numbers")
         String adjustInvNum,
+        @Size(max = 4000)
         @Schema(description = "Reviewer comments")
         String reviewComments,
+        @Size(max = 4000)
         @Schema(description = "Submitter comments")
         String submitComments,
         @Schema(description = "Manual entry flag (true = manual, false = ESF)", example = "true")

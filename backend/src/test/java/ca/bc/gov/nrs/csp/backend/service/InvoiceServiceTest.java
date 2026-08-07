@@ -85,7 +85,7 @@ class InvoiceServiceTest {
     InvoiceValidator validator;
 
     private static final InvoiceResponse SENTINEL = new InvoiceResponse(
-            1L, 10L, 67890L, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), "DFT", "SAL", "M", null, null,
+            1L, 10L, 67890L, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), "DFT", "SAL", "M", null, null, null,
             null, null, null, "1234", "00", "Seller", null, null, null, null, null, null, null,
             List.of(), List.of(), List.of(), null, null, null, null, "system",
             List.of(), List.of(), List.of());
@@ -127,7 +127,7 @@ class InvoiceServiceTest {
     private InvoiceDetails details(Long id, String status, String otherClientNum,
                                    String otherClientName, String submittedBy) {
         return new InvoiceDetails(
-                id, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), status, "SAL", "M", "FOB01", "SORT01",
+                id, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), status, "SAL", "M", "FOB01", "SORT01", "SORT01",
                 new BigDecimal("100.00"), 10, new BigDecimal("5.0"),
                 "1234", "00", submittedBy, "1234", "00",
                 otherClientNum, "00", otherClientName, "Nanaimo", "BC",

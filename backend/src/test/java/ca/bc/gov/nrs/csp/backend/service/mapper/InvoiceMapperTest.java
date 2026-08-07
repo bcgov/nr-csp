@@ -57,6 +57,7 @@ class InvoiceMapperTest {
                 "M",                        // maturity
                 "FOB01",                    // fobCode
                 "A",                        // primarySortCode
+                "A",                        // clientPrimarySortCode
                 new BigDecimal("1250.75"),  // totalAmt
                 100,                        // totalPieces
                 new BigDecimal("12.5"),     // totalVol
@@ -90,6 +91,7 @@ class InvoiceMapperTest {
                 "I",                        // maturity
                 "FOB02",                    // fobCode
                 "B",                        // primarySortCode
+                "B",                        // clientPrimarySortCode
                 new BigDecimal("999.99"),   // totalAmt
                 50,                         // totalPieces
                 new BigDecimal("7.25"),     // totalVol
@@ -156,6 +158,7 @@ class InvoiceMapperTest {
                 "M",                        // maturity
                 "FOB01",                    // fobCode
                 "A",                        // primarySortCode
+                "A",                        // clientPrimarySortCode
                 new BigDecimal("1250.75"),  // totalAmt
                 100,                        // totalPieces
                 new BigDecimal("12.5"),     // totalVol
