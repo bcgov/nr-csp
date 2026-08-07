@@ -1633,11 +1633,13 @@ export function InvoicePage() {
           <span className="invoice-page__status-tag">
             {/* Hide the status icon entirely while the page is loading or when
                 the requested invoice can't be found. */}
-            {isLoadingInvoice || invoiceNotFound ? null : isExisting && loadedInvoice ? (
-              <InvoiceStatusTag status={loadedInvoice.invStatus} />
-            ) : (
-              <InvoiceDetailsTag label="New" />
-            )}
+            {!isLoadingInvoice &&
+              !invoiceNotFound &&
+              (isExisting && loadedInvoice ? (
+                <InvoiceStatusTag status={loadedInvoice.invStatus} />
+              ) : (
+                <InvoiceDetailsTag label="New" />
+              ))}
           </span>
         </PageTitle>
 
@@ -2114,103 +2116,104 @@ export function InvoicePage() {
         {/* Action buttons row                                  */}
         {/* --------------------------------------------------- */}
         <Column sm={4} md={8} lg={16}>
-          {invoiceNotFound ? null : isLoadingInvoice ? (
-            <div className="invoice-page__actions">
-              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div key={i} style={{ flex: '1 1 0' }}>
-                  <ButtonSkeleton style={{ width: '100%' }} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="invoice-page__actions">
-              <Button
-                kind="primary"
-                size="md"
-                className="invoice-page__action-btn"
-                renderIcon={savePending ? undefined : Save}
-                onClick={handleSave}
-                disabled={!canEdit || !canSavePerm || hasAnyFieldError || !requiredFieldsFilled || anyMutationPending}
-              >
-                {actionLabel(savePending, 'Save')}
-              </Button>
-              <Button
-                kind="tertiary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--submit"
-                onClick={handleSubmit}
-                disabled={
-                  !canSubmit ||
-                  !canSubmitPerm ||
-                  hasAnyFieldError ||
-                  !requiredFieldsFilled ||
-                  !hasLineItems ||
-                  anyMutationPending
-                }
-              >
-                {actionLabel(submitMutation.isPending, 'Submit')}
-              </Button>
-              {canUnapprove ? (
+          {!invoiceNotFound &&
+            (isLoadingInvoice ? (
+              <div className="invoice-page__actions">
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <div key={i} style={{ flex: '1 1 0' }}>
+                    <ButtonSkeleton style={{ width: '100%' }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="invoice-page__actions">
+                <Button
+                  kind="primary"
+                  size="md"
+                  className="invoice-page__action-btn"
+                  renderIcon={savePending ? undefined : Save}
+                  onClick={handleSave}
+                  disabled={!canEdit || !canSavePerm || hasAnyFieldError || !requiredFieldsFilled || anyMutationPending}
+                >
+                  {actionLabel(savePending, 'Save')}
+                </Button>
+                <Button
+                  kind="tertiary"
+                  size="md"
+                  className="invoice-page__action-btn invoice-page__action-btn--submit"
+                  onClick={handleSubmit}
+                  disabled={
+                    !canSubmit ||
+                    !canSubmitPerm ||
+                    hasAnyFieldError ||
+                    !requiredFieldsFilled ||
+                    !hasLineItems ||
+                    anyMutationPending
+                  }
+                >
+                  {actionLabel(submitMutation.isPending, 'Submit')}
+                </Button>
+                {canUnapprove ? (
+                  <Button
+                    kind="tertiary"
+                    size="md"
+                    className="invoice-page__action-btn invoice-page__action-btn--reject"
+                    onClick={handleUnapprove}
+                    disabled={anyMutationPending}
+                  >
+                    {actionLabel(unapprovePending, 'Unapprove')}
+                  </Button>
+                ) : (
+                  <Button
+                    kind="primary"
+                    size="md"
+                    className="invoice-page__action-btn invoice-page__action-btn--approve"
+                    renderIcon={approvePending ? undefined : Checkmark}
+                    onClick={handleApprove}
+                    disabled={!canChangeStatus || !canApprovePerm || anyMutationPending}
+                  >
+                    {actionLabel(approvePending, 'Approve')}
+                  </Button>
+                )}
+                <Button
+                  kind="primary"
+                  size="md"
+                  className="invoice-page__action-btn invoice-page__action-btn--success"
+                  onClick={handleDuplicate}
+                  disabled={!canDuplicate || !canDuplicatePerm || anyMutationPending}
+                >
+                  {actionLabel(duplicateMutation.isPending, 'Duplicate')}
+                </Button>
+                <Button
+                  kind="tertiary"
+                  size="md"
+                  className="invoice-page__action-btn invoice-page__action-btn--cancel"
+                  onClick={handleCancel}
+                  disabled={!canChangeStatus || !canCancelPerm || anyMutationPending}
+                >
+                  {actionLabel(cancelPending, 'Cancel')}
+                </Button>
                 <Button
                   kind="tertiary"
                   size="md"
                   className="invoice-page__action-btn invoice-page__action-btn--reject"
-                  onClick={handleUnapprove}
-                  disabled={anyMutationPending}
+                  onClick={handleReject}
+                  disabled={!canChangeStatus || !canRejectPerm || anyMutationPending}
                 >
-                  {actionLabel(unapprovePending, 'Unapprove')}
+                  {actionLabel(rejectPending, 'Reject')}
                 </Button>
-              ) : (
                 <Button
-                  kind="primary"
+                  kind="danger"
                   size="md"
-                  className="invoice-page__action-btn invoice-page__action-btn--approve"
-                  renderIcon={approvePending ? undefined : Checkmark}
-                  onClick={handleApprove}
-                  disabled={!canChangeStatus || !canApprovePerm || anyMutationPending}
+                  className="invoice-page__action-btn invoice-page__action-btn--delete"
+                  renderIcon={deleteMutation.isPending ? undefined : TrashCan}
+                  onClick={requestDeleteInvoice}
+                  disabled={!canDelete || !canDeletePerm || anyMutationPending}
                 >
-                  {actionLabel(approvePending, 'Approve')}
+                  {actionLabel(deleteMutation.isPending, 'Delete')}
                 </Button>
-              )}
-              <Button
-                kind="primary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--success"
-                onClick={handleDuplicate}
-                disabled={!canDuplicate || !canDuplicatePerm || anyMutationPending}
-              >
-                {actionLabel(duplicateMutation.isPending, 'Duplicate')}
-              </Button>
-              <Button
-                kind="tertiary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--cancel"
-                onClick={handleCancel}
-                disabled={!canChangeStatus || !canCancelPerm || anyMutationPending}
-              >
-                {actionLabel(cancelPending, 'Cancel')}
-              </Button>
-              <Button
-                kind="tertiary"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--reject"
-                onClick={handleReject}
-                disabled={!canChangeStatus || !canRejectPerm || anyMutationPending}
-              >
-                {actionLabel(rejectPending, 'Reject')}
-              </Button>
-              <Button
-                kind="danger"
-                size="md"
-                className="invoice-page__action-btn invoice-page__action-btn--delete"
-                renderIcon={deleteMutation.isPending ? undefined : TrashCan}
-                onClick={requestDeleteInvoice}
-                disabled={!canDelete || !canDeletePerm || anyMutationPending}
-              >
-                {actionLabel(deleteMutation.isPending, 'Delete')}
-              </Button>
-            </div>
-          )}
+              </div>
+            ))}
         </Column>
       </Grid>
 
