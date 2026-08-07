@@ -19,6 +19,7 @@ export const MESSAGE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.otherparty.seller.submission.error': 'submittedBy',
   'invoice.submitter.not.equal.seller.client.number.error': 'submittingClientNumber',
   'invoice.submitter.not.equal.seller.client.location.error': 'submittingClientLocation',
+  'invoice.submitter.client.location.invalid.error': 'submittingClientLocation',
   // Other-party
   'invoice.otherparty.client.location.invalid.error': 'otherClientLocation',
   'invoice.manual.other.party.name.error': 'otherClientName',

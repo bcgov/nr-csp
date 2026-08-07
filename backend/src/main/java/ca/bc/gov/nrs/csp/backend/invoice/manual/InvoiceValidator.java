@@ -105,8 +105,7 @@ public class InvoiceValidator {
         checkSenderBuyerForInvoiceType(details);
         checkOtherPartyClient(details);
         // For manual invoices, confirm the submitter's own client number +
-        // location actually exists in CSP. Both error paths from checkSubmiterClient
-        // surface as page-level banner notifications (not inline field highlights).
+        // location actually exists in CSP.
         // The ESF path validates the submitter as buyer/seller separately.
         if (manual) {
             checkSubmiterClient(details.submitterClientNum(), details.submitterLocation(),

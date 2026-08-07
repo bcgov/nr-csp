@@ -410,4 +410,22 @@ describe('InvoicePage — warnings & errors', () => {
     });
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
+
+  it('shows an invalid submitter client location as an inline field error, not a banner', async () => {
+    await renderLoaded({
+      invStatus: 'DFT',
+      errors: [
+        {
+          messageKey: 'invoice.submitter.client.location.invalid.error',
+          message: 'The combination of the submitter Client Number 123 and Client Location 00 cannot be found in CSP.',
+          type: 'ERROR',
+          args: null,
+        },
+      ],
+    });
+    expect(
+      screen.getByText('The combination of the submitter Client Number 123 and Client Location 00 cannot be found in CSP.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Location', { selector: '#submitting-client-location' })).toBeInvalid();
+  });
 });
