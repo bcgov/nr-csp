@@ -446,6 +446,9 @@ export function InvoicePage() {
     submittedBy: submittedByCode,
     submitterLocation: submittingClientLocation,
     otherClientLocation,
+    clientPrimarySortCode,
+    reviewerComment,
+    submitterComment,
   };
   const clientFieldErrors = useMemo(
     // Validator pushes message keys; map them to fields (same key->field +
@@ -453,7 +456,17 @@ export function InvoicePage() {
     () => splitMessages(validateInvoiceFields(invoiceFieldValues).messages, CLIENT_MESSAGE_KEY_TO_FIELD).fieldErrors,
     // Re-derive whenever any validated field changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [invNumber, invDate, invTypeCode, submittedByCode, submittingClientLocation, otherClientLocation],
+    [
+      invNumber,
+      invDate,
+      invTypeCode,
+      submittedByCode,
+      submittingClientLocation,
+      otherClientLocation,
+      clientPrimarySortCode,
+      reviewerComment,
+      submitterComment,
+    ],
   );
   // Map each structural error key to the value of the field it belongs to
   const errorFieldValues: Record<string, string> = {
@@ -463,6 +476,9 @@ export function InvoicePage() {
     submittedBy: submittedByCode,
     submittingClientLocation,
     otherClientLocation,
+    clientPrimarySortCode,
+    reviewerComment,
+    submitterComment,
   };
   // Server (business-rule) errors always show; the live structural ones show
   // only for fields that currently have a value.
@@ -484,6 +500,9 @@ export function InvoicePage() {
       submittedByCode,
       submittingClientLocation,
       otherClientLocation,
+      clientPrimarySortCode,
+      reviewerComment,
+      submitterComment,
     ],
   );
   const hasStructuralErrors = Object.keys(clientFieldErrors).length > 0;
@@ -1986,6 +2005,8 @@ export function InvoicePage() {
                       onChange={(e) => setClientPrimarySortCode(e.target.value)}
                       rows={6}
                       disabled={!canEdit}
+                      invalid={!!displayFieldErrors.clientPrimarySortCode}
+                      invalidText={displayFieldErrors.clientPrimarySortCode}
                     />
                   </Column>
 
@@ -2012,6 +2033,8 @@ export function InvoicePage() {
                       onChange={(e) => setSubmitterComment(e.target.value)}
                       rows={6}
                       disabled={!canEdit}
+                      invalid={!!displayFieldErrors.submitterComment}
+                      invalidText={displayFieldErrors.submitterComment}
                     />
                   </Column>
                 </Grid>

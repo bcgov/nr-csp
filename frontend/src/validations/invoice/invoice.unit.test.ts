@@ -9,6 +9,9 @@ const validInvoice = (): InvoiceFieldValues => ({
   submittedBy: 'Seller',
   submitterLocation: '00',
   otherClientLocation: '',
+  clientPrimarySortCode: '',
+  reviewerComment: '',
+  submitterComment: '',
 });
 
 const validLineItem = (): LineItemFieldValues => ({
@@ -30,6 +33,7 @@ describe('validate (invoice fields)', () => {
   it.each([
     { field: 'invNumber', value: '  ', key: 'invoice.client.invnumber.required.error' },
     { field: 'invNumber', value: 'inv 100!', key: 'invoice.client.invnumber.pattern.error' },
+    { field: 'invNumber', value: 'INV-1234567890AB', key: 'invoice.client.invnumber.maxlength.error' },
     { field: 'invDate', value: '', key: 'invoice.client.invdate.required.error' },
     { field: 'invType', value: '', key: 'invoice.client.invtype.required.error' },
     { field: 'invType', value: 'sal1', key: 'invoice.client.invtype.pattern.error' },
@@ -38,6 +42,13 @@ describe('validate (invoice fields)', () => {
     { field: 'submitterLocation', value: '', key: 'invoice.client.submitterlocation.required.error' },
     { field: 'submitterLocation', value: '7', key: 'invoice.client.submitterlocation.pattern.error' },
     { field: 'otherClientLocation', value: 'AB', key: 'invoice.client.otherlocation.pattern.error' },
+    {
+      field: 'clientPrimarySortCode',
+      value: 'A'.repeat(101),
+      key: 'invoice.client.clientprimarysortcode.maxlength.error',
+    },
+    { field: 'reviewerComment', value: 'A'.repeat(4001), key: 'invoice.client.reviewercomment.maxlength.error' },
+    { field: 'submitterComment', value: 'A'.repeat(4001), key: 'invoice.client.submittercomment.maxlength.error' },
   ])('flags $key when $field is "$value"', ({ field, value, key }) => {
     const result = validate({ ...validInvoice(), [field]: value });
     expect(keys(result)).toContain(key);
