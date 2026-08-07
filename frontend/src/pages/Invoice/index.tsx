@@ -1676,7 +1676,7 @@ export function InvoicePage() {
         ) : null}
 
         <Column sm={4} md={8} lg={16}>
-          {invoiceNotFound ? (
+          {invoiceNotFound && (
             <div className="invoice-page__error-col">
               <InlineNotification
                 className="invoice-page__error"
@@ -1687,9 +1687,9 @@ export function InvoicePage() {
                 hideCloseButton
               />
             </div>
-          ) : isLoadingInvoice ? (
-            <InvoiceFormSkeleton />
-          ) : (
+          )}
+          {!invoiceNotFound && isLoadingInvoice && <InvoiceFormSkeleton />}
+          {!invoiceNotFound && !isLoadingInvoice && (
             <Accordion className="invoice-page__accordion" align="end">
               {/* ------------------------------------------------- */}
               {/* Section 1 — Invoice details                       */}
