@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Registers explicit PDF font names for the "SansSerif" font family — JasperReports' default
+  font name (net.sf.jasperreports.default.font.name=SansSerif). Without this, PDF export has no
+  mapping from "SansSerif + bold" to a distinct PDF font: it falls back to the single global
+  net.sf.jasperreports.default.pdf.font.name=Helvetica for every style, silently ignoring the
+  bold/italic flags on every text element. Confirmed empirically (a minimal report with one bold
+  and one regular staticText element produces exactly one /BaseFont /Helvetica declaration in the
+  exported PDF — no /BaseFont /Helvetica-Bold at all — before this file is registered).
+
+  Uses the base-14 standard PDF fonts (Helvetica family), which every PDF renderer supports
+  natively — no font files/embedding needed, matching how this app already relies on JasperReports'
+  own Helvetica fallback for regular text.
+-->
+<fontFamilies xmlns="http://jasperreports.sourceforge.net/xml/fontfamilies"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/xml/fontfamilies http://jasperreports.sourceforge.net/xsd/fontfamilies.xsd">
+    <fontFamily name="SansSerif">
+        <pdf normalPdfFont="Helvetica"
+             boldPdfFont="Helvetica-Bold"
+             italicPdfFont="Helvetica-Oblique"
+             boldItalicPdfFont="Helvetica-BoldOblique"
+             pdfEncoding="Cp1252"
+             pdfEmbedded="false"/>
+    </fontFamily>
+</fontFamilies>

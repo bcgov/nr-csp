@@ -78,10 +78,10 @@
 				</header>
 				<totalHeader/>
 			</columnGroup>
-			<measure name="VOLUMEMeasure" calculation="Count" class="java.math.BigDecimal">
+			<measure name="VOLUMEMeasure" class="java.math.BigDecimal">
 				<expression><![CDATA[$F{VOLUME}]]></expression>
 			</measure>
-			<measure name="AMVMeasure" calculation="Count" class="java.math.BigDecimal">
+			<measure name="AMVMeasure" class="java.math.BigDecimal">
 				<expression><![CDATA[$F{AMV}]]></expression>
 			</measure>
 			<measure name="Smeasure" calculation="Sum" class="java.math.BigDecimal">

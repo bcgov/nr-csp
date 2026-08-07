@@ -127,10 +127,10 @@
 				</header>
 				<totalHeader/>
 			</columnGroup>
-			<measure name="AMVMeasure" calculation="Count" class="java.math.BigDecimal">
+			<measure name="AMVMeasure" class="java.math.BigDecimal">
 				<expression><![CDATA[$F{AMV}]]></expression>
 			</measure>
-			<measure name="%Measure" calculation="Count" class="java.math.BigDecimal">
+			<measure name="%Measure" class="java.math.BigDecimal">
 				<expression><![CDATA[$F{PCS}]]></expression>
 			</measure>
 			<cell width="49" height="27">
