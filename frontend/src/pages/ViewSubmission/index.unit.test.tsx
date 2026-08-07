@@ -217,5 +217,30 @@ describe('ViewSubmissionPage', () => {
     });
     renderPage();
     expect(screen.getByText(/submission not found/i)).toBeInTheDocument();
+    expect(screen.getByText('It may have been removed, or the link is incorrect.')).toBeInTheDocument();
+  });
+
+  it('renders the server error message for a non-404 failure', () => {
+    useSubmissionDetailQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: { status: 500, data: { message: 'Database is unavailable.' } } },
+    });
+    renderPage();
+    expect(screen.getByText('Unable to load submission')).toBeInTheDocument();
+    expect(screen.getByText('Database is unavailable.')).toBeInTheDocument();
+  });
+
+  it('falls back to a generic message for a non-404 failure with no server message', () => {
+    useSubmissionDetailQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: {} },
+    });
+    renderPage();
+    expect(screen.getByText('Unable to load submission')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load the submission. Please try again.')).toBeInTheDocument();
   });
 });

@@ -220,6 +220,65 @@ describe('InvoicePage — rendering', () => {
     expect(screen.getByText('DFT')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add new item' })).toBeInTheDocument();
   });
+
+  it('uppercases characters typed into the invoice number field', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    fireEvent.change(screen.getByLabelText(/Invoice number/), { target: { value: 'inv-abc' } });
+    expect(screen.getByLabelText(/Invoice number/)).toHaveValue('INV-ABC');
+  });
+});
+
+describe('InvoicePage — invoice not found', () => {
+  it('shows an "Invoice not found" banner when the id in the URL is not a valid number', () => {
+    h.params.id = 'not-a-number';
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(
+      screen.getByText('Invoice not found. It may have been removed, or the link is incorrect.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+
+  it('shows an "Invoice not found" banner when the invoice query 404s', () => {
+    h.params.id = '999';
+    h.invoiceQuery = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: { status: 404 } },
+    };
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(
+      screen.getByText('Invoice not found. It may have been removed, or the link is incorrect.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the server error message when the invoice query fails for a non-404 reason', () => {
+    h.params.id = '5';
+    h.invoiceQuery = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: { status: 500, data: { message: 'Database is unavailable.' } } },
+    };
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(screen.getByText('Database is unavailable.')).toBeInTheDocument();
+  });
+
+  it('falls back to a generic message for a non-404 failure with no server message', () => {
+    h.params.id = '5';
+    h.invoiceQuery = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: {} },
+    };
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load the invoice. Please try again.')).toBeInTheDocument();
+  });
 });
 
 describe('InvoicePage — button enablement by status', () => {
@@ -348,6 +407,20 @@ describe('InvoicePage — action flows', () => {
       expect.objectContaining({ body: expect.objectContaining({ status: 'UNA', reviewComments: 'Reverting' }) }),
       expect.anything(),
     );
+  });
+});
+
+describe('InvoicePage — field length validation', () => {
+  it('shows an inline error when the client primary sort code exceeds 100 characters', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    fireEvent.change(screen.getByLabelText('Client primary sort code'), { target: { value: 'A'.repeat(101) } });
+    expect(screen.getByText('Client primary sort code must be at most 100 characters.')).toBeInTheDocument();
+  });
+
+  it('shows an inline error when the submitted comment exceeds 4000 characters', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    fireEvent.change(screen.getByLabelText('Submitted comment'), { target: { value: 'A'.repeat(4001) } });
+    expect(screen.getByText('Submitted comment must be at most 4000 characters.')).toBeInTheDocument();
   });
 });
 
