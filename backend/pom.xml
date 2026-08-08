@@ -22,7 +22,7 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <jjwt.version>0.13.0</jjwt.version>
         <jwks-rsa.version>0.24.1</jwks-rsa.version>
-        <ojdbc.version>23.26.2.0.0</ojdbc.version>
+        <ojdbc.version>23.26.3.0.0</ojdbc.version>
         <jasperreports.version>7.0.7</jasperreports.version>
         <testcontainers.version>1.21.4</testcontainers.version>
         <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
