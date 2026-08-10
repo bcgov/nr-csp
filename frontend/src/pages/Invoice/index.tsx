@@ -1204,18 +1204,21 @@ export function InvoicePage() {
       {
         key: 'totalPieces',
         header: 'Total pieces',
+        headerAlign: 'center',
         cellAlign: 'right',
         renderCell: (r) => formatNumber(r.totalPieces),
       },
       {
         key: 'totalVolume',
         header: 'Total volume',
+        headerAlign: 'center',
         cellAlign: 'right',
         renderCell: (r) => formatNumber(r.totalVolume, 3),
       },
       {
         key: 'totalAmount',
         header: 'Total $ amount',
+        headerAlign: 'center',
         cellAlign: 'right',
         renderCell: (r) => formatCurrency(r.totalAmount),
       },
