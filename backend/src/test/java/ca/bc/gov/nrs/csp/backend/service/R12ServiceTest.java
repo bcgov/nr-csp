@@ -19,13 +19,19 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class R12ServiceTest {
@@ -234,6 +240,44 @@ class R12ServiceTest {
             assertThatThrownBy(() -> service.generateReport(r))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("R12");
+        }
+    }
+
+    /**
+     * Exercises the real {@code Connection} → {@code CallableStatement} binding path that every
+     * other test in this class bypasses (they leave {@code dataSource.getConnection()}
+     * unstubbed, which returns {@code null} and short-circuits before JasperReports ever prepares
+     * a statement). See {@code R10ServiceTest.RealProcedureCallBinding} for the full rationale —
+     * this is the same regression guard, retrofitted here since R12's stored-procedure call is
+     * subject to the identical {@code RefCursorProcedureCallHandlerFactory} binding mechanism.
+     */
+    @Nested
+    @DisplayName("generateReport() — real Connection/CallableStatement binding")
+    class RealProcedureCallBinding {
+
+        @Mock
+        Connection connection;
+        @Mock
+        CallableStatement callableStatement;
+        @Mock
+        ResultSet cursorResult;
+
+        @Test
+        void shouldRegisterRefCursorOutParameter_andFillViaCallableStatement() throws SQLException {
+            given(dataSource.getConnection()).willReturn(connection);
+            given(connection.prepareCall(anyString())).willReturn(callableStatement);
+            given(callableStatement.getObject(1)).willReturn(cursorResult);
+            given(cursorResult.next()).willReturn(false);
+
+            R12ReportRequest r = baseRequest();
+            r.setYear(2020);
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ResourceNotFoundException.class);
+
+            verify(connection).prepareCall(anyString());
+            verify(callableStatement).registerOutParameter(1, Types.REF_CURSOR);
+            verify(callableStatement).execute();
         }
     }
 

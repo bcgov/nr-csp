@@ -22,14 +22,20 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class R06ServiceTest {
@@ -220,6 +226,47 @@ class R06ServiceTest {
             assertThatThrownBy(() -> service.generateReport(r))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("R06");
+        }
+    }
+
+    /**
+     * Exercises the real {@code Connection} → {@code CallableStatement} binding path that every
+     * other test in this class bypasses (they leave {@code dataSource.getConnection()}
+     * unstubbed, which returns {@code null} and short-circuits before JasperReports ever prepares
+     * a statement). See {@code R10ServiceTest.RealProcedureCallBinding} for the full rationale.
+     *
+     * <p>Only the main report's {@code CallableStatement} is exercised here: R06's subreport
+     * element lives inside a {@code groupHeader} band gated on {@code $F{COASTAL_LOG_SALE_ID}},
+     * which only evaluates when the main query returns at least one row — with a mocked cursor
+     * returning zero rows (as below), the subreport chain is never reached, so this test only
+     * proves the top-level {@code CSP_SP_RPT_06} call binds correctly, not the subreports'.</p>
+     */
+    @Nested
+    @DisplayName("generateReport() — real Connection/CallableStatement binding")
+    class RealProcedureCallBinding {
+
+        @Mock
+        Connection connection;
+        @Mock
+        CallableStatement callableStatement;
+        @Mock
+        ResultSet cursorResult;
+
+        @Test
+        void shouldRegisterRefCursorOutParameter_andFillViaCallableStatement() throws SQLException {
+            given(dataSource.getConnection()).willReturn(connection);
+            given(connection.prepareCall(anyString())).willReturn(callableStatement);
+            given(callableStatement.getObject(1)).willReturn(cursorResult);
+            given(cursorResult.next()).willReturn(false);
+
+            R06ReportRequest r = baseRequest();
+
+            assertThatThrownBy(() -> service.generateReport(r))
+                    .isInstanceOf(ResourceNotFoundException.class);
+
+            verify(connection).prepareCall(anyString());
+            verify(callableStatement).registerOutParameter(1, Types.REF_CURSOR);
+            verify(callableStatement).execute();
         }
     }
 
