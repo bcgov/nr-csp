@@ -122,6 +122,7 @@ export default function EditableLineItemsTable({
       key: 'secondarySort',
       header: 'Secondary sort code',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.secondarySort;
         return (
@@ -144,6 +145,7 @@ export default function EditableLineItemsTable({
       key: 'species',
       header: 'Species',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.species;
         return (
@@ -166,6 +168,7 @@ export default function EditableLineItemsTable({
       key: 'clientSecondarySort',
       header: 'Client secondary sort code',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.clientSecondarySort;
         return (
@@ -184,6 +187,7 @@ export default function EditableLineItemsTable({
       key: 'numberPieces',
       header: 'Number pieces',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return formatNumber(r.numberPieces);
         return (
@@ -204,6 +208,7 @@ export default function EditableLineItemsTable({
       key: 'grade',
       header: 'Grade',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.grade;
         return (
@@ -226,6 +231,7 @@ export default function EditableLineItemsTable({
       key: 'volume',
       header: 'Volume',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return formatNumber(r.volume, 3);
         return (
@@ -246,6 +252,7 @@ export default function EditableLineItemsTable({
       key: 'price',
       header: '$ Price',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return formatCurrency(r.price);
         return (
@@ -266,6 +273,7 @@ export default function EditableLineItemsTable({
       key: 'amount',
       header: '$ Amount',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (isEditingId(r.id)) {
           return editComputedAmount ? `$${editComputedAmount}` : '';
@@ -276,6 +284,7 @@ export default function EditableLineItemsTable({
     {
       key: 'id',
       header: '',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (isEditingId(r.id)) {
           return (
