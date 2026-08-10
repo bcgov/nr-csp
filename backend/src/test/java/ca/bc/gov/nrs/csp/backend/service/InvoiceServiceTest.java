@@ -239,7 +239,7 @@ class InvoiceServiceTest {
     void create_validationError_throwsAndPersistsNothing() {
         CreateInvoiceRequest req = createRequest(true);
         given(mapper.toDetails(eq(req), anyString())).willReturn(draftDetails(null));
-        given(mapper.toLineItems(any(), isNull())).willReturn(List.of());
+        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
 
         assertThatThrownBy(() -> service.create(req)).isInstanceOf(ValidationException.class);
@@ -252,7 +252,7 @@ class InvoiceServiceTest {
         CreateInvoiceRequest req = createRequest(true);
         // Registered other party (otherClientNum set) → no participant insert.
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", "5678", null, "Seller"));
-        given(mapper.toLineItems(any(), isNull())).willReturn(List.of(line(null, null)));
+        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of(line(null, null)));
         given(submissionRepo.insertSubmission(any(), any(), eq("LOB"), any())).willReturn(77L);
         given(invoiceRepo.insertInvoice(any(), eq(77L), eq("DFT"), isNull(), isNull(), any())).willReturn(500L);
 
@@ -270,7 +270,7 @@ class InvoiceServiceTest {
     void create_nonManual_insertsInboxSubmission() {
         CreateInvoiceRequest req = createRequest(false);
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", "5678", null, "Seller"));
-        given(mapper.toLineItems(any(), isNull())).willReturn(List.of());
+        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(submissionRepo.insertSubmission(any(), any(), eq("INB"), any())).willReturn(77L);
         given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
 
@@ -284,7 +284,7 @@ class InvoiceServiceTest {
         CreateInvoiceRequest req = createRequest(true);
         // No client number + a name + submittedBy Seller → manual other party in the BUYER slot.
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", null, "ABC Logging", "Seller"));
-        given(mapper.toLineItems(any(), isNull())).willReturn(List.of());
+        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
         given(participantRepo.insert(eq("ABC Logging"), any(), any(), any())).willReturn(900L);
         given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
@@ -300,7 +300,7 @@ class InvoiceServiceTest {
         CreateInvoiceRequest req = createRequest(true);
         // submittedBy Buyer → the other party is the seller (seller slot).
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", null, "ABC Logging", "Buyer"));
-        given(mapper.toLineItems(any(), isNull())).willReturn(List.of());
+        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
         given(participantRepo.insert(any(), any(), any(), any())).willReturn(900L);
         given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
@@ -343,7 +343,7 @@ class InvoiceServiceTest {
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
-        given(mapper.toLineItems(any(), eq(1L))).willReturn(List.of());
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
         LineItem converted = line(1L, new BigDecimal("12.34"));
         given(priceConversionService.apply(any(), any(), any()))
                 .willReturn(new PriceConversionService.Result(List.of(converted), List.of(A_WARNING)));
@@ -361,7 +361,7 @@ class InvoiceServiceTest {
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
-        given(mapper.toLineItems(any(), eq(1L))).willReturn(List.of());
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
 
         assertThatThrownBy(() -> service.update(1L, req)).isInstanceOf(ValidationException.class);
@@ -375,7 +375,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
         // Incoming: one existing line (id 1, updated) + one new line (null id). Existing on db: 1 and 2.
-        given(mapper.toLineItems(any(), eq(1L))).willReturn(List.of(line(1L, null), line(null, null)));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null), line(null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L, 2L));
 
         service.update(1L, req);
@@ -392,7 +392,7 @@ class InvoiceServiceTest {
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), null, null, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
-        given(mapper.toLineItems(any(), eq(1L))).willReturn(List.of());
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
         service.update(1L, req);
 
@@ -405,7 +405,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
         // Registered other party (otherClientNum set, no manual name).
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", "5678", null, "Seller"));
-        given(mapper.toLineItems(any(), eq(1L))).willReturn(List.of());
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
         service.update(1L, req);
 
@@ -419,7 +419,7 @@ class InvoiceServiceTest {
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", null, "ABC Logging", "Seller"));
-        given(mapper.toLineItems(any(), eq(1L))).willReturn(List.of());
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
         service.update(1L, req);
 
@@ -434,7 +434,7 @@ class InvoiceServiceTest {
         // Existing seller participant 60; new state puts the manual party in the buyer slot.
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, 60L)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", null, "ABC Logging", "Seller"));
-        given(mapper.toLineItems(any(), eq(1L))).willReturn(List.of());
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
         given(participantRepo.insert(any(), any(), any(), any())).willReturn(99L);
 
         service.update(1L, req);
@@ -698,7 +698,7 @@ class InvoiceServiceTest {
     void addLineItem_validationError_throws() {
         LineItemRequest req = lineItemRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
-        given(mapper.toLineItem(req, 1L)).willReturn(line(null, null));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
 
         assertThatThrownBy(() -> service.addLineItem(1L, req)).isInstanceOf(ValidationException.class);
@@ -709,7 +709,7 @@ class InvoiceServiceTest {
     void addLineItem_onDraft_insertsWithoutStatusChange() {
         LineItemRequest req = lineItemRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
-        given(mapper.toLineItem(req, 1L)).willReturn(line(null, null));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
         service.addLineItem(1L, req);
 
@@ -721,7 +721,7 @@ class InvoiceServiceTest {
     void addLineItem_onUnapproved_revertsToDraftAndLobby() {
         LineItemRequest req = lineItemRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "UNA", "5678", null, "Seller"), 10L, null, null)));
-        given(mapper.toLineItem(req, 1L)).willReturn(line(null, null));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
         service.addLineItem(1L, req);
 
@@ -750,7 +750,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(5L, null)));
-        given(mapper.toLineItem(req, 1L)).willReturn(line(null, null));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
         service.updateLineItem(1L, 5L, req);
 
@@ -784,7 +784,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(5L, null)));
-        given(mapper.toLineItem(req, 1L)).willReturn(line(5L, null));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(5L, null));
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
 
         assertThatThrownBy(() -> service.updateLineItem(1L, 5L, req)).isInstanceOf(ValidationException.class);
@@ -797,7 +797,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(5L, null)));
-        given(mapper.toLineItem(req, 1L)).willReturn(line(null, null));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
         service.updateLineItem(1L, 5L, req);
 

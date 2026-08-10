@@ -81,6 +81,7 @@ describe('EditableLineItemsTable', () => {
         speciesGradeCombos={COMBOS}
         editDraft={null}
         fieldErrors={{}}
+        invType="SAL"
         {...handlers}
         {...overrides}
       />,

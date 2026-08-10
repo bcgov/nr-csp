@@ -99,7 +99,20 @@ export interface LineItemFieldValues {
   invType: string;
 }
 
-const INVTYPE_ADJUST = 'ADJ';
+export const INVTYPE_ADJUST = 'ADJ';
+
+/**
+ * A line item's `$Amount` preview — volume × price, rounded to 2dp.
+ *
+ * @param volume  the line's volume
+ * @param price   the line's price
+ * @param invType the parent invoice's type code, e.g. 'ADJ'
+ * @returns the signed amount rounded to 2 decimal places
+ */
+export const computeLineAmount = (volume: number, price: number, invType: string): number => {
+  const effectiveVolume = invType === INVTYPE_ADJUST && volume < 0 && price < 0 ? Math.abs(volume) : volume;
+  return Math.round(effectiveVolume * price * 100) / 100;
+};
 
 export function validateLineItem(values: LineItemFieldValues): ValidationResult {
   const messages = new MessageCollector();

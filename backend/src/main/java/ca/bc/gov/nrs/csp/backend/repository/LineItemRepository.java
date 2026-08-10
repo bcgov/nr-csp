@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.repository;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.invoice.shared.LineAmount;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -35,10 +36,12 @@ public class LineItemRepository {
                     d.pieces,
                     d.price,
                     d.volume,
-                    d.converted_price
+                    d.converted_price,
+                    cls.csp_invoice_type_code AS invoice_type
                 FROM THE.coastal_log_sale_detail d
                 JOIN THE.csp_species_grade_xref sgx ON d.csp_species_grade_xref_id = sgx.csp_species_grade_xref_id
                 LEFT JOIN THE.log_sale_species_code sc ON sgx.log_sale_species_code = sc.log_sale_species_code
+                JOIN THE.coastal_log_sale cls ON d.coastal_log_sale_id = cls.coastal_log_sale_id
                 WHERE d.coastal_log_sale_id = :id
                 ORDER BY d.coastal_log_sale_detail_id
                 """;
@@ -46,7 +49,7 @@ public class LineItemRepository {
         return jdbc.query(sql, params, (rs, rowNum) -> {
             BigDecimal price = rs.getBigDecimal("price");
             BigDecimal volume = rs.getBigDecimal("volume");
-            BigDecimal amount = (price != null && volume != null) ? price.multiply(volume) : null;
+            BigDecimal amount = LineAmount.compute(volume, price, rs.getString("invoice_type"));
             return new LineItem(
                     rs.getObject("line_item_id", Long.class),
                     rs.getObject("invoice_id", Long.class),

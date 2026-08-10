@@ -132,7 +132,7 @@ public class InvoiceService {
     public InvoiceResponse create(CreateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
         InvoiceDetails details = mapper.toDetails(request, user);
-        List<LineItem> lines = mapper.toLineItems(request.lineItems(), null);
+        List<LineItem> lines = mapper.toLineItems(request.lineItems(), null, details.invType());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on create.");
@@ -201,7 +201,7 @@ public class InvoiceService {
         }
 
         InvoiceDetails details = mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID());
-        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id);
+        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, details.invType());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on update.");
@@ -439,7 +439,7 @@ public class InvoiceService {
         // the full invoice validator against the full set so totals-variance
         // / line-count rules still fire correctly.
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
-        LineItem newLine = mapper.toLineItem(request, invoiceId);
+        LineItem newLine = mapper.toLineItem(request, invoiceId, existing.details().invType());
         List<LineItem> candidate = new ArrayList<>(existingLines);
         candidate.add(newLine);
 
@@ -459,7 +459,7 @@ public class InvoiceService {
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
-        LineItem mapped = mapper.toLineItem(request, invoiceId);
+        LineItem mapped = mapper.toLineItem(request, invoiceId, existing.details().invType());
         LineItem updatedLine = new LineItem(
                 lineId, mapped.invoiceID(), mapped.secondSort(), mapped.clientSecondarySort(), mapped.species(),
                 mapped.speciesDescription(), mapped.grade(), mapped.numOfPieces(), mapped.price(), mapped.volume(),

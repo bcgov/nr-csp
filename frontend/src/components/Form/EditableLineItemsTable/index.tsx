@@ -4,6 +4,7 @@ import { IconButton, TextInput } from '@carbon/react';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import SingleSelect from '@/components/Form/SingleSelect';
 import { formatCurrency, formatNumber } from '@/utils/format';
+import { computeLineAmount } from '@/validations/invoice/invoice';
 
 import './index.scss';
 
@@ -60,6 +61,7 @@ export interface EditableLineItemsTableProps {
   editDraft: EditableLineItemDraft | null;
   /** Per-field inline validation errors for the active edit row. Keys: secondarySort, species, grade, pieces, volume, price. */
   fieldErrors: Record<string, string>;
+  invType: string;
   onStartEdit: (rowId: string) => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
@@ -90,6 +92,7 @@ export default function EditableLineItemsTable({
   speciesGradeCombos,
   editDraft,
   fieldErrors,
+  invType,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -114,7 +117,7 @@ export default function EditableLineItemsTable({
     const p = Number.parseFloat(editDraft.price);
     const v = Number.parseFloat(editDraft.volume);
     if (Number.isNaN(p) || Number.isNaN(v)) return '';
-    return (Math.round(p * v * 100) / 100).toFixed(2);
+    return computeLineAmount(v, p, invType).toFixed(2);
   })();
 
   const columns: ResultsTableColumn<EditableLineItemRow>[] = [

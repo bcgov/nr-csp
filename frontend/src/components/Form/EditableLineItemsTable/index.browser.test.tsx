@@ -39,6 +39,7 @@ const setup = (overrides: Partial<React.ComponentProps<typeof EditableLineItemsT
       speciesGradeCombos={speciesGradeCombos}
       editDraft={null}
       fieldErrors={{}}
+      invType="SAL"
       {...handlers}
       {...overrides}
     />,

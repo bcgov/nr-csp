@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { validate, validateLineItem, type InvoiceFieldValues, type LineItemFieldValues } from './invoice';
+import {
+  computeLineAmount,
+  validate,
+  validateLineItem,
+  type InvoiceFieldValues,
+  type LineItemFieldValues,
+} from './invoice';
 
 const validInvoice = (): InvoiceFieldValues => ({
   invNumber: 'INV-100',
@@ -101,5 +107,29 @@ describe('validateLineItem', () => {
       'invoice.client.volume.numeric.error',
       'invoice.client.price.numeric.error',
     ]);
+  });
+});
+
+describe('computeLineAmount', () => {
+  it('multiplies volume by price and rounds to 2dp', () => {
+    expect(computeLineAmount(6.25, 25, 'SAL')).toBe(156.25);
+    expect(computeLineAmount(3, 3.333, 'SAL')).toBe(10);
+  });
+
+  // Adjustment invoices are the only type allowed negative volume/price, and the
+  // amount must stay negative rather than multiplying out to a positive. Mirrors
+  // the backend LineAmount.compute and legacy Utils.bigDecimalMultiplicationForAdj.
+  it.each([
+    { volume: 5, price: 5, expected: 25 },
+    { volume: -5, price: 5, expected: -25 },
+    { volume: 5, price: -5, expected: -25 },
+    { volume: -5, price: -5, expected: -25 },
+  ])('ADJ: volume $volume x price $price is $expected', ({ volume, price, expected }) => {
+    expect(computeLineAmount(volume, price, 'ADJ')).toBe(expected);
+  });
+
+  it('does not apply the adjustment sign rule to other invoice types', () => {
+    expect(computeLineAmount(-5, -5, 'SAL')).toBe(25);
+    expect(computeLineAmount(-5, -5, 'PUR')).toBe(25);
   });
 });

@@ -82,6 +82,7 @@ import { getClientsByNumber } from '@/services/search.service';
 import { formatCurrency, formatIsoDate, formatNumber } from '@/utils/format';
 
 import {
+  computeLineAmount,
   validate as validateInvoiceFields,
   validateLineItem,
   type InvoiceFieldValues,
@@ -411,7 +412,7 @@ export function InvoicePage() {
     // price × 0 = 0.00) instead of showing blank.
     const p = Number.parseFloat(newLinePrice) || 0;
     const v = Number.parseFloat(newLineVolume) || 0;
-    return (Math.round(p * v * 100) / 100).toFixed(2);
+    return computeLineAmount(v, p, invTypeCode).toFixed(2);
   })();
 
   // Inline error / warning state
@@ -1953,19 +1954,19 @@ export function InvoicePage() {
                   <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total pieces</span>
                     <span className="invoice-page__meta-value">
-                      {totalPieces > 0 ? formatNumber(totalPieces) : '—'}
+                      {hasLineItems ? formatNumber(totalPieces) : '—'}
                     </span>
                   </Column>
                   <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total volume (m3)</span>
                     <span className="invoice-page__meta-value">
-                      {totalVolume > 0 ? formatNumber(totalVolume, 3) : '—'}
+                      {hasLineItems ? formatNumber(totalVolume, 3) : '—'}
                     </span>
                   </Column>
                   <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total amount</span>
                     <span className="invoice-page__meta-value">
-                      {totalAmount > 0 ? formatCurrency(totalAmount) : '—'}
+                      {hasLineItems ? formatCurrency(totalAmount) : '—'}
                     </span>
                   </Column>
 
@@ -2105,6 +2106,7 @@ export function InvoicePage() {
                         speciesGradeCombos={speciesGradeCombos}
                         editDraft={editLineDraft}
                         fieldErrors={displayEditLineErrors}
+                        invType={invTypeCode}
                         onStartEdit={handleStartLineEdit}
                         onCancelEdit={handleCancelLineEdit}
                         onSaveEdit={handleSaveLineEdit}
