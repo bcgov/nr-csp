@@ -1760,7 +1760,7 @@ export function InvoicePage() {
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col invoice-page__field-col--left">
                     <TagInput
                       id="replace-inv-num"
-                      labelText="Replaces Invoice#(s)"
+                      labelText="Replaces invoice number(s)"
                       values={replaceInvNum}
                       onChange={setReplaceInvNum}
                       invalid={!!displayFieldErrors.replaceInvNum}
@@ -1772,7 +1772,7 @@ export function InvoicePage() {
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col">
                     <TagInput
                       id="adjust-inv-num"
-                      labelText="Adjusts Invoice#(s)"
+                      labelText="Adjusts invoice numbers(s)"
                       values={adjustInvNum}
                       onChange={setAdjustInvNum}
                       invalid={!!displayFieldErrors.adjustInvNum}
