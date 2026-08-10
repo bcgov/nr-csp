@@ -29,6 +29,11 @@ describe('formatCurrency', () => {
     expect(formatCurrency(11393.61)).toBe('$11,393.61');
   });
 
+  it('puts the minus sign outside the dollar sign for negatives', () => {
+    expect(formatCurrency(-25)).toBe('-$25.00');
+    expect(formatCurrency(-11393.61)).toBe('-$11,393.61');
+  });
+
   it('renders an em-dash for null / undefined / NaN', () => {
     expect(formatCurrency(null)).toBe('—');
     expect(formatCurrency(undefined)).toBe('—');

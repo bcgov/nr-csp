@@ -22,11 +22,12 @@ export const formatNumber = (value: number | null | undefined, decimals = 0): st
  *
  * @example formatCurrency(312)      // "$312.00"
  * @example formatCurrency(11393.61) // "$11,393.61"
+ * @example formatCurrency(-25)      // "-$25.00"
  * @example formatCurrency(null)     // "—"
  */
 export const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
-  return `$${formatNumber(value, 2)}`;
+  return value < 0 ? `-$${formatNumber(Math.abs(value), 2)}` : `$${formatNumber(value, 2)}`;
 };
 
 /**
