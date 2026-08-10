@@ -539,6 +539,27 @@ export function InvoicePage() {
   const [editLineDraft, setEditLineDraft] = useState<EditableLineItemDraft | null>(null);
   const [editLineFieldErrors, setEditLineFieldErrors] = useState<Record<string, string>>({});
 
+  // Live structural validation for the row currently being edited
+  const clientEditLineErrors = useMemo(
+    () =>
+      editLineDraft
+        ? splitMessages(
+            validateLineItem({
+              pieces: editLineDraft.numOfPieces,
+              volume: editLineDraft.volume,
+              price: editLineDraft.price,
+              invType: invTypeCode,
+            }).messages,
+            CLIENT_LINE_ITEM_MESSAGE_KEY_TO_FIELD,
+          ).fieldErrors
+        : {},
+    [editLineDraft, invTypeCode],
+  );
+  const displayEditLineErrors = useMemo(
+    () => relabelRecord({ ...editLineFieldErrors, ...clientEditLineErrors }),
+    [editLineFieldErrors, clientEditLineErrors, relabelRecord],
+  );
+
   // ----- Group edit modal state -----
   type EditGroupDraft = {
     groupId: string;
@@ -1455,6 +1476,7 @@ export function InvoicePage() {
 
   const handleSaveLineEdit = () => {
     if (!invoiceId || !editLineDraft) return;
+    if (Object.keys(clientEditLineErrors).length > 0) return;
     const lineItemID = Number(editLineDraft.id);
     const body: LineItemRequest = {
       lineItemID,
@@ -2082,7 +2104,7 @@ export function InvoicePage() {
                         gradeItems={gradeItems}
                         speciesGradeCombos={speciesGradeCombos}
                         editDraft={editLineDraft}
-                        fieldErrors={relabelRecord(editLineFieldErrors)}
+                        fieldErrors={displayEditLineErrors}
                         onStartEdit={handleStartLineEdit}
                         onCancelEdit={handleCancelLineEdit}
                         onSaveEdit={handleSaveLineEdit}

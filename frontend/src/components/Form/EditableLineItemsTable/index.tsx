@@ -289,7 +289,15 @@ export default function EditableLineItemsTable({
         if (isEditingId(r.id)) {
           return (
             <div className="editable-line-items-table__actions">
-              <IconButton kind="ghost" size="sm" label="Save line item" align="top" autoAlign onClick={onSaveEdit}>
+              <IconButton
+                kind="ghost"
+                size="sm"
+                label="Save line item"
+                align="top"
+                autoAlign
+                disabled={Object.keys(fieldErrors).length > 0}
+                onClick={onSaveEdit}
+              >
                 <Checkmark />
               </IconButton>
               <IconButton kind="ghost" size="sm" label="Cancel" align="top" autoAlign onClick={onCancelEdit}>
