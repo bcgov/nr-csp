@@ -31,9 +31,6 @@ parameters:
   - name: COGNITO_DOMAIN
     description: Cognito hosted UI domain (no https://)
     required: true
-  - name: LOG_LEVEL
-    description: Caddy runtime log level (DEBUG, INFO, WARN, ERROR)
-    value: INFO
 
 objects:
   # ── Deployment ────────────────────────────────────────────
@@ -74,9 +71,14 @@ objects:
                 # domain to allow the SPA's OAuth token-exchange fetch.
                 - name: COGNITO_DOMAIN
                   value: ${COGNITO_DOMAIN}
-                # Caddy runtime log verbosity (see Caddyfile global options)
+                # Caddy runtime log verbosity (see Caddyfile global options).
+                # Comes from the init-created ConfigMap so the value honors
+                # environment-scoped GitHub variables (see openshift.init.yml).
                 - name: LOG_LEVEL
-                  value: ${LOG_LEVEL}
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ${NAME}-${ZONE}-frontend
+                      key: LOG_LEVEL
               volumeMounts:
                 - name: caddy-data
                   mountPath: /data

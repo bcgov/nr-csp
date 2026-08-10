@@ -127,6 +127,7 @@ jobs:
             -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}'
             -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}/logout'
             -p FAM_CLIENT_ID='${{ vars.fam_client_id }}'
+            -p FRONTEND_LOG_LEVEL='${{ vars.frontend_log_level || 'INFO' }}'
           triggers: ${{ inputs.triggers }}
           debug: true
 
@@ -155,14 +156,13 @@ jobs:
           # attached, so environment-scoped (test/prod) variables are ignored
           # here. Anything that differs per environment belongs in the init
           # step's parameters (common/openshift.init.yml), not in this matrix.
-          # COGNITO_DOMAIN (Caddy CSP header) and log levels are the same or
-          # cosmetic across environments, so they're acceptable here.
+          # COGNITO_DOMAIN (Caddy CSP header) is the same across environments,
+          # so it's acceptable here.
           - name: frontend
             file: frontend/openshift.deploy.yml
             parameters: >-
               -p IMAGE_TAG='${{ inputs.tag }}'
               -p COGNITO_DOMAIN='${{ vars.cognito_domain }}'
-              -p LOG_LEVEL='${{ vars.frontend_log_level || 'INFO' }}'
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     steps:

@@ -100,6 +100,9 @@ parameters:
   - name: FAM_CLIENT_ID
     description: FAM application client ID (Cognito group prefix, e.g. CSP)
     required: true
+  - name: FRONTEND_LOG_LEVEL
+    description: Caddy runtime log level (DEBUG, INFO, WARN, ERROR)
+    value: INFO
 
 objects:
   # ── Backend Secret ────────────────────────────────────────
@@ -139,6 +142,17 @@ objects:
       JASPER_SERVER_FETCH_URL: ${JASPER_SERVER_FETCH_URL}
       JASPER_SERVER_PUT_URL: ${JASPER_SERVER_PUT_URL}
       JASPER_SERVER_REPORT_URI_BASE: ${JASPER_SERVER_REPORT_URI_BASE}
+
+  # ── Frontend env ConfigMap (mirrors ${NAME}-${ZONE}-backend) ──
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${NAME}-${ZONE}-frontend
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    data:
+      LOG_LEVEL: ${FRONTEND_LOG_LEVEL}
 
   # ── Frontend amplify ConfigMap (runtime-injected, overrides the
   #    build-time placeholder; mounted by the frontend Deployment) ──
