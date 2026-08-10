@@ -1198,46 +1198,28 @@ export function InvoicePage() {
   const groupColumns = useMemo<ResultsTableColumn<GroupRow>[]>(
     () => [
       { key: 'groupNumber', header: 'Group number' },
-      {
-        key: 'secondarySort',
-        header: 'Secondary sort',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{r.secondarySort}</span>,
-      },
+      { key: 'secondarySort', header: 'Secondary sort', headerAlign: 'center', cellAlign: 'center' },
       { key: 'description', header: 'Description' },
-      {
-        key: 'species',
-        header: 'Species',
-        headerAlign: 'center',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{r.species}</span>,
-      },
+      { key: 'species', header: 'Species', headerAlign: 'center', cellAlign: 'center' },
       {
         key: 'totalPieces',
         header: 'Total pieces',
-        headerAlign: 'center',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{formatNumber(r.totalPieces)}</span>,
+        cellAlign: 'right',
+        renderCell: (r) => formatNumber(r.totalPieces),
       },
       {
         key: 'totalVolume',
         header: 'Total volume',
-        headerAlign: 'center',
-        renderCell: (r) => (
-          <span style={{ display: 'block', textAlign: 'center' }}>{formatNumber(r.totalVolume, 3)}</span>
-        ),
+        cellAlign: 'right',
+        renderCell: (r) => formatNumber(r.totalVolume, 3),
       },
       {
         key: 'totalAmount',
         header: 'Total $ amount',
-        headerAlign: 'center',
-        renderCell: (r) => (
-          <span style={{ display: 'block', textAlign: 'center' }}>{formatCurrency(r.totalAmount)}</span>
-        ),
+        cellAlign: 'right',
+        renderCell: (r) => formatCurrency(r.totalAmount),
       },
-      {
-        key: 'priceConversion',
-        header: 'Price conversion',
-        headerAlign: 'center',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{r.priceConversion}</span>,
-      },
+      { key: 'priceConversion', header: 'Price conversion', headerAlign: 'center', cellAlign: 'center' },
       {
         key: 'id',
         header: 'Actions',
@@ -1281,16 +1263,16 @@ export function InvoicePage() {
       <TableRow className="invoice-page__line-items-totals-row">
         <TableCell colSpan={4} />
         <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>Invoice totals</strong>
+          <strong>Invoice totals</strong>
         </TableCell>
-        <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>{formatNumber(totalPieces)}</strong>
+        <TableCell style={{ textAlign: 'right' }}>
+          <strong>{formatNumber(totalPieces)}</strong>
         </TableCell>
-        <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>{formatNumber(totalVolume, 3)}</strong>
+        <TableCell style={{ textAlign: 'right' }}>
+          <strong>{formatNumber(totalVolume, 3)}</strong>
         </TableCell>
-        <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>{formatCurrency(totalAmount)}</strong>
+        <TableCell style={{ textAlign: 'right' }}>
+          <strong>{formatCurrency(totalAmount)}</strong>
         </TableCell>
         <TableCell />
         <TableCell />
