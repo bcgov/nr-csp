@@ -81,4 +81,47 @@ describe('useIdleTimeout', () => {
 
     expect(onTimeout).not.toHaveBeenCalled();
   });
+
+  it('stops reacting to cross-tab messages after unmount', async () => {
+    const onTimeout = vi.fn();
+    const { unmount } = renderHook(() => useIdleTimeout({ enabled: true, timeoutMs: TIMEOUT_MS, onTimeout }));
+
+    unmount();
+    const otherTab = new BroadcastChannel('csp-auth-idle');
+    otherTab.postMessage({ type: 'logout' });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(onTimeout).not.toHaveBeenCalled();
+    otherTab.close();
+  });
+
+  it('tears down and stops scheduling a timeout when enabled flips to false', () => {
+    const onTimeout = vi.fn();
+    const { rerender } = renderHook(({ enabled }) => useIdleTimeout({ enabled, timeoutMs: TIMEOUT_MS, onTimeout }), {
+      initialProps: { enabled: true },
+    });
+
+    rerender({ enabled: false });
+    vi.advanceTimersByTime(TIMEOUT_MS * 2);
+
+    expect(onTimeout).not.toHaveBeenCalled();
+  });
+
+  it('throttles cross-tab activity broadcasts to at most one per throttle window', async () => {
+    const onTimeout = vi.fn();
+    renderHook(() => useIdleTimeout({ enabled: true, timeoutMs: TIMEOUT_MS, onTimeout }));
+
+    const received: unknown[] = [];
+    const listenerTab = new BroadcastChannel('csp-auth-idle');
+    listenerTab.onmessage = ({ data }) => received.push(data);
+
+    // Several activity events in quick succession should collapse to a single broadcast.
+    window.dispatchEvent(new Event('mousemove'));
+    window.dispatchEvent(new Event('mousemove'));
+    window.dispatchEvent(new Event('keydown'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(received).toEqual([{ type: 'activity' }]);
+    listenerTab.close();
+  });
 });

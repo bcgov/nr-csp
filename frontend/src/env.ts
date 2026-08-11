@@ -12,8 +12,7 @@ declare global {
         redirectSignOut: string;
         mockUser?: boolean;
         famClientId?: string;
-        /** Minutes of inactivity before the app signs the user out.*/
-        /** Defaults to 30 based on old CSP app behavior. */
+        /** Minutes of inactivity before the app signs the user out. Defaults to 30 (matches old CSP app behavior). */
         idleTimeoutMinutes?: number;
       }
     | undefined;
