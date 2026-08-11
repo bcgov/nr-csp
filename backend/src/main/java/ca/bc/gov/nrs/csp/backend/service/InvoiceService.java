@@ -60,6 +60,14 @@ public class InvoiceService {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
 
+    /**
+     * Statuses in which an invoice sits in an active review queue, and therefore the
+     * ones whose cancellation has to cascade to the parent submission. Mirrors the
+     * statuses the UI offers Approve / Reject / Cancel from.
+     */
+    private static final Set<String> REVIEW_QUEUE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_PROCESSING, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
     private final InvoiceRepository invoiceRepo;
     private final LineItemRepository lineItemRepo;
     private final CspSubmissionRepository submissionRepo;
@@ -169,10 +177,11 @@ public class InvoiceService {
         invoiceRepo.replaceLogSources(newInvoiceId, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
         invoiceRepo.replaceLogSources(newInvoiceId, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
         invoiceRepo.replaceLogSources(newInvoiceId, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
-        invoiceRepo.replaceRelatedInvoices(newInvoiceId, ConstantsCode.INVRELATETYPE_REPLACE,
+        List<Long> replacedIds = invoiceRepo.replaceRelatedInvoices(newInvoiceId, ConstantsCode.INVRELATETYPE_REPLACE,
                 details.replaceInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
         invoiceRepo.replaceRelatedInvoices(newInvoiceId, ConstantsCode.INVRELATETYPE_ADJUST,
                 details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
+        cancelReplacedInvoices(newInvoiceId, replacedIds, user);
 
         InvoiceDetails saved = withId(details, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
         // A freshly-created submission has no business submission number yet
@@ -220,10 +229,11 @@ public class InvoiceService {
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
-        invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_REPLACE,
+        List<Long> replacedIds = invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_REPLACE,
                 details.replaceInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
         invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_ADJUST,
                 details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
+        cancelReplacedInvoices(id, replacedIds, user);
 
         // Saving an existing invoice reverts its submission to LOBBY.
         if (existing.submissionId() != null) {
@@ -424,6 +434,41 @@ public class InvoiceService {
                 : ConstantsCode.SUBMSTATUS_REJECTED;
         submissionRepo.updateSubmissionStatus(submissionId, newSubmissionStatus, user);
         log.info("Submission submissionId={} newStatus={} anyApproved={}", submissionId, newSubmissionStatus, anyApproved);
+    }
+
+    /**
+     * A replacement invoice supersedes every invoice named in its "Replaces invoice
+     * number(s)" field, so saving it cancels those originals. Called from create and
+     * update with the ids {@link InvoiceRepository#replaceRelatedInvoices} resolved for
+     * the REP relationship (never ADJ — an adjusting invoice leaves its target alone).
+     *
+     * <p>Skipped: an already-CANCELLED original (nothing to change) and a self-reference
+     * (the validator rejects "replaces itself", so this is only a defensive guard).</p>
+     *
+     * <p>The submission-status cascade only runs when the original was in a
+     * {@link #REVIEW_QUEUE_STATUSES review-queue status}, which is what the cascade was
+     * written for; it clears a replaced invoice out of the inbox. Cancelling a DRAFT
+     * original deliberately leaves its submission in the lobby:
+     * the cascade would otherwise push a lobby submission (possibly holding other drafts)
+     * to REJECTED.</p>
+     */
+    private void cancelReplacedInvoices(Long replacementId, List<Long> replacedIds, String user) {
+        if (replacedIds == null) return;
+        for (Long replacedId : replacedIds) {
+            if (replacedId == null || replacedId.equals(replacementId)) continue;
+            LoadedInvoice replaced = invoiceRepo.findById(replacedId).orElse(null);
+            if (replaced == null) continue;
+            String previousStatus = replaced.details().invStatus();
+            if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) continue;
+
+            invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
+            log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
+                    replacedId, previousStatus, replacementId);
+            if (REVIEW_QUEUE_STATUSES.contains(previousStatus)) {
+                applySubmissionStatusOnStatusChange(
+                        replaced.submissionId(), ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
+            }
+        }
     }
 
     // ---------------------------------------------------------------

@@ -445,6 +445,118 @@ class InvoiceServiceTest {
     }
 
     // ===============================================================
+    // replaces → cancel the replaced invoice
+    // ===============================================================
+
+    /** Stubs a create that resolves its "Replaces invoice number(s)" field to invoice 900. */
+    private CreateInvoiceRequest createReplacing(String refType, Long... resolvedIds) {
+        CreateInvoiceRequest req = createRequest(true);
+        given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", "5678", null, "Seller"));
+        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
+        given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
+        given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
+        // Lenient: create resolves both relationship types, and only one of them is
+        // stubbed here — the other legitimately falls through to the empty default.
+        lenient().when(invoiceRepo.replaceRelatedInvoices(eq(500L), eq(refType), any(), any(), any(), any()))
+                .thenReturn(List.of(resolvedIds));
+        return req;
+    }
+
+    @Test
+    void create_replacesProcessingInvoice_cancelsItAndClearsItsSubmission() {
+        CreateInvoiceRequest req = createReplacing("REP", 900L);
+        given(invoiceRepo.findById(900L))
+                .willReturn(Optional.of(loaded(details(900L, "PRO", "5678", null, "Seller"), 20L, null, null)));
+
+        service.create(req);
+
+        verify(invoiceRepo).updateStatus(900L, "CAN", USER);
+        // Submission 20 has no processing invoice left and none approved → it leaves the inbox.
+        verify(submissionRepo).updateSubmissionStatus(20L, "REJ", USER);
+    }
+
+    @Test
+    void create_replacesDraftInvoice_cancelsItButLeavesItsSubmissionInTheLobby() {
+        CreateInvoiceRequest req = createReplacing("REP", 900L);
+        given(invoiceRepo.findById(900L))
+                .willReturn(Optional.of(loaded(draftDetails(900L), 20L, null, null)));
+
+        service.create(req);
+
+        verify(invoiceRepo).updateStatus(900L, "CAN", USER);
+        verify(submissionRepo, never()).updateSubmissionStatus(eq(20L), any(), any());
+    }
+
+    @Test
+    void create_replacesAlreadyCancelledInvoice_leavesItUntouched() {
+        CreateInvoiceRequest req = createReplacing("REP", 900L);
+        given(invoiceRepo.findById(900L))
+                .willReturn(Optional.of(loaded(details(900L, "CAN", "5678", null, "Seller"), 20L, null, null)));
+
+        service.create(req);
+
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
+
+    @Test
+    void create_replacesMultipleInvoices_cancelsEachOfThem() {
+        CreateInvoiceRequest req = createReplacing("REP", 900L, 901L);
+        given(invoiceRepo.findById(900L))
+                .willReturn(Optional.of(loaded(details(900L, "PRO", "5678", null, "Seller"), 20L, null, null)));
+        given(invoiceRepo.findById(901L))
+                .willReturn(Optional.of(loaded(details(901L, "UNA", "5678", null, "Seller"), 21L, null, null)));
+
+        service.create(req);
+
+        verify(invoiceRepo).updateStatus(900L, "CAN", USER);
+        verify(invoiceRepo).updateStatus(901L, "CAN", USER);
+    }
+
+    @Test
+    void create_adjustsInvoice_doesNotCancelTheAdjustedInvoice() {
+        // Only the REP relationship cancels; an adjusting invoice leaves its target alone.
+        CreateInvoiceRequest req = createReplacing("ADJ", 900L);
+
+        service.create(req);
+
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
+
+    @Test
+    void update_replacesUnapprovedInvoice_cancelsItAlongsideTheNormalSave() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+        given(invoiceRepo.replaceRelatedInvoices(eq(1L), eq("REP"), any(), any(), any(), any()))
+                .willReturn(List.of(900L));
+        given(invoiceRepo.findById(900L))
+                .willReturn(Optional.of(loaded(details(900L, "UNA", "5678", null, "Seller"), 20L, null, null)));
+
+        service.update(1L, req);
+
+        verify(invoiceRepo).updateStatus(900L, "CAN", USER);
+        verify(submissionRepo).updateSubmissionStatus(20L, "REJ", USER);
+        // The saved invoice's own submission still reverts to the lobby.
+        verify(submissionRepo).updateSubmissionStatus(10L, "LOB", USER);
+    }
+
+    @Test
+    void update_replacesItself_doesNotCancelTheInvoiceBeingSaved() {
+        // The validator rejects "replaces itself"; this guards the persistence path anyway.
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+        given(invoiceRepo.replaceRelatedInvoices(eq(1L), eq("REP"), any(), any(), any(), any()))
+                .willReturn(List.of(1L));
+
+        service.update(1L, req);
+
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
+
+    // ===============================================================
     // delete
     // ===============================================================
 

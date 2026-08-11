@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -601,14 +602,18 @@ public class InvoiceRepository {
      * in {@code csvInvoiceNumbers}, resolving each number to its coastal_log_sale_id via the
      * submitter's client. The validator runs the same lookup, so any number reaching this
      * method should already exist for the submitter.
+     *
+     * @return the coastal_log_sale_ids the numbers resolved to (unresolved numbers are
+     *         omitted), so callers can act on the related invoices — e.g. cancelling the
+     *         invoices a replacement supersedes.
      */
-    public void replaceRelatedInvoices(Long parentId, String refTypeCode, String csvInvoiceNumbers,
+    public List<Long> replaceRelatedInvoices(Long parentId, String refTypeCode, String csvInvoiceNumbers,
                                         String submitterClientNum, String submitterLocnCode, String userId) {
         jdbc.update("DELETE FROM THE.coastal_log_sale_rltd_invc"
                         + " WHERE coastal_log_sale_id = :id AND csp_invoice_ref_type_code = :type",
                 new MapSqlParameterSource().addValue("id", parentId).addValue("type", refTypeCode));
 
-        if (csvInvoiceNumbers == null || csvInvoiceNumbers.isBlank()) return;
+        if (csvInvoiceNumbers == null || csvInvoiceNumbers.isBlank()) return List.of();
 
         String resolveSql = """
                 SELECT cls.coastal_log_sale_id
@@ -632,6 +637,7 @@ public class InvoiceRepository {
                 )
                 """;
 
+        List<Long> relatedIds = new ArrayList<>();
         for (String invNo : csvInvoiceNumbers.split(",")) {
             String trimmed = invNo.trim();
             if (trimmed.isEmpty()) continue;
@@ -648,7 +654,9 @@ public class InvoiceRepository {
                             .addValue("relatedId", ids.get(0))
                             .addValue("refTypeCode", refTypeCode)
                             .addValue("userId", userId));
+            relatedIds.add(ids.get(0));
         }
+        return relatedIds;
     }
 
     public void replaceLogSources(Long invoiceId, String logSourceCode, List<String> values, String userId) {
