@@ -50,7 +50,8 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
 
         // The backend reads this same claim as the principal (JwtService#extractUsername),
         // so it's what lands in audit fields such as entryUserID.
-        const idirUsername = String(payload['custom:idp_username'] ?? '').trim();
+        const idpUsernameClaim = payload['custom:idp_username'];
+        const idirUsername = typeof idpUsernameClaim === 'string' ? idpUsernameClaim.trim() : '';
 
         setUser({
           username: String(payload['cognito:username'] ?? payload.sub ?? ''),
