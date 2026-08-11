@@ -1953,9 +1953,7 @@ export function InvoicePage() {
 
                   <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total pieces</span>
-                    <span className="invoice-page__meta-value">
-                      {hasLineItems ? formatNumber(totalPieces) : '—'}
-                    </span>
+                    <span className="invoice-page__meta-value">{hasLineItems ? formatNumber(totalPieces) : '—'}</span>
                   </Column>
                   <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total volume (m3)</span>
@@ -1965,9 +1963,7 @@ export function InvoicePage() {
                   </Column>
                   <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total amount</span>
-                    <span className="invoice-page__meta-value">
-                      {hasLineItems ? formatCurrency(totalAmount) : '—'}
-                    </span>
+                    <span className="invoice-page__meta-value">{hasLineItems ? formatCurrency(totalAmount) : '—'}</span>
                   </Column>
 
                   <Column sm={4} md={3} lg={5} className="invoice-page__field-col invoice-page__field-col--left">
