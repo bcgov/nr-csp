@@ -41,6 +41,7 @@ import TextArea from '@/components/Form/TextArea';
 import { useNotification } from '@/context/notification/useNotification';
 import { ROUTES } from '@/routes/routePaths';
 import { useFobCodesQuery } from '@/services/fob.service';
+import { useAuth } from '@/context/auth/useAuth';
 import { usePermission } from '@/context/auth/usePermission';
 import {
   INVOICE_DETAILS_SAVE,
@@ -254,6 +255,8 @@ export function InvoicePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { addNotification } = useNotification();
+  // Signed-in user — used to preview the "Entered/Submitted by" IDIR on a new invoice.
+  const { user: currentUser } = useAuth();
 
   const locationState = location.state as { fromSearch?: boolean } | null;
   const fromSearch = locationState?.fromSearch === true;
@@ -855,7 +858,13 @@ export function InvoicePage() {
   // invoice created from scratch there's no stored received date, so default the
   // "Date entered/received" to today (local yyyy-MM-dd).
   const dateInvoiceReceived = isExisting ? (loadedInvoice?.invoiceDate ?? '—') : formatIsoDate(new Date());
-  const enteredSubmittedBy = loadedInvoice?.entryUserID ?? '—';
+  // Same idea for "Entered/Submitted by": an existing invoice shows its stored
+  // entryUserID, while a brand-new one previews the signed-in user's IDIR — which
+  // is exactly what the backend will stamp on save (it takes the user from the
+  // token, so this is display-only and never sent in the request body).
+  const enteredSubmittedBy = isExisting
+    ? (loadedInvoice?.entryUserID ?? '—')
+    : (currentUser?.idirUsername ?? currentUser?.username ?? '—');
 
   // ------ Add New Line Item validity ------
   const isAddLineItemValid =

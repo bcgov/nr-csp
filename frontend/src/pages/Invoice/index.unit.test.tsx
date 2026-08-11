@@ -22,6 +22,10 @@ const h = vi.hoisted(() => {
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
     usePermission: vi.fn((_action: string) => true),
+    authUser: { username: 'cognito-id', idirUsername: 'TESTUSER' } as {
+      username: string;
+      idirUsername?: string;
+    } | null,
     params: { id: undefined as string | undefined },
     invoiceQuery: { data: undefined as unknown, isLoading: false },
     mutations: {
@@ -51,6 +55,10 @@ vi.mock('@/context/notification/useNotification', () => ({
 
 vi.mock('@/context/auth/usePermission', () => ({
   usePermission: (p: string) => h.usePermission(p),
+}));
+
+vi.mock('@/context/auth/useAuth', () => ({
+  useAuth: () => ({ user: h.authUser }),
 }));
 
 vi.mock('@/utils/report', () => ({
@@ -181,6 +189,7 @@ beforeEach(() => {
   h.params.id = undefined;
   h.invoiceQuery = { data: undefined, isLoading: false };
   h.usePermission.mockReturnValue(true);
+  h.authUser = { username: 'cognito-id', idirUsername: 'TESTUSER' };
   h.getClientsByNumber.mockResolvedValue([CLIENT]);
   h.getClientsByName.mockResolvedValue([CLIENT]);
   Object.values(h.mutations).forEach((m) => {
@@ -212,6 +221,30 @@ describe('InvoicePage — rendering', () => {
     renderPage();
     // maturityCode is seeded to "O" on a new record → the dropdown shows its label.
     expect(screen.getByText('Old growth')).toBeInTheDocument();
+  });
+
+  it('autofills "Entered/Submitted by" with the signed-in IDIR on a NEW invoice', () => {
+    renderPage();
+    expect(screen.getByText('TESTUSER')).toBeInTheDocument();
+  });
+
+  it('falls back to the Cognito username when no IDIR claim is present', () => {
+    h.authUser = { username: 'cognito-id' };
+    renderPage();
+    expect(screen.getByText('cognito-id')).toBeInTheDocument();
+  });
+
+  it('shows a dash for "Entered/Submitted by" when there is no signed-in user', () => {
+    h.authUser = null;
+    const { container } = renderPage();
+    const metaValues = Array.from(container.querySelectorAll('.invoice-page__meta-value'));
+    expect(metaValues.some((el) => el.textContent === '—')).toBe(true);
+  });
+
+  it('shows the stored entryUserID, not the signed-in user, on an existing invoice', async () => {
+    await renderLoaded();
+    expect(screen.getByText('user1')).toBeInTheDocument();
+    expect(screen.queryByText('TESTUSER')).not.toBeInTheDocument();
   });
 
   it('hydrates an existing invoice: number, status tag, line items', async () => {

@@ -48,8 +48,13 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
           [payload['given_name'], payload['family_name']].filter(Boolean).join(' ') ||
           undefined;
 
+        // The backend reads this same claim as the principal (JwtService#extractUsername),
+        // so it's what lands in audit fields such as entryUserID.
+        const idirUsername = String(payload['custom:idp_username'] ?? '').trim();
+
         setUser({
           username: String(payload['cognito:username'] ?? payload.sub ?? ''),
+          idirUsername: idirUsername || undefined,
           displayName: displayName || undefined,
           email: String(payload['email'] ?? ''),
           roles: groups,
