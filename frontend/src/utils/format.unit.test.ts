@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { formatCurrency, formatDisplayDate, formatDisplayDateV2, formatIsoDate, formatNumber } from './format';
+import {
+  formatCurrency,
+  formatDisplayDate,
+  formatDisplayDateV2,
+  formatIsoDate,
+  formatNumber,
+  formatUsername,
+} from './format';
 
 // ── formatNumber ────────────────────────────────────────────────────────────
 
@@ -38,6 +45,26 @@ describe('formatCurrency', () => {
     expect(formatCurrency(null)).toBe('—');
     expect(formatCurrency(undefined)).toBe('—');
     expect(formatCurrency(NaN)).toBe('—');
+  });
+});
+
+// ── formatUsername ──────────────────────────────────────────────────────────
+
+describe('formatUsername', () => {
+  it('strips a legacy domain qualifier', () => {
+    expect(formatUsername('IDIR\\JSMITH')).toBe('JSMITH');
+    expect(formatUsername('IDIR/JSMITH')).toBe('JSMITH');
+  });
+
+  it('leaves an unqualified username unchanged', () => {
+    expect(formatUsername('JSMITH')).toBe('JSMITH');
+  });
+
+  it('renders an em-dash for null / undefined / empty / qualifier-only values', () => {
+    expect(formatUsername(null)).toBe('—');
+    expect(formatUsername(undefined)).toBe('—');
+    expect(formatUsername('')).toBe('—');
+    expect(formatUsername('IDIR\\')).toBe('—');
   });
 });
 

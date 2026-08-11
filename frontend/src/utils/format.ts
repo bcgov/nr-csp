@@ -31,6 +31,22 @@ export const formatCurrency = (value: number | null | undefined): string => {
 };
 
 /**
+ * Strip the domain qualifier from an audit user id so only the username shows.
+ * Records created by the legacy app store a domain-qualified id ("IDIR\JSMITH"),
+ * while this app stores the bare username from the token — both should display
+ * the same way. Values without a qualifier are returned unchanged.
+ *
+ * @example formatUsername('IDIR\\JSMITH') // "JSMITH"
+ * @example formatUsername('JSMITH')       // "JSMITH"
+ * @example formatUsername(null)           // "—"
+ */
+export const formatUsername = (value: string | null | undefined): string => {
+  if (!value) return '—';
+  const stripped = value.replace(/^.*[\\/]/, '').trim();
+  return stripped || '—';
+};
+
+/**
  * Format a `yyyy-mm-dd` date string as a human-readable date, e.g. "January 6, 2026".
  * Constructs the Date from parts to avoid UTC timezone shifts.
  * Returns "—" for null / undefined values.

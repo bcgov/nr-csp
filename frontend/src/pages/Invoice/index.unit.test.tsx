@@ -247,6 +247,12 @@ describe('InvoicePage — rendering', () => {
     expect(screen.queryByText('TESTUSER')).not.toBeInTheDocument();
   });
 
+  it('strips the domain qualifier from a legacy entryUserID', async () => {
+    await renderLoaded({ entryUserID: 'IDIR\\JSMITH' });
+    expect(screen.getByText('JSMITH')).toBeInTheDocument();
+    expect(screen.queryByText('IDIR\\JSMITH')).not.toBeInTheDocument();
+  });
+
   it('hydrates an existing invoice: number, status tag, line items', async () => {
     await renderLoaded();
     expect(screen.getByDisplayValue('INV-001')).toBeInTheDocument();

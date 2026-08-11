@@ -80,7 +80,7 @@ import {
   useSpeciesLookupQuery,
 } from '@/services/lookup.service';
 import { getClientsByNumber } from '@/services/search.service';
-import { formatCurrency, formatIsoDate, formatNumber } from '@/utils/format';
+import { formatCurrency, formatIsoDate, formatNumber, formatUsername } from '@/utils/format';
 
 import {
   computeLineAmount,
@@ -862,9 +862,11 @@ export function InvoicePage() {
   // entryUserID, while a brand-new one previews the signed-in user's IDIR — which
   // is exactly what the backend will stamp on save (it takes the user from the
   // token, so this is display-only and never sent in the request body).
+  // Both go through formatUsername so a legacy "IDIR\JSMITH" id renders as just
+  // the username.
   const enteredSubmittedBy = isExisting
-    ? (loadedInvoice?.entryUserID ?? '—')
-    : (currentUser?.idirUsername ?? currentUser?.username ?? '—');
+    ? formatUsername(loadedInvoice?.entryUserID)
+    : formatUsername(currentUser?.idirUsername ?? currentUser?.username);
 
   // ------ Add New Line Item validity ------
   const isAddLineItemValid =
