@@ -455,19 +455,27 @@ public class InvoiceService {
     private void cancelReplacedInvoices(Long replacementId, List<Long> replacedIds, String user) {
         if (replacedIds == null) return;
         for (Long replacedId : replacedIds) {
-            if (replacedId == null || replacedId.equals(replacementId)) continue;
-            LoadedInvoice replaced = invoiceRepo.findById(replacedId).orElse(null);
-            if (replaced == null) continue;
-            String previousStatus = replaced.details().invStatus();
-            if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) continue;
+            cancelReplacedInvoice(replacementId, replacedId, user);
+        }
+    }
 
-            invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
-            log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
-                    replacedId, previousStatus, replacementId);
-            if (REVIEW_QUEUE_STATUSES.contains(previousStatus)) {
-                applySubmissionStatusOnStatusChange(
-                        replaced.submissionId(), ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
-            }
+    /**
+     * Cancels a single replaced invoice. Skips a null id, a self-reference, an invoice
+     * that no longer exists, and one that is already CANCELLED.
+     */
+    private void cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
+        if (replacedId == null || replacedId.equals(replacementId)) return;
+        LoadedInvoice replaced = invoiceRepo.findById(replacedId).orElse(null);
+        if (replaced == null) return;
+        String previousStatus = replaced.details().invStatus();
+        if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
+
+        invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
+        log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
+                replacedId, previousStatus, replacementId);
+        if (REVIEW_QUEUE_STATUSES.contains(previousStatus)) {
+            applySubmissionStatusOnStatusChange(
+                    replaced.submissionId(), ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
         }
     }
 
