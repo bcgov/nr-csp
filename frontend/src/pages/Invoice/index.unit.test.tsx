@@ -497,7 +497,9 @@ describe('InvoicePage — warnings & errors', () => {
       ],
     });
     expect(
-      screen.getByText('The combination of the submitter Client Number 123 and Client Location 00 cannot be found in CSP.'),
+      screen.getByText(
+        'The combination of the submitter Client Number 123 and Client Location 00 cannot be found in CSP.',
+      ),
     ).toBeInTheDocument();
     expect(document.getElementById('submitting-client-location')).toBeInvalid();
   });
