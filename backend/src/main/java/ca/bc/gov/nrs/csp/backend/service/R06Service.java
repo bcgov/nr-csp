@@ -6,32 +6,17 @@ import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
 import ca.bc.gov.nrs.csp.backend.service.reporting.SubreportInjector;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R06Validator;
-import net.sf.jasperreports.engine.JRException;
-import net.sf.jasperreports.engine.JasperCompileManager;
-import net.sf.jasperreports.engine.JasperExportManager;
-import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
-import net.sf.jasperreports.engine.export.JRCsvExporter;
-import net.sf.jasperreports.export.SimpleCsvExporterConfiguration;
-import net.sf.jasperreports.export.SimpleExporterInput;
-import net.sf.jasperreports.export.SimpleWriterExporterOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.sql.DataSource;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -43,7 +28,7 @@ public class R06Service {
 
     private static final Logger log = LoggerFactory.getLogger(R06Service.class);
 
-    private final DataSource dataSource;
+    private final JasperReportRenderer renderer;
     private final SearchService searchService;
 
     /** Cache of compiled report bundles (main + both subreports) keyed by main template path. */
@@ -62,8 +47,8 @@ public class R06Service {
     @Value("${jasper.report.r06.subreport2.csv.template:/reports/r06_subreport2_CSV.jrxml}")
     private String r06Subreport2CsvPath;
 
-    public R06Service(DataSource dataSource, SearchService searchService) {
-        this.dataSource = dataSource;
+    public R06Service(JasperReportRenderer renderer, SearchService searchService) {
+        this.renderer = renderer;
         this.searchService = searchService;
     }
 
@@ -85,13 +70,13 @@ public class R06Service {
         Map<String, Object> params = buildParams(request);
         params.put("SUBREPORT_R06_1", bundle.sub1());
         params.put("SUBREPORT_R06_2", bundle.sub2());
-        JasperPrint jasperPrint = fillReport(bundle.main(), params);
+        JasperPrint jasperPrint = renderer.fillReport(bundle.main(), params, "R06");
 
         if (jasperPrint.getPages().isEmpty()) {
             throw new ResourceNotFoundException("The R06 report returned no data for the given parameters.");
         }
 
-        byte[] data = exportReport(jasperPrint, format);
+        byte[] data = renderer.exportReport(jasperPrint, format, "R06");
         String filename = String.format("R06_%s.%s",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
         return new ReportResult(data, filename);
@@ -121,70 +106,21 @@ public class R06Service {
     private ReportBundle compileBundle(String mainPath, String sub1Path, String sub2Path,
                                         String sub1RepoName, String sub2RepoName) {
         try {
-            JasperReport sub2 = compileReport(loadTemplate(sub2Path));
+            JasperReport sub2 = renderer.compileReport(renderer.loadTemplate(sub2Path));
 
             String sub1Jrxml = SubreportInjector.rewriteSubreportExpression(
-                    loadTemplate(sub1Path), sub2RepoName, "SUBREPORT_R06_2");
-            JasperReport sub1 = compileReport(sub1Jrxml);
+                    renderer.loadTemplate(sub1Path), sub2RepoName, "SUBREPORT_R06_2");
+            JasperReport sub1 = renderer.compileReport(sub1Jrxml);
 
             String mainJrxml = SubreportInjector.rewriteSubreportExpression(
-                    loadTemplate(mainPath), sub1RepoName, "SUBREPORT_R06_1");
+                    renderer.loadTemplate(mainPath), sub1RepoName, "SUBREPORT_R06_1");
             mainJrxml = SubreportInjector.addPassThroughParameter(mainJrxml, "SUBREPORT_R06_1", "SUBREPORT_R06_2");
-            JasperReport main = compileReport(mainJrxml);
+            JasperReport main = renderer.compileReport(mainJrxml);
 
             return new ReportBundle(main, sub1, sub2);
         } catch (Exception e) {
             throw new ReportGenerationException("Failed to compile JRXML template.", e);
         }
-    }
-
-    private String loadTemplate(String templatePath) throws IOException {
-        try (InputStream stream = getClass().getResourceAsStream(templatePath)) {
-            if (stream == null) {
-                throw new IOException("JRXML template not found on classpath: " + templatePath);
-            }
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
-
-    private JasperReport compileReport(String jrxmlContent) throws JRException {
-        try (InputStream stream = new ByteArrayInputStream(jrxmlContent.getBytes(StandardCharsets.UTF_8))) {
-            return JasperCompileManager.compileReport(stream);
-        } catch (IOException e) {
-            throw new JRException("Failed to compile JRXML template", e);
-        }
-    }
-
-    // ── Report fill / export ───────────────────────────────────────────────────
-
-    private JasperPrint fillReport(JasperReport report, Map<String, Object> params) {
-        try (Connection conn = dataSource.getConnection()) {
-            return JasperFillManager.fillReport(report, params, conn);
-        } catch (JRException | SQLException e) {
-            throw new ReportGenerationException("Failed to fill R06 report from database", e);
-        }
-    }
-
-    private byte[] exportReport(JasperPrint jasperPrint, String format) {
-        try {
-            return switch (format.toLowerCase()) {
-                case "pdf" -> JasperExportManager.exportReportToPdf(jasperPrint);
-                case "csv" -> exportToCsv(jasperPrint);
-                default -> throw new ReportGenerationException("Unsupported report format: " + format, null);
-            };
-        } catch (JRException e) {
-            throw new ReportGenerationException("Failed to export R06 report to " + format, e);
-        }
-    }
-
-    private byte[] exportToCsv(JasperPrint jasperPrint) throws JRException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        JRCsvExporter exporter = new JRCsvExporter();
-        exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
-        exporter.setExporterOutput(new SimpleWriterExporterOutput(out));
-        exporter.setConfiguration(new SimpleCsvExporterConfiguration());
-        exporter.exportReport();
-        return out.toByteArray();
     }
 
     // ── Parameter building ─────────────────────────────────────────────────────

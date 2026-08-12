@@ -11,13 +11,18 @@ import java.sql.ResultSet;
  * list only contains 19 primitive/date/String types and does NOT include {@link ResultSet},
  * so a report declaring a {@code REPORT_CURSOR} parameter of class {@code java.sql.ResultSet}
  * (the standard pattern for an Oracle stored-procedure call returning a REF CURSOR) fails to
- * compile with "Parameter type not supported in query", even though the executer itself
- * ({@code JRJdbcQueryExecuter}, via {@code OracleProcedureCallHandlerFactory}) fully supports
- * binding a REF CURSOR OUT parameter through {@code Connection.prepareCall(...)} at runtime.
+ * compile with "Parameter type not supported in query".
  *
  * <p>This factory only relaxes that compile-time check; {@code createQueryExecuter} is
  * inherited unchanged, so runtime query execution is identical to the standard "sql" language.
- * Registered for the "plsql" language in {@code resources/jasperreports.properties} — the
+ * Relaxing the check is <b>not</b> enough on its own to make REF CURSOR binding work at runtime:
+ * JasperReports' own built-in {@code OracleProcedureCallHandlerFactory} — despite the name — is
+ * dead code in the open-source jar (it reflectively loads a class that doesn't exist and silently
+ * returns {@code null}), so a separate runtime fix is also required; see
+ * {@link ca.bc.gov.nrs.csp.backend.config.RefCursorProcedureCallHandlerFactory}'s Javadoc for the
+ * full mechanism.</p>
+ *
+ * <p>Registered for the "plsql" language in {@code resources/jasperreports.properties} — the
  * R06-R12 report designs (originally authored for JasperReports Server, which bundles its own
  * "plsql" language support as a commercial extension not present in open-source JasperReports)
  * declare {@code <query language="plsql">} for their stored-procedure calls.</p>

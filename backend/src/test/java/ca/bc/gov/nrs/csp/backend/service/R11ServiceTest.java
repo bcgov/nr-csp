@@ -6,9 +6,8 @@ import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.ReportGenerationException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
-import net.sf.jasperreports.engine.JasperPrint;
-import net.sf.jasperreports.engine.base.JRBasePrintPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,7 +18,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.sql.DataSource;
-import java.nio.charset.StandardCharsets;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -44,7 +42,7 @@ class R11ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R11Service(dataSource);
+        service = new R11Service(new JasperReportRenderer(dataSource));
         ReflectionTestUtils.setField(service, "r11TemplatePath", "/reports/R11.jrxml");
         ReflectionTestUtils.setField(service, "r11CsvTemplatePath", "/reports/R11_CSV.jrxml");
         ReflectionTestUtils.setField(service, "r11SubreportPath", "/reports/r11_subreport.jrxml");
@@ -236,44 +234,6 @@ class R11ServiceTest {
             verify(connection).prepareCall(anyString());
             verify(callableStatement).registerOutParameter(1, Types.REF_CURSOR);
             verify(callableStatement).execute();
-        }
-    }
-
-    @Nested
-    @DisplayName("exportReport() — output formats")
-    class ExportReport {
-
-        private JasperPrint printWithOnePage() {
-            JasperPrint print = new JasperPrint();
-            print.setName("R11Test");
-            print.setPageWidth(612);
-            print.setPageHeight(792);
-            print.addPage(new JRBasePrintPage());
-            return print;
-        }
-
-        @Test
-        void shouldExportPdf() {
-            byte[] data = ReflectionTestUtils.invokeMethod(service, "exportReport", printWithOnePage(), "PDF");
-
-            assertThat(data).isNotEmpty();
-            assertThat(new String(data, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        }
-
-        @Test
-        void shouldExportCsv() {
-            byte[] data = ReflectionTestUtils.invokeMethod(service, "exportReport", printWithOnePage(), "CSV");
-
-            assertThat(data).isNotNull();
-        }
-
-        @Test
-        void shouldThrowReportGenerationException_whenFormatUnsupported() {
-            JasperPrint print = printWithOnePage();
-
-            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "exportReport", print, "XLSX"))
-                    .isInstanceOf(ReportGenerationException.class)
-                    .hasMessageContaining("Unsupported report format: XLSX");
         }
     }
 
