@@ -1,5 +1,5 @@
 # NRS CSP App
-A starting point for NR application teams. Spring Boot 4 backend, React 19 frontend, Oracle DB.
+A starting point for NR application teams. Spring Boot 4 backend, React 19 frontend, Oracle DB. :)
 
 **Frontend**
 ***
