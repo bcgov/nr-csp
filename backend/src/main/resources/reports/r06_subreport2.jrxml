@@ -58,7 +58,7 @@
 	</columnHeader>
 	<detail>
 		<band height="17" splitType="Stretch">
-			<element kind="textField" uuid="1f2c3afa-f2b6-43a1-a2ef-41d959d4d0bc" x="47" y="1" width="33" height="13" fontSize="8.0" hTextAlign="Center">
+			<element kind="textField" uuid="1f2c3afa-f2b6-43a1-a2ef-41d959d4d0bc" x="47" y="1" width="33" height="13" fontSize="8.0" pattern="#,##0" hTextAlign="Center">
 				<expression><![CDATA[$F{GROUPNUM}]]></expression>
 			</element>
 			<element kind="textField" uuid="7084fe6c-33ab-4eeb-88c5-e652af5b5cf4" x="377" y="1" width="51" height="13" fontSize="8.0" pattern="¤ ##,##0.00" hTextAlign="Right">

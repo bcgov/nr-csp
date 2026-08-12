@@ -157,7 +157,7 @@
 					<property name="local_mesure_unitwidth" value="pixel"/>
 					<property name="com.jaspersoft.studio.unit.width" value="px"/>
 				</element>
-				<element kind="textField" uuid="be3520aa-e827-4715-ae0f-872d0ab8e9c1" x="60" y="112" width="58" height="13" fontSize="6.0" evaluationTime="Group" evaluationGroup="t" blankWhenNull="true">
+				<element kind="textField" uuid="be3520aa-e827-4715-ae0f-872d0ab8e9c1" x="60" y="112" width="58" height="13" fontSize="6.0" evaluationTime="Group" pattern="##,##0;-##,##0" evaluationGroup="t" blankWhenNull="true">
 					<expression><![CDATA[$F{CLIENT_TOTAL_INVOICE_PIECES}]]></expression>
 					<property name="com.jaspersoft.studio.unit.x" value="px"/>
 				</element>

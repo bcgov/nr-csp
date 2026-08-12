@@ -77,7 +77,7 @@
 	</columnHeader>
 	<detail>
 		<band height="14" splitType="Stretch">
-			<element kind="textField" uuid="ef9e43a4-ae1d-44c9-ae11-3c61a1b95ede" x="0" y="0" width="58" height="13" fontSize="8.0" hTextAlign="Center">
+			<element kind="textField" uuid="ef9e43a4-ae1d-44c9-ae11-3c61a1b95ede" x="0" y="0" width="58" height="13" fontSize="8.0" pattern="#,##0" hTextAlign="Center">
 				<expression><![CDATA[$F{GROUPNUM}]]></expression>
 				<property name="local_mesure_unitwidth" value="pixel"/>
 				<property name="com.jaspersoft.studio.unit.width" value="px"/>

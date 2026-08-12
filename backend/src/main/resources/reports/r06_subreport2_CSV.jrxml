@@ -75,7 +75,7 @@
 	</columnHeader>
 	<detail>
 		<band height="17" splitType="Stretch">
-			<element kind="textField" uuid="1f2c3afa-f2b6-43a1-a2ef-41d959d4d0bc" x="0" y="1" width="50" height="13" fontSize="8.0" hTextAlign="Center">
+			<element kind="textField" uuid="1f2c3afa-f2b6-43a1-a2ef-41d959d4d0bc" x="0" y="1" width="50" height="13" fontSize="8.0" pattern="#,##0" hTextAlign="Center">
 				<expression><![CDATA[$F{GROUPNUM}]]></expression>
 				<property name="local_mesure_unitwidth" value="pixel"/>
 				<property name="com.jaspersoft.studio.unit.width" value="px"/>
@@ -89,7 +89,7 @@
 				<property name="local_mesure_unitwidth" value="pixel"/>
 				<property name="com.jaspersoft.studio.unit.width" value="px"/>
 			</element>
-			<element kind="textField" uuid="aabd74a5-f0af-44cb-a8cd-d8b068b3c376" x="129" y="1" width="66" height="13" fontSize="8.0" hTextAlign="Right">
+			<element kind="textField" uuid="aabd74a5-f0af-44cb-a8cd-d8b068b3c376" x="129" y="1" width="66" height="13" fontSize="8.0" pattern="##,##0;-##,##0" hTextAlign="Right">
 				<expression><![CDATA[$F{PIECES}]]></expression>
 				<property name="local_mesure_unitx" value="pixel"/>
 				<property name="com.jaspersoft.studio.unit.x" value="px"/>
