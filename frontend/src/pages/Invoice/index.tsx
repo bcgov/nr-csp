@@ -1781,6 +1781,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.replaceInvNum}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col">
@@ -1793,6 +1794,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.adjustInvNum}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                 </Grid>
