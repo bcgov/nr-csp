@@ -1991,6 +1991,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.boomNumbers}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                   <Column sm={4} md={3} lg={5} className="invoice-page__field-col">
@@ -2003,6 +2004,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.timberMarks}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                   <Column sm={4} md={2} lg={6} className="invoice-page__field-col">
@@ -2015,6 +2017,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.weighSlips}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
 
