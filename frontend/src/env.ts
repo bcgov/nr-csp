@@ -12,6 +12,8 @@ declare global {
         redirectSignOut: string;
         mockUser?: boolean;
         famClientId?: string;
+        /** Minutes of inactivity before the app signs the user out. Defaults to 30 (matches old CSP app behavior). */
+        idleTimeoutMinutes?: number;
       }
     | undefined;
 }
@@ -31,4 +33,5 @@ export const env = {
   appEnv: globalThis.amplifyConfig?.appEnv ?? 'dev',
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
+  idleTimeoutMs: (globalThis.amplifyConfig?.idleTimeoutMinutes ?? 30) * 60_000,
 } as const;
