@@ -364,4 +364,81 @@ describe('RealAuthProvider', () => {
 
     expect(window.sessionStorage.getItem('csp.table.search.v1.page')).toBeNull();
   });
+
+  describe('federated logout chain', () => {
+    const chainConfig = {
+      appEnv: 'test',
+      idpName: 'TEST-IDIR',
+      region: 'ca-central-1',
+      userPoolId: 'ca-central-1_test',
+      userPoolClientId: 'cognito-client-id',
+      cognitoDomain: 'pool.auth.ca-central-1.amazoncognito.com',
+      redirectSignIn: 'https://app.example.com',
+      redirectSignOut: 'https://app.example.com/logout',
+      logoutSiteminderUrl: 'https://logontest7.gov.bc.ca/clp-cgi/logoff.cgi',
+      logoutKeycloakUrl: 'https://test.loginproxy.gov.bc.ca/auth/realms/standard/protocol/openid-connect/logout',
+      logoutKeycloakClientId: 'fsa-cognito-idir-dev-4088',
+    };
+
+    const originalLocation = window.location;
+    let assignMock: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      assignMock = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { origin: originalLocation.origin, href: originalLocation.href, assign: assignMock },
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+        configurable: true,
+      });
+      window.localStorage.clear();
+    });
+
+    it('navigates the SiteMinder chain and bypasses Amplify signOut when configured', async () => {
+      window.amplifyConfig = chainConfig;
+      window.localStorage.setItem('CognitoIdentityServiceProvider.cognito-client-id.user.idToken', 'token');
+      window.sessionStorage.setItem('csp.table.search.v1.page', '3');
+      mockFetchAuthSession.mockResolvedValue(
+        sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+      );
+
+      const { getCtx } = await renderAndSettle();
+
+      await act(async () => {
+        await getCtx()?.signOut();
+      });
+
+      expect(assignMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^https:\/\/logontest7\.gov\.bc\.ca\/clp-cgi\/logoff\.cgi\?retnow=1&returl=/),
+      );
+      expect(mockSignOut).not.toHaveBeenCalled();
+      // Amplify tokens and persisted UI state are cleared before navigation.
+      expect(window.localStorage.getItem('CognitoIdentityServiceProvider.cognito-client-id.user.idToken')).toBeNull();
+      expect(window.sessionStorage.getItem('csp.table.search.v1.page')).toBeNull();
+    });
+
+    it('falls back to Amplify signOut when chain config is incomplete', async () => {
+      window.amplifyConfig = { ...chainConfig, logoutKeycloakUrl: undefined };
+      mockFetchAuthSession.mockResolvedValue(
+        sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+      );
+
+      const { getCtx } = await renderAndSettle();
+
+      await act(async () => {
+        await getCtx()?.signOut();
+      });
+
+      expect(assignMock).not.toHaveBeenCalled();
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+      expect(getCtx()?.user).toBeNull();
+    });
+  });
 });

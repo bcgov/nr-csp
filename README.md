@@ -135,13 +135,16 @@ window.amplifyConfig = {
   "cognitoDomain": "nrs-XXXX.auth.ca-central-1.amazoncognito.com",
   "oauthScopes": ["openid", "profile", "email"],
   "redirectSignIn": "http://localhost:3000/",
-  "redirectSignOut": "https://logontest7.gov.bc.ca/clp-cgi/logoff.cgi?retnow=1&returl=https://dev.loginproxy.gov.bc.ca/auth/realms/standard/protocol/openid-connect/logout?redirect_uri=http://localhost:3000/logout",
+  "redirectSignOut": "http://localhost:3000/logout",
+  "logoutSiteminderUrl": "https://logontest7.gov.bc.ca/clp-cgi/logoff.cgi",
+  "logoutKeycloakUrl": "https://dev.loginproxy.gov.bc.ca/auth/realms/standard/protocol/openid-connect/logout",
+  "logoutKeycloakClientId": "fsa-cognito-idir-dev-4088",
   "mockUser": false,
   "famClientId": "CSP"
 };
 ```
 
-> **Why the long `redirectSignOut`?** Cognito only accepts sign-out redirects that exactly match a URL registered on the FAM app client, and FAM registers the full SiteMinder → Keycloak logout chain (`oidc_clients_csp.tf` in [nr-forests-access-management](https://github.com/bcgov/nr-forests-access-management)), not the app's own `/logout` page. Signing out therefore clears Cognito, SiteMinder, and Keycloak sessions and lands on the standard BC gov "You are logged out" page — the same behaviour as other FAM-integrated apps (e.g. SPAR). Test/prod use `test.loginproxy`/`loginproxy` and (prod) `logon7` hosts — see `LOGOUT_SITEMINDER_URL` / `LOGOUT_KEYCLOAK_URL` GitHub variables.
+> **How sign-out works.** Signing out drives a federated logout chain — SiteMinder → Keycloak → Cognito → back to the app's `/logout` page — built at runtime from the `logout*` values above (see `frontend/src/utils/logoutChain.ts`; same pattern as FAM's own console). This clears all three upstream sessions, not just Cognito's. Two registration constraints, both owned by FAM (`oidc_clients_csp.tf` in [nr-forests-access-management](https://github.com/bcgov/nr-forests-access-management)): `redirectSignOut` must be registered verbatim as a Cognito sign-out URL, and the Cognito domain must be on the shared Keycloak client's post-logout allow-list. If the `logout*` values are missing, the app falls back to a Cognito-only Amplify sign-out. Test/prod use `test.loginproxy`/`loginproxy` and (prod) `logon7` hosts — see the `LOGOUT_*` GitHub variables.
 
 > In OpenShift, Cognito config is injected at runtime via a ConfigMap — the `amplify-config.js` placeholder file in the image is overwritten by a volume mount. No rebuild is required when Cognito values change.
 

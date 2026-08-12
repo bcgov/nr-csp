@@ -125,7 +125,10 @@ jobs:
             -p COGNITO_DOMAIN='${{ vars.cognito_domain }}'
             -p COGNITO_OAUTH_SCOPES='${{ vars.cognito_oauth_scopes }}'
             -p COGNITO_REDIRECT_SIGN_IN='https://${{ github.event.repository.name }}-${{ inputs.target }}.${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}'
-            -p COGNITO_REDIRECT_SIGN_OUT='${{ vars.logout_siteminder_url }}?retnow=1&returl=${{ vars.logout_keycloak_url }}?redirect_uri=https://${{ github.event.repository.name }}-${{ inputs.target }}.${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}/logout'
+            -p COGNITO_REDIRECT_SIGN_OUT='https://${{ github.event.repository.name }}-${{ inputs.target }}.${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}/logout'
+            -p LOGOUT_SITEMINDER_URL='${{ vars.logout_siteminder_url }}'
+            -p LOGOUT_KEYCLOAK_URL='${{ vars.logout_keycloak_url }}'
+            -p LOGOUT_KEYCLOAK_CLIENT_ID='${{ vars.logout_keycloak_client_id }}'
             -p FAM_CLIENT_ID='${{ vars.fam_client_id }}'
             -p FRONTEND_LOG_LEVEL='${{ vars.frontend_log_level || 'INFO' }}'
           triggers: ${{ inputs.triggers }}

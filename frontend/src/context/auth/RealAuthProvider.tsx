@@ -3,6 +3,7 @@ import { Hub } from 'aws-amplify/utils';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { clearPersistedTableState } from '@/hooks/usePersistentState';
+import { buildFederatedLogoutUrl, clearStoredTokens } from '@/utils/logoutChain';
 
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
@@ -78,13 +79,27 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /**
+   * When the federated logout chain is configured, this drives a full-page
+   * navigation through SiteMinder → Keycloak → Cognito → app so every upstream
+   * session is terminated (not just Cognito). Local Amplify tokens are cleared
+   * first so the post-chain landing on /logout renders logged-out. If the
+   * chain config is incomplete, it falls back to a plain Amplify `signOut()`
+   * (Cognito-only).
+   */
   async function performSignOut() {
     setIsSigningOut(true);
-    // Clear local state before signOut(): Amplify full-page-redirects into the
-    // SiteMinder→Keycloak logout chain, which ends on the SSO "You are logged
-    // out" page rather than returning to this app, so nothing after the
-    // redirect is guaranteed to run.
     clearPersistedTableState();
+
+    const chainUrl = buildFederatedLogoutUrl(window.amplifyConfig);
+    if (chainUrl) {
+      clearStoredTokens(window.amplifyConfig?.userPoolClientId);
+      // Full-page navigation hands the browser to the chain; the SPA is
+      // discarded, so nothing after this runs.
+      window.location.assign(chainUrl);
+      return;
+    }
+
     setUser(null);
     await signOut();
   }
