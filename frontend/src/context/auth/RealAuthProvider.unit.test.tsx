@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthContext } from './AuthContext';
 import { RealAuthProvider } from './RealAuthProvider';
+import { emitSessionExpired } from './sessionExpiredSignal';
+
 import type { AuthContextValue } from './types';
 
 vi.mock('aws-amplify/auth', () => ({
@@ -202,6 +204,51 @@ describe('RealAuthProvider', () => {
     expect(getCtx()?.user).toBeNull();
     expect(getCtx()?.isAuthenticated).toBe(false);
     expect(getCtx()?.isLoading).toBe(false);
+  });
+
+  it('keeps the previously authenticated user when a later fetchAuthSession call fails unexpectedly', async () => {
+    mockFetchAuthSession.mockResolvedValueOnce(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.isAuthenticated).toBe(true);
+
+    mockFetchAuthSession.mockRejectedValueOnce(new Error('network blip'));
+    await act(async () => {
+      getHubListener()({ payload: { event: 'signedIn' } });
+    });
+
+    expect(getCtx()?.isAuthenticated).toBe(true);
+    expect(getCtx()?.user?.username).toBe('u');
+  });
+
+  it('signs the user out when the session-expired signal fires', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.isAuthenticated).toBe(true);
+
+    await act(async () => {
+      emitSessionExpired();
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(getCtx()?.isAuthenticated).toBe(false);
+  });
+
+  it('only signs out once for multiple rapid session-expired signals', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+    await renderAndSettle();
+
+    await act(async () => {
+      emitSessionExpired();
+      emitSessionExpired();
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 
   it('reloads the user when a Hub signedIn event fires', async () => {
