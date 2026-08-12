@@ -25,6 +25,10 @@ const h = vi.hoisted(() => {
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
     usePermission: vi.fn((_action: string) => true),
+    authUser: { username: 'cognito-id', idirUsername: 'TESTUSER' } as {
+      username: string;
+      idirUsername?: string;
+    } | null,
     extractValidationErrors: vi.fn((_err: unknown): unknown[] => []),
     params: { id: undefined as string | undefined },
     invoiceQuery: { data: undefined as unknown, isLoading: false },
@@ -55,6 +59,10 @@ vi.mock('@/context/notification/useNotification', () => ({
 
 vi.mock('@/context/auth/usePermission', () => ({
   usePermission: (p: string) => h.usePermission(p),
+}));
+
+vi.mock('@/context/auth/useAuth', () => ({
+  useAuth: () => ({ user: h.authUser }),
 }));
 
 vi.mock('@/utils/report', () => ({
@@ -221,6 +229,7 @@ beforeEach(() => {
   h.params.id = undefined;
   h.invoiceQuery = { data: undefined, isLoading: false };
   h.usePermission.mockReturnValue(true);
+  h.authUser = { username: 'cognito-id', idirUsername: 'TESTUSER' };
   h.getClientsByNumber.mockResolvedValue([CLIENT]);
   h.getClientsByName.mockResolvedValue([CLIENT]);
   h.extractValidationErrors.mockReset();

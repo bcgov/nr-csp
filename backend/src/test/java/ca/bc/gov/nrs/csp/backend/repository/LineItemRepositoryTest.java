@@ -88,6 +88,27 @@ class LineItemRepositoryTest {
         return paramsCaptor.getValue();
     }
 
+    /**
+     * Stubs every column the {@code findByInvoiceId} row mapper reads. Strict stubbing
+     * rejects invoking a stubbed method with un-stubbed arguments — e.g. calling
+     * {@code getString("second_sort")} when only {@code getString("invoice_type")} is
+     * stubbed — so a row has to be stubbed whole rather than column by column.
+     */
+    private static void stubRow(ResultSet rs, String invoiceType, String price, String volume) throws SQLException {
+        given(rs.getObject("line_item_id", Long.class)).willReturn(10L);
+        given(rs.getObject("invoice_id", Long.class)).willReturn(12345L);
+        given(rs.getString("second_sort")).willReturn("SORT01");
+        given(rs.getString("client_secondary_sort")).willReturn("CLIENT01");
+        given(rs.getString("species")).willReturn("SPC1");
+        given(rs.getString("species_description")).willReturn("Cedar");
+        given(rs.getString("grade")).willReturn("G1");
+        given(rs.getString("invoice_type")).willReturn(invoiceType);
+        given(rs.getObject("pieces", Integer.class)).willReturn(50);
+        given(rs.getBigDecimal("price")).willReturn(new BigDecimal(price));
+        given(rs.getBigDecimal("volume")).willReturn(new BigDecimal(volume));
+        given(rs.getBigDecimal("converted_price")).willReturn(new BigDecimal("21.25"));
+    }
+
     private static LineItem lineItem(String clientSecondarySort) {
         return new LineItem(
                 null, null, "SORT01", clientSecondarySort, "SPC1", null, "G1",
@@ -117,6 +138,7 @@ class LineItemRepositoryTest {
         given(rs.getString("species")).willReturn("SPC1");
         given(rs.getString("species_description")).willReturn("Cedar");
         given(rs.getString("grade")).willReturn("G1");
+        given(rs.getString("invoice_type")).willReturn("SAL");
         given(rs.getObject("pieces", Integer.class)).willReturn(50);
         given(rs.getBigDecimal("converted_price")).willReturn(new BigDecimal("21.25"));
         stubQueryMapsRow(rs);
@@ -144,8 +166,34 @@ class LineItemRepositoryTest {
         verify(jdbc).query(sqlCaptor.capture(), paramsCaptor.capture(), any(RowMapper.class));
         assertThat(sqlCaptor.getValue())
                 .contains("WHERE d.coastal_log_sale_id = :id")
-                .contains("ORDER BY d.coastal_log_sale_detail_id");
+                .contains("ORDER BY d.coastal_log_sale_detail_id")
+                // The parent invoice's type is joined in so the derived amount can
+                // apply the ADJ sign rule.
+                .contains("cls.csp_invoice_type_code AS invoice_type");
         assertThat(paramsCaptor.getValue().getValue("id")).isEqualTo(12345L);
+    }
+
+    @Test
+    void findByInvoiceId_adjustment_keepsAmountNegativeWhenVolumeAndPriceAreNegative() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        stubRow(rs, "ADJ", "-5.00", "-5.000");
+        stubQueryMapsRow(rs);
+
+        List<LineItem> items = repo.findByInvoiceId(12345L);
+
+        // A plain multiply would yield +25.00; an ADJ line must stay negative.
+        assertThat(items.get(0).amount()).isEqualByComparingTo("-25.00");
+    }
+
+    @Test
+    void findByInvoiceId_nonAdjustment_multipliesTwoNegativesToPositive() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        stubRow(rs, "SAL", "-5.00", "-5.000");
+        stubQueryMapsRow(rs);
+
+        List<LineItem> items = repo.findByInvoiceId(12345L);
+
+        assertThat(items.get(0).amount()).isEqualByComparingTo("25.00");
     }
 
     @Test

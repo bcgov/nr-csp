@@ -145,6 +145,10 @@
     width: 100% !important;
   }
 
+  .cds--label {
+    display: block;
+  }
+
   &__group-actions {
     display: inline-flex;
     gap: $spacing-02;

@@ -60,6 +60,14 @@ public class InvoiceService {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
 
+    /**
+     * Statuses in which an invoice sits in an active review queue, and therefore the
+     * ones whose cancellation has to cascade to the parent submission. Mirrors the
+     * statuses the UI offers Approve / Reject / Cancel from.
+     */
+    private static final Set<String> REVIEW_QUEUE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_PROCESSING, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
     private final InvoiceRepository invoiceRepo;
     private final LineItemRepository lineItemRepo;
     private final CspSubmissionRepository submissionRepo;
@@ -132,7 +140,7 @@ public class InvoiceService {
     public InvoiceResponse create(CreateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
         InvoiceDetails details = mapper.toDetails(request, user);
-        List<LineItem> lines = mapper.toLineItems(request.lineItems(), null);
+        List<LineItem> lines = mapper.toLineItems(request.lineItems(), null, details.invType());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on create.");
@@ -169,10 +177,11 @@ public class InvoiceService {
         invoiceRepo.replaceLogSources(newInvoiceId, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
         invoiceRepo.replaceLogSources(newInvoiceId, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
         invoiceRepo.replaceLogSources(newInvoiceId, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
-        invoiceRepo.replaceRelatedInvoices(newInvoiceId, ConstantsCode.INVRELATETYPE_REPLACE,
+        List<Long> replacedIds = invoiceRepo.replaceRelatedInvoices(newInvoiceId, ConstantsCode.INVRELATETYPE_REPLACE,
                 details.replaceInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
         invoiceRepo.replaceRelatedInvoices(newInvoiceId, ConstantsCode.INVRELATETYPE_ADJUST,
                 details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
+        cancelReplacedInvoices(newInvoiceId, replacedIds, user);
 
         InvoiceDetails saved = withId(details, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
         // A freshly-created submission has no business submission number yet
@@ -201,7 +210,7 @@ public class InvoiceService {
         }
 
         InvoiceDetails details = mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID());
-        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id);
+        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, details.invType());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on update.");
@@ -220,10 +229,11 @@ public class InvoiceService {
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
-        invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_REPLACE,
+        List<Long> replacedIds = invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_REPLACE,
                 details.replaceInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
         invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_ADJUST,
                 details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
+        cancelReplacedInvoices(id, replacedIds, user);
 
         // Saving an existing invoice reverts its submission to LOBBY.
         if (existing.submissionId() != null) {
@@ -426,6 +436,49 @@ public class InvoiceService {
         log.info("Submission submissionId={} newStatus={} anyApproved={}", submissionId, newSubmissionStatus, anyApproved);
     }
 
+    /**
+     * A replacement invoice supersedes every invoice named in its "Replaces invoice
+     * number(s)" field, so saving it cancels those originals. Called from create and
+     * update with the ids {@link InvoiceRepository#replaceRelatedInvoices} resolved for
+     * the REP relationship (never ADJ — an adjusting invoice leaves its target alone).
+     *
+     * <p>Skipped: an already-CANCELLED original (nothing to change) and a self-reference
+     * (the validator rejects "replaces itself", so this is only a defensive guard).</p>
+     *
+     * <p>The submission-status cascade only runs when the original was in a
+     * {@link #REVIEW_QUEUE_STATUSES review-queue status}, which is what the cascade was
+     * written for; it clears a replaced invoice out of the inbox. Cancelling a DRAFT
+     * original deliberately leaves its submission in the lobby:
+     * the cascade would otherwise push a lobby submission (possibly holding other drafts)
+     * to REJECTED.</p>
+     */
+    private void cancelReplacedInvoices(Long replacementId, List<Long> replacedIds, String user) {
+        if (replacedIds == null) return;
+        for (Long replacedId : replacedIds) {
+            cancelReplacedInvoice(replacementId, replacedId, user);
+        }
+    }
+
+    /**
+     * Cancels a single replaced invoice. Skips a null id, a self-reference, an invoice
+     * that no longer exists, and one that is already CANCELLED.
+     */
+    private void cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
+        if (replacedId == null || replacedId.equals(replacementId)) return;
+        LoadedInvoice replaced = invoiceRepo.findById(replacedId).orElse(null);
+        if (replaced == null) return;
+        String previousStatus = replaced.details().invStatus();
+        if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
+
+        invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
+        log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
+                replacedId, previousStatus, replacementId);
+        if (REVIEW_QUEUE_STATUSES.contains(previousStatus)) {
+            applySubmissionStatusOnStatusChange(
+                    replaced.submissionId(), ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
+        }
+    }
+
     // ---------------------------------------------------------------
     // LINE ITEMS (sub-resource — only valid on DRAFT invoices)
     // ---------------------------------------------------------------
@@ -439,7 +492,7 @@ public class InvoiceService {
         // the full invoice validator against the full set so totals-variance
         // / line-count rules still fire correctly.
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
-        LineItem newLine = mapper.toLineItem(request, invoiceId);
+        LineItem newLine = mapper.toLineItem(request, invoiceId, existing.details().invType());
         List<LineItem> candidate = new ArrayList<>(existingLines);
         candidate.add(newLine);
 
@@ -459,7 +512,7 @@ public class InvoiceService {
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
-        LineItem mapped = mapper.toLineItem(request, invoiceId);
+        LineItem mapped = mapper.toLineItem(request, invoiceId, existing.details().invType());
         LineItem updatedLine = new LineItem(
                 lineId, mapped.invoiceID(), mapped.secondSort(), mapped.clientSecondarySort(), mapped.species(),
                 mapped.speciesDescription(), mapped.grade(), mapped.numOfPieces(), mapped.price(), mapped.volume(),
