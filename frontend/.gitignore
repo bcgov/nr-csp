@@ -30,3 +30,6 @@ yarn-error.log*
 
 # Corporate CA certs (machine-specific, not committed)
 backend/certs/*.pem
+
+
+# no op this wont be merged in anyways
