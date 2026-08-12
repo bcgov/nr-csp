@@ -41,6 +41,7 @@ import TextArea from '@/components/Form/TextArea';
 import { useNotification } from '@/context/notification/useNotification';
 import { ROUTES } from '@/routes/routePaths';
 import { useFobCodesQuery } from '@/services/fob.service';
+import { useAuth } from '@/context/auth/useAuth';
 import { usePermission } from '@/context/auth/usePermission';
 import {
   INVOICE_DETAILS_SAVE,
@@ -79,9 +80,10 @@ import {
   useSpeciesLookupQuery,
 } from '@/services/lookup.service';
 import { getClientsByNumber } from '@/services/search.service';
-import { formatCurrency, formatIsoDate, formatNumber } from '@/utils/format';
+import { formatCurrency, formatIsoDate, formatNumber, formatUsername } from '@/utils/format';
 
 import {
+  computeLineAmount,
   validate as validateInvoiceFields,
   validateLineItem,
   type InvoiceFieldValues,
@@ -253,6 +255,8 @@ export function InvoicePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { addNotification } = useNotification();
+  // Signed-in user — used to preview the "Entered/Submitted by" IDIR on a new invoice.
+  const { user: currentUser } = useAuth();
 
   const locationState = location.state as { fromSearch?: boolean } | null;
   const fromSearch = locationState?.fromSearch === true;
@@ -411,7 +415,7 @@ export function InvoicePage() {
     // price × 0 = 0.00) instead of showing blank.
     const p = Number.parseFloat(newLinePrice) || 0;
     const v = Number.parseFloat(newLineVolume) || 0;
-    return (Math.round(p * v * 100) / 100).toFixed(2);
+    return computeLineAmount(v, p, invTypeCode).toFixed(2);
   })();
 
   // Inline error / warning state
@@ -538,6 +542,27 @@ export function InvoicePage() {
   // Draft shape is owned by EditableLineItemsTable so the wiring stays 1:1.
   const [editLineDraft, setEditLineDraft] = useState<EditableLineItemDraft | null>(null);
   const [editLineFieldErrors, setEditLineFieldErrors] = useState<Record<string, string>>({});
+
+  // Live structural validation for the row currently being edited
+  const clientEditLineErrors = useMemo(
+    () =>
+      editLineDraft
+        ? splitMessages(
+            validateLineItem({
+              pieces: editLineDraft.numOfPieces,
+              volume: editLineDraft.volume,
+              price: editLineDraft.price,
+              invType: invTypeCode,
+            }).messages,
+            CLIENT_LINE_ITEM_MESSAGE_KEY_TO_FIELD,
+          ).fieldErrors
+        : {},
+    [editLineDraft, invTypeCode],
+  );
+  const displayEditLineErrors = useMemo(
+    () => relabelRecord({ ...editLineFieldErrors, ...clientEditLineErrors }),
+    [editLineFieldErrors, clientEditLineErrors, relabelRecord],
+  );
 
   // ----- Group edit modal state -----
   type EditGroupDraft = {
@@ -833,7 +858,15 @@ export function InvoicePage() {
   // invoice created from scratch there's no stored received date, so default the
   // "Date entered/received" to today (local yyyy-MM-dd).
   const dateInvoiceReceived = isExisting ? (loadedInvoice?.invoiceDate ?? '—') : formatIsoDate(new Date());
-  const enteredSubmittedBy = loadedInvoice?.entryUserID ?? '—';
+  // Same idea for "Entered/Submitted by": an existing invoice shows its stored
+  // entryUserID, while a brand-new one previews the signed-in user's IDIR — which
+  // is exactly what the backend will stamp on save (it takes the user from the
+  // token, so this is display-only and never sent in the request body).
+  // Both go through formatUsername so a legacy "IDIR\JSMITH" id renders as just
+  // the username.
+  const enteredSubmittedBy = isExisting
+    ? formatUsername(loadedInvoice?.entryUserID)
+    : formatUsername(currentUser?.idirUsername ?? currentUser?.username);
 
   // ------ Add New Line Item validity ------
   const isAddLineItemValid =
@@ -1198,46 +1231,31 @@ export function InvoicePage() {
   const groupColumns = useMemo<ResultsTableColumn<GroupRow>[]>(
     () => [
       { key: 'groupNumber', header: 'Group number' },
-      {
-        key: 'secondarySort',
-        header: 'Secondary sort',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{r.secondarySort}</span>,
-      },
+      { key: 'secondarySort', header: 'Secondary sort', headerAlign: 'center', cellAlign: 'center' },
       { key: 'description', header: 'Description' },
-      {
-        key: 'species',
-        header: 'Species',
-        headerAlign: 'center',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{r.species}</span>,
-      },
+      { key: 'species', header: 'Species', headerAlign: 'center', cellAlign: 'center' },
       {
         key: 'totalPieces',
         header: 'Total pieces',
         headerAlign: 'center',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{formatNumber(r.totalPieces)}</span>,
+        cellAlign: 'right',
+        renderCell: (r) => formatNumber(r.totalPieces),
       },
       {
         key: 'totalVolume',
         header: 'Total volume',
         headerAlign: 'center',
-        renderCell: (r) => (
-          <span style={{ display: 'block', textAlign: 'center' }}>{formatNumber(r.totalVolume, 3)}</span>
-        ),
+        cellAlign: 'right',
+        renderCell: (r) => formatNumber(r.totalVolume, 3),
       },
       {
         key: 'totalAmount',
         header: 'Total $ amount',
         headerAlign: 'center',
-        renderCell: (r) => (
-          <span style={{ display: 'block', textAlign: 'center' }}>{formatCurrency(r.totalAmount)}</span>
-        ),
+        cellAlign: 'right',
+        renderCell: (r) => formatCurrency(r.totalAmount),
       },
-      {
-        key: 'priceConversion',
-        header: 'Price conversion',
-        headerAlign: 'center',
-        renderCell: (r) => <span style={{ display: 'block', textAlign: 'center' }}>{r.priceConversion}</span>,
-      },
+      { key: 'priceConversion', header: 'Price conversion', headerAlign: 'center', cellAlign: 'center' },
       {
         key: 'id',
         header: 'Actions',
@@ -1281,16 +1299,16 @@ export function InvoicePage() {
       <TableRow className="invoice-page__line-items-totals-row">
         <TableCell colSpan={4} />
         <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>Invoice totals</strong>
+          <strong>Invoice totals</strong>
         </TableCell>
-        <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>{formatNumber(totalPieces)}</strong>
+        <TableCell style={{ textAlign: 'right' }}>
+          <strong>{formatNumber(totalPieces)}</strong>
         </TableCell>
-        <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>{formatNumber(totalVolume, 3)}</strong>
+        <TableCell style={{ textAlign: 'right' }}>
+          <strong>{formatNumber(totalVolume, 3)}</strong>
         </TableCell>
-        <TableCell>
-          <strong style={{ display: 'block', textAlign: 'center' }}>{formatCurrency(totalAmount)}</strong>
+        <TableCell style={{ textAlign: 'right' }}>
+          <strong>{formatCurrency(totalAmount)}</strong>
         </TableCell>
         <TableCell />
         <TableCell />
@@ -1470,6 +1488,7 @@ export function InvoicePage() {
 
   const handleSaveLineEdit = () => {
     if (!invoiceId || !editLineDraft) return;
+    if (Object.keys(clientEditLineErrors).length > 0) return;
     const lineItemID = Number(editLineDraft.id);
     const body: LineItemRequest = {
       lineItemID,
@@ -1753,7 +1772,7 @@ export function InvoicePage() {
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col invoice-page__field-col--left">
                     <TagInput
                       id="replace-inv-num"
-                      labelText="Replaces Invoice#(s)"
+                      labelText="Replaces invoice number(s)"
                       values={replaceInvNum}
                       onChange={setReplaceInvNum}
                       invalid={!!displayFieldErrors.replaceInvNum}
@@ -1765,7 +1784,7 @@ export function InvoicePage() {
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col">
                     <TagInput
                       id="adjust-inv-num"
-                      labelText="Adjusts Invoice#(s)"
+                      labelText="Adjusts invoice numbers(s)"
                       values={adjustInvNum}
                       onChange={setAdjustInvNum}
                       invalid={!!displayFieldErrors.adjustInvNum}
@@ -1945,21 +1964,17 @@ export function InvoicePage() {
 
                   <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total pieces</span>
-                    <span className="invoice-page__meta-value">
-                      {totalPieces > 0 ? formatNumber(totalPieces) : '—'}
-                    </span>
+                    <span className="invoice-page__meta-value">{hasLineItems ? formatNumber(totalPieces) : '—'}</span>
                   </Column>
                   <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total volume (m3)</span>
                     <span className="invoice-page__meta-value">
-                      {totalVolume > 0 ? formatNumber(totalVolume, 3) : '—'}
+                      {hasLineItems ? formatNumber(totalVolume, 3) : '—'}
                     </span>
                   </Column>
                   <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
                     <span className="invoice-page__meta-label">Total amount</span>
-                    <span className="invoice-page__meta-value">
-                      {totalAmount > 0 ? formatCurrency(totalAmount) : '—'}
-                    </span>
+                    <span className="invoice-page__meta-value">{hasLineItems ? formatCurrency(totalAmount) : '—'}</span>
                   </Column>
 
                   <Column sm={4} md={3} lg={5} className="invoice-page__field-col invoice-page__field-col--left">
@@ -2097,7 +2112,8 @@ export function InvoicePage() {
                         gradeItems={gradeItems}
                         speciesGradeCombos={speciesGradeCombos}
                         editDraft={editLineDraft}
-                        fieldErrors={relabelRecord(editLineFieldErrors)}
+                        fieldErrors={displayEditLineErrors}
+                        invType={invTypeCode}
                         onStartEdit={handleStartLineEdit}
                         onCancelEdit={handleCancelLineEdit}
                         onSaveEdit={handleSaveLineEdit}

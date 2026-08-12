@@ -933,7 +933,7 @@ class InvoiceRepositoryTest {
 
     @Test
     void replaceRelatedInvoices_nullCsv_onlyDeletesExistingRefs() {
-        repo.replaceRelatedInvoices(10L, "REP", null, "00001111", "01", "user123");
+        assertThat(repo.replaceRelatedInvoices(10L, "REP", null, "00001111", "01", "user123")).isEmpty();
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
@@ -947,7 +947,7 @@ class InvoiceRepositoryTest {
 
     @Test
     void replaceRelatedInvoices_blankCsv_onlyDeletesExistingRefs() {
-        repo.replaceRelatedInvoices(10L, "ADJ", "   ", "00001111", "01", "user123");
+        assertThat(repo.replaceRelatedInvoices(10L, "ADJ", "   ", "00001111", "01", "user123")).isEmpty();
 
         verify(jdbc, times(1)).update(anyString(), any(MapSqlParameterSource.class));
     }
@@ -962,7 +962,9 @@ class InvoiceRepositoryTest {
                     return "INV-A".equals(p.getValue("invNo")) ? List.of(101L) : List.of();
                 });
 
-        repo.replaceRelatedInvoices(10L, "REP", " INV-A , , INV-B ", "00001111", "01", "user123");
+        // Only the resolved id comes back — callers use it to cancel the replaced invoice.
+        assertThat(repo.replaceRelatedInvoices(10L, "REP", " INV-A , , INV-B ", "00001111", "01", "user123"))
+                .containsExactly(101L);
 
         // Two resolve lookups: INV-A and INV-B (empty token skipped)
         ArgumentCaptor<MapSqlParameterSource> resolveCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);

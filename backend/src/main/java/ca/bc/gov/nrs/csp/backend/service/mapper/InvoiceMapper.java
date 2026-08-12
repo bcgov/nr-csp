@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.ValidationMessageResponse;
+import ca.bc.gov.nrs.csp.backend.invoice.shared.LineAmount;
 import ca.bc.gov.nrs.csp.backend.invoice.shared.rules.SourceDocuments;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
@@ -15,7 +16,6 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.NoSuchMessageException;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 
@@ -109,7 +109,11 @@ public class InvoiceMapper {
         return SourceDocuments.dedup(values);
     }
 
-    public LineItem toLineItem(LineItemRequest req, Long invoiceId) {
+    /**
+     * @param invoiceType the parent invoice's type code — an ADJ line keeps a negative
+     *                    amount when both volume and price are negative.
+     */
+    public LineItem toLineItem(LineItemRequest req, Long invoiceId, String invoiceType) {
         if (req == null) return null;
         // Description is resolved server-side from the species code lookup;
         // null on the inbound path, populated when the row is read back.
@@ -125,13 +129,13 @@ public class InvoiceMapper {
                 req.price(),
                 req.volume(),
                 req.convertedPrice(),
-                computeAmount(req.volume(), req.price())
+                LineAmount.compute(req.volume(), req.price(), invoiceType)
         );
     }
 
-    public List<LineItem> toLineItems(List<LineItemRequest> requests, Long invoiceId) {
+    public List<LineItem> toLineItems(List<LineItemRequest> requests, Long invoiceId, String invoiceType) {
         if (requests == null) return List.of();
-        return requests.stream().map(r -> toLineItem(r, invoiceId)).toList();
+        return requests.stream().map(r -> toLineItem(r, invoiceId, invoiceType)).toList();
     }
 
     public LineItemResponse toLineItemResponse(LineItem line) {
@@ -231,8 +235,4 @@ public class InvoiceMapper {
         );
     }
 
-    private static BigDecimal computeAmount(BigDecimal volume, BigDecimal price) {
-        if (volume == null || price == null) return null;
-        return volume.multiply(price);
-    }
 }

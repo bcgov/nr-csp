@@ -1,5 +1,6 @@
 package ca.bc.gov.nrs.csp.backend.invoice.shared.rules;
 
+import ca.bc.gov.nrs.csp.backend.invoice.shared.LineAmount;
 import ca.bc.gov.nrs.csp.backend.invoice.shared.model.Finding;
 import ca.bc.gov.nrs.csp.backend.invoice.shared.model.InvoiceTotals;
 import ca.bc.gov.nrs.csp.backend.invoice.shared.model.Severity;
@@ -116,16 +117,13 @@ public final class InvoiceTotalsRuleSet {
     return total.setScale(2, RoundingMode.HALF_UP);
   }
 
-  /** One line's contribution to the total amount, or null if volume or price is absent. */
+  /**
+   * One line's contribution to the total amount, or null if volume or price is absent.
+   * Delegates to {@link LineAmount} so the screen, the exports and this variance
+   * calculation can never disagree about an ADJ line's sign.
+   */
   private static BigDecimal lineAmount(BigDecimal volume, BigDecimal price, boolean adjustment) {
-    if (volume == null || price == null) {
-      return null;
-    }
-    // A default multiply of two negatives yields a positive; for ADJ the amount must stay negative.
-    if (adjustment && volume.signum() < 0 && price.signum() < 0) {
-      volume = volume.abs();
-    }
-    return volume.multiply(price).setScale(2, RoundingMode.HALF_UP);
+    return LineAmount.compute(volume, price, adjustment ? ConstantsCode.INVTYPE_ADJUST : null);
   }
 
   /** Calculated total volume = Σ volume over the line items; lines missing a volume contribute nothing. */
