@@ -11,6 +11,11 @@ const INVOICE_TYPE_PATTERN = /^[A-Z]+$/;
 const LOCATION_PATTERN = /^\d{2}$/;
 const SUBMITTED_BY_PATTERN = /^(Buyer|Seller)$/;
 
+const INVOICE_NUMBER_MAX_LENGTH = 15;
+const CLIENT_PRIMARY_SORT_CODE_MAX_LENGTH = 100;
+const REVIEWER_COMMENT_MAX_LENGTH = 4000;
+const SUBMITTER_COMMENT_MAX_LENGTH = 4000;
+
 export interface InvoiceFieldValues {
   invNumber: string;
   invDate: string; // ISO yyyy-MM-dd, or '' when unset
@@ -18,17 +23,22 @@ export interface InvoiceFieldValues {
   submittedBy: string;
   submitterLocation: string;
   otherClientLocation: string;
+  clientPrimarySortCode: string;
+  reviewerComment: string;
+  submitterComment: string;
 }
 
 export function validate(values: InvoiceFieldValues): ValidationResult {
   const messages = new MessageCollector();
   const t = (s: string) => s.trim();
 
-  // invNumber — @NotBlank + ^[A-Z0-9-]+$
+  // invNumber — @NotBlank + ^[A-Z0-9-]+$ + max length
   if (!t(values.invNumber)) {
     messages.addError('invoice.client.invnumber.required.error');
   } else if (!INVOICE_NUMBER_PATTERN.test(t(values.invNumber))) {
     messages.addError('invoice.client.invnumber.pattern.error');
+  } else if (t(values.invNumber).length > INVOICE_NUMBER_MAX_LENGTH) {
+    messages.addError('invoice.client.invnumber.maxlength.error');
   }
 
   // invoiceDate — @NotNull
@@ -62,6 +72,21 @@ export function validate(values: InvoiceFieldValues): ValidationResult {
     messages.addError('invoice.client.otherlocation.pattern.error');
   }
 
+  // clientPrimarySortCode — optional, max length only
+  if (values.clientPrimarySortCode.length > CLIENT_PRIMARY_SORT_CODE_MAX_LENGTH) {
+    messages.addError('invoice.client.clientprimarysortcode.maxlength.error');
+  }
+
+  // reviewerComment — optional, max length only
+  if (values.reviewerComment.length > REVIEWER_COMMENT_MAX_LENGTH) {
+    messages.addError('invoice.client.reviewercomment.maxlength.error');
+  }
+
+  // submitterComment — optional, max length only
+  if (values.submitterComment.length > SUBMITTER_COMMENT_MAX_LENGTH) {
+    messages.addError('invoice.client.submittercomment.maxlength.error');
+  }
+
   return messages.result();
 }
 
@@ -74,7 +99,20 @@ export interface LineItemFieldValues {
   invType: string;
 }
 
-const INVTYPE_ADJUST = 'ADJ';
+export const INVTYPE_ADJUST = 'ADJ';
+
+/**
+ * A line item's `$Amount` preview — volume × price, rounded to 2dp.
+ *
+ * @param volume  the line's volume
+ * @param price   the line's price
+ * @param invType the parent invoice's type code, e.g. 'ADJ'
+ * @returns the signed amount rounded to 2 decimal places
+ */
+export const computeLineAmount = (volume: number, price: number, invType: string): number => {
+  const effectiveVolume = invType === INVTYPE_ADJUST && volume < 0 && price < 0 ? Math.abs(volume) : volume;
+  return Math.round(effectiveVolume * price * 100) / 100;
+};
 
 export function validateLineItem(values: LineItemFieldValues): ValidationResult {
   const messages = new MessageCollector();

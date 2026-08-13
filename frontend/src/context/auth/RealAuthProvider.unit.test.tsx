@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthContext } from './AuthContext';
 import { RealAuthProvider } from './RealAuthProvider';
+import { emitSessionExpired } from './sessionExpiredSignal';
+
 import type { AuthContextValue } from './types';
 
 vi.mock('aws-amplify/auth', () => ({
@@ -71,6 +73,7 @@ describe('RealAuthProvider', () => {
 
   afterEach(() => {
     window.amplifyConfig = undefined;
+    window.sessionStorage.clear();
   });
 
   it('renders children and starts in the loading state', () => {
@@ -133,9 +136,7 @@ describe('RealAuthProvider', () => {
   });
 
   it('defaults to no roles when the token has no cognito:groups claim', async () => {
-    mockFetchAuthSession.mockResolvedValue(
-      sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }),
-    );
+    mockFetchAuthSession.mockResolvedValue(sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }));
 
     const { getCtx } = await renderAndSettle();
     expect(getCtx()?.user?.roles).toEqual([]);
@@ -167,9 +168,7 @@ describe('RealAuthProvider', () => {
   });
 
   it('leaves displayName undefined when no name claims are present', async () => {
-    mockFetchAuthSession.mockResolvedValue(
-      sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }),
-    );
+    mockFetchAuthSession.mockResolvedValue(sessionWith({ 'cognito:username': 'u', email: 'u@example.com' }));
 
     const { getCtx } = await renderAndSettle();
     expect(getCtx()?.user?.displayName).toBeUndefined();
@@ -207,6 +206,51 @@ describe('RealAuthProvider', () => {
     expect(getCtx()?.isLoading).toBe(false);
   });
 
+  it('keeps the previously authenticated user when a later fetchAuthSession call fails unexpectedly', async () => {
+    mockFetchAuthSession.mockResolvedValueOnce(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.isAuthenticated).toBe(true);
+
+    mockFetchAuthSession.mockRejectedValueOnce(new Error('network blip'));
+    await act(async () => {
+      getHubListener()({ payload: { event: 'signedIn' } });
+    });
+
+    expect(getCtx()?.isAuthenticated).toBe(true);
+    expect(getCtx()?.user?.username).toBe('u');
+  });
+
+  it('signs the user out when the session-expired signal fires', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.isAuthenticated).toBe(true);
+
+    await act(async () => {
+      emitSessionExpired();
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(getCtx()?.isAuthenticated).toBe(false);
+  });
+
+  it('only signs out once for multiple rapid session-expired signals', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+    await renderAndSettle();
+
+    await act(async () => {
+      emitSessionExpired();
+      emitSessionExpired();
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
   it('reloads the user when a Hub signedIn event fires', async () => {
     mockFetchAuthSession.mockResolvedValueOnce(emptySession());
     const { getCtx } = await renderAndSettle();
@@ -224,9 +268,7 @@ describe('RealAuthProvider', () => {
   });
 
   it('reloads the user when a Hub signedOut event fires', async () => {
-    mockFetchAuthSession.mockResolvedValueOnce(
-      sessionWith({ 'cognito:username': 'u', email: 'u@x' }),
-    );
+    mockFetchAuthSession.mockResolvedValueOnce(sessionWith({ 'cognito:username': 'u', email: 'u@x' }));
     const { getCtx } = await renderAndSettle();
     expect(getCtx()?.isAuthenticated).toBe(true);
 
@@ -306,5 +348,20 @@ describe('RealAuthProvider', () => {
     expect(getCtx()?.isSigningOut).toBe(true);
     expect(getCtx()?.user).toBeNull();
     expect(getCtx()?.isAuthenticated).toBe(false);
+  });
+
+  it('clears persisted table state on signOut', async () => {
+    window.sessionStorage.setItem('csp.table.search.v1.page', '3');
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+    );
+
+    const { getCtx } = await renderAndSettle();
+
+    await act(async () => {
+      await getCtx()?.signOut();
+    });
+
+    expect(window.sessionStorage.getItem('csp.table.search.v1.page')).toBeNull();
   });
 });

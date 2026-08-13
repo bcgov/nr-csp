@@ -19,7 +19,7 @@ vi.mock('@carbon/react', async (importOriginal) => {
 vi.mock('@/components/Layout/LayoutHeader/LayoutHeader', () => ({
   LayoutHeader: () => null,
 }));
-vi.mock('react-router-dom', () => ({ Outlet: () => null }));
+vi.mock('react-router', () => ({ Outlet: () => null }));
 
 import Layout from './index';
 

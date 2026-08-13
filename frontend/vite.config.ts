@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import { coverageConfigDefaults } from 'vitest/config';
+import { playwright } from '@vitest/browser-playwright';
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -96,16 +97,17 @@ export default defineConfig(({ mode }) => {
                   name: 'browser',
                   browser: {
                     enabled: true,
-                    provider: 'playwright',
                     // PLAYWRIGHT_CHANNEL lets environments without a bundled Chromium
                     // (e.g. WSL/Ubuntu releases Playwright doesn't support yet) fall back
                     // to a system-installed browser, e.g. `PLAYWRIGHT_CHANNEL=chrome`.
-                    instances: [
-                      {
-                        browser: 'chromium',
-                        launch: { channel: process.env.PLAYWRIGHT_CHANNEL || undefined },
+                    // In Vitest 4 launch options moved onto the provider factory as
+                    // `launchOptions`; the old instance-level `launch` key is ignored.
+                    provider: playwright({
+                      launchOptions: {
+                        channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
                       },
-                    ],
+                    }),
+                    instances: [{ browser: 'chromium' }],
                   },
                   include: ['src/**/*.browser.test.{ts,tsx}'],
                   setupFiles: ['src/config/tests/setup-browser.ts'],

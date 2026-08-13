@@ -253,7 +253,7 @@ class InboxRepositoryTest {
         repo.search(criteria, DEFAULT_PAGE);
 
         String sql = captureDataSql();
-        assertThat(sql).contains("inv.CLIENT_INVOICE_NO LIKE :invoiceNum");
+        assertThat(sql).contains("UPPER(inv.CLIENT_INVOICE_NO) LIKE UPPER(:invoiceNum)");
 
         MapSqlParameterSource params = captureParams();
         assertThat(params.getValue("invoiceNum")).isEqualTo("%ABC%");

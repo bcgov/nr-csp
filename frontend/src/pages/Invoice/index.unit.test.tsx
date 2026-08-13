@@ -22,6 +22,10 @@ const h = vi.hoisted(() => {
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
     usePermission: vi.fn((_action: string) => true),
+    authUser: { username: 'cognito-id', idirUsername: 'TESTUSER' } as {
+      username: string;
+      idirUsername?: string;
+    } | null,
     params: { id: undefined as string | undefined },
     invoiceQuery: { data: undefined as unknown, isLoading: false },
     mutations: {
@@ -39,7 +43,7 @@ const h = vi.hoisted(() => {
   };
 });
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useParams: () => h.params,
   useNavigate: () => h.navigate,
   useLocation: () => ({ pathname: '/invoice', search: '', state: null }),
@@ -51,6 +55,10 @@ vi.mock('@/context/notification/useNotification', () => ({
 
 vi.mock('@/context/auth/usePermission', () => ({
   usePermission: (p: string) => h.usePermission(p),
+}));
+
+vi.mock('@/context/auth/useAuth', () => ({
+  useAuth: () => ({ user: h.authUser }),
 }));
 
 vi.mock('@/utils/report', () => ({
@@ -181,6 +189,7 @@ beforeEach(() => {
   h.params.id = undefined;
   h.invoiceQuery = { data: undefined, isLoading: false };
   h.usePermission.mockReturnValue(true);
+  h.authUser = { username: 'cognito-id', idirUsername: 'TESTUSER' };
   h.getClientsByNumber.mockResolvedValue([CLIENT]);
   h.getClientsByName.mockResolvedValue([CLIENT]);
   Object.values(h.mutations).forEach((m) => {
@@ -214,11 +223,100 @@ describe('InvoicePage — rendering', () => {
     expect(screen.getByText('Old growth')).toBeInTheDocument();
   });
 
+  it('autofills "Entered/Submitted by" with the signed-in IDIR on a NEW invoice', () => {
+    renderPage();
+    expect(screen.getByText('TESTUSER')).toBeInTheDocument();
+  });
+
+  it('falls back to the Cognito username when no IDIR claim is present', () => {
+    h.authUser = { username: 'cognito-id' };
+    renderPage();
+    expect(screen.getByText('cognito-id')).toBeInTheDocument();
+  });
+
+  it('shows a dash for "Entered/Submitted by" when there is no signed-in user', () => {
+    h.authUser = null;
+    const { container } = renderPage();
+    const metaValues = Array.from(container.querySelectorAll('.invoice-page__meta-value'));
+    expect(metaValues.some((el) => el.textContent === '—')).toBe(true);
+  });
+
+  it('shows the stored entryUserID, not the signed-in user, on an existing invoice', async () => {
+    await renderLoaded();
+    expect(screen.getByText('user1')).toBeInTheDocument();
+    expect(screen.queryByText('TESTUSER')).not.toBeInTheDocument();
+  });
+
+  it('strips the domain qualifier from a legacy entryUserID', async () => {
+    await renderLoaded({ entryUserID: 'IDIR\\JSMITH' });
+    expect(screen.getByText('JSMITH')).toBeInTheDocument();
+    expect(screen.queryByText('IDIR\\JSMITH')).not.toBeInTheDocument();
+  });
+
   it('hydrates an existing invoice: number, status tag, line items', async () => {
     await renderLoaded();
     expect(screen.getByDisplayValue('INV-001')).toBeInTheDocument();
     expect(screen.getByText('DFT')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add new item' })).toBeInTheDocument();
+  });
+
+  it('uppercases characters typed into the invoice number field', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    fireEvent.change(screen.getByLabelText(/Invoice number/), { target: { value: 'inv-abc' } });
+    expect(screen.getByLabelText(/Invoice number/)).toHaveValue('INV-ABC');
+  });
+});
+
+describe('InvoicePage — invoice not found', () => {
+  it('shows an "Invoice not found" banner when the id in the URL is not a valid number', () => {
+    h.params.id = 'not-a-number';
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(
+      screen.getByText('Invoice not found. It may have been removed, or the link is incorrect.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+
+  it('shows an "Invoice not found" banner when the invoice query 404s', () => {
+    h.params.id = '999';
+    h.invoiceQuery = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: { status: 404 } },
+    };
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(
+      screen.getByText('Invoice not found. It may have been removed, or the link is incorrect.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the server error message when the invoice query fails for a non-404 reason', () => {
+    h.params.id = '5';
+    h.invoiceQuery = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: { status: 500, data: { message: 'Database is unavailable.' } } },
+    };
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(screen.getByText('Database is unavailable.')).toBeInTheDocument();
+  });
+
+  it('falls back to a generic message for a non-404 failure with no server message', () => {
+    h.params.id = '5';
+    h.invoiceQuery = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: {} },
+    };
+    renderPage();
+    expect(screen.getByText('Invoice not found')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load the invoice. Please try again.')).toBeInTheDocument();
   });
 });
 
@@ -286,6 +384,18 @@ describe('InvoicePage — action flows', () => {
     expect(h.mutations.update.mutate).toHaveBeenCalled();
   });
 
+  it('Save keeps the client primary sort code independent of the primary sort code', async () => {
+    await renderLoaded({ invStatus: 'DFT', primarySortCode: 'SORT01', clientPrimarySortCode: 'CLIENT-XYZ' });
+    expect(screen.getByLabelText('Client primary sort code')).toHaveValue('CLIENT-XYZ');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(h.mutations.update.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({ primarySortCode: 'SORT01', clientPrimarySortCode: 'CLIENT-XYZ' }),
+      }),
+      expect.anything(),
+    );
+  });
+
   it('Submit fires the submit mutation with the invoice id', async () => {
     await renderLoaded({ invStatus: 'DFT' });
     await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
@@ -336,6 +446,20 @@ describe('InvoicePage — action flows', () => {
       expect.objectContaining({ body: expect.objectContaining({ status: 'UNA', reviewComments: 'Reverting' }) }),
       expect.anything(),
     );
+  });
+});
+
+describe('InvoicePage — field length validation', () => {
+  it('shows an inline error when the client primary sort code exceeds 100 characters', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    fireEvent.change(screen.getByLabelText('Client primary sort code'), { target: { value: 'A'.repeat(101) } });
+    expect(screen.getByText('Client primary sort code must be at most 100 characters.')).toBeInTheDocument();
+  });
+
+  it('shows an inline error when the submitted comment exceeds 4000 characters', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    fireEvent.change(screen.getByLabelText('Submitted comment'), { target: { value: 'A'.repeat(4001) } });
+    expect(screen.getByText('Submitted comment must be at most 4000 characters.')).toBeInTheDocument();
   });
 });
 
@@ -397,5 +521,25 @@ describe('InvoicePage — warnings & errors', () => {
       errors: [{ messageKey: 'some.unmapped.key', message: 'Something went wrong', type: 'ERROR', args: null }],
     });
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+  });
+
+  it('shows an invalid submitter client location as an inline field error, not a banner', async () => {
+    await renderLoaded({
+      invStatus: 'DFT',
+      errors: [
+        {
+          messageKey: 'invoice.submitter.client.location.invalid.error',
+          message: 'The combination of the submitter Client Number 123 and Client Location 00 cannot be found in CSP.',
+          type: 'ERROR',
+          args: null,
+        },
+      ],
+    });
+    expect(
+      screen.getByText(
+        'The combination of the submitter Client Number 123 and Client Location 00 cannot be found in CSP.',
+      ),
+    ).toBeInTheDocument();
+    expect(document.getElementById('submitting-client-location')).toBeInvalid();
   });
 });

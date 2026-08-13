@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.LookupItem;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R13Validator;
 import net.sf.jasperreports.engine.*;
@@ -31,8 +32,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -53,6 +54,7 @@ public class R13Service {
     private final DataSource dataSource;
     private final LookupService lookupService;
     private final SearchService searchService;
+    private final Clock clock;
 
     /** Cache of compiled JasperReport objects keyed by {@code templatePath:showOptionsBitmask}. */
     private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
@@ -65,10 +67,12 @@ public class R13Service {
 
     public R13Service(@org.springframework.beans.factory.annotation.Autowired(required = false) DataSource dataSource,
                       LookupService lookupService,
-                      SearchService searchService) {
+                      SearchService searchService,
+                      Clock clock) {
         this.dataSource = dataSource;
         this.lookupService = lookupService;
         this.searchService = searchService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R13ReportRequest request) {
@@ -77,8 +81,7 @@ public class R13Service {
         String format = request.getReportFormat().getValue();
         log.info("Generating R13 report format={}", format);
         String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
-        String filename = String.format("R13_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
+        String filename = ReportFilenames.timestamped("R13", ext, clock);
 
         R13ShowOptions showOptions = request.getShowOptions() != null
                 ? request.getShowOptions() : new R13ShowOptions();
@@ -89,12 +92,10 @@ public class R13Service {
             try {
                 log.info("Compiling JRXML for cache key: {}", key);
                 String jrxml = loadTemplate(templatePath);
-                if (showOptions.hasAnyHiddenColumn()) {
-                    jrxml = modifyTemplateContent(jrxml, showOptions.toShowMap());
-                }
+                jrxml = modifyTemplateContent(jrxml, showOptions.toShowMap());
                 return compileReport(jrxml);
             } catch (Exception e) {
-                throw new ReportGenerationException("Failed to compile JRXML: " + templatePath, e);
+                throw new ReportGenerationException("Failed to compile JRXML template.", e);
             }
         });
 
@@ -202,12 +203,6 @@ public class R13Service {
         }
         pairs.sort((a, b) -> Integer.compare((Integer) a[1], (Integer) b[1]));
 
-        boolean hasPRICE = pairs.stream().anyMatch(p -> "PRICE".equals(p[0]));
-        boolean hasCONVERSION_FACTOR = pairs.stream().anyMatch(p -> "CONVERSION_FACTOR".equals(p[0]));
-        if (hasPRICE && hasCONVERSION_FACTOR) {
-            pairs.removeIf(p -> "CONVERSION_FACTOR".equals(p[0]));
-        }
-
         int m = pairs.isEmpty() ? 1 : pairs.size();
         int colWidth = width / m;
         int index = 0;
@@ -227,10 +222,6 @@ public class R13Service {
                 allNs.addAll(findReportElements(doc, "columnHeader", "staticText", totalKey));
                 allNs.addAll(findReportElements(doc, "detail",       "textField",  totalKey));
                 allNs.addAll(findReportElements(doc, "summary",      "textField",  totalKey));
-            }
-            if ("PRICE".equals(key) && hasCONVERSION_FACTOR) {
-                allNs.addAll(findReportElements(doc, "columnHeader", "staticText", "CONVERSION_FACTOR"));
-                allNs.addAll(findReportElements(doc, "detail",       "textField",  "CONVERSION_FACTOR"));
             }
 
             for (Element n : allNs) {

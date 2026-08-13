@@ -77,9 +77,6 @@ describe('validateR08', () => {
       submissionNumber: 'abc',
       timeFrame: 'xyz',
     });
-    expect(keys(result)).toEqual([
-      'report.submissionnumber.numeric.error',
-      'report.timeframe.numeric.error',
-    ]);
+    expect(keys(result)).toEqual(['report.submissionnumber.numeric.error', 'report.timeframe.numeric.error']);
   });
 });

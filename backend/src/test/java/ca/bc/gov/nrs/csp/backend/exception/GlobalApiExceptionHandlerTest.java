@@ -141,6 +141,7 @@ class GlobalApiExceptionHandlerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals("DATABASE_ERROR", response.getBody().code());
+        assertEquals("A database error occurred while processing the request.", response.getBody().message());
     }
 
     @Test
@@ -150,6 +151,7 @@ class GlobalApiExceptionHandlerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals("REPORT_ERROR", response.getBody().code());
+        assertEquals("An error occurred while generating the report.", response.getBody().message());
     }
 
     @Test
@@ -304,21 +306,6 @@ class GlobalApiExceptionHandlerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("Invalid value for parameter 'filter': 'abc'.", response.getBody().message());
-    }
-
-    @Test
-    void dataIntegrityViolation_returns400_whenMostSpecificCauseIsNull() {
-        var ex = new DataIntegrityViolationException("FK violation") {
-            @Override
-            public Throwable getMostSpecificCause() {
-                return null;
-            }
-        };
-
-        var response = handler.handleDataIntegrity(ex, servletRequest);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("DATA_INTEGRITY_ERROR", response.getBody().code());
     }
 
     @Test

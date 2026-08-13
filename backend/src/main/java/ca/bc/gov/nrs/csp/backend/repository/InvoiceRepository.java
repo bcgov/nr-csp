@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -211,6 +212,7 @@ public class InvoiceRepository {
                        cls.log_sale_type_code AS maturity,
                        cls.log_sale_fob_location AS fob_code,
                        cls.log_sale_sort_code AS primary_sort_code,
+                       cls.client_primary_sort_code AS client_primary_sort_code,
                        cls.client_total_invoice_amt AS total_amt,
                        cls.client_total_invoice_pieces AS total_pieces,
                        cls.client_total_invoice_volume AS total_vol,
@@ -289,6 +291,7 @@ public class InvoiceRepository {
                 rs.getString("maturity"),
                 rs.getString("fob_code"),
                 rs.getString("primary_sort_code"),
+                rs.getString("client_primary_sort_code"),
                 rs.getBigDecimal("total_amt"),
                 rs.getObject("total_pieces", Integer.class),
                 rs.getBigDecimal("total_vol"),
@@ -433,7 +436,7 @@ public class InvoiceRepository {
                 .addValue("maturity", details.maturity())
                 .addValue("fobCode", details.fobCode())
                 .addValue("primarySortCode", details.primarySortCode())
-                .addValue("clientPrimarySortCode", details.primarySortCode())
+                .addValue("clientPrimarySortCode", details.clientPrimarySortCode())
                 .addValue("sellerClientNumber", sellerClientNumber)
                 .addValue("sellerClientLocnCode", sellerClientLocnCode)
                 .addValue("buyerClientNumber", buyerClientNumber)
@@ -497,7 +500,7 @@ public class InvoiceRepository {
                 .addValue("maturity", details.maturity())
                 .addValue("fobCode", details.fobCode())
                 .addValue("primarySortCode", details.primarySortCode())
-                .addValue("clientPrimarySortCode", details.primarySortCode())
+                .addValue("clientPrimarySortCode", details.clientPrimarySortCode())
                 .addValue("sellerClientNumber", sellerClientNumber)
                 .addValue("sellerClientLocnCode", sellerClientLocnCode)
                 .addValue("buyerClientNumber", buyerClientNumber)
@@ -599,14 +602,18 @@ public class InvoiceRepository {
      * in {@code csvInvoiceNumbers}, resolving each number to its coastal_log_sale_id via the
      * submitter's client. The validator runs the same lookup, so any number reaching this
      * method should already exist for the submitter.
+     *
+     * @return the coastal_log_sale_ids the numbers resolved to (unresolved numbers are
+     *         omitted), so callers can act on the related invoices — e.g. cancelling the
+     *         invoices a replacement supersedes.
      */
-    public void replaceRelatedInvoices(Long parentId, String refTypeCode, String csvInvoiceNumbers,
+    public List<Long> replaceRelatedInvoices(Long parentId, String refTypeCode, String csvInvoiceNumbers,
                                         String submitterClientNum, String submitterLocnCode, String userId) {
         jdbc.update("DELETE FROM THE.coastal_log_sale_rltd_invc"
                         + " WHERE coastal_log_sale_id = :id AND csp_invoice_ref_type_code = :type",
                 new MapSqlParameterSource().addValue("id", parentId).addValue("type", refTypeCode));
 
-        if (csvInvoiceNumbers == null || csvInvoiceNumbers.isBlank()) return;
+        if (csvInvoiceNumbers == null || csvInvoiceNumbers.isBlank()) return List.of();
 
         String resolveSql = """
                 SELECT cls.coastal_log_sale_id
@@ -630,6 +637,7 @@ public class InvoiceRepository {
                 )
                 """;
 
+        List<Long> relatedIds = new ArrayList<>();
         for (String invNo : csvInvoiceNumbers.split(",")) {
             String trimmed = invNo.trim();
             if (trimmed.isEmpty()) continue;
@@ -646,7 +654,9 @@ public class InvoiceRepository {
                             .addValue("relatedId", ids.get(0))
                             .addValue("refTypeCode", refTypeCode)
                             .addValue("userId", userId));
+            relatedIds.add(ids.get(0));
         }
+        return relatedIds;
     }
 
     public void replaceLogSources(Long invoiceId, String logSourceCode, List<String> values, String userId) {

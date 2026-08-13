@@ -2,10 +2,10 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R10ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
-import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRunner;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R10Validator;
@@ -13,8 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -27,10 +27,12 @@ public class R10Service {
 
     private final JasperServerService jasperServerService;
     private final SearchService searchService;
+    private final Clock clock;
 
-    public R10Service(JasperServerService jasperServerService, SearchService searchService) {
+    public R10Service(JasperServerService jasperServerService, SearchService searchService, Clock clock) {
         this.jasperServerService = jasperServerService;
         this.searchService = searchService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R10ReportRequest request) {
@@ -38,18 +40,8 @@ public class R10Service {
         String format = request.getReportFormat().getValue();
         log.info("Generating R10 report format={}", format);
 
-        Map<String, Object> params = buildParams(request);
-        params.put("RUN_OUTPUT_FORMAT", format);
-
-        byte[] data = jasperServerService.generateReport("R10", params);
-        if (data == null || data.length == 0) {
-            throw new ResourceNotFoundException("The R10 report returned no data.");
-        }
-
-        String filename = String.format("R10_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")),
-                request.getReportFormat().getExtension());
-        return new ReportResult(data, filename);
+        return JasperReportRunner.run(jasperServerService, clock, "R10",
+                request.getReportFormat(), buildParams(request));
     }
 
     private void validate(R10ReportRequest r) {

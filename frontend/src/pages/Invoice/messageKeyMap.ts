@@ -19,6 +19,7 @@ export const MESSAGE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.otherparty.seller.submission.error': 'submittedBy',
   'invoice.submitter.not.equal.seller.client.number.error': 'submittingClientNumber',
   'invoice.submitter.not.equal.seller.client.location.error': 'submittingClientLocation',
+  'invoice.submitter.client.location.invalid.error': 'submittingClientLocation',
   // Other-party
   'invoice.otherparty.client.location.invalid.error': 'otherClientLocation',
   'invoice.manual.other.party.name.error': 'otherClientName',
@@ -49,6 +50,7 @@ export const MESSAGE_KEY_TO_FIELD: Record<string, string> = {
 export const CLIENT_MESSAGE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.client.invnumber.required.error': 'invNumber',
   'invoice.client.invnumber.pattern.error': 'invNumber',
+  'invoice.client.invnumber.maxlength.error': 'invNumber',
   'invoice.client.invdate.required.error': 'invDate',
   'invoice.client.invtype.required.error': 'invType',
   'invoice.client.invtype.pattern.error': 'invType',
@@ -57,6 +59,9 @@ export const CLIENT_MESSAGE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.client.submitterlocation.required.error': 'submittingClientLocation',
   'invoice.client.submitterlocation.pattern.error': 'submittingClientLocation',
   'invoice.client.otherlocation.pattern.error': 'otherClientLocation',
+  'invoice.client.clientprimarysortcode.maxlength.error': 'clientPrimarySortCode',
+  'invoice.client.reviewercomment.maxlength.error': 'reviewerComment',
+  'invoice.client.submittercomment.maxlength.error': 'submitterComment',
 };
 
 export const CLIENT_LINE_ITEM_MESSAGE_KEY_TO_FIELD: Record<string, string> = {

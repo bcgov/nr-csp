@@ -64,6 +64,46 @@ parameters:
   - name: JASPER_SERVER_REPORT_URI_BASE
     value: ""
 
+  # ── Frontend amplify config ───────────────────────────────
+  # Lives here (not in frontend/openshift.deploy.yml) so the values are
+  # processed by the init step, where environment-scoped GitHub variables
+  # resolve. The deploy job reads vars inside a matrix, which GitHub
+  # evaluates before the environment is attached — env-scoped values are
+  # silently ignored there.
+  - name: APP_ENV
+    description: Application environment label (dev, test, prod)
+    value: dev
+  - name: COGNITO_IDP_NAME
+    description: Cognito identity provider name (DEV-IDIR, TEST-IDIR, PROD-IDIR)
+    value: DEV-IDIR
+  - name: COGNITO_REGION
+    description: AWS region for Cognito
+    value: ca-central-1
+  - name: COGNITO_USER_POOL_ID
+    description: Cognito user pool ID
+    required: true
+  - name: COGNITO_USER_POOL_CLIENT_ID
+    description: Cognito app client ID (differs per environment)
+    required: true
+  - name: COGNITO_DOMAIN
+    description: Cognito hosted UI domain (no https://)
+    required: true
+  - name: COGNITO_OAUTH_SCOPES
+    description: Comma-separated OAuth scopes
+    value: openid,profile,email
+  - name: COGNITO_REDIRECT_SIGN_IN
+    description: Post-login redirect URL
+    required: true
+  - name: COGNITO_REDIRECT_SIGN_OUT
+    description: Post-logout redirect URL
+    required: true
+  - name: FAM_CLIENT_ID
+    description: FAM application client ID (Cognito group prefix, e.g. CSP)
+    required: true
+  - name: FRONTEND_LOG_LEVEL
+    description: Caddy runtime log level (DEBUG, INFO, WARN, ERROR)
+    value: INFO
+
 objects:
   # ── Backend Secret ────────────────────────────────────────
   - apiVersion: v1
@@ -103,16 +143,54 @@ objects:
       JASPER_SERVER_PUT_URL: ${JASPER_SERVER_PUT_URL}
       JASPER_SERVER_REPORT_URI_BASE: ${JASPER_SERVER_REPORT_URI_BASE}
 
+  # ── Frontend env ConfigMap (mirrors ${NAME}-${ZONE}-backend) ──
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${NAME}-${ZONE}-frontend
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    data:
+      LOG_LEVEL: ${FRONTEND_LOG_LEVEL}
+
+  # ── Frontend amplify ConfigMap (runtime-injected, overrides the
+  #    build-time placeholder; mounted by the frontend Deployment) ──
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${NAME}-frontend-amplify-config-${ZONE}
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+    data:
+      amplify-config.js: |
+        window.amplifyConfig = {
+          "appEnv": "${APP_ENV}",
+          "idpName": "${COGNITO_IDP_NAME}",
+          "region": "${COGNITO_REGION}",
+          "userPoolId": "${COGNITO_USER_POOL_ID}",
+          "userPoolClientId": "${COGNITO_USER_POOL_CLIENT_ID}",
+          "cognitoDomain": "${COGNITO_DOMAIN}",
+          "oauthScopes": "${COGNITO_OAUTH_SCOPES}".split(','),
+          "redirectSignIn": "${COGNITO_REDIRECT_SIGN_IN}",
+          "redirectSignOut": "${COGNITO_REDIRECT_SIGN_OUT}",
+          "mockUser": false,
+          "famClientId": "${FAM_CLIENT_ID}"
+        };
+
+  # ── NetworkPolicy: ingress from OpenShift router ──────────
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
-      name: ${NAME}-${ZONE}-frontend-ingress
+      name: ${NAME}-frontend-${ZONE}-ingress
       labels:
-        app: ${NAME}-${ZONE}
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
     spec:
       podSelector:
         matchLabels:
-          deployment: ${NAME}-${ZONE}-frontend
+          app: ${NAME}-frontend-${ZONE}
       ingress:
         - from:
             - namespaceSelector:
@@ -120,21 +198,26 @@ objects:
                   network.openshift.io/policy-group: ingress
       policyTypes:
         - Ingress
+
+  # ── NetworkPolicy: ingress from same-zone frontend + cluster monitoring ──
   - apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
-      name: ${NAME}-${ZONE}-backend-ingress
+      name: ${NAME}-backend-${ZONE}-ingress
       labels:
-        app: ${NAME}-${ZONE}
+        app: ${NAME}-backend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
     spec:
       podSelector:
         matchLabels:
-          deployment: ${NAME}-${ZONE}-backend
+          app: ${NAME}-backend-${ZONE}
       ingress:
         - from:
             - podSelector:
                 matchLabels:
-                  app: ${NAME}-${ZONE}
-                  deployment: ${NAME}-${ZONE}-frontend
+                  app: ${NAME}-frontend-${ZONE}
+            - namespaceSelector:
+                matchLabels:
+                  network.openshift.io/policy-group: monitoring
       policyTypes:
         - Ingress

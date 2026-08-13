@@ -17,13 +17,7 @@ interface RenderOpts {
 
 function renderSelect({ onChange = vi.fn(), ...rest }: RenderOpts = {}) {
   const { container } = render(
-    <SearchableSelect
-      id="fruit-select"
-      titleText="Favourite fruit"
-      items={ITEMS}
-      onChange={onChange}
-      {...rest}
-    />,
+    <SearchableSelect id="fruit-select" titleText="Favourite fruit" items={ITEMS} onChange={onChange} {...rest} />,
   );
   const input = screen.getByRole('combobox') as HTMLInputElement;
   return { onChange, input, container };

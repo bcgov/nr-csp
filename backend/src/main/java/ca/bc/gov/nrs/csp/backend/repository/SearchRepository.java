@@ -156,7 +156,9 @@ public class SearchRepository {
             }
         }
         if (criteria.invNumber() != null) {
-            sql.append(" AND inv.client_invoice_no LIKE :invNumber ESCAPE '\\'");
+            // Case-insensitive match: UPPER both the column and the pattern so the
+            // invoice number search ignores case regardless of how it's stored.
+            sql.append(" AND UPPER(inv.client_invoice_no) LIKE UPPER(:invNumber) ESCAPE '\\'");
             params.addValue("invNumber", toInvoiceNumberPattern(criteria.invNumber()));
         }
         if (criteria.invStatus() != null) {

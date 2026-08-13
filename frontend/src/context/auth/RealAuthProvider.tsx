@@ -2,8 +2,12 @@ import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils';
 import { type ReactNode, useEffect, useState } from 'react';
 
+import { clearPersistedTableState } from '@/hooks/usePersistentState';
+
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
+import { onSessionExpired } from './sessionExpiredSignal';
+
 import type { Role } from './permissions';
 import type { AuthContextValue, AuthUser } from './types';
 
@@ -46,8 +50,14 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
           [payload['given_name'], payload['family_name']].filter(Boolean).join(' ') ||
           undefined;
 
+        // The backend reads this same claim as the principal (JwtService#extractUsername),
+        // so it's what lands in audit fields such as entryUserID.
+        const idpUsernameClaim = payload['custom:idp_username'];
+        const idirUsername = typeof idpUsernameClaim === 'string' ? idpUsernameClaim.trim() : '';
+
         setUser({
           username: String(payload['cognito:username'] ?? payload.sub ?? ''),
+          idirUsername: idirUsername || undefined,
           displayName: displayName || undefined,
           email: String(payload['email'] ?? ''),
           roles: groups,
@@ -57,18 +67,39 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
       }
     } catch {
-      setUser(null);
+      // A thrown error here doesn't reliably mean the session is dead — it's usually a
+      // transient fetchAuthSession() failure (network blip, momentary Cognito
+      // unavailability), and treating every failure as a logout bounced users on those
+      // blips. A genuinely dead session (refresh token expired/invalid) is instead caught
+      // by the 401 response interceptor in request.ts, an unambiguous signal from the
+      // backend itself — see sessionExpiredSignal. So leave `user` as it was.
     } finally {
       setIsLoading(false);
     }
   }
 
+  async function performSignOut() {
+    setIsSigningOut(true);
+    await signOut();
+    clearPersistedTableState();
+    setUser(null);
+  }
+
   useEffect(() => {
     loadUser();
-    const unsubscribe = Hub.listen('auth', ({ payload }) => {
+    let handledSessionExpired = false;
+    const unsubscribeHub = Hub.listen('auth', ({ payload }) => {
       if (payload.event === 'signedIn' || payload.event === 'signedOut') loadUser();
     });
-    return unsubscribe;
+    const unsubscribeSessionExpired = onSessionExpired(() => {
+      if (handledSessionExpired) return;
+      handledSessionExpired = true;
+      void performSignOut();
+    });
+    return () => {
+      unsubscribeHub();
+      unsubscribeSessionExpired();
+    };
   }, []);
 
   const value: AuthContextValue = {
@@ -80,11 +111,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
       const idpName = window.amplifyConfig?.idpName ?? 'DEV-IDIR';
       return signInWithRedirect({ provider: { custom: idpName } });
     },
-    signOut: async () => {
-      setIsSigningOut(true);
-      await signOut();
-      setUser(null);
-    },
+    signOut: performSignOut,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

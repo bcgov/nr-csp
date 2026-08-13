@@ -37,7 +37,7 @@ public class JasperServerService {
 
     private static final Logger log = LogManager.getLogger(JasperServerService.class);
 
-    private static final long SESSION_TTL_SECONDS = 20 * 60;
+    private static final long SESSION_TTL_SECONDS = 20L * 60;
 
     private final JasperServerProperties props;
     private final SSLContext sslContext;

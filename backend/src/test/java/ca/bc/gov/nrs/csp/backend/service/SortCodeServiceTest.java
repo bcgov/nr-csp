@@ -18,8 +18,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,11 +40,14 @@ class SortCodeServiceTest {
 
     SortCodeService sortCodeService;
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Vancouver");
     private static final LocalDate FIXED_DATE = LocalDate.of(2024, Month.JULY, 22);
+    private final Clock clock =
+            Clock.fixed(FIXED_DATE.atStartOfDay(BUSINESS_ZONE).toInstant(), BUSINESS_ZONE);
 
     @BeforeEach
     void setUp() {
-        sortCodeService = new SortCodeService(sortCodeRepository, new CommonValidation(validationLookupRepository));
+        sortCodeService = new SortCodeService(sortCodeRepository, new CommonValidation(validationLookupRepository), clock);
     }
 
     // helper returns a canonical sample sort code used by tests

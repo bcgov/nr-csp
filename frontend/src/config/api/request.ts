@@ -1,6 +1,8 @@
 import { fetchAuthSession } from 'aws-amplify/auth';
 import axios from 'axios';
 
+import { emitSessionExpired } from '@/context/auth/sessionExpiredSignal';
+
 export const apiClient = axios.create({
   baseURL: '/api',
   timeout: 60000,
@@ -16,3 +18,15 @@ apiClient.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // A real 401 from our backend is the one unambiguous signal that the session is
+    // actually dead (vs. a transient network/Cognito blip) — see RealAuthProvider.
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      emitSessionExpired();
+    }
+    return Promise.reject(error);
+  },
+);

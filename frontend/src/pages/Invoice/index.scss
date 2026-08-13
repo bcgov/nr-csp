@@ -22,6 +22,14 @@
     padding-bottom: $spacing-06;
   }
 
+  &__error-col {
+    margin-top: $spacing-05;
+  }
+
+  &__error {
+    max-width: 100%;
+  }
+
   &__status-tag {
     display: inline-flex;
     align-items: center;
@@ -135,6 +143,10 @@
 
   .cds--date-picker__input {
     width: 100% !important;
+  }
+
+  .cds--label {
+    display: block;
   }
 
   &__group-actions {

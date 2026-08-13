@@ -163,15 +163,20 @@ class CspSubmissionRepositoryTest {
     // insertSubmission
     // ---------------------------------------------------------------
 
-    @Test
-    void insertSubmission_returnsGeneratedKeyAndBindsAllParams() {
+    private void stubKeyHolder() {
         given(jdbc.update(anyString(), any(MapSqlParameterSource.class), any(KeyHolder.class), any(String[].class)))
                 .willAnswer(inv -> {
                     KeyHolder keyHolder = inv.getArgument(2);
                     keyHolder.getKeyList().add(Map.of("CSP_SUBMISSION_ID", BigDecimal.valueOf(777L)));
                     return 1;
                 });
+    }
 
+    @Test
+    void insertSubmission_manualOverload_returnsKeyAndLeavesSubmitterContactNull() {
+        stubKeyHolder();
+
+        // Manual single-invoice overload: no submitter contact details available.
         Long id = repo.insertSubmission("00012345", "00", "INB", "USER1");
 
         assertThat(id).isEqualTo(777L);
@@ -184,13 +189,46 @@ class CspSubmissionRepositoryTest {
 
         assertThat(sqlCaptor.getValue())
                 .contains("INSERT INTO THE.csp_submission")
-                .contains("THE.CSP_SUBMISSION_SEQ.NEXTVAL");
+                .contains("THE.CSP_SUBMISSION_SEQ.NEXTVAL")
+                .contains("submitter_email, submitter_phone")
+                .contains(":submitterEmail, :submitterPhone")
+                // Manual entry is NOT assigned a business submission number.
+                .doesNotContain("CSP_ELECTRONIC_SUBMISSION_SEQ");
         assertThat(keyColumnsCaptor.getValue()).containsExactly("CSP_SUBMISSION_ID");
 
         MapSqlParameterSource params = paramsCaptor.getValue();
         assertThat(params.getValue("status")).isEqualTo("INB");
         assertThat(params.getValue("clientNumber")).isEqualTo("00012345");
         assertThat(params.getValue("clientLocnCode")).isEqualTo("00");
+        assertThat(params.getValue("userId")).isEqualTo("USER1");
+        // Manual path carries no contact details.
+        assertThat(params.getValue("submitterEmail")).isNull();
+        assertThat(params.getValue("submitterPhone")).isNull();
+    }
+
+    @Test
+    void insertSubmission_uploadOverload_bindsSubmitterEmailAndPhone() {
+        stubKeyHolder();
+
+        Long id = repo.insertSubmission(new CspSubmissionRepository.NewSubmission(
+                "00012345", "00", "INB", "Y", 3, "seller@example.com", "2505551234"), "USER1");
+
+        assertThat(id).isEqualTo(777L);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).update(sqlCaptor.capture(), paramsCaptor.capture(), any(KeyHolder.class), any(String[].class));
+
+        // The upload path is assigned a business submission number from the electronic sequence.
+        assertThat(sqlCaptor.getValue())
+                .contains("submission_id, ")
+                .contains("THE.CSP_ELECTRONIC_SUBMISSION_SEQ.NEXTVAL");
+
+        MapSqlParameterSource params = paramsCaptor.getValue();
+        assertThat(params.getValue("monthComplete")).isEqualTo("Y");
+        assertThat(params.getValue("invoiceCount")).isEqualTo(3);
+        assertThat(params.getValue("submitterEmail")).isEqualTo("seller@example.com");
+        assertThat(params.getValue("submitterPhone")).isEqualTo("2505551234");
         assertThat(params.getValue("userId")).isEqualTo("USER1");
     }
 

@@ -121,7 +121,7 @@ public class GlobalApiExceptionHandler {
         clearProducibleMediaTypes(request);
         log.error("Database procedure error [{}]: {}", ex.getErrorCode(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("DATABASE_ERROR", ex.getMessage()));
+                .body(new ApiError("DATABASE_ERROR", "A database error occurred while processing the request."));
     }
 
     @ExceptionHandler(ReportGenerationException.class)
@@ -129,7 +129,7 @@ public class GlobalApiExceptionHandler {
         clearProducibleMediaTypes(request);
         log.error("Report generation failed.", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("REPORT_ERROR", ex.getMessage()));
+                .body(new ApiError("REPORT_ERROR", "An error occurred while generating the report."));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -179,8 +179,7 @@ public class GlobalApiExceptionHandler {
         // Surface DB constraint violations (e.g. an Oracle FK such as a client
         // number/location that doesn't exist) as a clean 400 instead of a raw 500
         // stack trace. The specific cause is logged for diagnostics only.
-        log.warn("Data integrity violation: {}",
-                ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage());
+        log.warn("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
         return ResponseEntity.badRequest().body(new ApiError("DATA_INTEGRITY_ERROR",
                 "The request references data that does not exist or violates a database constraint. "
                         + "Please verify the client numbers, locations, and codes."));

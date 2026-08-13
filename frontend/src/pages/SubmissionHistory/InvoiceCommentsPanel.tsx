@@ -25,9 +25,11 @@ const isRejected = (status: string | null): boolean => (status ?? '').toLowerCas
 const InvoiceCommentsPanel: FC<InvoiceCommentsPanelProps> = ({ submissionId, enabled }) => {
   const { data, isLoading, isError } = useSubmissionInvoiceCommentsQuery(submissionId, enabled);
 
+  const testId = `invoice-comments-panel-${submissionId}`;
+
   if (isLoading) {
     return (
-      <div className="invoice-comments-panel invoice-comments-panel--status">
+      <div className="invoice-comments-panel invoice-comments-panel--status" data-testid={testId}>
         <Loading withOverlay={false} small description="Loading invoice comments" />
       </div>
     );
@@ -35,7 +37,7 @@ const InvoiceCommentsPanel: FC<InvoiceCommentsPanelProps> = ({ submissionId, ena
 
   if (isError) {
     return (
-      <div className="invoice-comments-panel invoice-comments-panel--status">
+      <div className="invoice-comments-panel invoice-comments-panel--status" data-testid={testId}>
         <p className="invoice-comments-panel__error">Failed to load invoice comments. Please try again.</p>
       </div>
     );
@@ -45,7 +47,7 @@ const InvoiceCommentsPanel: FC<InvoiceCommentsPanelProps> = ({ submissionId, ena
 
   if (invoices.length === 0) {
     return (
-      <div className="invoice-comments-panel invoice-comments-panel--status">
+      <div className="invoice-comments-panel invoice-comments-panel--status" data-testid={testId}>
         <p className="invoice-comments-panel__empty">This submission has no invoices.</p>
       </div>
     );
@@ -54,7 +56,7 @@ const InvoiceCommentsPanel: FC<InvoiceCommentsPanelProps> = ({ submissionId, ena
   const commentedCount = invoices.filter((inv) => hasComment(inv.comment)).length;
 
   return (
-    <div className="invoice-comments-panel">
+    <div className="invoice-comments-panel" data-testid={testId}>
       <p className="invoice-comments-panel__header">
         Invoice comments ({commentedCount} of {invoices.length} have comments)
       </p>

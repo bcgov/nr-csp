@@ -272,7 +272,7 @@ class SearchRepositoryTest {
                 null, null, null, null, null, null, null, "500", null, null, null, null);
         repo.search(criteria, DEFAULT_PAGE);
 
-        assertThat(captureDataSql()).contains("inv.client_invoice_no LIKE :invNumber ESCAPE '\\'");
+        assertThat(captureDataSql()).contains("UPPER(inv.client_invoice_no) LIKE UPPER(:invNumber) ESCAPE '\\'");
         assertThat(captureParams().getValue("invNumber")).isEqualTo("%500%");
     }
 
