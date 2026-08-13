@@ -19,7 +19,7 @@ import LayoutHeaderGlobalBar from './LayoutHeaderGlobalBar';
 
 import './index.scss';
 
-const APP_NAME = 'Coast Selling Application - (CSP)';
+const APP_NAME = 'Coast Selling Application (CSP)';
 
 export const LayoutHeader: FC = () => {
   const { isSideNavExpanded, toggleSideNav } = useLayout();
@@ -37,7 +37,7 @@ export const LayoutHeader: FC = () => {
         />
       )}
       <HeaderName as={Link} to="/" prefix="">
-        {APP_NAME}
+        {APP_NAME} - testing
       </HeaderName>
       <HeaderGlobalBar>
         <LayoutHeaderGlobalBar />
