@@ -19,7 +19,7 @@ import LayoutHeaderGlobalBar from './LayoutHeaderGlobalBar';
 
 import './index.scss';
 
-const APP_NAME = 'Coast Selling Application (CSP)';
+const APP_NAME = 'Coast Selling Application - (CSP)';
 
 export const LayoutHeader: FC = () => {
   const { isSideNavExpanded, toggleSideNav } = useLayout();
