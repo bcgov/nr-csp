@@ -22,8 +22,8 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <jjwt.version>0.13.0</jjwt.version>
         <jwks-rsa.version>0.24.1</jwks-rsa.version>
-        <ojdbc.version>23.26.2.0.0</ojdbc.version>
-        <jasperreports.version>7.0.7</jasperreports.version>
+        <ojdbc.version>23.26.3.0.0</ojdbc.version>
+        <jasperreports.version>7.0.8</jasperreports.version>
         <testcontainers.version>1.21.4</testcontainers.version>
         <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
         <sonar.coverage.exclusions>
@@ -105,7 +105,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.0.3</version>
+            <version>3.1.0</version>
         </dependency>
 
         <!-- Database -->
