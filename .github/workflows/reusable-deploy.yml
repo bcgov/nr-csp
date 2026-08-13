@@ -158,5 +158,6 @@ jobs:
           parameters:
             -p ZONE="${{ inputs.target }}"
             -p NAME="${{ github.event.repository.name }}"
+            -p COMMIT_SHA='${{ github.sha }}'
             ${{ matrix.parameters }}
           triggers: ${{ inputs.triggers }}
