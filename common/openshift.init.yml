@@ -80,8 +80,14 @@ parameters:
   - name: COGNITO_REDIRECT_SIGN_IN
     description: Post-login redirect URL
     required: true
+  # Cognito validates logout_uri by exact string match against the FAM client's
+  # registered logout URLs (FAM repo: lza-infrastructure/terraform/server/
+  # oidc_clients_csp.tf). FAM registers the full SiteMinder→Keycloak chain:
+  #   <siteminder logoff.cgi>?retnow=1&returl=<keycloak logout>?redirect_uri=<app>/logout
+  # so this value must reproduce that chain byte-for-byte or Cognito bounces the
+  # user to /login with "Required parameters missing".
   - name: COGNITO_REDIRECT_SIGN_OUT
-    description: Post-logout redirect URL
+    description: Post-logout redirect URL (full SiteMinder→Keycloak logout chain)
     required: true
   - name: FAM_CLIENT_ID
     description: FAM application client ID (Cognito group prefix, e.g. CSP)
