@@ -61,6 +61,7 @@ if [ -f /cert/jssecacerts ]; then\n\
     -noprompt 2>/dev/null || true\n\
 fi\n\
 exec java $JAVA_OPTS \\\n\
+  -Duser.timezone=America/Vancouver \\\n\
   -Djavax.net.ssl.trustStore=/tmp/truststore.jks \\\n\
   -Djavax.net.ssl.trustStorePassword=changeit \\\n\
   -Djava.security.properties=/app/tls-legacy.security \\\n\

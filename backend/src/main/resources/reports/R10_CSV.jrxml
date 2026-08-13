@@ -1,0 +1,356 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="R10_CSV" language="java" pageWidth="612" pageHeight="792000" columnWidth="572" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="c0e850eb-0c21-42bf-8d78-367dabb09950" ignorePagination="true">
+	<property name="ireport.zoom" value="2.5937424601000143"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.callouts" value="##Wed Feb 05 13:03:00 AST 2014"/>
+	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R10_CSV"/>
+	<property name="ireport.jasperserver.url" value="https://d1apps.cgi-dev.ca/int/nrsrs/"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="CSP_ISP_Adapter"/>
+	<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+	<property name="com.jaspersoft.jrs.export.csv.paginated" value="false"/>
+	<property name="ireport.jasperserver.user" value="jasperadmin"/>
+	<property name="com.jaspersoft.studio.report.unit.description" value="CSV friendly version of the log sales report"/>
+	<property name="com.jaspersoft.studio.unit." value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.pageHeight" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.pageWidth" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.topMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.bottomMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.leftMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.rightMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.columnWidth" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.columnSpacing" value="pixel"/>
+	<parameter name="INVOICE_DATE_FROM" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="INVOICE_DATE_TO" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TIME_FRAME" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SELLER_CLIENT_NUMBER" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SELLER_CLIENT_LOCN_CODE" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="BUYER_CLIENT_NUMBER" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="BUYER_CLIENT_LOCN_CODE" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="MATURITY" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="INVOICE_TYPE_CODE" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="USER_ID" forPrompting="false" class="java.lang.String"/>
+	<parameter name="REPORT_CURSOR" forPrompting="false" class="java.sql.ResultSet"/>
+	<query language="plsql"><![CDATA[{call CSP_SP_RPT_10 ($P{REPORT_CURSOR}, $P{INVOICE_DATE_FROM}, $P{INVOICE_DATE_TO}, $P{SELLER_CLIENT_NUMBER}, $P{SELLER_CLIENT_LOCN_CODE}, $P{BUYER_CLIENT_NUMBER}, $P{BUYER_CLIENT_LOCN_CODE}, $P{MATURITY}, $P{INVOICE_TYPE_CODE})}]]></query>
+	<field name="LOG_SALE_SPECIES_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_GRADE_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_SORT_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_TYPE_CODE" class="java.lang.String"/>
+	<field name="SELLER_CLIENT_NUMBER" class="java.lang.String"/>
+	<field name="BUYER_CLIENT_NUMBER" class="java.lang.String"/>
+	<field name="CLIENT_INVOICE_NO" class="java.lang.String"/>
+	<field name="INVOICE_DATE" class="java.sql.Timestamp"/>
+	<field name="PIECES" class="java.math.BigDecimal"/>
+	<field name="VOLUME" class="java.math.BigDecimal"/>
+	<field name="VOLUME_PERCENTAGE" class="java.math.BigDecimal"/>
+	<field name="AMOUNT" class="java.math.BigDecimal"/>
+	<field name="AMV" class="java.math.BigDecimal"/>
+	<field name="MATURITY_DESC" class="java.lang.String"/>
+	<field name="SPECIES_DESC" class="java.lang.String"/>
+	<field name="GRADE_DESC" class="java.lang.String"/>
+	<field name="SORTCODE_DESC" class="java.lang.String"/>
+	<field name="TOTALVOL_SPECIES" class="java.math.BigDecimal"/>
+	<field name="SPECIESVOL_PERCENT" class="java.math.BigDecimal"/>
+	<field name="TOTALVOL_SORT" class="java.math.BigDecimal"/>
+	<field name="SORTVOL_PERCENT" class="java.math.BigDecimal"/>
+	<field name="GRANDTOTALVOL" class="java.math.BigDecimal"/>
+	<variable name="PTotal1" resetType="Group" calculation="Sum" resetGroup="t" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{PIECES}]]></expression>
+	</variable>
+	<variable name="PTotal2" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{PIECES}]]></expression>
+	</variable>
+	<variable name="VTotal1" resetType="Group" calculation="Sum" resetGroup="t" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{VOLUME}]]></expression>
+	</variable>
+	<variable name="VTotal2" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{VOLUME}]]></expression>
+	</variable>
+	<variable name="ATotal1" resetType="Group" calculation="Sum" resetGroup="t" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMOUNT}]]></expression>
+	</variable>
+	<variable name="ATotal2" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMOUNT}]]></expression>
+	</variable>
+	<variable name="PSubTotal" resetType="Group" calculation="Sum" resetGroup="subT" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{PIECES}]]></expression>
+	</variable>
+	<variable name="VSubTotal" resetType="Group" calculation="Sum" resetGroup="subT" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{VOLUME}]]></expression>
+	</variable>
+	<variable name="ASubTotal" resetType="Group" calculation="Sum" resetGroup="subT" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMOUNT}]]></expression>
+	</variable>
+	<variable name="AvSubTotal" resetType="Group" calculation="First" resetGroup="subT" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{SORTVOL_PERCENT}]]></expression>
+	</variable>
+	<variable name="AvTotal1" resetType="Group" calculation="First" resetGroup="t" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{SPECIESVOL_PERCENT}]]></expression>
+	</variable>
+	<variable name="AvTotal2" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[]]></expression>
+	</variable>
+	<variable name="MSubTotal" resetType="Group" calculation="Sum" resetGroup="subT" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMV}]]></expression>
+	</variable>
+	<variable name="MTotal1" resetType="Group" calculation="Sum" resetGroup="t" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMV}]]></expression>
+	</variable>
+	<variable name="MTotal2" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMV}]]></expression>
+	</variable>
+	<group name="t">
+		<expression><![CDATA[$F{SPECIES_DESC}]]></expression>
+		<groupHeader>
+			<band height="14">
+				<element kind="textField" uuid="be804f46-7c76-41e7-81d0-d61cdc459331" x="0" y="0" width="44" height="14" fontSize="8.0" bold="true">
+					<expression><![CDATA[$F{SPECIES_DESC}]]></expression>
+					<property name="local_mesure_unitx" value="pixel"/>
+					<property name="com.jaspersoft.studio.unit.x" value="px"/>
+					<property name="local_mesure_unitwidth" value="pixel"/>
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="15">
+				<element kind="textField" uuid="74582758-7456-4905-8f2f-9faef421ba33" x="329" y="1" width="62" height="13" fontSize="4.0" pattern="¤ #,##0.00" blankWhenNull="true" hTextAlign="Right">
+					<expression><![CDATA[$V{ATotal1}.divide($V{VTotal1}, 10, RoundingMode.HALF_UP)]]></expression>
+				</element>
+				<element kind="textField" uuid="0439109b-4b9d-4ccb-b7bf-3bd2a67e735c" x="44" y="1" width="87" height="13" fontSize="4.0" textAdjust="StretchHeight" pattern="" hTextAlign="Right">
+					<expression><![CDATA[$F{SPECIES_DESC} + " Total:"]]></expression>
+				</element>
+				<element kind="textField" uuid="9f3375d0-2238-40b6-8fe8-12c0a2db8cc7" x="221" y="1" width="50" height="13" fontSize="4.0" pattern="##,###,##0.000;-##,###,##0.000" hTextAlign="Right">
+					<expression><![CDATA[$V{VTotal1}]]></expression>
+				</element>
+				<element kind="textField" uuid="8af97300-3cbc-4058-b7dc-c8e959c0bd73" x="171" y="1" width="50" height="13" fontSize="4.0" pattern="¤ ##,##0.00" blankWhenNull="true" hTextAlign="Right">
+					<expression><![CDATA[$V{ATotal1}]]></expression>
+				</element>
+				<element kind="textField" uuid="0439109b-4b9d-4ccb-b7bf-3bd2a67e735c" x="131" y="1" width="40" height="13" fontSize="4.0" pattern="##,##0;-##,##0" hTextAlign="Right">
+					<expression><![CDATA[$V{PTotal1}]]></expression>
+				</element>
+				<element kind="textField" uuid="c9e3a560-ec17-48e6-bdb3-053ae7e2a096" x="271" y="1" width="58" height="13" fontSize="4.0" pattern="#,##0.00 %" blankWhenNull="true" hTextAlign="Right">
+					<expression><![CDATA[$V{AvTotal1}]]></expression>
+				</element>
+			</band>
+		</groupFooter>
+	</group>
+	<group name="subT">
+		<expression><![CDATA[$F{LOG_SALE_SORT_CODE}]]></expression>
+		<groupFooter>
+			<band height="18">
+				<element kind="textField" uuid="c9e3a560-ec17-48e6-bdb3-053ae7e2a096" x="271" y="3" width="58" height="13" fontSize="4.0" pattern="#,##0.00 %" blankWhenNull="true" hTextAlign="Right">
+					<expression><![CDATA[$V{AvSubTotal}]]></expression>
+				</element>
+				<element kind="textField" uuid="9f3375d0-2238-40b6-8fe8-12c0a2db8cc7" x="221" y="3" width="50" height="13" fontSize="4.0" pattern="##,###,##0.000;-##,###,##0.000" blankWhenNull="false" hTextAlign="Right">
+					<expression><![CDATA[$V{VSubTotal}]]></expression>
+				</element>
+				<element kind="textField" uuid="0439109b-4b9d-4ccb-b7bf-3bd2a67e735c" x="131" y="3" width="40" height="13" fontSize="4.0" pattern="##,##0;-##,##0" hTextAlign="Right">
+					<expression><![CDATA[$V{PSubTotal}]]></expression>
+				</element>
+				<element kind="textField" uuid="0439109b-4b9d-4ccb-b7bf-3bd2a67e735c" x="44" y="3" width="87" height="13" fontSize="4.0" textAdjust="StretchHeight" pattern="" hTextAlign="Right">
+					<expression><![CDATA["Sort Code " + $F{LOG_SALE_SORT_CODE} + " Sub-Total:"]]></expression>
+				</element>
+				<element kind="textField" uuid="8af97300-3cbc-4058-b7dc-c8e959c0bd73" x="171" y="3" width="50" height="13" fontSize="4.0" pattern="¤ ##,##0.00" blankWhenNull="true" hTextAlign="Right">
+					<expression><![CDATA[$V{ASubTotal}]]></expression>
+				</element>
+				<element kind="textField" uuid="74582758-7456-4905-8f2f-9faef421ba33" x="329" y="3" width="62" height="13" fontSize="4.0" pattern="¤ #,##0.00" blankWhenNull="true" hTextAlign="Right">
+					<expression><![CDATA[$V{ASubTotal}.divide($V{VSubTotal}, 10, RoundingMode.HALF_UP)]]></expression>
+				</element>
+			</band>
+		</groupFooter>
+	</group>
+	<background splitType="Stretch"/>
+	<title height="106">
+		<element kind="staticText" uuid="82c7d299-dd8b-4ad7-9d99-eaeb0d333515" x="0" y="0" width="221" height="26" markup="none" fontSize="14.0" hTextAlign="Center">
+			<text><![CDATA[Government of British Columbia]]></text>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="a4e8f8bb-28e0-443a-a8bb-f740313bdcd0" x="0" y="26" width="171" height="13" markup="none" fontSize="8.0" hTextAlign="Center">
+			<text><![CDATA[R10-Log Sales Species/Sort/Grade Report]]></text>
+		</element>
+		<element kind="staticText" uuid="837a8502-e90a-4a79-ad6e-1feab599ba52" x="0" y="39" width="44" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[User ID:]]></text>
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="textField" uuid="7f696cb3-4d29-4131-aa73-b211cf1ad03d" x="44" y="39" width="127" height="13" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{USER_ID}]]></expression>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="staticText" uuid="be90c17d-2f1e-4bb7-b965-79b74e5fff11" x="0" y="52" width="44" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[Report ID:]]></text>
+		</element>
+		<element kind="staticText" uuid="1ff43caa-e3d8-4c4d-8739-e067b8d8111c" x="44" y="52" width="127" height="13" markup="none" fontSize="8.0">
+			<text><![CDATA[CSP-R10]]></text>
+		</element>
+		<element kind="staticText" uuid="9822627e-d5a2-4f31-9a7c-f1b531651424" x="0" y="65" width="44" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[Run Date:]]></text>
+		</element>
+		<element kind="textField" uuid="c3a2a09a-3a4b-401a-87ab-6a67adac2b25" x="44" y="65" width="127" height="13" markup="none" fontSize="8.0">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new Date())]]></expression>
+			<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+		</element>
+		<element kind="staticText" uuid="03b71a52-d27f-4453-b6b7-4b00f4879129" x="0" y="78" width="44" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[Run Time:]]></text>
+		</element>
+		<element kind="textField" uuid="3129dd11-e088-4b31-a9dd-2dc0e1aced11" x="44" y="78" width="127" height="13" markup="none" fontSize="8.0" pattern="">
+			<expression><![CDATA[new SimpleDateFormat("hh:mm a").format(new Date())]]></expression>
+			<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+		</element>
+		<element kind="staticText" uuid="ea6ad003-6c2b-4982-9875-826e947b115f" x="0" y="91" width="44" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[Maturity:]]></text>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="textField" uuid="3074f6b5-6335-4b1d-b43d-9aa6509c038b" x="44" y="91" width="52" height="13" fontSize="8.0" pattern="" blankWhenNull="true">
+			<expression><![CDATA[$P{MATURITY} == null ? " Both" : $P{MATURITY};]]></expression>
+		</element>
+		<element kind="staticText" uuid="affdfcc5-9bb5-4124-acf9-638b1d78580a" x="96" y="91" width="75" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[Invoice Type:]]></text>
+		</element>
+		<element kind="textField" uuid="4758f856-7947-4480-a6b0-22866ad2574f" x="171" y="91" width="50" height="13" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{INVOICE_TYPE_CODE}]]></expression>
+			<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+		</element>
+		<element kind="staticText" uuid="59db6a61-cac5-4f1c-a54c-e6b5116f8f45" x="171" y="39" width="50" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[Seller ID:]]></text>
+		</element>
+		<element kind="textField" uuid="f691578b-f06d-4f1d-bd7b-e3cf883d6af6" x="221" y="39" width="40" height="13" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{SELLER_CLIENT_NUMBER}]]></expression>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="996ba21f-d317-4f00-b2a2-d131fb528e7b" x="171" y="52" width="50" height="13" markup="none" fontSize="8.0" bold="true">
+			<text><![CDATA[Buyer ID:]]></text>
+		</element>
+		<element kind="textField" uuid="4b40924e-99d6-47b9-a433-2603533cb72d" x="221" y="52" width="40" height="13" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{BUYER_CLIENT_NUMBER}]]></expression>
+		</element>
+		<element kind="staticText" uuid="d61e8dbb-c01f-48cc-ab5f-e530ef3f250f" x="221" y="91" width="50" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Right">
+			<text><![CDATA[To:]]></text>
+		</element>
+		<element kind="textField" uuid="020ecde6-a8c4-48fc-a6f6-2a9c068d78df" x="271" y="78" width="58" height="13" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[new SimpleDateFormat("MMMMM dd, yyyy").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_FROM}))]]></expression>
+			<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+		</element>
+		<element kind="textField" uuid="4758f856-7947-4480-a6b0-22866ad2574f" x="171" y="78" width="50" height="13" fontSize="8.0" pattern="##0" blankWhenNull="true">
+			<expression><![CDATA["For the " + $P{TIME_FRAME}]]></expression>
+		</element>
+		<element kind="textField" uuid="be9bf4da-2513-4069-9504-1499e6d7ca63" x="271" y="91" width="58" height="13" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[new SimpleDateFormat("MMMMM dd, yyyy").format(new SimpleDateFormat("yyyyMMdd").parse($P{INVOICE_DATE_TO}))]]></expression>
+			<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+		</element>
+		<element kind="staticText" uuid="d61e8dbb-c01f-48cc-ab5f-e530ef3f250f" x="221" y="78" width="50" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Left">
+			<text><![CDATA[month period from]]></text>
+			<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+		</element>
+	</title>
+	<columnHeader height="24">
+		<element kind="staticText" uuid="a64ba577-6631-446e-bc24-f6a1c87bc456" x="96" y="0" width="35" height="13" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Grade]]></text>
+		</element>
+		<element kind="staticText" uuid="5604dbb7-a494-4351-b3d1-55480a1544f3" x="0" y="0" width="44" height="13" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Species]]></text>
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+		</element>
+		<element kind="staticText" uuid="120d17e2-689e-4c8e-9c22-c32072823977" x="221" y="0" width="50" height="13" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Volume (m3)]]></text>
+		</element>
+		<element kind="staticText" uuid="96ec83a5-95a1-4ffa-a362-3ebfbe4456b1" x="271" y="0" width="58" height="13" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Volume (%)]]></text>
+		</element>
+		<element kind="staticText" uuid="c50ca9df-7e64-4b6a-8e09-937ff8c5a5ee" x="329" y="0" width="62" height="13" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[$/m3]]></text>
+		</element>
+		<element kind="staticText" uuid="024e6910-6633-4c4e-b955-528de493384e" x="44" y="0" width="52" height="13" fontSize="8.0" bold="true" underline="true">
+			<text><![CDATA[Sort Code]]></text>
+			<property name="local_mesure_unitheight" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="453b3326-9247-40d2-ae50-f508d6d3ace3" x="131" y="0" width="40" height="13" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[# Pieces]]></text>
+		</element>
+		<element kind="staticText" uuid="fd5be781-3d8f-4e05-a239-8752fc721fe8" x="171" y="0" width="50" height="13" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Value ($)]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="5edc638a-ed04-44c3-ad66-f3f8e7a32c03" x="96" y="0" width="35" height="13" fontSize="4.0" blankWhenNull="true">
+				<expression><![CDATA[$F{LOG_SALE_GRADE_CODE}]]></expression>
+				<property name="local_mesure_unitwidth" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+			</element>
+			<element kind="textField" uuid="4bdb4341-c05b-43bd-9da8-de2d2f29be0e" x="44" y="0" width="52" height="13" fontSize="4.0" blankWhenNull="true">
+				<expression><![CDATA[$F{LOG_SALE_SORT_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="74582758-7456-4905-8f2f-9faef421ba33" x="329" y="0" width="62" height="13" fontSize="4.0" pattern="¤ #,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{AMV}]]></expression>
+			</element>
+			<element kind="textField" uuid="dcd412b2-5fb0-4111-9783-75c3ce873e8d" x="171" y="0" width="50" height="13" fontSize="4.0" pattern="¤ ##,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{AMOUNT}]]></expression>
+			</element>
+			<element kind="textField" uuid="826b2541-cc07-40eb-a006-6fde97aad628" x="131" y="0" width="40" height="13" fontSize="4.0" pattern="##,##0;-##,##0" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{PIECES}]]></expression>
+			</element>
+			<element kind="textField" uuid="16983d28-539f-449e-bb13-3f9b6a067cb5" x="221" y="0" width="50" height="13" fontSize="4.0" pattern="##,###,##0.000;-##,###,##0.000" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{VOLUME}]]></expression>
+				<property name="local_mesure_unitx" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.x" value="px"/>
+				<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+			</element>
+			<element kind="textField" uuid="c9e3a560-ec17-48e6-bdb3-053ae7e2a096" x="271" y="0" width="58" height="13" fontSize="4.0" pattern="#,##0.00 %" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{VOLUME_PERCENTAGE}]]></expression>
+				<property name="local_mesure_unitx" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.x" value="px"/>
+			</element>
+		</band>
+	</detail>
+	<summary height="23" splitType="Stretch">
+		<element kind="elementGroup"/>
+		<element kind="textField" uuid="1e28b795-8890-4cd3-abec-6a6ea5537f06" x="0" y="3" width="44" height="13" fontSize="4.0" bold="true">
+			<expression><![CDATA[$V{REPORT_COUNT} + " Records"]]></expression>
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="textField" uuid="c9e3a560-ec17-48e6-bdb3-053ae7e2a096" x="271" y="3" width="58" height="13" fontSize="4.0" pattern="#,##0.00 %" blankWhenNull="true" hTextAlign="Right">
+			<expression><![CDATA[$V{AvTotal2}]]></expression>
+		</element>
+		<element kind="textField" uuid="74582758-7456-4905-8f2f-9faef421ba33" x="329" y="3" width="62" height="13" fontSize="4.0" pattern="¤ #,##0.00" blankWhenNull="true" hTextAlign="Right">
+			<expression><![CDATA[$V{ATotal2}.divide($V{VTotal2}, 10, RoundingMode.HALF_UP)]]></expression>
+		</element>
+		<element kind="textField" uuid="9aac64ce-29cb-44f6-be06-bd467f1c485a" x="131" y="3" width="40" height="13" markup="none" fontSize="4.0" pattern="##,##0;-##,##0" blankWhenNull="true" hTextAlign="Right">
+			<expression><![CDATA[$V{PTotal2}]]></expression>
+		</element>
+		<element kind="textField" uuid="10269f92-710c-416f-96bc-4a53e9773c1f" x="221" y="3" width="50" height="13" markup="none" fontSize="4.0" pattern="##,###,##0.000;-##,###,##0.000" blankWhenNull="true" hTextAlign="Right">
+			<expression><![CDATA[$V{VTotal2}]]></expression>
+		</element>
+		<element kind="textField" uuid="cf3e6f09-f440-4ac9-b4cd-3de51384ae23" x="171" y="3" width="50" height="13" markup="none" fontSize="4.0" pattern="¤ ##,##0.00" blankWhenNull="true" hTextAlign="Right">
+			<expression><![CDATA[$V{ATotal2}]]></expression>
+		</element>
+		<element kind="staticText" uuid="1e606f9a-6d8c-4829-9540-d44dcc9bfd21" x="44" y="3" width="87" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Right">
+			<text><![CDATA[Grand Total:]]></text>
+		</element>
+	</summary>
+</jasperReport>

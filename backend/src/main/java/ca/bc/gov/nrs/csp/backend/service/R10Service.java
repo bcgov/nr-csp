@@ -2,15 +2,19 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R10ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
+import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRunner;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R10Validator;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -19,18 +23,28 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class R10Service {
 
     private static final Logger log = LoggerFactory.getLogger(R10Service.class);
 
-    private final JasperServerService jasperServerService;
+    private final JasperReportRenderer renderer;
     private final SearchService searchService;
     private final Clock clock;
 
-    public R10Service(JasperServerService jasperServerService, SearchService searchService, Clock clock) {
-        this.jasperServerService = jasperServerService;
+    /** Cache of compiled JasperReport objects keyed by template classpath path. */
+    private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
+
+    @Value("${jasper.report.r10.template:/reports/R10.jrxml}")
+    private String r10TemplatePath;
+
+    @Value("${jasper.report.r10.csv.template:/reports/R10_CSV.jrxml}")
+    private String r10CsvTemplatePath;
+
+    public R10Service(JasperReportRenderer renderer, SearchService searchService, Clock clock) {
+        this.renderer = renderer;
         this.searchService = searchService;
         this.clock = clock;
     }
@@ -39,10 +53,27 @@ public class R10Service {
         validate(request);
         String format = request.getReportFormat().getValue();
         log.info("Generating R10 report format={}", format);
+        String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
+        String templatePath = "CSV".equalsIgnoreCase(format) ? r10CsvTemplatePath : r10TemplatePath;
 
-        return JasperReportRunner.run(jasperServerService, clock, "R10",
-                request.getReportFormat(), buildParams(request));
+        JasperReport jasperReport = compiledReportCache.computeIfAbsent(templatePath, path -> {
+            log.info("Compiling JRXML: {}", path);
+            return renderer.compileFromClasspath(path);
+        });
+
+        Map<String, Object> params = buildParams(request);
+        JasperPrint jasperPrint = renderer.fillReport(jasperReport, params, "R10");
+
+        if (jasperPrint.getPages().isEmpty()) {
+            throw new ResourceNotFoundException("The R10 report returned no data for the given parameters.");
+        }
+
+        byte[] data = renderer.exportReport(jasperPrint, format, "R10");
+        String filename = ReportFilenames.timestamped("R10", ext, clock);
+        return new ReportResult(data, filename);
     }
+
+    // ── Validation ────────────────────────────────────────────────────────────
 
     private void validate(R10ReportRequest r) {
         ValidationResult result = new R10Validator(searchService).validate(r);
@@ -51,6 +82,8 @@ public class R10Service {
         }
     }
 
+    // ── Parameter building ─────────────────────────────────────────────────────
+
     private Map<String, Object> buildParams(R10ReportRequest r) {
         Map<String, Object> p = new HashMap<>();
         String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
@@ -58,9 +91,14 @@ public class R10Service {
         if (effectiveDateTo != null)           p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
         if (r.getTimeFrame() != null)          p.put("TIME_FRAME", r.getTimeFrame());
         if (r.getSellerClientNumber() != null) p.put("SELLER_CLIENT_NUMBER", r.getSellerClientNumber());
-        if (r.getSellerLocnCode() != null)     p.put("SELLER_LOCN_CODE", r.getSellerLocnCode());
+        // The stored proc / jrxml parameter is SELLER_CLIENT_LOCN_CODE / BUYER_CLIENT_LOCN_CODE
+        // (confirmed against both the JR7-converted and the original JR6 report designs) — the
+        // short names previously used here were a pre-existing mismatch that silently dropped
+        // these filters (JasperReports/JasperServer both fall back to a param's null default
+        // when the supplied map key doesn't match a declared parameter name).
+        if (r.getSellerLocnCode() != null)     p.put("SELLER_CLIENT_LOCN_CODE", r.getSellerLocnCode());
         if (r.getBuyerClientNumber() != null)  p.put("BUYER_CLIENT_NUMBER", r.getBuyerClientNumber());
-        if (r.getBuyerLocnCode() != null)      p.put("BUYER_LOCN_CODE", r.getBuyerLocnCode());
+        if (r.getBuyerLocnCode() != null)      p.put("BUYER_CLIENT_LOCN_CODE", r.getBuyerLocnCode());
         if (r.getMaturityCodes() != null)      p.put("MATURITY", r.getMaturityCodes());
         if (r.getInvoiceTypeCode() != null)    p.put("INVOICE_TYPE_CODE", r.getInvoiceTypeCode());
         // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.

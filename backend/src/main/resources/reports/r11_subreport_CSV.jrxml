@@ -1,0 +1,157 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="r11_subreport_CSV" language="java" pageWidth="612" pageHeight="792" columnWidth="572" leftMargin="0" rightMargin="0" topMargin="2" bottomMargin="0" uuid="c0e850eb-0c21-42bf-8d78-367dabb09950">
+	<property name="ireport.zoom" value="0.9090909090909091"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R11_CSV"/>
+	<property name="ireport.jasperserver.url" value="https://d1apps.cgi-dev.ca/int/nrsrs/"/>
+	<property name="ireport.jasperserver.user" value="jasperadmin"/>
+	<property name="ireport.jasperserver.report.resource" value="/JCRS/CSP/Reports/R11_CSV_files/r11_subreport_CSV.jrxml"/>
+	<property name="com.jaspersoft.studio.report.unit.description" value="R11-AMV-Average Market Value report, CSV friendly version"/>
+	<property name="com.jaspersoft.studio.report.description" value="r11_subreport_CSV.jrxml"/>
+	<style name="Crosstab Data Text" hTextAlign="Center" hImageAlign="Center"/>
+	<parameter name="INVOICE_DATE_FROM" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="INVOICE_DATE_TO" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TYPE_CODE_MATURITY" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TYPE_CODE_MATURITY_DESCRIPTION" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="MODELING_CODE" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="USER_ID" forPrompting="false" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA["C:\\Temp\\R11-supernew\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="REPORT_CURSOR" forPrompting="false" class="java.sql.ResultSet"/>
+	<query language="plsql"><![CDATA[{call CSP_SP_RPT_11_SUB ($P{REPORT_CURSOR}, $P{INVOICE_DATE_FROM}, $P{INVOICE_DATE_TO}, $P{MODELING_CODE}, $P{TYPE_CODE_MATURITY})}]]></query>
+	<field name="LOG_SALE_GRADE_CODE" class="java.lang.String"/>
+	<field name="LOG_SALE_SPECIES_CODE" class="java.lang.String"/>
+	<field name="SPECIES_DESCRIPTION" class="java.lang.String"/>
+	<field name="CODE_DESCRIPTION" class="java.lang.String"/>
+	<field name="VOLUME" class="java.math.BigDecimal"/>
+	<field name="PRICE" class="java.math.BigDecimal"/>
+	<field name="AMV" class="java.math.BigDecimal"/>
+	<field name="PCS" class="java.math.BigDecimal"/>
+	<variable name="xTab" class="java.lang.String"/>
+	<background splitType="Stretch"/>
+	<pageHeader height="20" splitType="Stretch">
+		<element kind="staticText" uuid="59db6a61-cac5-4f1c-a54c-e6b5116f8f45" x="0" y="0" width="27" height="13" markup="none" fontSize="6.0" bold="true" hTextAlign="Left">
+			<text><![CDATA[Maturity:]]></text>
+			<property name="local_mesure_unitwidth" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.width" value="px"/>
+		</element>
+		<element kind="textField" uuid="3b7688e0-c7a3-42ce-843f-8741c2979a38" x="27" y="0" width="207" height="13" markup="none" fontSize="8.0" bold="false" hTextAlign="Left">
+			<expression><![CDATA[$P{TYPE_CODE_MATURITY_DESCRIPTION}]]></expression>
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+			<property name="com.jaspersoft.studio.unit.width" value="px"/>
+		</element>
+	</pageHeader>
+	<columnFooter height="26" splitType="Stretch"/>
+	<summary height="138" splitType="Stretch">
+		<element kind="crosstab" uuid="e4082e3a-1779-4f01-89be-aec6f4556d6b" x="0" y="0" width="572" height="61" columnBreakOffset="5" ignoreWidth="true">
+			<dataset resetType="Report"/>
+			<headerCell>
+				<element kind="staticText" uuid="d84d8668-f072-43a9-b95f-7626936bd660" x="0" y="0" width="27" height="21" fontSize="8.0" bold="true" underline="true" style="Crosstab Data Text">
+					<text><![CDATA[Grade]]></text>
+				</element>
+			</headerCell>
+			<rowGroup name="LOG_SALE_GRADE_CODE" width="87">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{LOG_SALE_GRADE_CODE}]]></expression>
+				</bucket>
+				<header mode="Transparent" backcolor="#C3CFD9">
+					<element kind="textField" uuid="4b4ad04c-cca0-4be8-bc99-18b994f6982e" x="0" y="0" width="27" height="27" fontSize="8.0" pattern="#,##0.00" bold="true" hTextAlign="Left" style="Crosstab Data Text">
+						<expression><![CDATA[$V{LOG_SALE_GRADE_CODE}]]></expression>
+					</element>
+					<element kind="staticText" uuid="4c272c1e-cabf-47cc-a88b-37e82c3e924d" x="27" y="0" width="60" height="13" fontSize="8.0" bold="true" style="Crosstab Data Text">
+						<text><![CDATA[AMV:]]></text>
+						<property name="local_mesure_unitwidth" value="pixel"/>
+						<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					</element>
+					<element kind="staticText" uuid="404d9656-a3e2-4237-b1ca-19bb2fe64489" x="27" y="13" width="60" height="14" fontSize="8.0" bold="true" style="Crosstab Data Text">
+						<text><![CDATA[%:]]></text>
+					</element>
+				</header>
+				<totalHeader/>
+			</rowGroup>
+			<columnGroup name="SPECIES_DESCRIPTION" height="21">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{SPECIES_DESCRIPTION}]]></expression>
+				</bucket>
+				<header mode="Transparent" backcolor="#C3CFD9">
+					<element kind="textField" uuid="ab6111d8-da5c-43d0-9d82-e60ccbc14a03" x="0" y="0" width="49" height="21" fontSize="8.0" pattern="#,##0.00" blankWhenNull="false" bold="true" underline="true" hTextAlign="Right" style="Crosstab Data Text">
+						<expression><![CDATA[$V{SPECIES_DESCRIPTION}]]></expression>
+					</element>
+				</header>
+				<totalHeader/>
+			</columnGroup>
+			<measure name="AMVMeasure" class="java.math.BigDecimal">
+				<expression><![CDATA[$F{AMV}]]></expression>
+			</measure>
+			<measure name="%Measure" class="java.math.BigDecimal">
+				<expression><![CDATA[$F{PCS}]]></expression>
+			</measure>
+			<cell width="49" height="27">
+				<contents>
+					<element kind="textField" uuid="6a7573fb-75c2-46e6-8c0a-04b2b6e4fd0a" x="0" y="0" width="49" height="13" fontSize="8.0" pattern="#,##0.00" blankWhenNull="true" hTextAlign="Right" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+					<element kind="textField" uuid="fb053b7b-117f-49d5-b0e7-f0e7cf590b6c" x="0" y="13" width="49" height="14" fontSize="8.0" pattern="#,##0.00" blankWhenNull="true" hTextAlign="Right" style="Crosstab Data Text">
+						<expression><![CDATA[$V{%Measure}.doubleValue() * 100]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell height="25" rowTotalGroup="LOG_SALE_GRADE_CODE">
+				<contents mode="Transparent" backcolor="#E6F3FF">
+					<element kind="textField" uuid="39255b21-e3ab-4b7c-91fc-a475633eaf38" x="0" y="0" width="50" height="25" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell width="50" columnTotalGroup="SPECIES_DESCRIPTION">
+				<contents mode="Transparent" backcolor="#E6F3FF">
+					<element kind="textField" uuid="3973ba46-570d-4b01-8b94-d5da82d497b0" x="0" y="0" width="50" height="25" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell rowTotalGroup="LOG_SALE_GRADE_CODE" columnTotalGroup="SPECIES_DESCRIPTION">
+				<contents mode="Transparent" backcolor="#E6F3FF">
+					<element kind="textField" uuid="03ce3e40-5859-42df-8688-97af371a2477" x="0" y="0" width="50" height="25" style="Crosstab Data Text">
+						<expression><![CDATA[$V{AMVMeasure}]]></expression>
+					</element>
+				</contents>
+			</cell>
+		</element>
+		<element kind="subreport" uuid="b7f4c8c6-d0f3-41ce-a3be-bf78d37f8a60" positionType="Float" x="27" y="61" width="565" height="75">
+			<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+			<expression><![CDATA["repo:r11_xtab_subreport_CSV.jrxml"]]></expression>
+			<parameter name="SUBREPORT_DIR">
+				<expression><![CDATA[$P{SUBREPORT_DIR}]]></expression>
+			</parameter>
+			<parameter name="INVOICE_DATE_FROM">
+				<expression><![CDATA[$P{INVOICE_DATE_FROM}]]></expression>
+			</parameter>
+			<parameter name="INVOICE_DATE_TO">
+				<expression><![CDATA[$P{INVOICE_DATE_TO}]]></expression>
+			</parameter>
+			<parameter name="USER_ID">
+				<expression><![CDATA[$P{USER_ID}]]></expression>
+			</parameter>
+			<parameter name="MODELING_CODE">
+				<expression><![CDATA[$P{MODELING_CODE}]]></expression>
+			</parameter>
+			<parameter name="TYPE_CODE_MATURITY">
+				<expression><![CDATA[$P{TYPE_CODE_MATURITY}]]></expression>
+			</parameter>
+		</element>
+	</summary>
+</jasperReport>

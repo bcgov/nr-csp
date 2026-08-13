@@ -1,0 +1,258 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="r11" language="java" pageWidth="612" pageHeight="792" columnWidth="592" leftMargin="20" rightMargin="0" topMargin="20" bottomMargin="10" uuid="e5e3f26a-eabc-48c2-acdf-b9b16f016074">
+	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R11"/>
+	<property name="ireport.jasperserver.url" value="http://localhost:8080/jasperserver/services/repository"/>
+	<property name="ireport.zoom" value="1.771561000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="StyleR11">
+		<conditionalStyle forecolor="#BF3F3F">
+			<conditionExpression><![CDATA[!$P{MODELING_CODE}.equals("P")]]></conditionExpression>
+		</conditionalStyle>
+	</style>
+	<style name="StyleR11_ReportType" style="StyleR11">
+		<conditionalStyle mode="Transparent" fontName="SansSerif" fontSize="10.0" bold="true" underline="false">
+			<conditionExpression><![CDATA[!$P{MODELING_CODE}.equals("P")]]></conditionExpression>
+		</conditionalStyle>
+		<conditionalStyle fontSize="8.0">
+			<conditionExpression><![CDATA[$P{MODELING_CODE}.equals("P")]]></conditionExpression>
+		</conditionalStyle>
+	</style>
+	<parameter name="SUBREPORT_DIR" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA["C:\\Dev\\Reports\\CSP\\r11-new\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="INVOICE_DATE_FROM" class="java.lang.String"/>
+	<parameter name="INVOICE_DATE_TO" class="java.lang.String"/>
+	<parameter name="TYPE_CODE_MATURITY" forPrompting="false" class="java.lang.String">
+		<description><![CDATA[]]></description>
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TYPE_CODE_MATURITY_DESCRIPTION" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[null]]></defaultValueExpression>
+	</parameter>
+	<parameter name="BLENDED" class="java.lang.String"/>
+	<parameter name="MODELING_CODE" class="java.lang.String"/>
+	<parameter name="USER_ID" forPrompting="false" class="java.lang.String"/>
+	<parameter name="REPORT_CURSOR" forPrompting="false" class="java.sql.ResultSet"/>
+	<query language="plsql"><![CDATA[{call CSP_SP_RPT_11 ($P{REPORT_CURSOR}, $P{INVOICE_DATE_FROM}, $P{INVOICE_DATE_TO}, $P{TYPE_CODE_MATURITY})}]]></query>
+	<field name="TOTALVOLUME" class="java.math.BigDecimal"/>
+	<filterExpression><![CDATA[$F{TOTALVOLUME}.doubleValue() > 0 ? true : false]]></filterExpression>
+	<background splitType="Stretch"/>
+	<pageHeader height="57">
+		<element kind="staticText" uuid="bf08d89c-72ed-4e1e-b828-c7eb0e34ac85" x="480" y="12" width="22" height="13" markup="none" fontSize="8.0" bold="true" style="StyleR11">
+			<text><![CDATA[Page:]]></text>
+		</element>
+		<element kind="staticText" uuid="95f2510c-6c4d-4143-a879-460213051bdf" x="166" y="14" width="260" height="26" markup="none" fontSize="14.0" hTextAlign="Center" style="StyleR11">
+			<text><![CDATA[Government of British Columbia]]></text>
+		</element>
+		<element kind="staticText" uuid="07192c7f-948d-42fa-861b-9b4961266b5f" x="0" y="14" width="45" height="13" markup="none" fontSize="8.0" bold="true" style="StyleR11">
+			<text><![CDATA[Report ID:]]></text>
+		</element>
+		<element kind="textField" uuid="9e99303a-50b1-41f7-acb8-34f6dd1174e4" x="45" y="27" width="110" height="13" markup="none" fontSize="8.0" style="StyleR11">
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new Date())]]></expression>
+		</element>
+		<element kind="textField" uuid="61083561-e28c-4613-89ef-3f888ed62bf4" x="503" y="27" width="69" height="15" fontSize="8.0" style="StyleR11">
+			<paragraph leftIndent="2"/>
+			<expression><![CDATA[$P{USER_ID} == null? "" : $P{USER_ID}]]></expression>
+		</element>
+		<element kind="staticText" uuid="58266ae7-6e13-4a6c-afd0-782e3960ce6b" x="464" y="27" width="39" height="13" markup="none" fontSize="8.0" bold="true" hTextAlign="Right" style="StyleR11">
+			<text><![CDATA[User ID:]]></text>
+		</element>
+		<element kind="staticText" uuid="1b4b7696-d2bf-4608-9e36-c448ec083724" x="208" y="40" width="157" height="13" markup="none" hTextAlign="Center" style="StyleR11">
+			<text><![CDATA[R11-AMV-Average Market Value]]></text>
+		</element>
+		<element kind="textField" uuid="ee04501d-100e-4cc4-ac77-62d14ce78096" x="45" y="40" width="110" height="13" markup="none" fontSize="8.0" pattern="" style="StyleR11">
+			<expression><![CDATA[new SimpleDateFormat("hh:mm a").format(new Date())]]></expression>
+		</element>
+		<element kind="textField" uuid="d9c2043c-5370-4aa7-9e0e-f7b2a9005c31" x="521" y="12" width="34" height="13" fontSize="8.0" evaluationTime="Report" style="StyleR11">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+		<element kind="textField" uuid="554f0960-b8e4-4f83-b15c-a6562fefbb3d" x="502" y="12" width="19" height="13" fontSize="8.0" pattern="" hTextAlign="Right" style="StyleR11">
+			<paragraph leftIndent="2"/>
+			<expression><![CDATA[$V{PAGE_NUMBER}+" of "]]></expression>
+		</element>
+		<element kind="staticText" uuid="a44303c3-3223-4860-ad3c-51e820eed5e7" x="0" y="27" width="45" height="13" markup="none" fontSize="8.0" bold="true" style="StyleR11">
+			<text><![CDATA[Run Date:]]></text>
+		</element>
+		<element kind="staticText" uuid="da9a3c79-dfb9-4b8b-8a72-0cac922c15aa" x="45" y="14" width="91" height="13" markup="none" fontSize="8.0" style="StyleR11">
+			<text><![CDATA[CSP-R11]]></text>
+		</element>
+		<element kind="staticText" uuid="50c133f7-bad5-4401-9419-db9ec13ae652" x="0" y="40" width="45" height="13" markup="none" fontSize="8.0" bold="true" style="StyleR11">
+			<text><![CDATA[Run Time:]]></text>
+		</element>
+		<element kind="line" uuid="621009fe-c1e5-485f-ad6f-08c8f10b3e3a" x="0" y="56" width="572" height="1">
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+	</pageHeader>
+	<detail>
+		<band height="10">
+			<printWhenExpression><![CDATA[((($P{TYPE_CODE_MATURITY} != null)?($P{TYPE_CODE_MATURITY}.contains("O") || $P{TYPE_CODE_MATURITY}.equals("")):true) && $P{BLENDED}.equals("false"))]]></printWhenExpression>
+			<element kind="subreport" uuid="cebb7a8e-75db-400c-8186-2aaf55e6ee91" positionType="Float" x="0" y="0" width="572" height="10" removeLineWhenBlank="true" style="StyleR11">
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<expression><![CDATA["repo:r11_subreport.jrxml"]]></expression>
+				<property name="local_mesure_unitheight" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<parameter name="INVOICE_DATE_FROM">
+					<expression><![CDATA[$P{INVOICE_DATE_FROM}]]></expression>
+				</parameter>
+				<parameter name="SUBREPORT_DIR">
+					<expression><![CDATA[$P{SUBREPORT_DIR}]]></expression>
+				</parameter>
+				<parameter name="INVOICE_DATE_TO">
+					<expression><![CDATA[$P{INVOICE_DATE_TO}]]></expression>
+				</parameter>
+				<parameter name="USER_ID">
+					<expression><![CDATA[$P{USER_ID}]]></expression>
+				</parameter>
+				<parameter name="MODELING_CODE">
+					<expression><![CDATA[$P{MODELING_CODE}]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY">
+					<expression><![CDATA["O"]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY_DESCRIPTION">
+					<expression><![CDATA["Old Growth"]]></expression>
+				</parameter>
+			</element>
+			<property name="local_mesure_unitheight" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</band>
+		<band height="10">
+			<printWhenExpression><![CDATA[((($P{TYPE_CODE_MATURITY} != null)?($P{TYPE_CODE_MATURITY}.contains("S") || $P{TYPE_CODE_MATURITY}.equals("")):true) && $P{BLENDED}.equals("false"))]]></printWhenExpression>
+			<element kind="subreport" uuid="91cb1cfd-547f-4390-8838-972a927f919d" positionType="Float" x="0" y="0" width="572" height="10" removeLineWhenBlank="true">
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<expression><![CDATA["repo:r11_subreport.jrxml"]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<parameter name="INVOICE_DATE_FROM">
+					<expression><![CDATA[$P{INVOICE_DATE_FROM}]]></expression>
+				</parameter>
+				<parameter name="SUBREPORT_DIR">
+					<expression><![CDATA[$P{SUBREPORT_DIR}]]></expression>
+				</parameter>
+				<parameter name="INVOICE_DATE_TO">
+					<expression><![CDATA[$P{INVOICE_DATE_TO}]]></expression>
+				</parameter>
+				<parameter name="USER_ID">
+					<expression><![CDATA[$P{USER_ID}]]></expression>
+				</parameter>
+				<parameter name="MODELING_CODE">
+					<expression><![CDATA[$P{MODELING_CODE}]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY">
+					<expression><![CDATA["S"]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY_DESCRIPTION">
+					<expression><![CDATA["Second Growth"]]></expression>
+				</parameter>
+			</element>
+			<property name="local_mesure_unitheight" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</band>
+		<band height="10">
+			<printWhenExpression><![CDATA[((($P{TYPE_CODE_MATURITY} != null)?($P{TYPE_CODE_MATURITY}.contains("M") || $P{TYPE_CODE_MATURITY}.equals("")):true) && $P{BLENDED}.equals("false"))]]></printWhenExpression>
+			<element kind="subreport" uuid="91cb1cfd-547f-4390-8838-972a927f919d" positionType="Float" x="0" y="0" width="572" height="10" removeLineWhenBlank="true">
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<expression><![CDATA["repo:r11_subreport.jrxml"]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<parameter name="INVOICE_DATE_FROM">
+					<expression><![CDATA[$P{INVOICE_DATE_FROM}]]></expression>
+				</parameter>
+				<parameter name="SUBREPORT_DIR">
+					<expression><![CDATA[$P{SUBREPORT_DIR}]]></expression>
+				</parameter>
+				<parameter name="INVOICE_DATE_TO">
+					<expression><![CDATA[$P{INVOICE_DATE_TO}]]></expression>
+				</parameter>
+				<parameter name="USER_ID">
+					<expression><![CDATA[$P{USER_ID}]]></expression>
+				</parameter>
+				<parameter name="MODELING_CODE">
+					<expression><![CDATA[$P{MODELING_CODE}]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY">
+					<expression><![CDATA["M"]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY_DESCRIPTION">
+					<expression><![CDATA["Mixed Growth"]]></expression>
+				</parameter>
+			</element>
+			<property name="local_mesure_unitheight" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</band>
+		<band height="10">
+			<printWhenExpression><![CDATA[($P{BLENDED}.equals("true"))]]></printWhenExpression>
+			<element kind="subreport" uuid="91cb1cfd-547f-4390-8838-972a927f919d" positionType="Float" x="0" y="0" width="572" height="10" removeLineWhenBlank="true">
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<expression><![CDATA["repo:r11_subreport.jrxml"]]></expression>
+				<property name="local_mesure_unity" value="pixel"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<parameter name="INVOICE_DATE_FROM">
+					<expression><![CDATA[$P{INVOICE_DATE_FROM}]]></expression>
+				</parameter>
+				<parameter name="SUBREPORT_DIR">
+					<expression><![CDATA[$P{SUBREPORT_DIR}]]></expression>
+				</parameter>
+				<parameter name="INVOICE_DATE_TO">
+					<expression><![CDATA[$P{INVOICE_DATE_TO}]]></expression>
+				</parameter>
+				<parameter name="USER_ID">
+					<expression><![CDATA[$P{USER_ID}]]></expression>
+				</parameter>
+				<parameter name="MODELING_CODE">
+					<expression><![CDATA[$P{MODELING_CODE}]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY">
+					<expression><![CDATA[$P{TYPE_CODE_MATURITY}]]></expression>
+				</parameter>
+				<parameter name="TYPE_CODE_MATURITY_DESCRIPTION">
+					<expression><![CDATA[$P{TYPE_CODE_MATURITY_DESCRIPTION}]]></expression>
+				</parameter>
+			</element>
+			<property name="local_mesure_unitheight" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</band>
+	</detail>
+	<pageFooter height="26" splitType="Stretch">
+		<element kind="staticText" uuid="e2ad9e3d-0c60-48ff-bd88-5b6574da1f39" x="0" y="0" width="157" height="14" markup="none" fontSize="8.0" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<text><![CDATA[R11-AMV-Average Market Value]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="4932f6f3-2efc-440d-b836-ff087a7ca86a" x="497" y="0" width="22" height="14" markup="none" fontSize="8.0" bold="false" vTextAlign="Middle" style="StyleR11">
+			<text><![CDATA[Page:]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="b2688f07-b428-45e7-9ed9-decb93050024" x="538" y="0" width="34" height="14" fontSize="8.0" evaluationTime="Report" vTextAlign="Middle" style="StyleR11">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="a33bfafc-84db-46c5-ada0-28072c4cff1c" x="519" y="0" width="19" height="14" fontSize="8.0" hTextAlign="Right" vTextAlign="Middle" style="StyleR11">
+			<expression><![CDATA[$V{PAGE_NUMBER}+" of "]]></expression>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="line" uuid="463c9d70-077b-43ef-9197-e38648a86509" x="0" y="0" width="572" height="1">
+			<property name="local_mesure_unitx" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.x" value="px"/>
+			<property name="local_mesure_unity" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.y" value="px"/>
+		</element>
+		<element kind="staticText" uuid="2dbbf979-e334-47b7-aaff-a64b483f8b01" x="270" y="0" width="56" height="14" markup="none" fontSize="8.0" bold="false" hTextAlign="Left" vTextAlign="Middle" style="StyleR11">
+			<text><![CDATA[Report Type:]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="textField" uuid="4b64d5f3-6f83-46ec-be11-41e8ad797f76" key="" x="326" y="0" width="104" height="14" markup="none" pattern="" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle" style="StyleR11_ReportType">
+			<paragraph leftIndent="2"/>
+			<expression><![CDATA[($P{MODELING_CODE}.equals("P") ? "Production" : $P{MODELING_CODE}.equals("M1") ? "Scenario 1" : $P{MODELING_CODE}.equals("M2") ? "Scenario 2" : "Scenario 3")]]></expression>
+			<property name="local_mesure_unitheight" value="pixel"/>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<property name="local_mesure_unitheight" value="pixel"/>
+		<property name="com.jaspersoft.studio.unit.height" value="px"/>
+	</pageFooter>
+</jasperReport>
