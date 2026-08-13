@@ -784,6 +784,9 @@ export function InvoicePage() {
   // Convenience flags
   const currentStatus = loadedInvoice?.invStatus ?? (isExisting ? '' : 'DFT');
   const submissionNumber = loadedInvoice?.submissionNumber;
+  // A manual invoice has no business submission number; an ESF invoice does.
+  // (A brand-new invoice entered here is manual by definition.)
+  const isManual = submissionNumber == null;
 
   // Permission flags
   const canSavePerm = usePermission(INVOICE_DETAILS_SAVE);
@@ -1145,9 +1148,8 @@ export function InvoicePage() {
       adjustInvNum: adjustInvNum.length ? adjustInvNum.join(',') : null,
       reviewComments: reviewerComment || null,
       submitComments: submitterComment || null,
-      // A manual invoice has no business submission number; an ESF invoice does.
       // (submissionId is the surrogate join key and is always present once saved.)
-      manual: submissionNumber == null,
+      manual: isManual,
       lineItems: lineItemPayload,
     };
   };
@@ -1779,6 +1781,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.replaceInvNum}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                   <Column sm={4} md={4} lg={8} className="invoice-page__field-col">
@@ -1791,6 +1794,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.adjustInvNum}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                 </Grid>
@@ -1987,6 +1991,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.boomNumbers}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                   <Column sm={4} md={3} lg={5} className="invoice-page__field-col">
@@ -1999,6 +2004,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.timberMarks}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
                   <Column sm={4} md={2} lg={6} className="invoice-page__field-col">
@@ -2011,6 +2017,7 @@ export function InvoicePage() {
                       invalidText={displayFieldErrors.weighSlips}
                       disabled={!canEdit}
                       maxTags={5}
+                      uppercase
                     />
                   </Column>
 
@@ -2042,6 +2049,8 @@ export function InvoicePage() {
                       invalidText={reviewerCommentError || displayFieldErrors.reviewerComment}
                     />
                   </Column>
+                  {/* The submitted comment arrives with the ESF submission, so it is
+                  greyed out on a manual invoice — there is nothing submitting it. */}
                   <Column sm={4} md={8} lg={16} className="invoice-page__field-col">
                     <TextArea
                       id="submitter-comment"
@@ -2049,7 +2058,7 @@ export function InvoicePage() {
                       value={submitterComment}
                       onChange={(e) => setSubmitterComment(e.target.value)}
                       rows={6}
-                      disabled={!canEdit}
+                      disabled={!canEdit || isManual}
                       invalid={!!displayFieldErrors.submitterComment}
                       invalidText={displayFieldErrors.submitterComment}
                     />
