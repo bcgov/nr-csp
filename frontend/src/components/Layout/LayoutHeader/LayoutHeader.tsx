@@ -37,7 +37,7 @@ export const LayoutHeader: FC = () => {
         />
       )}
       <HeaderName as={Link} to="/" prefix="">
-        {APP_NAME} - testing
+        {APP_NAME} - testing again
       </HeaderName>
       <HeaderGlobalBar>
         <LayoutHeaderGlobalBar />
