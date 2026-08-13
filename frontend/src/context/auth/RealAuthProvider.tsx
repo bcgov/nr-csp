@@ -80,9 +80,13 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
 
   async function performSignOut() {
     setIsSigningOut(true);
-    await signOut();
+    // Clear local state before signOut(): Amplify full-page-redirects into the
+    // SiteMinder→Keycloak logout chain, which ends on the SSO "You are logged
+    // out" page rather than returning to this app, so nothing after the
+    // redirect is guaranteed to run.
     clearPersistedTableState();
     setUser(null);
+    await signOut();
   }
 
   useEffect(() => {
