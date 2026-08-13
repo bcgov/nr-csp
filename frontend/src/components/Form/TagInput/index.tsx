@@ -24,6 +24,12 @@ export interface TagInputProps {
   disabled?: boolean;
   /** Hard cap on the number of committed values. Extra entries are ignored. */
   maxTags?: number;
+  /**
+   * Force every entry to upper case — both while typing and when the value is
+   * committed as a chip. Used for invoice numbers, which are only recognised
+   * in all caps.
+   */
+  uppercase?: boolean;
 }
 
 const TagInput = ({
@@ -37,16 +43,18 @@ const TagInput = ({
   size = 'md',
   disabled = false,
   maxTags,
+  uppercase = false,
 }: TagInputProps) => {
   const [draft, setDraft] = useState('');
   const atMax = maxTags !== undefined && values.length >= maxTags;
+  const normalize = (value: string) => (uppercase ? value.toUpperCase() : value);
 
   const commit = (raw: string) => {
     const next = raw.trim();
     if (!next) return;
     const pieces = next
       .split(',')
-      .map((p) => p.trim())
+      .map((p) => normalize(p.trim()))
       .filter(Boolean);
     if (pieces.length === 0) return;
     // Dedupe each piece against the existing values AND against pieces already
@@ -82,7 +90,7 @@ const TagInput = ({
         labelText={labelText}
         placeholder={placeholder}
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => setDraft(normalize(e.target.value))}
         onKeyDown={handleKeyDown}
         onBlur={() => commit(draft)}
         invalid={invalid}

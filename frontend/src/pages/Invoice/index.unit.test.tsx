@@ -265,6 +265,21 @@ describe('InvoicePage — rendering', () => {
     fireEvent.change(screen.getByLabelText(/Invoice number/), { target: { value: 'inv-abc' } });
     expect(screen.getByLabelText(/Invoice number/)).toHaveValue('INV-ABC');
   });
+
+  it('disables the submitted comment on a manual invoice (no submission number)', async () => {
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null });
+    expect(screen.getByLabelText('Submitted comment')).toBeDisabled();
+  });
+
+  it('disables the submitted comment on a NEW invoice', () => {
+    renderPage();
+    expect(screen.getByLabelText('Submitted comment')).toBeDisabled();
+  });
+
+  it('keeps the submitted comment editable on an ESF invoice in draft', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    expect(screen.getByLabelText('Submitted comment')).toBeEnabled();
+  });
 });
 
 describe('InvoicePage — invoice not found', () => {
