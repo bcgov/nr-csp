@@ -1,7 +1,7 @@
 import { Download } from '@carbon/icons-react';
 import { Button, Column, Grid, InlineLoading, InlineNotification, Link, TextInput } from '@carbon/react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 import DataPreviewTable, { type DataPreviewColumn, type RowIssues } from '@/components/core/DataPreviewTable';
 import FileDropZone from '@/components/core/FileDropZone';

@@ -98,4 +98,19 @@ describe('env', () => {
     expect(typeof env.isProduction).toBe('boolean');
     expect(env.isDevelopment).not.toBe(env.isProduction);
   });
+
+  it('defaults idleTimeoutMs to 30 minutes without amplifyConfig', async () => {
+    stubHostname('localhost');
+
+    const env = await importEnv();
+    expect(env.idleTimeoutMs).toBe(30 * 60_000);
+  });
+
+  it('reads idleTimeoutMinutes from amplifyConfig when present', async () => {
+    globalThis.amplifyConfig = { ...baseConfig, idleTimeoutMinutes: 90 };
+    stubHostname('localhost');
+
+    const env = await importEnv();
+    expect(env.idleTimeoutMs).toBe(90 * 60_000);
+  });
 });

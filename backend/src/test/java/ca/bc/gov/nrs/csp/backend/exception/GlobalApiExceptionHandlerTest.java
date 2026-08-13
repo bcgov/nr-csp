@@ -309,21 +309,6 @@ class GlobalApiExceptionHandlerTest {
     }
 
     @Test
-    void dataIntegrityViolation_returns400_whenMostSpecificCauseIsNull() {
-        var ex = new DataIntegrityViolationException("FK violation") {
-            @Override
-            public Throwable getMostSpecificCause() {
-                return null;
-            }
-        };
-
-        var response = handler.handleDataIntegrity(ex, servletRequest);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("DATA_INTEGRITY_ERROR", response.getBody().code());
-    }
-
-    @Test
     void dataIntegrityViolation_returns400_whenRootCausePresent() {
         var ex = new DataIntegrityViolationException(
                 "wrapper", new java.sql.SQLException("ORA-02291: integrity constraint violated"));

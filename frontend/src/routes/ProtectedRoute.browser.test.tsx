@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { vi, describe, afterEach, it, expect } from 'vitest';
 
 import * as useAuthModule from '@/context/auth/useAuth';

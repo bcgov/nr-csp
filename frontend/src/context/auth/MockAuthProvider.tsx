@@ -22,6 +22,7 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user: {
       username: 'mock-user',
+      idirUsername: 'mock-user',
       displayName: 'Mock User',
       email: 'mock@example.com',
       roles: [`CSP_${role}`],

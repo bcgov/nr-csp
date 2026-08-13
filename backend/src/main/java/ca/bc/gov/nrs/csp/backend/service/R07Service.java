@@ -9,6 +9,7 @@ import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R07Validator;
 import net.sf.jasperreports.engine.JasperPrint;
@@ -18,8 +19,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -35,6 +36,7 @@ public class R07Service {
     private final JasperReportRenderer renderer;
     private final SearchService searchService;
     private final CspSubmissionRepository cspSubmissionRepository;
+    private final Clock clock;
 
     /** Cache of compiled JasperReport objects keyed by template classpath path. */
     private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
@@ -46,10 +48,11 @@ public class R07Service {
     private String r07CsvTemplatePath;
 
     public R07Service(JasperReportRenderer renderer, SearchService searchService,
-                      CspSubmissionRepository cspSubmissionRepository) {
+                      CspSubmissionRepository cspSubmissionRepository, Clock clock) {
         this.renderer = renderer;
         this.searchService = searchService;
         this.cspSubmissionRepository = cspSubmissionRepository;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R07ReportRequest request) {
@@ -72,8 +75,7 @@ public class R07Service {
         }
 
         byte[] data = renderer.exportReport(jasperPrint, format, "R07");
-        String filename = String.format("R07_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
+        String filename = ReportFilenames.timestamped("R07", ext, clock);
         return new ReportResult(data, filename);
     }
 

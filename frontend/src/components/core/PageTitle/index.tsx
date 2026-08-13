@@ -1,6 +1,6 @@
 import { Breadcrumb, BreadcrumbItem, Column } from '@carbon/react';
 import { useEffect, useMemo, type FC, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 import Subtitle from '@/components/core/Subtitle';
 import UnderConstructionTag from '@/components/core/Tags/UnderConstructionTag';

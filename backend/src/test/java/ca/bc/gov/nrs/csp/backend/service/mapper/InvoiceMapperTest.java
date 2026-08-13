@@ -57,6 +57,7 @@ class InvoiceMapperTest {
                 "M",                        // maturity
                 "FOB01",                    // fobCode
                 "A",                        // primarySortCode
+                "A",                        // clientPrimarySortCode
                 new BigDecimal("1250.75"),  // totalAmt
                 100,                        // totalPieces
                 new BigDecimal("12.5"),     // totalVol
@@ -90,6 +91,7 @@ class InvoiceMapperTest {
                 "I",                        // maturity
                 "FOB02",                    // fobCode
                 "B",                        // primarySortCode
+                "B",                        // clientPrimarySortCode
                 new BigDecimal("999.99"),   // totalAmt
                 50,                         // totalPieces
                 new BigDecimal("7.25"),     // totalVol
@@ -156,6 +158,7 @@ class InvoiceMapperTest {
                 "M",                        // maturity
                 "FOB01",                    // fobCode
                 "A",                        // primarySortCode
+                "A",                        // clientPrimarySortCode
                 new BigDecimal("1250.75"),  // totalAmt
                 100,                        // totalPieces
                 new BigDecimal("12.5"),     // totalVol
@@ -238,7 +241,7 @@ class InvoiceMapperTest {
 
     @Test
     void toLineItem_mapsAllFieldsAndComputesAmount() {
-        LineItem line = mapper.toLineItem(lineItemRequest(), 12345L);
+        LineItem line = mapper.toLineItem(lineItemRequest(), 12345L, "SAL");
 
         assertThat(line).isNotNull();
         assertThat(line.lineItemID()).isEqualTo(1L);
@@ -257,7 +260,7 @@ class InvoiceMapperTest {
 
     @Test
     void toLineItem_nullRequest_returnsNull() {
-        assertThat(mapper.toLineItem(null, 12345L)).isNull();
+        assertThat(mapper.toLineItem(null, 12345L, "SAL")).isNull();
     }
 
     @Test
@@ -265,7 +268,7 @@ class InvoiceMapperTest {
         LineItemRequest req = new LineItemRequest(
                 null, "SORT01", null, "SP1", "G1", 50, new BigDecimal("25.00"), null, null);
 
-        LineItem line = mapper.toLineItem(req, null);
+        LineItem line = mapper.toLineItem(req, null, "SAL");
 
         assertThat(line.amount()).isNull();
         assertThat(line.invoiceID()).isNull();
@@ -277,12 +280,32 @@ class InvoiceMapperTest {
         LineItemRequest req = new LineItemRequest(
                 2L, "SORT01", null, "SP1", "G1", 50, null, new BigDecimal("6.25"), null);
 
-        assertThat(mapper.toLineItem(req, 1L).amount()).isNull();
+        assertThat(mapper.toLineItem(req, 1L, "SAL").amount()).isNull();
+    }
+
+    @Test
+    void toLineItem_adjustment_keepsAmountNegativeWhenVolumeAndPriceAreNegative() {
+        // Legacy parity (Utils.bigDecimalMultiplicationForAdj): a plain multiply of
+        // two negatives would yield +25.00, but an ADJ line must stay negative.
+        LineItemRequest req = new LineItemRequest(
+                null, "SORT01", null, "SP1", "G1", -5, new BigDecimal("-5.00"), new BigDecimal("-5.000"), null);
+
+        assertThat(mapper.toLineItem(req, 1L, "ADJ").amount()).isEqualByComparingTo("-25.00");
+    }
+
+    @Test
+    void toLineItem_nonAdjustment_multipliesTwoNegativesToPositive() {
+        // Non-ADJ types reject negative volume/price upstream (InvoiceLineRuleSet),
+        // so the sign fix must NOT leak into them.
+        LineItemRequest req = new LineItemRequest(
+                null, "SORT01", null, "SP1", "G1", -5, new BigDecimal("-5.00"), new BigDecimal("-5.000"), null);
+
+        assertThat(mapper.toLineItem(req, 1L, "SAL").amount()).isEqualByComparingTo("25.00");
     }
 
     @Test
     void toLineItems_mapsEveryElementWithInvoiceId() {
-        List<LineItem> lines = mapper.toLineItems(List.of(lineItemRequest(), lineItemRequest()), 42L);
+        List<LineItem> lines = mapper.toLineItems(List.of(lineItemRequest(), lineItemRequest()), 42L, "SAL");
 
         assertThat(lines)
                 .hasSize(2)
@@ -293,12 +316,12 @@ class InvoiceMapperTest {
 
     @Test
     void toLineItems_nullInput_returnsEmptyList() {
-        assertThat(mapper.toLineItems(null, 42L)).isEmpty();
+        assertThat(mapper.toLineItems(null, 42L, "SAL")).isEmpty();
     }
 
     @Test
     void toLineItems_emptyInput_returnsEmptyList() {
-        assertThat(mapper.toLineItems(List.of(), 42L)).isEmpty();
+        assertThat(mapper.toLineItems(List.of(), 42L, "SAL")).isEmpty();
     }
 
     // ---------------------------------------------------------------

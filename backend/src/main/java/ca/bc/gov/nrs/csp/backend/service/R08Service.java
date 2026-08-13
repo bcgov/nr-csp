@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R08Validator;
 import net.sf.jasperreports.engine.JasperPrint;
@@ -17,8 +18,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ public class R08Service {
 
     private final JasperReportRenderer renderer;
     private final SearchService searchService;
+    private final Clock clock;
 
     /** Cache of compiled JasperReport objects keyed by template classpath path. */
     private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
@@ -43,9 +45,10 @@ public class R08Service {
     @Value("${jasper.report.r08.csv.template:/reports/R08_CSV.jrxml}")
     private String r08CsvTemplatePath;
 
-    public R08Service(JasperReportRenderer renderer, SearchService searchService) {
+    public R08Service(JasperReportRenderer renderer, SearchService searchService, Clock clock) {
         this.renderer = renderer;
         this.searchService = searchService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R08ReportRequest request) {
@@ -68,8 +71,7 @@ public class R08Service {
         }
 
         byte[] data = renderer.exportReport(jasperPrint, format, "R08");
-        String filename = String.format("R08_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
+        String filename = ReportFilenames.timestamped("R08", ext, clock);
         return new ReportResult(data, filename);
     }
 

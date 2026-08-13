@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
@@ -49,7 +50,7 @@ class R10ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R10Service(new JasperReportRenderer(dataSource), searchService);
+        service = new R10Service(new JasperReportRenderer(dataSource), searchService, Clock.systemUTC());
         ReflectionTestUtils.setField(service, "r10TemplatePath", "/reports/R10.jrxml");
         ReflectionTestUtils.setField(service, "r10CsvTemplatePath", "/reports/R10_CSV.jrxml");
     }

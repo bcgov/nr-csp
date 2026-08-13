@@ -1,9 +1,10 @@
-import { IconButton, TextInput } from '@carbon/react';
 import { Checkmark, Close, Edit, TrashCan } from '@carbon/icons-react';
+import { IconButton, TextInput } from '@carbon/react';
 
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import SingleSelect from '@/components/Form/SingleSelect';
 import { formatCurrency, formatNumber } from '@/utils/format';
+import { computeLineAmount } from '@/validations/invoice/invoice';
 
 import './index.scss';
 
@@ -60,6 +61,7 @@ export interface EditableLineItemsTableProps {
   editDraft: EditableLineItemDraft | null;
   /** Per-field inline validation errors for the active edit row. Keys: secondarySort, species, grade, pieces, volume, price. */
   fieldErrors: Record<string, string>;
+  invType: string;
   onStartEdit: (rowId: string) => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
@@ -90,6 +92,7 @@ export default function EditableLineItemsTable({
   speciesGradeCombos,
   editDraft,
   fieldErrors,
+  invType,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -111,10 +114,10 @@ export default function EditableLineItemsTable({
 
   const editComputedAmount = (() => {
     if (!editDraft) return '';
-    const p = parseFloat(editDraft.price);
-    const v = parseFloat(editDraft.volume);
+    const p = Number.parseFloat(editDraft.price);
+    const v = Number.parseFloat(editDraft.volume);
     if (Number.isNaN(p) || Number.isNaN(v)) return '';
-    return (Math.round(p * v * 100) / 100).toFixed(2);
+    return computeLineAmount(v, p, invType).toFixed(2);
   })();
 
   const columns: ResultsTableColumn<EditableLineItemRow>[] = [
@@ -122,6 +125,7 @@ export default function EditableLineItemsTable({
       key: 'secondarySort',
       header: 'Secondary sort code',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.secondarySort;
         return (
@@ -144,6 +148,7 @@ export default function EditableLineItemsTable({
       key: 'species',
       header: 'Species',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.species;
         return (
@@ -166,6 +171,7 @@ export default function EditableLineItemsTable({
       key: 'clientSecondarySort',
       header: 'Client secondary sort code',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.clientSecondarySort;
         return (
@@ -174,7 +180,7 @@ export default function EditableLineItemsTable({
             labelText=""
             hideLabel
             value={editDraft.clientSecondarySort}
-            onChange={(e) => onDraftChange({ ...editDraft, clientSecondarySort: e.target.value })}
+            onChange={(e) => onDraftChange({ ...editDraft, clientSecondarySort: e.target.value.toUpperCase() })}
             size="sm"
           />
         );
@@ -184,6 +190,7 @@ export default function EditableLineItemsTable({
       key: 'numberPieces',
       header: 'Number pieces',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return formatNumber(r.numberPieces);
         return (
@@ -204,6 +211,7 @@ export default function EditableLineItemsTable({
       key: 'grade',
       header: 'Grade',
       headerAlign: 'center',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return r.grade;
         return (
@@ -226,6 +234,7 @@ export default function EditableLineItemsTable({
       key: 'volume',
       header: 'Volume',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return formatNumber(r.volume, 3);
         return (
@@ -246,6 +255,7 @@ export default function EditableLineItemsTable({
       key: 'price',
       header: '$ Price',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (!isEditingId(r.id) || !editDraft) return formatCurrency(r.price);
         return (
@@ -266,6 +276,7 @@ export default function EditableLineItemsTable({
       key: 'amount',
       header: '$ Amount',
       headerAlign: 'center',
+      cellAlign: 'right',
       renderCell: (r) => {
         if (isEditingId(r.id)) {
           return editComputedAmount ? `$${editComputedAmount}` : '';
@@ -276,11 +287,20 @@ export default function EditableLineItemsTable({
     {
       key: 'id',
       header: '',
+      cellAlign: 'center',
       renderCell: (r) => {
         if (isEditingId(r.id)) {
           return (
             <div className="editable-line-items-table__actions">
-              <IconButton kind="ghost" size="sm" label="Save line item" align="top" autoAlign onClick={onSaveEdit}>
+              <IconButton
+                kind="ghost"
+                size="sm"
+                label="Save line item"
+                align="top"
+                autoAlign
+                disabled={Object.keys(fieldErrors).length > 0}
+                onClick={onSaveEdit}
+              >
                 <Checkmark />
               </IconButton>
               <IconButton kind="ghost" size="sm" label="Cancel" align="top" autoAlign onClick={onCancelEdit}>

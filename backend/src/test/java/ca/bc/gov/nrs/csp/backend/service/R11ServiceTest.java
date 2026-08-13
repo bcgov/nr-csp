@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Clock;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +43,7 @@ class R11ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R11Service(new JasperReportRenderer(dataSource));
+        service = new R11Service(new JasperReportRenderer(dataSource), Clock.systemUTC());
         ReflectionTestUtils.setField(service, "r11TemplatePath", "/reports/R11.jrxml");
         ReflectionTestUtils.setField(service, "r11CsvTemplatePath", "/reports/R11_CSV.jrxml");
         ReflectionTestUtils.setField(service, "r11SubreportPath", "/reports/r11_subreport.jrxml");

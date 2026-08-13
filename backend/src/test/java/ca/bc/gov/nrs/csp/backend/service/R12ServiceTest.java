@@ -22,6 +22,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Clock;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +42,7 @@ class R12ServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new R12Service(new JasperReportRenderer(dataSource));
+        service = new R12Service(new JasperReportRenderer(dataSource), Clock.systemUTC());
         ReflectionTestUtils.setField(service, "r12TemplatePath", "/reports/R12.jrxml");
         ReflectionTestUtils.setField(service, "r12CsvTemplatePath", "/reports/R12_CSV.jrxml");
     }

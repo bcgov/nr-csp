@@ -20,8 +20,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -38,11 +40,17 @@ class InvoiceValidatorTest {
     @Mock InvoiceRepository invoiceRepo;
     @Mock CommonValidation commonValidation;
 
+    // Fixed "today" in the business zone (BC/Pacific) so the future-date rule is deterministic.
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Vancouver");
+    private static final LocalDate FIXED_TODAY = LocalDate.of(2025, Month.JUNE, 15);
+    private final Clock clock =
+            Clock.fixed(FIXED_TODAY.atStartOfDay(BUSINESS_ZONE).toInstant(), BUSINESS_ZONE);
+
     InvoiceValidator validator;
 
     @BeforeEach
     void setUp() {
-        validator = new InvoiceValidator(invoiceRepo, commonValidation);
+        validator = new InvoiceValidator(invoiceRepo, commonValidation, clock);
         lenient().when(commonValidation.isValidInvoiceType(any(), any())).thenReturn(true);
         lenient().when(commonValidation.isValidMaturity(any(), any())).thenReturn(true);
         lenient().when(commonValidation.isValidSortCode(any(), any())).thenReturn(true);
@@ -628,7 +636,7 @@ class InvoiceValidatorTest {
 
     @Test
     void validate_invoiceDateInFuture_addsError() {
-        InvoiceDetails details = invWith(i -> i.invoiceDate = LocalDate.now().plusDays(1));
+        InvoiceDetails details = invWith(i -> i.invoiceDate = FIXED_TODAY.plusDays(1));
 
         ValidationResult result = validator.validate(details, List.of(), false, ActionType.OTHER);
 
@@ -882,6 +890,7 @@ class InvoiceValidatorTest {
         String maturity = "M";
         String fobCode = "FOB01";
         String primarySortCode = "SORT01";
+        String clientPrimarySortCode = "SORT01";
         BigDecimal totalAmt = BigDecimal.ZERO;
         Integer totalPieces = 0;
         BigDecimal totalVol = BigDecimal.ZERO;
@@ -906,7 +915,7 @@ class InvoiceValidatorTest {
 
         InvoiceDetails build() {
             return new InvoiceDetails(invID, invNumber, invoiceDate, invStatus, invType, maturity,
-                    fobCode, primarySortCode, totalAmt, totalPieces, totalVol, submitterClientNum,
+                    fobCode, primarySortCode, clientPrimarySortCode, totalAmt, totalPieces, totalVol, submitterClientNum,
                     submitterLocation, submittedBy, clientNumber, clientLocation, otherClientNum,
                     otherClientLocation, otherClientName, otherClientCity, otherClientProvState,
                     boomNumbers, timberMarks, weightSlips, replaceInvNum, adjustInvNum, reviewComments,

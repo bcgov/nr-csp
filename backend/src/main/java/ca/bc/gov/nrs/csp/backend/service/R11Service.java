@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.service.reporting.SubreportInjector;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R11Validator;
@@ -18,8 +19,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ public class R11Service {
     private static final Logger log = LoggerFactory.getLogger(R11Service.class);
 
     private final JasperReportRenderer renderer;
+    private final Clock clock;
 
     /** Cache of compiled report bundles (main + subreport + xtab subreport) keyed by main template path. */
     private final Map<String, ReportBundle> compiledReportCache = new ConcurrentHashMap<>();
@@ -50,8 +52,9 @@ public class R11Service {
     @Value("${jasper.report.r11.xtabsubreport.csv.template:/reports/r11_xtab_subreport_CSV.jrxml}")
     private String r11XtabSubreportCsvPath;
 
-    public R11Service(JasperReportRenderer renderer) {
+    public R11Service(JasperReportRenderer renderer, Clock clock) {
         this.renderer = renderer;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R11ReportRequest request) {
@@ -79,8 +82,7 @@ public class R11Service {
         }
 
         byte[] data = renderer.exportReport(jasperPrint, format, "R11");
-        String filename = String.format("R11_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
+        String filename = ReportFilenames.timestamped("R11", ext, clock);
         return new ReportResult(data, filename);
     }
 

@@ -1,11 +1,12 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { LoadingScreen } from '@/components/core/LoadingScreen';
 import Layout from '@/components/Layout';
 import { queryClient } from '@/config/react-query/config';
 import { AuthProvider } from '@/context/auth/AuthProvider';
+import { IdleTimeoutWatcher } from '@/context/auth/IdleTimeoutWatcher';
 import { NotificationProvider } from '@/context/notification/NotificationProvider';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import { ThemeProvider } from '@/context/theme/ThemeProvider';
@@ -68,6 +69,7 @@ export default function App() {
       <ThemeProvider>
         <NotificationProvider>
           <AuthProvider>
+            <IdleTimeoutWatcher />
             <PageTitleProvider>
               <BrowserRouter>
                 <Suspense fallback={<LoadingScreen />}>

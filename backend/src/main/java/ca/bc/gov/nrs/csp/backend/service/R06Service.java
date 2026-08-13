@@ -7,6 +7,7 @@ import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.service.reporting.SubreportInjector;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R06Validator;
@@ -17,8 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +30,7 @@ public class R06Service {
 
     private final JasperReportRenderer renderer;
     private final SearchService searchService;
+    private final Clock clock;
 
     /** Cache of compiled report bundles (main + both subreports) keyed by main template path. */
     private final Map<String, ReportBundle> compiledReportCache = new ConcurrentHashMap<>();
@@ -47,9 +48,10 @@ public class R06Service {
     @Value("${jasper.report.r06.subreport2.csv.template:/reports/r06_subreport2_CSV.jrxml}")
     private String r06Subreport2CsvPath;
 
-    public R06Service(JasperReportRenderer renderer, SearchService searchService) {
+    public R06Service(JasperReportRenderer renderer, SearchService searchService, Clock clock) {
         this.renderer = renderer;
         this.searchService = searchService;
+        this.clock = clock;
     }
 
     public ReportResult generateReport(R06ReportRequest request) {
@@ -77,8 +79,7 @@ public class R06Service {
         }
 
         byte[] data = renderer.exportReport(jasperPrint, format, "R06");
-        String filename = String.format("R06_%s.%s",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")), ext);
+        String filename = ReportFilenames.timestamped("R06", ext, clock);
         return new ReportResult(data, filename);
     }
 

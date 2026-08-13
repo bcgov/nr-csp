@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -27,10 +28,12 @@ public class SortCodeService {
 
     private final SortCodeRepository sortCodeRepository;
     private final CommonValidation commonValidation;
+    private final Clock clock;
 
-    public SortCodeService(SortCodeRepository sortCodeRepository, CommonValidation commonValidation) {
+    public SortCodeService(SortCodeRepository sortCodeRepository, CommonValidation commonValidation, Clock clock) {
         this.sortCodeRepository = sortCodeRepository;
         this.commonValidation = commonValidation;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -62,7 +65,7 @@ public class SortCodeService {
             throw new BadRequestException("Effective date must not be after expiry date.");
         }
 
-        SortCode sc = new SortCode(code, request.description(), request.effectiveDate(), request.expiryDate(), LocalDate.now());
+        SortCode sc = new SortCode(code, request.description(), request.effectiveDate(), request.expiryDate(), LocalDate.now(clock));
         sortCodeRepository.insert(sc);
         return sortCodeRepository.findByCode(code).orElseThrow();
     }
@@ -80,7 +83,7 @@ public class SortCodeService {
             throw new BadRequestException("Effective date must not be after expiry date.");
         }
 
-        SortCode sc = new SortCode(upperCode, request.description(), request.effectiveDate(), request.expiryDate(), LocalDate.now());
+        SortCode sc = new SortCode(upperCode, request.description(), request.effectiveDate(), request.expiryDate(), LocalDate.now(clock));
         sortCodeRepository.update(upperCode, sc);
         return sortCodeRepository.findByCode(upperCode).orElseThrow();
     }

@@ -122,6 +122,7 @@ class InvoiceRepositoryTest {
                 "M",
                 "FOB01",
                 "SORT01",
+                "CLIENT-SORT01",
                 new BigDecimal("1250.75"),
                 totalPieces,
                 new BigDecimal("12.5"),
@@ -423,6 +424,7 @@ class InvoiceRepositoryTest {
         given(rs.getString("maturity")).willReturn("M");
         given(rs.getString("fob_code")).willReturn("FOB01");
         given(rs.getString("primary_sort_code")).willReturn("SORT01");
+        given(rs.getString("client_primary_sort_code")).willReturn("CLIENT-SORT01");
         given(rs.getBigDecimal("total_amt")).willReturn(new BigDecimal("1250.75"));
         given(rs.getObject("total_pieces", Integer.class)).willReturn(100);
         given(rs.getBigDecimal("total_vol")).willReturn(new BigDecimal("12.5"));
@@ -455,6 +457,7 @@ class InvoiceRepositoryTest {
                         InvoiceDetails::maturity,
                         InvoiceDetails::fobCode,
                         InvoiceDetails::primarySortCode,
+                        InvoiceDetails::clientPrimarySortCode,
                         InvoiceDetails::totalPieces,
                         InvoiceDetails::submitterClientNum,
                         InvoiceDetails::submitterLocation,
@@ -480,6 +483,7 @@ class InvoiceRepositoryTest {
                         "M",
                         "FOB01",
                         "SORT01",
+                        "CLIENT-SORT01",
                         100,
                         "00001111",
                         "01",
@@ -529,6 +533,7 @@ class InvoiceRepositoryTest {
         given(rs.getString("maturity")).willReturn(null);
         given(rs.getString("fob_code")).willReturn(null);
         given(rs.getString("primary_sort_code")).willReturn(null);
+        given(rs.getString("client_primary_sort_code")).willReturn(null);
         given(rs.getBigDecimal("total_amt")).willReturn(null);
         given(rs.getObject("total_pieces", Integer.class)).willReturn(null);
         given(rs.getBigDecimal("total_vol")).willReturn(null);
@@ -559,6 +564,7 @@ class InvoiceRepositoryTest {
                         InvoiceDetails::maturity,
                         InvoiceDetails::fobCode,
                         InvoiceDetails::primarySortCode,
+                        InvoiceDetails::clientPrimarySortCode,
                         InvoiceDetails::totalAmt,
                         InvoiceDetails::totalPieces,
                         InvoiceDetails::totalVol,
@@ -579,6 +585,7 @@ class InvoiceRepositoryTest {
                         InvoiceDetails::entryUserID)
                 .containsExactly(
                         11L,
+                        null,
                         null,
                         null,
                         null,
@@ -753,7 +760,7 @@ class InvoiceRepositoryTest {
         assertThat(params.getValue("maturity")).isEqualTo("M");
         assertThat(params.getValue("fobCode")).isEqualTo("FOB01");
         assertThat(params.getValue("primarySortCode")).isEqualTo("SORT01");
-        assertThat(params.getValue("clientPrimarySortCode")).isEqualTo("SORT01");
+        assertThat(params.getValue("clientPrimarySortCode")).isEqualTo("CLIENT-SORT01");
         assertThat(params.getValue("sellerClientNumber")).isEqualTo("00001111");
         assertThat(params.getValue("sellerClientLocnCode")).isEqualTo("01");
         assertThat(params.getValue("buyerClientNumber")).isEqualTo("00002222");
@@ -926,7 +933,7 @@ class InvoiceRepositoryTest {
 
     @Test
     void replaceRelatedInvoices_nullCsv_onlyDeletesExistingRefs() {
-        repo.replaceRelatedInvoices(10L, "REP", null, "00001111", "01", "user123");
+        assertThat(repo.replaceRelatedInvoices(10L, "REP", null, "00001111", "01", "user123")).isEmpty();
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
@@ -940,7 +947,7 @@ class InvoiceRepositoryTest {
 
     @Test
     void replaceRelatedInvoices_blankCsv_onlyDeletesExistingRefs() {
-        repo.replaceRelatedInvoices(10L, "ADJ", "   ", "00001111", "01", "user123");
+        assertThat(repo.replaceRelatedInvoices(10L, "ADJ", "   ", "00001111", "01", "user123")).isEmpty();
 
         verify(jdbc, times(1)).update(anyString(), any(MapSqlParameterSource.class));
     }
@@ -955,7 +962,9 @@ class InvoiceRepositoryTest {
                     return "INV-A".equals(p.getValue("invNo")) ? List.of(101L) : List.of();
                 });
 
-        repo.replaceRelatedInvoices(10L, "REP", " INV-A , , INV-B ", "00001111", "01", "user123");
+        // Only the resolved id comes back — callers use it to cancel the replaced invoice.
+        assertThat(repo.replaceRelatedInvoices(10L, "REP", " INV-A , , INV-B ", "00001111", "01", "user123"))
+                .containsExactly(101L);
 
         // Two resolve lookups: INV-A and INV-B (empty token skipped)
         ArgumentCaptor<MapSqlParameterSource> resolveCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);

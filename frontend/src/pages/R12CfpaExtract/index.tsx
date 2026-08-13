@@ -69,8 +69,8 @@ export function R12CfpaExtractPage() {
 
   const buildRequest = (reportFormat: 'PDF' | 'CSV') => ({
     reportFormat,
-    ...(year && { year: parseInt(year, 10) }),
-    ...(month && { month: parseInt(month, 10) }),
+    ...(year && { year: Number.parseInt(year, 10) }),
+    ...(month && { month: Number.parseInt(month, 10) }),
     ...(dateFrom && { dateFrom: formatDate(dateFrom) }),
     ...(dateTo && { dateTo: formatDate(dateTo) }),
     ...(timeFrame && { timeFrame }),
