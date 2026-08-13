@@ -58,6 +58,28 @@ describe('TagInput', () => {
     expect(onChange).toHaveBeenLastCalledWith(['B-1', 'B-2']);
   });
 
+  it('upper-cases the draft as it is typed and the values it commits', async () => {
+    const user = userEvent.setup();
+    renderInput([], { uppercase: true });
+
+    const input = screen.getByRole('textbox', { name: /boom numbers/i });
+    await user.click(input);
+    await user.paste('inv-a, inv-b');
+    expect(input).toHaveValue('INV-A, INV-B');
+
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith(['INV-A', 'INV-B']);
+  });
+
+  it('leaves case alone without the uppercase flag', async () => {
+    const user = userEvent.setup();
+    renderInput();
+
+    await user.type(screen.getByRole('textbox', { name: /boom numbers/i }), 'inv-a{Enter}');
+
+    expect(onChange).toHaveBeenCalledWith(['inv-a']);
+  });
+
   it('stops accepting values beyond maxTags and shows the cap in the helper text', async () => {
     const user = userEvent.setup();
     renderInput(['B-1', 'B-2'], { maxTags: 2 });
