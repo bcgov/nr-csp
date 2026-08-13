@@ -2,15 +2,19 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R12ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
+import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRunner;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R12Validator;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -19,17 +23,27 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class R12Service {
 
     private static final Logger log = LoggerFactory.getLogger(R12Service.class);
 
-    private final JasperServerService jasperServerService;
+    private final JasperReportRenderer renderer;
     private final Clock clock;
 
-    public R12Service(JasperServerService jasperServerService, Clock clock) {
-        this.jasperServerService = jasperServerService;
+    /** Cache of compiled JasperReport objects keyed by template classpath path. */
+    private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
+
+    @Value("${jasper.report.r12.template:/reports/R12.jrxml}")
+    private String r12TemplatePath;
+
+    @Value("${jasper.report.r12.csv.template:/reports/R12_CSV.jrxml}")
+    private String r12CsvTemplatePath;
+
+    public R12Service(JasperReportRenderer renderer, Clock clock) {
+        this.renderer = renderer;
         this.clock = clock;
     }
 
@@ -37,10 +51,27 @@ public class R12Service {
         validate(request);
         String format = request.getReportFormat().getValue();
         log.info("Generating R12 report format={}", format);
+        String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
+        String templatePath = "CSV".equalsIgnoreCase(format) ? r12CsvTemplatePath : r12TemplatePath;
 
-        return JasperReportRunner.run(jasperServerService, clock, "R12",
-                request.getReportFormat(), buildParams(request));
+        JasperReport jasperReport = compiledReportCache.computeIfAbsent(templatePath, path -> {
+            log.info("Compiling JRXML: {}", path);
+            return renderer.compileFromClasspath(path);
+        });
+
+        Map<String, Object> params = buildParams(request);
+        JasperPrint jasperPrint = renderer.fillReport(jasperReport, params, "R12");
+
+        if (jasperPrint.getPages().isEmpty()) {
+            throw new ResourceNotFoundException("The R12 report returned no data for the given parameters.");
+        }
+
+        byte[] data = renderer.exportReport(jasperPrint, format, "R12");
+        String filename = ReportFilenames.timestamped("R12", ext, clock);
+        return new ReportResult(data, filename);
     }
+
+    // ── Validation ────────────────────────────────────────────────────────────
 
     private void validate(R12ReportRequest r) {
         ValidationResult result = new R12Validator().validate(r);
@@ -48,6 +79,8 @@ public class R12Service {
             throw new ValidationException("R12 report failed validation.", result);
         }
     }
+
+    // ── Parameter building ─────────────────────────────────────────────────────
 
     private Map<String, Object> buildParams(R12ReportRequest r) {
         Map<String, Object> p = new HashMap<>();
