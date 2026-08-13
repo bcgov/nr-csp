@@ -25,6 +25,8 @@ import java.util.List;
 public final class SubreportInjector {
 
     private static final String JASPER_REPORT_CLASS = "net.sf.jasperreports.engine.JasperReport";
+    private static final String ELEMENT_EXPRESSION = "expression";
+    private static final String ELEMENT_PARAMETER = "parameter";
 
     private SubreportInjector() {}
 
@@ -45,7 +47,7 @@ public final class SubreportInjector {
             throw new IllegalArgumentException("No subreport element found with expression repo:" + repoFileName);
         }
         for (Element subreportEl : matches) {
-            Element exprEl = subreportEl.element("expression");
+            Element exprEl = subreportEl.element(ELEMENT_EXPRESSION);
             exprEl.clearContent();
             exprEl.addCDATA("$P{" + parameterName + "}");
         }
@@ -70,9 +72,9 @@ public final class SubreportInjector {
             throw new IllegalArgumentException("No subreport element found referencing parameter " + hostParameterName);
         }
         for (Element subreportEl : matches) {
-            Element paramEl = subreportEl.addElement("parameter");
+            Element paramEl = subreportEl.addElement(ELEMENT_PARAMETER);
             paramEl.addAttribute("name", passThroughParameterName);
-            paramEl.addElement("expression").addCDATA("$P{" + passThroughParameterName + "}");
+            paramEl.addElement(ELEMENT_EXPRESSION).addCDATA("$P{" + passThroughParameterName + "}");
         }
         ensureJasperReportParameterDeclared(doc, passThroughParameterName);
         return doc.asXML();
@@ -88,7 +90,7 @@ public final class SubreportInjector {
         for (Iterator<Element> it = parent.elementIterator(); it.hasNext(); ) {
             Element child = it.next();
             if ("element".equals(child.getName()) && "subreport".equals(child.attributeValue("kind"))) {
-                Element expr = child.element("expression");
+                Element expr = child.element(ELEMENT_EXPRESSION);
                 if (expr != null && expressionText.equals(expr.getTextTrim())) {
                     results.add(child);
                 }
@@ -99,15 +101,15 @@ public final class SubreportInjector {
 
     private static void ensureJasperReportParameterDeclared(Document doc, String name) {
         Element root = doc.getRootElement();
-        for (Element existing : root.elements("parameter")) {
+        for (Element existing : root.elements(ELEMENT_PARAMETER)) {
             if (name.equals(existing.attributeValue("name"))) return;
         }
 
-        Element newParam = DocumentHelper.createElement("parameter");
+        Element newParam = DocumentHelper.createElement(ELEMENT_PARAMETER);
         newParam.addAttribute("name", name);
         newParam.addAttribute("class", JASPER_REPORT_CLASS);
 
-        List<Element> topParams = root.elements("parameter");
+        List<Element> topParams = root.elements(ELEMENT_PARAMETER);
         List<?> content = root.content();
         int insertIndex;
         if (!topParams.isEmpty()) {

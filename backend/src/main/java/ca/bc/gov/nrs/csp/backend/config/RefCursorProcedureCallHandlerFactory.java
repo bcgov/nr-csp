@@ -44,8 +44,15 @@ public class RefCursorProcedureCallHandlerFactory implements ProcedureCallHandle
         // This app only ever talks to Oracle, so isHandling() doesn't need to inspect the
         // Connection — but it must still distinguish procedure calls from plain SELECT queries
         // (e.g. R13's language="sql" query), which must NOT be routed through prepareCall().
+        //
+        // Uses [^}]* rather than .* after "call" so the mandatory whitespace and the
+        // "everything else" segment can never both match the same characters — with the
+        // original .* there was no character excluded from either side, so the engine could
+        // backtrack across every possible split point between them (quadratic on pathological
+        // input, flagged by SonarQube as super-linear regex performance). A negated character
+        // class matches newlines natively, so DOTALL is no longer needed either.
         private static final Pattern CALL_SYNTAX = Pattern.compile(
-                "^\\s*\\{\\s*(\\?\\s*=\\s*)?call\\s+.*}\\s*$", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+                "^\\s*\\{\\s*(\\?\\s*=\\s*)?call\\s[^}]*}\\s*$", Pattern.CASE_INSENSITIVE);
 
         private CallableStatement statement;
 

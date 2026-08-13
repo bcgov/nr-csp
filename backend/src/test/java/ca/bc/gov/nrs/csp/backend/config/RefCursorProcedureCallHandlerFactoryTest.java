@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -107,7 +108,7 @@ class RefCursorProcedureCallHandlerFactoryTest {
 
         @Test
         void shouldExecuteStatementAndReturnRegisteredCursor() throws SQLException {
-            ResultSet cursorResult = org.mockito.Mockito.mock(ResultSet.class);
+            ResultSet cursorResult = mock(ResultSet.class);
             given(statement.getObject(1)).willReturn(cursorResult);
             handler.init(statement);
 

@@ -28,6 +28,9 @@ public class R06Service {
 
     private static final Logger log = LoggerFactory.getLogger(R06Service.class);
 
+    private static final String PARAM_SUBREPORT_R06_1 = "SUBREPORT_R06_1";
+    private static final String PARAM_SUBREPORT_R06_2 = "SUBREPORT_R06_2";
+
     private final JasperReportRenderer renderer;
     private final SearchService searchService;
     private final Clock clock;
@@ -70,8 +73,8 @@ public class R06Service {
                 path -> compileBundle(path, sub1Path, sub2Path, sub1RepoName, sub2RepoName));
 
         Map<String, Object> params = buildParams(request);
-        params.put("SUBREPORT_R06_1", bundle.sub1());
-        params.put("SUBREPORT_R06_2", bundle.sub2());
+        params.put(PARAM_SUBREPORT_R06_1, bundle.sub1());
+        params.put(PARAM_SUBREPORT_R06_2, bundle.sub2());
         JasperPrint jasperPrint = renderer.fillReport(bundle.main(), params, "R06");
 
         if (jasperPrint.getPages().isEmpty()) {
@@ -110,12 +113,12 @@ public class R06Service {
             JasperReport sub2 = renderer.compileReport(renderer.loadTemplate(sub2Path));
 
             String sub1Jrxml = SubreportInjector.rewriteSubreportExpression(
-                    renderer.loadTemplate(sub1Path), sub2RepoName, "SUBREPORT_R06_2");
+                    renderer.loadTemplate(sub1Path), sub2RepoName, PARAM_SUBREPORT_R06_2);
             JasperReport sub1 = renderer.compileReport(sub1Jrxml);
 
             String mainJrxml = SubreportInjector.rewriteSubreportExpression(
-                    renderer.loadTemplate(mainPath), sub1RepoName, "SUBREPORT_R06_1");
-            mainJrxml = SubreportInjector.addPassThroughParameter(mainJrxml, "SUBREPORT_R06_1", "SUBREPORT_R06_2");
+                    renderer.loadTemplate(mainPath), sub1RepoName, PARAM_SUBREPORT_R06_1);
+            mainJrxml = SubreportInjector.addPassThroughParameter(mainJrxml, PARAM_SUBREPORT_R06_1, PARAM_SUBREPORT_R06_2);
             JasperReport main = renderer.compileReport(mainJrxml);
 
             return new ReportBundle(main, sub1, sub2);

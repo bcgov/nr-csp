@@ -33,6 +33,9 @@ public class R11Service {
 
     private static final Logger log = LoggerFactory.getLogger(R11Service.class);
 
+    private static final String PARAM_SUBREPORT_R11_SUB = "SUBREPORT_R11_SUB";
+    private static final String PARAM_SUBREPORT_R11_XTAB = "SUBREPORT_R11_XTAB";
+
     private final JasperReportRenderer renderer;
     private final Clock clock;
 
@@ -73,8 +76,8 @@ public class R11Service {
                 path -> compileBundle(path, subPath, xtabPath, subRepoName, xtabRepoName));
 
         Map<String, Object> params = buildParams(request);
-        params.put("SUBREPORT_R11_SUB", bundle.sub());
-        params.put("SUBREPORT_R11_XTAB", bundle.xtab());
+        params.put(PARAM_SUBREPORT_R11_SUB, bundle.sub());
+        params.put(PARAM_SUBREPORT_R11_XTAB, bundle.xtab());
         JasperPrint jasperPrint = renderer.fillReport(bundle.main(), params, "R11");
 
         if (jasperPrint.getPages().isEmpty()) {
@@ -116,12 +119,12 @@ public class R11Service {
             JasperReport xtab = renderer.compileReport(renderer.loadTemplate(xtabPath));
 
             String subJrxml = SubreportInjector.rewriteSubreportExpression(
-                    renderer.loadTemplate(subPath), xtabRepoName, "SUBREPORT_R11_XTAB");
+                    renderer.loadTemplate(subPath), xtabRepoName, PARAM_SUBREPORT_R11_XTAB);
             JasperReport sub = renderer.compileReport(subJrxml);
 
             String mainJrxml = SubreportInjector.rewriteSubreportExpression(
-                    renderer.loadTemplate(mainPath), subRepoName, "SUBREPORT_R11_SUB");
-            mainJrxml = SubreportInjector.addPassThroughParameter(mainJrxml, "SUBREPORT_R11_SUB", "SUBREPORT_R11_XTAB");
+                    renderer.loadTemplate(mainPath), subRepoName, PARAM_SUBREPORT_R11_SUB);
+            mainJrxml = SubreportInjector.addPassThroughParameter(mainJrxml, PARAM_SUBREPORT_R11_SUB, PARAM_SUBREPORT_R11_XTAB);
             JasperReport main = renderer.compileReport(mainJrxml);
 
             return new ReportBundle(main, sub, xtab);
