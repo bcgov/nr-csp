@@ -21,7 +21,7 @@ public record SubmissionHistoryRowResponse(
         @Schema(description = "Submitting client number.")
         String clientNumber,
 
-        @Schema(description = "Submitting client name (from forest_client).")
+        @Schema(description = "Submitting client name (from V_CLIENT_PUBLIC).")
         String clientName,
 
         @Schema(description = "Submission status description (not code) from CSP_SUBMISSION_STATUS_CODE.")
