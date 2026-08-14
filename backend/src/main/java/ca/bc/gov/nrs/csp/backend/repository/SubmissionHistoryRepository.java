@@ -33,7 +33,7 @@ import java.util.Optional;
  *       flattened list of all their line items.</li>
  * </ul>
  *
- * <p>Submitter name comes from {@code forest_client} and {@code submitted_by}
+ * <p>Submitter name comes from {@code V_CLIENT_PUBLIC} and {@code submitted_by}
  * from {@code electronic_submission} (falling back to the submission's entry
  * user). The submission's own email and telephone come from the
  * {@code submitter_email} / {@code submitter_phone} columns on
@@ -70,7 +70,7 @@ public class SubmissionHistoryRepository {
             FROM   THE.csp_submission sub
             INNER JOIN THE.csp_submission_status_code subStatus
                     ON sub.csp_submission_status_code = subStatus.csp_submission_status_code
-            LEFT JOIN THE.forest_client fc
+            LEFT JOIN THE.V_CLIENT_PUBLIC fc
                     ON sub.client_number = fc.client_number
             LEFT JOIN THE.electronic_submission es
                     ON sub.submission_id = es.submission_id
@@ -116,7 +116,7 @@ public class SubmissionHistoryRepository {
             FROM   THE.csp_submission sub
             INNER JOIN THE.csp_submission_status_code subStatus
                     ON sub.csp_submission_status_code = subStatus.csp_submission_status_code
-            LEFT JOIN THE.forest_client fc
+            LEFT JOIN THE.V_CLIENT_PUBLIC fc
                     ON sub.client_number = fc.client_number
             LEFT JOIN THE.electronic_submission es
                     ON sub.submission_id = es.submission_id
@@ -130,7 +130,7 @@ public class SubmissionHistoryRepository {
     // name/city/province live in log_sale_participant ONLY for non-registered
     // parties; when the other party is a registered client (has a client
     // number) those participant columns are null, so we COALESCE to the
-    // forest_client name and client_location city/province instead. The
+    // V_CLIENT_PUBLIC name and client_location city/province instead. The
     // LISTAGG subqueries flatten the log-source (boom/mark/weigh) and related-
     // invoice (replaces/adjusts) child rows the same way InvoiceRepository's
     // helper methods do.
@@ -201,9 +201,9 @@ public class SubmissionHistoryRepository {
                     ON inv.buyer_log_sale_participant_id = buyer_part.log_sale_participant_id
             LEFT JOIN THE.log_sale_participant seller_part
                     ON inv.seller_log_sale_participant_id = seller_part.log_sale_participant_id
-            LEFT JOIN THE.forest_client buyer_fc
+            LEFT JOIN THE.V_CLIENT_PUBLIC buyer_fc
                     ON inv.buyer_client_number = buyer_fc.client_number
-            LEFT JOIN THE.forest_client seller_fc
+            LEFT JOIN THE.V_CLIENT_PUBLIC seller_fc
                     ON inv.seller_client_number = seller_fc.client_number
             LEFT JOIN THE.client_location buyer_cl
                     ON inv.buyer_client_number = buyer_cl.client_number

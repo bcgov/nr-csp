@@ -19,7 +19,7 @@ public class ClientLocationRepository {
                    cl.client_locn_name,
                    cl.city,
                    cl.province
-            FROM THE.forest_client fc
+            FROM THE.V_CLIENT_PUBLIC fc
             JOIN THE.client_location cl ON fc.client_number = cl.client_number
             """;
 
