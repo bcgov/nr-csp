@@ -39,7 +39,7 @@ public class SearchRepository {
                 ON inv.csp_invoice_type_code = invType.csp_invoice_type_code
             LEFT JOIN THE.log_sale_type_code logType
                 ON inv.log_sale_type_code = logType.log_sale_type_code
-            LEFT JOIN THE.forest_client fc
+            LEFT JOIN THE.V_CLIENT_PUBLIC fc
                 ON sub.client_number = fc.client_number
             WHERE 1=1
             """;
