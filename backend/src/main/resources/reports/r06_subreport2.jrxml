@@ -1,0 +1,94 @@
+<!-- Created with Jaspersoft Studio version 7.0.0.final using JasperReports Library version 7.0.0-b478feaa9aab4375eba71de77b4ca138ad2f62aa  -->
+<jasperReport name="r06_subreport2" language="java" pageWidth="555" pageHeight="802" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b6445526-0f7d-4162-81d2-64557abd20ec">
+	<property name="ireport.zoom" value="1.7715610000000015"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R06"/>
+	<property name="ireport.jasperserver.url" value="http://localhost:8080/jasperserver/services/repository"/>
+	<parameter name="COASTAL_LOG_SALE_ID" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="REPORT_CURSOR" forPrompting="false" class="java.sql.ResultSet"/>
+	<query language="plsql"><![CDATA[{call CSP_SP_SUBRPT2_06 ($P{REPORT_CURSOR}, $P{COASTAL_LOG_SALE_ID})}]]></query>
+	<field name="GROUPNUM" class="java.math.BigDecimal"/>
+	<field name="LOG_SALE_SORT_CODE" class="java.lang.String"/>
+	<field name="SORTCODEDESC" class="java.lang.String"/>
+	<field name="LOG_SALE_SPECIES_CODE" class="java.lang.String"/>
+	<field name="SPECIESDESC" class="java.lang.String"/>
+	<field name="LOG_SALE_GRADE_CODE" class="java.lang.String"/>
+	<field name="GRADEDESC" class="java.lang.String"/>
+	<field name="PIECES" class="java.math.BigDecimal"/>
+	<field name="VOLUME" class="java.math.BigDecimal"/>
+	<field name="PRICE" class="java.math.BigDecimal"/>
+	<field name="AMOUNT" class="java.math.BigDecimal"/>
+	<variable name="GTVolume" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{VOLUME}]]></expression>
+	</variable>
+	<variable name="GTAmount" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{AMOUNT}]]></expression>
+	</variable>
+	<pageHeader height="50">
+		<element kind="staticText" uuid="9b83d8d2-cec0-4ca3-ad0c-729e66dd9b89" x="33" y="17" width="200" height="20" fontSize="10.0" bold="true">
+			<text><![CDATA[Line Items]]></text>
+		</element>
+		<element kind="line" uuid="8eab720d-eca7-4576-ad6e-5c2d0149b668" x="33" y="49" width="477" height="1"/>
+	</pageHeader>
+	<columnHeader height="27" splitType="Stretch">
+		<element kind="staticText" uuid="a8c9f178-332b-4dc8-aa75-35fa803d0525" x="47" y="1" width="33" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Center">
+			<text><![CDATA[Group #]]></text>
+		</element>
+		<element kind="staticText" uuid="223f0e06-9cdc-416b-b00e-3e289aabc30b" x="377" y="1" width="51" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Price]]></text>
+		</element>
+		<element kind="staticText" uuid="2a959aff-d368-4707-a1aa-aadd1aa67b9d" x="299" y="1" width="61" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Volume]]></text>
+		</element>
+		<element kind="staticText" uuid="94c03422-6dd6-4155-a0ac-30c377ffd365" x="221" y="1" width="62" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Center">
+			<text><![CDATA[Grade]]></text>
+		</element>
+		<element kind="staticText" uuid="9769c251-78de-4330-9329-b3fb00810c35" x="137" y="1" width="61" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[ # of Pieces]]></text>
+		</element>
+		<element kind="staticText" uuid="4e73ea6b-57bd-4254-a64e-83c9ec7e8fa0" x="449" y="1" width="61" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Right">
+			<text><![CDATA[Amount]]></text>
+		</element>
+		<element kind="staticText" uuid="8b0b5d97-27a0-4cf8-b70a-ed88a1ce76d9" x="90" y="1" width="36" height="20" fontSize="8.0" bold="true" underline="true" hTextAlign="Center">
+			<text><![CDATA[Species]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="17" splitType="Stretch">
+			<element kind="textField" uuid="1f2c3afa-f2b6-43a1-a2ef-41d959d4d0bc" x="47" y="1" width="33" height="13" fontSize="8.0" pattern="#,##0" hTextAlign="Center">
+				<expression><![CDATA[$F{GROUPNUM}]]></expression>
+			</element>
+			<element kind="textField" uuid="7084fe6c-33ab-4eeb-88c5-e652af5b5cf4" x="377" y="1" width="51" height="13" fontSize="8.0" pattern="¤ ##,##0.00" hTextAlign="Right">
+				<expression><![CDATA[$F{PRICE}]]></expression>
+			</element>
+			<element kind="textField" uuid="03e08688-deda-48f0-aad5-ffdd870ec68c" x="221" y="1" width="62" height="13" fontSize="8.0" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_GRADE_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="aabd74a5-f0af-44cb-a8cd-d8b068b3c376" x="137" y="1" width="61" height="13" fontSize="8.0" pattern="##,##0;-##,##0" hTextAlign="Right">
+				<expression><![CDATA[$F{PIECES}]]></expression>
+			</element>
+			<element kind="textField" uuid="b5116dd9-cc1e-4a1c-ad16-04d66df6baff" x="299" y="1" width="61" height="13" fontSize="8.0" pattern="##,###,##0.000;-##,###,##0.000" hTextAlign="Right">
+				<expression><![CDATA[$F{VOLUME}]]></expression>
+			</element>
+			<element kind="textField" uuid="fff5bf1e-3aab-48ed-99ec-2d8a901c2922" x="90" y="1" width="36" height="13" fontSize="8.0" hTextAlign="Center">
+				<expression><![CDATA[$F{LOG_SALE_SPECIES_CODE}]]></expression>
+			</element>
+			<element kind="textField" uuid="3e39f6ee-b435-4120-9c23-a5b2493573b6" x="449" y="1" width="61" height="13" fontSize="8.0" pattern="¤ #,###,##0.00" hTextAlign="Right">
+				<expression><![CDATA[$F{AMOUNT}.setScale(2,java.math.RoundingMode.HALF_UP)]]></expression>
+			</element>
+		</band>
+	</detail>
+	<summary height="23">
+		<element kind="line" uuid="f51d1262-8de5-4d55-bce8-4d4caae4f638" x="449" y="1" width="61" height="1"/>
+		<element kind="line" uuid="2a47d292-5b3b-4fdf-9851-614592643b96" x="299" y="2" width="60" height="1"/>
+		<element kind="textField" uuid="ae16ceec-c9e1-4584-afb8-d9aebe0104a8" x="299" y="3" width="61" height="20" fontSize="8.0" pattern="##,###,##0.000;-##,###,##0.000" bold="true" hTextAlign="Right">
+			<expression><![CDATA[$V{GTVolume}]]></expression>
+		</element>
+		<element kind="textField" uuid="b86e82e1-15c8-481d-9260-78cfd9fa8cfb" x="449" y="3" width="61" height="20" fontSize="8.0" pattern="¤ #,###,##0.00" bold="true" hTextAlign="Right">
+			<expression><![CDATA[$V{GTAmount}.setScale(2,java.math.RoundingMode.HALF_UP)]]></expression>
+		</element>
+	</summary>
+</jasperReport>

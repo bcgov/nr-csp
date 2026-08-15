@@ -29,7 +29,7 @@ public record SubmissionDetailResponse(
         @Schema(description = "Submitting client number.")
         String clientNumber,
 
-        @Schema(description = "Submitting client name (from forest_client).")
+        @Schema(description = "Submitting client name (from V_CLIENT_PUBLIC).")
         String clientName,
 
         @Schema(description = "Submitting client location code (client_locn_code).")

@@ -20,7 +20,7 @@ public record SearchResultResponse(
         String type,
         @Schema(description = "Submitter client number", example = "01496328")
         String clientNumber,
-        @Schema(description = "Submitter client name (joined from forest_client)", example = "ACME LOGGING LTD")
+        @Schema(description = "Submitter client name (joined from V_CLIENT_PUBLIC)", example = "ACME LOGGING LTD")
         String clientName,
         @Schema(description = "Log sale maturity code", example = "O")
         String maturity,

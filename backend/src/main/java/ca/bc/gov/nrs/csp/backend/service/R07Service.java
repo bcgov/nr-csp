@@ -2,17 +2,21 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R07ReportRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
+import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.repository.CspSubmissionRepository;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRunner;
-import ca.bc.gov.nrs.csp.backend.service.reporting.JasperServerService;
+import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R07Validator;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -20,23 +24,32 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class R07Service {
 
     private static final Logger log = LoggerFactory.getLogger(R07Service.class);
 
-    private final JasperServerService jasperServerService;
+    private final JasperReportRenderer renderer;
     private final SearchService searchService;
     private final CspSubmissionRepository cspSubmissionRepository;
     private final Clock clock;
 
-    public R07Service(JasperServerService jasperServerService, SearchService searchService,
+    /** Cache of compiled JasperReport objects keyed by template classpath path. */
+    private final Map<String, JasperReport> compiledReportCache = new ConcurrentHashMap<>();
+
+    @Value("${jasper.report.r07.template:/reports/R07.jrxml}")
+    private String r07TemplatePath;
+
+    @Value("${jasper.report.r07.csv.template:/reports/R07_CSV.jrxml}")
+    private String r07CsvTemplatePath;
+
+    public R07Service(JasperReportRenderer renderer, SearchService searchService,
                       CspSubmissionRepository cspSubmissionRepository, Clock clock) {
-        this.jasperServerService = jasperServerService;
+        this.renderer = renderer;
         this.searchService = searchService;
         this.cspSubmissionRepository = cspSubmissionRepository;
         this.clock = clock;
@@ -46,10 +59,27 @@ public class R07Service {
         validate(request);
         String format = request.getReportFormat().getValue();
         log.info("Generating R07 report format={}", format);
+        String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
+        String templatePath = "CSV".equalsIgnoreCase(format) ? r07CsvTemplatePath : r07TemplatePath;
 
-        return JasperReportRunner.run(jasperServerService, clock, "R07",
-                request.getReportFormat(), buildParams(request));
+        JasperReport jasperReport = compiledReportCache.computeIfAbsent(templatePath, path -> {
+            log.info("Compiling JRXML: {}", path);
+            return renderer.compileFromClasspath(path);
+        });
+
+        Map<String, Object> params = buildParams(request);
+        JasperPrint jasperPrint = renderer.fillReport(jasperReport, params, "R07");
+
+        if (jasperPrint.getPages().isEmpty()) {
+            throw new ResourceNotFoundException("The R07 report returned no data for the given parameters.");
+        }
+
+        byte[] data = renderer.exportReport(jasperPrint, format, "R07");
+        String filename = ReportFilenames.timestamped("R07", ext, clock);
+        return new ReportResult(data, filename);
     }
+
+    // ── Validation ────────────────────────────────────────────────────────────
 
     private void validate(R07ReportRequest r) {
         ValidationResult result = new R07Validator(cspSubmissionRepository, searchService).validate(r);
@@ -57,6 +87,8 @@ public class R07Service {
             throw new ValidationException("R07 report failed validation.", result);
         }
     }
+
+    // ── Parameter building ─────────────────────────────────────────────────────
 
     private Map<String, Object> buildParams(R07ReportRequest r) {
         Map<String, Object> p = new HashMap<>();
@@ -81,10 +113,11 @@ public class R07Service {
         }
         if (r.getShowReplacesAdjusts() != null) p.put("SHOW_REPLACES_ADJUSTS", String.valueOf(r.getShowReplacesAdjusts()));
 
-        String maturity = r.getMaturityCodes() != null ? r.getMaturityCodes() : "O,S,M";
-        p.put("MATURITY", maturity);
-        p.put("TYPE_CODE_MATURITY", maturity);
-        p.put("TYPE_CODE_MATURITY_DESCRIPTION", buildMaturityDescription(maturity));
+        // MATURITY is the only maturity parameter R07.jrxml declares — the stored proc computes
+        // its own description text; there is no TYPE_CODE_MATURITY/TYPE_CODE_MATURITY_DESCRIPTION
+        // parameter in the report design (verified against both the JR7-converted and the
+        // original pre-conversion export).
+        p.put("MATURITY", r.getMaturityCodes() != null ? r.getMaturityCodes() : "O,S,M");
         p.put("INVOICE_TYPE",      r.getInvoiceType() != null ? r.getInvoiceType() : "ADJ,CAN,PUR,SAL");
         p.put("INVOICE_STATUS",    r.getInvoiceStatus() != null ? r.getInvoiceStatus() : "PRO,UNA,APP,CAN,DFT,DVF,REJ,VER");
         p.put("SUBMISSION_STATUS", r.getSubmissionStatus() != null ? r.getSubmissionStatus() : "COM,INB,LOB,REJ");
@@ -114,19 +147,6 @@ public class R07Service {
             return results.isEmpty() ? null : results.get(0);
         }
         return null;
-    }
-
-    private static String buildMaturityDescription(String codes) {
-        if (codes == null || codes.isBlank()) return "";
-        Map<String, String> map = new LinkedHashMap<>();
-        map.put("O", "Old Growth"); map.put("S", "Second Growth");
-        map.put("M", "Mixed Growth"); map.put("C", "Cants");
-        StringBuilder sb = new StringBuilder();
-        for (String code : codes.split(",")) {
-            String label = map.get(code.trim());
-            if (label != null) { if (sb.length() > 0) sb.append(", "); sb.append(label); }
-        }
-        return sb.toString();
     }
 
     private static String autoDateTo(String dateFrom, String dateTo, String timeFrame) {
