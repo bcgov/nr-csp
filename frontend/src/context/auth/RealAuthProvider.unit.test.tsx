@@ -3,6 +3,8 @@ import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { IDIR_REALM_LOGOUT_GRACE_MS } from '@/utils/logoutChain';
+
 import { AuthContext } from './AuthContext';
 import { RealAuthProvider } from './RealAuthProvider';
 import { emitSessionExpired } from './sessionExpiredSignal';
@@ -399,9 +401,12 @@ describe('RealAuthProvider', () => {
         configurable: true,
       });
       window.localStorage.clear();
+      vi.restoreAllMocks();
     });
 
     it('navigates the SiteMinder chain and bypasses Amplify signOut when configured', async () => {
+      // Popup blocked → sign-out proceeds immediately, without the grace wait.
+      vi.spyOn(window, 'open').mockReturnValue(null);
       window.amplifyConfig = chainConfig;
       window.localStorage.setItem('CognitoIdentityServiceProvider.cognito-client-id.user.idToken', 'token');
       window.sessionStorage.setItem('csp.table.search.v1.page', '3');
@@ -422,6 +427,44 @@ describe('RealAuthProvider', () => {
       // Amplify tokens and persisted UI state are cleared before navigation.
       expect(window.localStorage.getItem('CognitoIdentityServiceProvider.cognito-client-id.user.idToken')).toBeNull();
       expect(window.sessionStorage.getItem('csp.table.search.v1.page')).toBeNull();
+    });
+
+    it('logs out the idir broker realm via a popup before navigating the chain', async () => {
+      const popup = { close: vi.fn() } as unknown as Window;
+      const openSpy = vi.spyOn(window, 'open').mockReturnValue(popup);
+      window.amplifyConfig = chainConfig;
+      mockFetchAuthSession.mockResolvedValue(
+        sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+      );
+
+      const { getCtx } = await renderAndSettle();
+
+      vi.useFakeTimers();
+      try {
+        await act(async () => {
+          const pending = getCtx()?.signOut();
+          await vi.advanceTimersByTimeAsync(0);
+
+          // Chain navigation is held while the popup completes the idir logout.
+          expect(openSpy).toHaveBeenCalledWith(
+            'https://test.loginproxy.gov.bc.ca/auth/realms/idir/protocol/openid-connect/logout',
+            'csp-idir-realm-logout',
+            expect.stringContaining('popup'),
+          );
+          expect(assignMock).not.toHaveBeenCalled();
+          expect(popup.close).not.toHaveBeenCalled();
+
+          await vi.advanceTimersByTimeAsync(IDIR_REALM_LOGOUT_GRACE_MS);
+          await pending;
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(popup.close).toHaveBeenCalledTimes(1);
+      expect(assignMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^https:\/\/logontest7\.gov\.bc\.ca\/clp-cgi\/logoff\.cgi/),
+      );
     });
 
     it('falls back to Amplify signOut when chain config is incomplete', async () => {

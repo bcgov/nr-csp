@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildFederatedLogoutUrl, clearStoredTokens } from './logoutChain';
+import { buildFederatedLogoutUrl, clearStoredTokens, openIdirRealmLogoutPopup } from './logoutChain';
 
 const fullConfig = {
   appEnv: 'test',
@@ -62,6 +62,51 @@ describe('buildFederatedLogoutUrl', () => {
 
   it('returns null when config is undefined', () => {
     expect(buildFederatedLogoutUrl(undefined)).toBeNull();
+  });
+});
+
+describe('openIdirRealmLogoutPopup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('opens the idir-realm variant of the Keycloak logout URL as a named popup', () => {
+    const fakePopup = {} as Window;
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakePopup);
+
+    const result = openIdirRealmLogoutPopup(fullConfig);
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://test.loginproxy.gov.bc.ca/auth/realms/idir/protocol/openid-connect/logout',
+      'csp-idir-realm-logout',
+      expect.stringContaining('popup'),
+    );
+    expect(result).toBe(fakePopup);
+  });
+
+  it('returns null without opening when the Keycloak logout URL is missing', () => {
+    const openSpy = vi.spyOn(window, 'open');
+    expect(openIdirRealmLogoutPopup({ ...fullConfig, logoutKeycloakUrl: undefined })).toBeNull();
+    expect(openIdirRealmLogoutPopup(undefined)).toBeNull();
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the URL is not a standard-realm endpoint', () => {
+    const openSpy = vi.spyOn(window, 'open');
+    expect(
+      openIdirRealmLogoutPopup({
+        ...fullConfig,
+        logoutKeycloakUrl: 'https://example.com/auth/realms/custom/protocol/openid-connect/logout',
+      }),
+    ).toBeNull();
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns null when window.open throws', () => {
+    vi.spyOn(window, 'open').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(openIdirRealmLogoutPopup(fullConfig)).toBeNull();
   });
 });
 

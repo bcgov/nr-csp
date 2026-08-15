@@ -66,6 +66,45 @@ export function buildFederatedLogoutUrl(config: AmplifyConfig): string | null {
 }
 
 /**
+ * How long the IDIR-realm logout popup is given to finish before it is closed
+ * and the main logout chain proceeds. The popup needs two round-trips (GET the
+ * auto-submitting confirm page, POST the confirmation).
+ */
+export const IDIR_REALM_LOGOUT_GRACE_MS = 3000;
+
+/**
+ * Opens a short-lived popup that logs the user out of loginproxy's `idir`
+ * realm — a second Keycloak realm that brokers standard-realm IDIR logins to
+ * SiteMinder. Its session is the one layer the main logout chain cannot clear:
+ * without it, the next sign-in silently completes through the broker and never
+ * prompts for credentials.
+ *
+ * A popup is the only viable vehicle: the realm's end-session endpoint rejects
+ * redirect chaining for integrating clients (HTTP 400 — our URLs are not on
+ * its allow-list) and its pages send `frame-ancestors 'self'`, so an invisible
+ * iframe is blocked. The realm's logout-confirm page auto-submits itself
+ * (loginproxy theme), so the popup completes the logout unattended; the caller
+ * waits {@link IDIR_REALM_LOGOUT_GRACE_MS} and closes it.
+ *
+ * @returns The popup window, or `null` when the chain config is absent or the
+ *   popup was blocked — the caller proceeds with the main chain either way
+ *   (worst case matches the old behaviour: the idir-realm session survives).
+ */
+export function openIdirRealmLogoutPopup(config: AmplifyConfig): Window | null {
+  const keycloakBase = config?.logoutKeycloakUrl?.trim();
+  if (!keycloakBase) return null;
+
+  const idirLogoutUrl = keycloakBase.replace('/realms/standard/', '/realms/idir/');
+  if (idirLogoutUrl === keycloakBase) return null;
+
+  try {
+    return window.open(idirLogoutUrl, 'csp-idir-realm-logout', 'popup,width=420,height=280');
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Removes Amplify's cached Cognito tokens from localStorage. The logout chain
  * drives its own redirects (Amplify's `signOut()` is bypassed), so tokens are
  * cleared locally to ensure that when the browser lands back on the app at the

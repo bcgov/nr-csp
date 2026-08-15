@@ -3,7 +3,12 @@ import { Hub } from 'aws-amplify/utils';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { clearPersistedTableState } from '@/hooks/usePersistentState';
-import { buildFederatedLogoutUrl, clearStoredTokens } from '@/utils/logoutChain';
+import {
+  buildFederatedLogoutUrl,
+  clearStoredTokens,
+  IDIR_REALM_LOGOUT_GRACE_MS,
+  openIdirRealmLogoutPopup,
+} from '@/utils/logoutChain';
 
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
@@ -83,9 +88,11 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
    * When the federated logout chain is configured, this drives a full-page
    * navigation through SiteMinder → Keycloak → Cognito → app so every upstream
    * session is terminated (not just Cognito). Local Amplify tokens are cleared
-   * first so the post-chain landing on /logout renders logged-out. If the
-   * chain config is incomplete, it falls back to a plain Amplify `signOut()`
-   * (Cognito-only).
+   * first so the post-chain landing on /logout renders logged-out. A popup
+   * concurrently logs out loginproxy's `idir` broker realm — the one layer the
+   * chain can't reach; without it the next sign-in is a silent SSO login (see
+   * openIdirRealmLogoutPopup). If the chain config is incomplete, it falls
+   * back to a plain Amplify `signOut()` (Cognito-only).
    */
   async function performSignOut() {
     setIsSigningOut(true);
@@ -94,6 +101,14 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     const chainUrl = buildFederatedLogoutUrl(window.amplifyConfig);
     if (chainUrl) {
       clearStoredTokens(window.amplifyConfig?.userPoolClientId);
+      // Must be called synchronously within the click's user activation or
+      // popup blockers will eat it. ProtectedRoute renders a LoadingScreen
+      // while isSigningOut, covering the grace period.
+      const popup = openIdirRealmLogoutPopup(window.amplifyConfig);
+      if (popup) {
+        await new Promise((resolve) => setTimeout(resolve, IDIR_REALM_LOGOUT_GRACE_MS));
+        popup.close();
+      }
       // Full-page navigation hands the browser to the chain; the SPA is
       // discarded, so nothing after this runs.
       window.location.assign(chainUrl);
