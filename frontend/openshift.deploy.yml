@@ -2,8 +2,8 @@
 #
 # Cognito / Vite config is baked into the image at build time (Docker ARGs),
 # so no VITE_* runtime parameters are needed here. Runtime wiring is limited to
-# BACKEND_URL (tells Caddy where to proxy /api/* traffic) and COGNITO_DOMAIN
-# (feeds the CSP connect-src directive in Caddyfile).
+# BACKEND_URL (tells Caddy where to proxy /api/* traffic) and COGNITO_DOMAIN /
+# COGNITO_REGION (feed the CSP connect-src directive in Caddyfile).
 #
 # The amplify-config ConfigMap this Deployment mounts is created by
 # common/openshift.init.yml (init step), where environment-scoped GitHub
@@ -31,6 +31,9 @@ parameters:
   - name: COGNITO_DOMAIN
     description: Cognito hosted UI domain (no https://)
     required: true
+  - name: COGNITO_REGION
+    description: AWS region for Cognito (feeds the regional cognito-idp connect-src entry)
+    value: ca-central-1
 
 objects:
   # ── Deployment ────────────────────────────────────────────
@@ -68,9 +71,12 @@ objects:
                 - name: BACKEND_URL
                   value: ${NAME}-backend-${ZONE}:8080
                 # Caddy's Content-Security-Policy connect-src needs the Cognito
-                # domain to allow the SPA's OAuth token-exchange fetch.
+                # domain (OAuth token exchange) and region (silent token refresh
+                # via the regional cognito-idp API) to allow the SPA's fetch/XHR.
                 - name: COGNITO_DOMAIN
                   value: ${COGNITO_DOMAIN}
+                - name: COGNITO_REGION
+                  value: ${COGNITO_REGION}
                 # Caddy runtime log verbosity (see Caddyfile global options).
                 # Comes from the init-created ConfigMap so the value honors
                 # environment-scoped GitHub variables (see openshift.init.yml).

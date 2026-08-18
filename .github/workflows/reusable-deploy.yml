@@ -132,13 +132,14 @@ jobs:
           # attached, so environment-scoped (test/prod) variables are ignored
           # here. Anything that differs per environment belongs in the init
           # step's parameters (common/openshift.init.yml), not in this matrix.
-          # COGNITO_DOMAIN (Caddy CSP header) is the same across environments,
-          # so it's acceptable here.
+          # COGNITO_DOMAIN / COGNITO_REGION (Caddy CSP header) are the same
+          # across environments, so it's acceptable here.
           - name: frontend
             file: frontend/openshift.deploy.yml
             parameters: >-
               -p IMAGE_TAG='${{ inputs.tag }}'
               -p COGNITO_DOMAIN='${{ vars.cognito_domain }}'
+              -p COGNITO_REGION='${{ vars.cognito_region }}'
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     steps:
