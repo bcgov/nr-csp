@@ -10,7 +10,7 @@ import PageTitle from '@/components/core/PageTitle';
 import DateInput from '@/components/Form/DateInput';
 import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { formatIsoDate } from '@/utils/format';
+import { formatIsoDate, formatDisplayDate } from '@/utils/format';
 import {
   type SearchResultResponse,
   type ClientLocationResponse,
@@ -88,7 +88,7 @@ export function SearchPage() {
         </Link>
       ),
     },
-    { key: 'invoiceDate', header: 'Invoice date' },
+    { key: 'invoiceDate', header: 'Invoice date', renderCell: (row) => formatDisplayDate(row.invoiceDate) },
     { key: 'type', header: 'Type' },
     { key: 'clientNumber', header: 'Client number' },
     { key: 'clientName', header: 'Client name' },
@@ -386,7 +386,7 @@ export function SearchPage() {
                 : undefined
             }
             totalItems={totalElements}
-            paginationItemsPerPageText="Invoices per page:"
+            paginationItemsPerPageText="Invoice per page:"
             onPaginationChange={({ page, pageSize: newPageSize }) => {
               setCurrentPage(page);
               setPageSize(newPageSize);
