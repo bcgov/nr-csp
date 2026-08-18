@@ -58,7 +58,7 @@ public class SearchRepository {
             "submissionType", "submission_type"
     );
 
-    private static final String DEFAULT_ORDER_BY = "csp_submission_id DESC";
+    private static final String DEFAULT_ORDER_BY = "invoice_date DESC, csp_submission_id DESC";
 
     // Columns the cross-field keyword filter searches. invoice_date is converted to text so
     // the user can type "2024-01" and still hit it.

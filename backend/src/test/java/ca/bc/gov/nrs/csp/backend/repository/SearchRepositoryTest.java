@@ -380,11 +380,11 @@ class SearchRepositoryTest {
     // ---------------------------------------------------------------
 
     @Test
-    void search_defaultSort_usesCspSubmissionIdDesc() {
+    void search_defaultSort_usesInvoiceDateDesc() {
         stubJdbc();
         repo.search(emptyCriteria(), DEFAULT_PAGE); // no sort specified
 
-        assertThat(captureDataSql()).contains("ORDER BY csp_submission_id DESC");
+        assertThat(captureDataSql()).contains("ORDER BY invoice_date DESC, csp_submission_id DESC");
     }
 
     @Test
