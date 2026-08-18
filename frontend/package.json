@@ -62,6 +62,6 @@
     "vite-plugin-pwa": "^1.2.0",
     "vite-tsconfig-paths": "^6.0.0",
     "vitest": "^4.1.10",
-    "vitest-browser-react": "^1.0.1"
+    "vitest-browser-react": "^2.0.0"
   }
 }
