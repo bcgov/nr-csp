@@ -97,11 +97,31 @@ export function openIdirRealmLogoutPopup(config: AmplifyConfig): Window | null {
   const idirLogoutUrl = keycloakBase.replace('/realms/standard/', '/realms/idir/');
   if (idirLogoutUrl === keycloakBase) return null;
 
+  // A truly invisible logout is not possible: the page refuses to render in
+  // an iframe (frame-ancestors 'self') and fetch() cannot complete the
+  // confirm POST (the one-time session_code is in an opaque cross-origin
+  // response). Best available: the smallest popup browsers allow, tucked
+  // into the bottom-right corner, with focus handed straight back to the
+  // app. Browsers clamp size/position, so exact geometry varies.
+  let popup: Window | null = null;
   try {
-    return window.open(idirLogoutUrl, 'csp-idir-realm-logout', 'popup,width=420,height=280');
+    const left = window.screenX + Math.max(0, window.outerWidth - 130);
+    const top = window.screenY + Math.max(0, window.outerHeight - 100);
+    popup = window.open(idirLogoutUrl, 'csp-idir-realm-logout', `popup,width=120,height=90,left=${left},top=${top}`);
   } catch {
     return null;
   }
+
+  // Ask the browser to put the app's signing-out screen back in front while
+  // the popup works. (Window.blur() on the popup would be the complement, but
+  // it is deprecated and a no-op in modern browsers.) Best-effort — a failure
+  // here must not be mistaken for a blocked popup.
+  try {
+    window.focus();
+  } catch {
+    // ignore
+  }
+  return popup;
 }
 
 /**
