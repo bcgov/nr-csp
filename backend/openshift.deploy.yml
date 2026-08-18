@@ -23,6 +23,14 @@ parameters:
   - name: IMAGE_TAG
     description: Container image tag (PR number, 'test', or 'prod')
     value: latest
+  # IMAGE_TAG is constant for a PR (its number), so a repeat push rebuilds the
+  # image under the same tag and `oc apply` sees an unchanged Deployment — no
+  # pods restart and the stale image keeps serving despite imagePullPolicy:
+  # Always. Stamping the commit on the pod template changes the spec on every
+  # push, forcing a fresh rollout (and image pull).
+  - name: COMMIT_SHA
+    description: Git commit stamped on the pod template to force a rollout per push
+    value: ""
   - name: REGISTRY
     description: Image registry path (no tag)
     value: ghcr.io/bcgov/nr-csp/backend
@@ -67,6 +75,8 @@ objects:
           labels:
             app: ${NAME}-backend-${ZONE}
             app.kubernetes.io/instance: ${ZONE}
+          annotations:
+            app.openshift.io/vcs-ref: ${COMMIT_SHA}
         spec:
           automountServiceAccountToken: false
           securityContext:
