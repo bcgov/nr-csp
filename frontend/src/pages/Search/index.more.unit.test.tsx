@@ -252,7 +252,7 @@ describe('SearchPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /next page/i }));
     expect(lastQueryParams()).toMatchObject({ page: 1, size: 100 });
 
-    fireEvent.change(screen.getByLabelText('Invoices per page:'), { target: { value: '40' } });
+    fireEvent.change(screen.getByLabelText('Invoice per page:'), { target: { value: '40' } });
     expect(lastQueryParams()).toMatchObject({ size: 40 });
   });
 });
