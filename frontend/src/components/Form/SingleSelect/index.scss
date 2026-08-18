@@ -1,6 +1,12 @@
 .single-select {
+  // Kill the inherited line-height "strut" from this block-level wrapper so the
+  // inline-block label isn't pushed down within its line box — without this the
+  // label (and everything below it) sits ~2px lower than a sibling TextInput's
+  // label, whose wrapper (.cds--form-item) is a flex column instead of block flow.
+  line-height: 0;
+
   .cds--list-box__field {
-    border-bottom: 1px solid var(--cds-border-strong-01);
+    border-bottom: none;
   }
 
   .cds--list-box__menu {
