@@ -10,6 +10,12 @@ declare global {
         oauthScopes?: string[];
         redirectSignIn: string;
         redirectSignOut: string;
+        /** SiteMinder logoff.cgi base URL — first hop of the federated logout chain. */
+        logoutSiteminderUrl?: string;
+        /** Keycloak end-session endpoint — second hop of the federated logout chain. */
+        logoutKeycloakUrl?: string;
+        /** FAM's shared Keycloak (Cognito-as-OIDC-client) client id. */
+        logoutKeycloakClientId?: string;
         mockUser?: boolean;
         famClientId?: string;
         /** Minutes of inactivity before the app signs the user out. Defaults to 30 (matches old CSP app behavior). */
