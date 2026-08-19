@@ -9,6 +9,11 @@
       "description": "Freeze @bcgov-nr/nr-theme at 1.8.9 — 1.9.x changes global font rendering (BCSans). Do not auto-update.",
       "matchPackageNames": ["@bcgov-nr/nr-theme"],
       "enabled": false
+    },
+    {
+      "description": "Hold typescript below v7 — the v7 native (Go) compiler ships no JS API, which typescript-eslint requires (peer range <6.1.0). Revisit once typescript-eslint supports TS 7.",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7.0.0"
     }
   ]
 }
