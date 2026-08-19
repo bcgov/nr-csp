@@ -11,7 +11,8 @@ export default tseslint.config(
   { ignores: ['dist/', 'build/', 'node_modules/'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  reactHooks.configs['recommended-latest'],
+  // eslint-plugin-react-hooks v7 moved flat configs under `configs.flat`
+  reactHooks.configs.flat['recommended-latest'],
   reactRefresh.configs.vite,
   prettier,
   {
@@ -35,6 +36,11 @@ export default tseslint.config(
     rules: {
       '@tanstack/query/exhaustive-deps': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
+      // New React Compiler-powered rules in eslint-plugin-react-hooks v7:
+      // surfaced as warnings until the flagged patterns are refactored.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/immutability': 'warn',
       'import/order': [
         'warn',
         {
