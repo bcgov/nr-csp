@@ -22,6 +22,7 @@ services:
     environment:
       BACKEND_URL: backend:8080
       COGNITO_DOMAIN: ${COGNITO_DOMAIN}
+      COGNITO_REGION: ${COGNITO_REGION:-ca-central-1}
     ports:
       - "3000:3000"
     depends_on:
