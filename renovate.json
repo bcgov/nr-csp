@@ -14,6 +14,11 @@
       "description": "Hold typescript below v7 — the v7 native (Go) compiler ships no JS API, which typescript-eslint requires (peer range <6.1.0). Revisit once typescript-eslint supports TS 7.",
       "matchPackageNames": ["typescript"],
       "allowedVersions": "<7.0.0"
+    },
+    {
+      "description": "Hold eslint below v10 — eslint-plugin-import (even latest 2.32.0) peers only up to eslint ^9. Revisit once eslint-plugin-import supports eslint 10.",
+      "matchPackageNames": ["eslint", "@eslint/js"],
+      "allowedVersions": "<10.0.0"
     }
   ]
 }
