@@ -212,6 +212,7 @@ export function R08InvoiceAuditPage() {
               setFieldErrors((prev) => ({ ...prev, endDate: '' }));
               // Manually editing end date breaks its link to time frame — reset
               // the selector back to "Select..."
+              if (timeFrame) setTimeFrame('');
             }}
           />
         </Column>
