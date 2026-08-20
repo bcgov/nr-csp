@@ -9,10 +9,10 @@ import TaggedMultiSelect from '@/components/Form/TaggedMultiSelect';
 import { useNotification } from '@/context/notification/useNotification';
 import { type LookupItemResponse, useMaturityCodesNoCantsQuery } from '@/services/lookup.service';
 import { useR11ReportMutation } from '@/services/r11.service';
+import { useEndDateAutoFill } from '@/hooks/useEndDateAutoFill';
 import {
   TIME_FRAME_ITEMS,
   HARDCODED_MODELLING_CODE_ITEMS,
-  calculateEndDateFromTimeFrame,
   formatDate,
   downloadBlob,
   itemToString,
@@ -45,15 +45,12 @@ export function R11AverageMarketValuesPage() {
   // Incrementing this forces all DateInputs to remount (clears flatpickr) on Clear all.
   const [dateKey, setDateKey] = React.useState(0);
 
-  // When both start date and time frame are set, auto-fill end date. this only
-  // re-fires (overwriting again) if start date or time frame subsequently change.
-  React.useEffect(() => {
-    if (dateFrom && timeFrame) {
-      setDateTo(calculateEndDateFromTimeFrame(dateFrom, timeFrame));
-      setFieldErrors((prev) => ({ ...prev, endDate: '' }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, timeFrame]);
+  useEndDateAutoFill({
+    startDate: dateFrom,
+    timeFrame,
+    setEndDate: setDateTo,
+    clearEndDateError: () => setFieldErrors((prev) => ({ ...prev, endDate: '' })),
+  });
 
   const buildRequest = (reportFormat: 'PDF' | 'CSV') => ({
     reportFormat,

@@ -23,10 +23,10 @@ import {
 import { parseReportValidationError } from '@/services/reportValidation';
 import { splitMessages } from '@/validations/validationResult';
 import { useR13ReportMutation, type R13ShowOptions } from '@/services/r13.service';
+import { useEndDateAutoFill } from '@/hooks/useEndDateAutoFill';
 import {
   type SelectItem,
   TIME_FRAME_ITEMS,
-  calculateEndDateFromTimeFrame,
   formatDate,
   formatYearMonth,
   downloadBlob,
@@ -275,16 +275,12 @@ export function R13AdHocReportingPage() {
   // Incrementing this forces all DateInputs to remount (clears flatpickr).
   const [dateKey, setDateKey] = React.useState(0);
 
-  // ── End date auto-fill ───────────────────────────────────────────────────
-  // When both startDate and timeFrame are set, auto-fill end date. this only
-  // re-fires (overwriting again) if startDate or timeFrame subsequently change.
-  React.useEffect(() => {
-    if (filters.startDate && filters.timeFrame) {
-      set({ endDate: calculateEndDateFromTimeFrame(filters.startDate, filters.timeFrame) });
-      clearFieldError('endDate');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startDate, filters.timeFrame]);
+  useEndDateAutoFill({
+    startDate: filters.startDate,
+    timeFrame: filters.timeFrame,
+    setEndDate: (date) => set({ endDate: date }),
+    clearEndDateError: () => clearFieldError('endDate'),
+  });
 
   // ── Show options helper ─────────────────────────────────────────────────
   const toggleShow = (key: keyof R13ShowOptions, value: boolean) =>

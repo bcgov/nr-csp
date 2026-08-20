@@ -19,9 +19,9 @@ import {
   useSubmissionStatusesQuery,
 } from '@/services/lookup.service';
 import { useR07ReportMutation } from '@/services/r07.service';
+import { useEndDateAutoFill } from '@/hooks/useEndDateAutoFill';
 import {
   TIME_FRAME_ITEMS,
-  calculateEndDateFromTimeFrame,
   formatDate,
   formatYearMonth,
   downloadBlob,
@@ -65,16 +65,12 @@ export function R07ReconciliationPage() {
   // Incrementing this forces all DateInputs to remount (clears flatpickr) on Clear all.
   const [dateKey, setDateKey] = React.useState(0);
 
-  // When both start date and time frame are set, auto-fill end date.
-  // this only re-fires (overwriting again) if start date or time frame
-  // subsequently change.
-  React.useEffect(() => {
-    if (dateFrom && timeFrame) {
-      setDateTo(calculateEndDateFromTimeFrame(dateFrom, timeFrame));
-      setFieldErrors((prev) => ({ ...prev, endDate: '' }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, timeFrame]);
+  useEndDateAutoFill({
+    startDate: dateFrom,
+    timeFrame,
+    setEndDate: setDateTo,
+    clearEndDateError: () => setFieldErrors((prev) => ({ ...prev, endDate: '' })),
+  });
 
   const handleSellerSelect = (client: ClientLocationResponse | null) => {
     setSellerClient(client);
