@@ -36,7 +36,9 @@ describe('Layout scroll reset', () => {
   const renderAtPath = (pathname: string) => {
     mockUseLocation.mockReturnValue({ pathname });
     return render(
-      <NotificationContext.Provider value={{ notifications: [], addNotification: vi.fn(), removeNotification: vi.fn() }}>
+      <NotificationContext.Provider
+        value={{ notifications: [], addNotification: vi.fn(), removeNotification: vi.fn() }}
+      >
         <Layout />
       </NotificationContext.Provider>,
     );

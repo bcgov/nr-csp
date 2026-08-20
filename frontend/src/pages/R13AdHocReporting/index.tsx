@@ -276,7 +276,7 @@ export function R13AdHocReportingPage() {
   const [dateKey, setDateKey] = React.useState(0);
 
   // ── End date auto-fill ───────────────────────────────────────────────────
-  // When both startDate and timeFrame are set, auto-fill end date. this only 
+  // When both startDate and timeFrame are set, auto-fill end date. this only
   // re-fires (overwriting again) if startDate or timeFrame subsequently change.
   React.useEffect(() => {
     if (filters.startDate && filters.timeFrame) {

@@ -65,8 +65,8 @@ export function R07ReconciliationPage() {
   // Incrementing this forces all DateInputs to remount (clears flatpickr) on Clear all.
   const [dateKey, setDateKey] = React.useState(0);
 
-  // When both start date and time frame are set, auto-fill end date. 
-  // this only re-fires (overwriting again) if start date or time frame 
+  // When both start date and time frame are set, auto-fill end date.
+  // this only re-fires (overwriting again) if start date or time frame
   // subsequently change.
   React.useEffect(() => {
     if (dateFrom && timeFrame) {
