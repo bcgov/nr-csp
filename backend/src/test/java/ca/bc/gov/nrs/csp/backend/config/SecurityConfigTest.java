@@ -46,6 +46,8 @@ class SecurityConfigTest {
             @GetMapping("/api/health") String health() { return "ok"; }
             @GetMapping("/api/some-endpoint") String endpoint() { return "ok"; }
             @GetMapping("/api/swagger-ui/index.html") String swagger() { return "swagger"; }
+            @GetMapping("/api/submissions/test") String submissions() { return "ok"; }
+            @GetMapping("/api/submission-history/test") String submissionHistory() { return "ok"; }
         }
     }
 
@@ -78,7 +80,7 @@ class SecurityConfigTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(authorities = "IDP_IDIR")
     void authenticatedRequestToApiEndpoint_isOk() throws Exception {
         mockMvc.perform(get("/api/some-endpoint"))
                 .andExpect(status().isOk());
@@ -108,5 +110,35 @@ class SecurityConfigTest {
     void response_hasXFrameOptionsDeny() throws Exception {
         mockMvc.perform(get("/api/health"))
                 .andExpect(header().string("X-Frame-Options", "DENY"));
+    }
+
+    // ── BCeID IdP-based restriction ───────────────────────────────────────────
+
+    @Test
+    @WithMockUser(authorities = "IDP_BCEID")
+    void bceidUser_isForbidden_onGeneralApiEndpoint() throws Exception {
+        mockMvc.perform(get("/api/some-endpoint"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = "IDP_BCEID")
+    void bceidUser_canReach_submissionsEndpoint() throws Exception {
+        mockMvc.perform(get("/api/submissions/test"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(authorities = "IDP_BCEID")
+    void bceidUser_canReach_submissionHistoryEndpoint() throws Exception {
+        mockMvc.perform(get("/api/submission-history/test"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(authorities = "IDP_IDIR")
+    void idirUser_canReach_submissionsEndpoint() throws Exception {
+        mockMvc.perform(get("/api/submissions/test"))
+                .andExpect(status().isOk());
     }
 }

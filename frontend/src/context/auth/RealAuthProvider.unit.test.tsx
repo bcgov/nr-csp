@@ -108,6 +108,41 @@ describe('RealAuthProvider', () => {
     expect(user?.email).toBe('jane.doe@gov.bc.ca');
     expect(user?.roles).toEqual(['CSP_ADMIN', 'NRS_CSP_VIEW']);
     expect(user?.privileges).toEqual(['ADMIN', 'VIEW']);
+    expect(user?.idpProvider).toBe('IDIR');
+  });
+
+  it('defaults idpProvider to IDIR when the custom:idp_name claim is absent', async () => {
+    mockFetchAuthSession.mockResolvedValue(sessionWith({ 'cognito:username': 'u', email: 'u@x' }));
+
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.user?.idpProvider).toBe('IDIR');
+  });
+
+  it('sets idpProvider to IDIR when the custom:idp_name claim is idir', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'idir' }),
+    );
+
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.user?.idpProvider).toBe('IDIR');
+  });
+
+  it('sets idpProvider to BCEID when the custom:idp_name claim starts with bceid', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'bceidbusiness' }),
+    );
+
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.user?.idpProvider).toBe('BCEID');
+  });
+
+  it('matches the custom:idp_name claim case-insensitively', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'BCEIDBUSINESS' }),
+    );
+
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.user?.idpProvider).toBe('BCEID');
   });
 
   it('matches plain group names case-insensitively', async () => {
@@ -305,10 +340,11 @@ describe('RealAuthProvider', () => {
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 
-  it('signIn redirects with the idp name from window.amplifyConfig', async () => {
+  it('signIn(IDIR) redirects with the idpName from window.amplifyConfig', async () => {
     window.amplifyConfig = {
       appEnv: 'test',
       idpName: 'TEST-IDIR',
+      idpNameBceid: 'TEST-BCEID',
       region: 'ca-central-1',
       userPoolId: 'pool',
       userPoolClientId: 'client',
@@ -319,19 +355,49 @@ describe('RealAuthProvider', () => {
     mockFetchAuthSession.mockResolvedValue(emptySession());
 
     const { getCtx } = await renderAndSettle();
-    await getCtx()?.signIn();
+    await getCtx()?.signIn('IDIR');
 
     expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'TEST-IDIR' } });
   });
 
-  it('signIn falls back to DEV-IDIR when window.amplifyConfig is not set', async () => {
+  it('signIn(BCEID) redirects with the idpNameBceid from window.amplifyConfig', async () => {
+    window.amplifyConfig = {
+      appEnv: 'test',
+      idpName: 'TEST-IDIR',
+      idpNameBceid: 'TEST-BCEID',
+      region: 'ca-central-1',
+      userPoolId: 'pool',
+      userPoolClientId: 'client',
+      cognitoDomain: 'auth.example.com',
+      redirectSignIn: 'https://example.com/',
+      redirectSignOut: 'https://example.com/logout',
+    };
+    mockFetchAuthSession.mockResolvedValue(emptySession());
+
+    const { getCtx } = await renderAndSettle();
+    await getCtx()?.signIn('BCEID');
+
+    expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'TEST-BCEID' } });
+  });
+
+  it('signIn(IDIR) falls back to DEV-IDIR when window.amplifyConfig is not set', async () => {
     window.amplifyConfig = undefined;
     mockFetchAuthSession.mockResolvedValue(emptySession());
 
     const { getCtx } = await renderAndSettle();
-    await getCtx()?.signIn();
+    await getCtx()?.signIn('IDIR');
 
     expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'DEV-IDIR' } });
+  });
+
+  it('signIn(BCEID) falls back to DEV-BCEID when window.amplifyConfig is not set', async () => {
+    window.amplifyConfig = undefined;
+    mockFetchAuthSession.mockResolvedValue(emptySession());
+
+    const { getCtx } = await renderAndSettle();
+    await getCtx()?.signIn('BCEID');
+
+    expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'DEV-BCEID' } });
   });
 
   it('signOut flips isSigningOut, calls Amplify signOut, and clears the user', async () => {
@@ -462,6 +528,31 @@ describe('RealAuthProvider', () => {
       }
 
       expect(popup.close).toHaveBeenCalledTimes(1);
+      expect(assignMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^https:\/\/logontest7\.gov\.bc\.ca\/clp-cgi\/logoff\.cgi/),
+      );
+    });
+
+    it('skips the idir-realm popup for a BCeID user and navigates the chain directly', async () => {
+      const openSpy = vi.spyOn(window, 'open');
+      window.amplifyConfig = chainConfig;
+      mockFetchAuthSession.mockResolvedValue(
+        sessionWith({
+          'cognito:username': 'u',
+          'cognito:groups': ['CSP_ADMIN'],
+          email: 'u@x',
+          'custom:idp_name': 'bceidbusiness',
+        }),
+      );
+
+      const { getCtx } = await renderAndSettle();
+      expect(getCtx()?.user?.idpProvider).toBe('BCEID');
+
+      await act(async () => {
+        await getCtx()?.signOut();
+      });
+
+      expect(openSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith(
         expect.stringMatching(/^https:\/\/logontest7\.gov\.bc\.ca\/clp-cgi\/logoff\.cgi/),
       );

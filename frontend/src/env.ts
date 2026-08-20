@@ -3,6 +3,8 @@ declare global {
     | {
         appEnv: string;
         idpName: string;
+        /** Cognito custom IdP name for BCeID sign-in (parallel to {@link idpName} for IDIR). */
+        idpNameBceid?: string;
         region: string;
         userPoolId: string;
         userPoolClientId: string;

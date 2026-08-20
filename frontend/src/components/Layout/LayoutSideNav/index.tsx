@@ -2,6 +2,7 @@ import { SideNav, SideNavItems, SideNavLink } from '@carbon/react';
 import { type FC } from 'react';
 import { Link, useLocation } from 'react-router';
 
+import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
 import { NAVIGATION_ITEMS } from '@/routes/navigation';
 
@@ -11,6 +12,8 @@ type NavLink = {
   name: string;
   path: string;
   icon?: React.ComponentType<{ size?: number | string }>;
+  /** Set on the small set of nav entries BCeID users are permitted to see. */
+  bceidAllowed?: true;
 };
 
 type NavGroup = {
@@ -23,9 +26,29 @@ type NavItem = NavLink | NavGroup;
 
 const isNavGroup = (item: NavItem): item is NavGroup => 'children' in item;
 
+/**
+ * Recursively drops nav entries BCeID users aren't allowed to see, and any
+ * group left with no visible children. IDIR users see everything unchanged.
+ */
+function filterForIdp(items: NavItem[], isBceid: boolean): NavItem[] {
+  if (!isBceid) return items;
+
+  return items.reduce<NavItem[]>((visible, item) => {
+    if (isNavGroup(item)) {
+      const children = filterForIdp(item.children, isBceid);
+      if (children.length > 0) visible.push({ ...item, children });
+    } else if (item.bceidAllowed) {
+      visible.push(item);
+    }
+    return visible;
+  }, []);
+}
+
 export const LayoutSideNav: FC = () => {
   const { isSideNavExpanded } = useLayout();
   const location = useLocation();
+  const { user } = useAuth();
+  const visibleItems = filterForIdp(NAVIGATION_ITEMS as NavItem[], user?.idpProvider === 'BCEID');
 
   const renderNavLink = (item: NavLink) => (
     <SideNavLink
@@ -49,7 +72,7 @@ export const LayoutSideNav: FC = () => {
   return (
     <SideNav expanded={isSideNavExpanded} isPersistent={isSideNavExpanded} isChildOfHeader>
       <SideNavItems>
-        {(NAVIGATION_ITEMS as NavItem[]).map((item) => (isNavGroup(item) ? renderGroup(item) : renderNavLink(item)))}
+        {visibleItems.map((item) => (isNavGroup(item) ? renderGroup(item) : renderNavLink(item)))}
       </SideNavItems>
     </SideNav>
   );

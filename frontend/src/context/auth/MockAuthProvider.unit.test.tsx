@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createElement } from 'react';
 
-import { MockAuthProvider, MOCK_ROLE_KEY } from './MockAuthProvider';
+import { MockAuthProvider, MOCK_IDP_KEY, MOCK_ROLE_KEY } from './MockAuthProvider';
 import { useAuth } from './useAuth';
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -37,5 +37,24 @@ describe('MockAuthProvider – role from localStorage', () => {
     localStorage.setItem(MOCK_ROLE_KEY, 'SUPERUSER');
     const { result } = renderHook(() => useAuth(), { wrapper });
     expect(result.current.user?.privileges).toEqual(['ADMIN']);
+  });
+});
+
+describe('MockAuthProvider – idp from localStorage', () => {
+  it('defaults to IDIR when localStorage is empty', () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user?.idpProvider).toBe('IDIR');
+  });
+
+  it('uses BCEID when localStorage has BCEID', () => {
+    localStorage.setItem(MOCK_IDP_KEY, 'BCEID');
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user?.idpProvider).toBe('BCEID');
+  });
+
+  it('falls back to IDIR when localStorage has an invalid value', () => {
+    localStorage.setItem(MOCK_IDP_KEY, 'BCEIDBUSINESS');
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user?.idpProvider).toBe('IDIR');
   });
 });

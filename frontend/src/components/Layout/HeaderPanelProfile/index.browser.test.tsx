@@ -13,6 +13,7 @@ const mockUser: AuthUser = {
   email: 'jane@example.com',
   roles: [],
   privileges: [],
+  idpProvider: 'IDIR',
 };
 
 const makeAuthValue = (user: AuthUser): AuthContextValue => ({
@@ -52,7 +53,7 @@ describe('HeaderPanelProfile', () => {
 
   it('falls back to username when displayName is absent', () => {
     vi.mocked(useAuth).mockReturnValue(
-      makeAuthValue({ username: 'fallback-user', email: 'x@x.com', roles: [], privileges: [] }),
+      makeAuthValue({ username: 'fallback-user', email: 'x@x.com', roles: [], privileges: [], idpProvider: 'IDIR' }),
     );
     render(<HeaderPanelProfile />);
     expect(screen.getByText('fallback-user')).toBeInTheDocument();

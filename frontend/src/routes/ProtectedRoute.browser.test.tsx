@@ -1,10 +1,11 @@
 import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { vi, describe, afterEach, it, expect } from 'vitest';
 
 import * as useAuthModule from '@/context/auth/useAuth';
 
 import { ProtectedRoute } from './ProtectedRoute';
+import { ROUTES } from './routePaths';
 
 vi.mock('@/context/auth/useAuth', () => ({
   useAuth: vi.fn(),
@@ -12,50 +13,54 @@ vi.mock('@/context/auth/useAuth', () => ({
 
 const mockUseAuth = useAuthModule.useAuth as ReturnType<typeof vi.fn>;
 
+function renderRoute() {
+  return render(
+    <MemoryRouter initialEntries={['/private']}>
+      <Routes>
+        <Route path={ROUTES.LOGIN} element={<div>Login Page</div>} />
+        <Route
+          path="/private"
+          element={
+            <ProtectedRoute>
+              <div>Private Content</div>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe('ProtectedRoute', () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('calls signIn and shows loading screen when not authenticated', () => {
-    const signIn = vi.fn();
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
+  it('redirects to /login when not authenticated', () => {
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: false });
 
-    const { container } = render(
-      <MemoryRouter initialEntries={['/private']}>
-        <ProtectedRoute>
-          <div>Private Content</div>
-        </ProtectedRoute>
-      </MemoryRouter>,
-    );
+    const { container } = renderRoute();
 
-    expect(signIn).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('Login Page');
     expect(container.textContent).not.toContain('Private Content');
   });
 
   it('renders children when authenticated', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, isLoading: false, signIn: vi.fn() });
+    mockUseAuth.mockReturnValue({
+      user: { idpProvider: 'IDIR' },
+      isAuthenticated: true,
+      isLoading: false,
+      isSigningOut: false,
+    });
 
-    const { getByText } = render(
-      <MemoryRouter initialEntries={['/private']}>
-        <ProtectedRoute>
-          <div>Private Content</div>
-        </ProtectedRoute>
-      </MemoryRouter>,
-    );
+    const { getByText } = renderRoute();
     expect(getByText('Private Content')).toBeTruthy();
   });
 
-  it('shows loading screen while loading', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: true, signIn: vi.fn() });
+  it('shows nothing (loading) while loading', () => {
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: true, isSigningOut: false });
 
-    const { container } = render(
-      <MemoryRouter>
-        <ProtectedRoute>
-          <div>Content</div>
-        </ProtectedRoute>
-      </MemoryRouter>,
-    );
-    expect(container.textContent).not.toContain('Content');
+    const { container } = renderRoute();
+    expect(container.textContent).not.toContain('Private Content');
   });
 });

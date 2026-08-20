@@ -54,7 +54,12 @@ public class SecurityConfig {
                                 "/api/swagger-ui/**", "/api/swagger-ui.html",
                                 "/api/v3/api-docs/**"
                         ).permitAll()
-                        .requestMatchers(API_PATH).authenticated()
+                        // BCeID users are restricted to Upload Submission / Submission History;
+                        // every other /api/** path requires the IDP_IDIR authority (see
+                        // JwtService#extractAuthorities), so BCeID-authenticated requests 403 here.
+                        // Matchers are evaluated in order — this must precede the API_PATH rule.
+                        .requestMatchers("/api/submissions/**", "/api/submission-history/**").authenticated()
+                        .requestMatchers(API_PATH).hasAuthority("IDP_IDIR")
                         .anyRequest().authenticated()
                 );
 

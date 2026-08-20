@@ -17,6 +17,7 @@ describe('HeaderPanelProfile', () => {
     email: 'jane.doe@gov.bc.ca',
     roles: ['CSP_SUBMITTER'],
     privileges: ['ADMIN'],
+    idpProvider: 'IDIR',
   };
 
   const arrange = (user: AuthUser | null = baseUser) => {

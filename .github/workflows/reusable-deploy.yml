@@ -95,6 +95,7 @@ jobs:
             -p JWT_AUDIENCE='${{ secrets.jwt_audience }}'
             -p APP_ENV='${{ vars.app_env }}'
             -p COGNITO_IDP_NAME='${{ vars.cognito_idp_name }}'
+            -p COGNITO_IDP_NAME_BCEID='${{ vars.cognito_idp_name_bceid }}'
             -p COGNITO_REGION='${{ vars.cognito_region }}'
             -p COGNITO_USER_POOL_ID='${{ vars.cognito_user_pool_id }}'
             -p COGNITO_USER_POOL_CLIENT_ID='${{ vars.cognito_user_pool_client_id }}'

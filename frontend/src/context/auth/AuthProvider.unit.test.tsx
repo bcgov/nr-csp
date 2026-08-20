@@ -52,6 +52,6 @@ describe('AuthProvider (mock mode)', () => {
 
   it('signIn resolves without error', async () => {
     const getCtx = renderWithConsumer();
-    await expect(getCtx()?.signIn()).resolves.toBeUndefined();
+    await expect(getCtx()?.signIn('IDIR')).resolves.toBeUndefined();
   });
 });

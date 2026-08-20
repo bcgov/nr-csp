@@ -1,29 +1,35 @@
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode } from 'react';
+import { Navigate } from 'react-router';
 
-import { useAuth } from '@/context/auth/useAuth';
 import { LoadingScreen } from '@/components/core/LoadingScreen';
+import { useAuth } from '@/context/auth/useAuth';
+
+import { ROUTES } from './routePaths';
 
 interface Props {
   children: ReactNode;
+  /** Set on the small set of routes BCeID users are permitted to reach. */
+  bceidAllowed?: boolean;
 }
 
-export function ProtectedRoute({ children }: Props) {
-  const { isAuthenticated, isLoading, isSigningOut, signIn } = useAuth();
-  const loginAttempted = useRef(false);
+export function ProtectedRoute({ children, bceidAllowed }: Props) {
+  const { user, isAuthenticated, isLoading, isSigningOut } = useAuth();
 
-  useEffect(() => {
-    // Don't trigger a login redirect during an OAuth callback — Amplify is
-    // still processing the code/state params and will fire a Hub signedIn event.
+  if (isLoading || isSigningOut) return <LoadingScreen />;
+
+  if (!isAuthenticated) {
+    // Don't redirect to /login during an OAuth callback — Amplify is still
+    // processing the code/state params and will fire a Hub signedIn event.
+    // Redirecting here would strip code/state from the URL before it can.
     const params = new URLSearchParams(window.location.search);
-    if (params.has('code') && params.has('state')) return;
+    if (params.has('code') && params.has('state')) return <LoadingScreen />;
 
-    if (!isLoading && !isAuthenticated && !isSigningOut && !loginAttempted.current) {
-      loginAttempted.current = true;
-      void signIn();
-    }
-  }, [isLoading, isAuthenticated, isSigningOut, signIn]);
+    return <Navigate to={ROUTES.LOGIN} replace />;
+  }
 
-  if (isLoading || isSigningOut || !isAuthenticated) return <LoadingScreen />;
+  if (user?.idpProvider === 'BCEID' && !bceidAllowed) {
+    return <Navigate to={ROUTES.UPLOAD_SUBMISSION} replace />;
+  }
 
   return <>{children}</>;
 }

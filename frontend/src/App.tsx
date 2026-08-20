@@ -10,6 +10,7 @@ import { IdleTimeoutWatcher } from '@/context/auth/IdleTimeoutWatcher';
 import { NotificationProvider } from '@/context/notification/NotificationProvider';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import { ThemeProvider } from '@/context/theme/ThemeProvider';
+import { LoginPage } from '@/pages/Login';
 import { LogoutPage } from '@/pages/Logout';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { ROUTES } from '@/routes/routePaths';
@@ -74,7 +75,8 @@ export default function App() {
               <BrowserRouter>
                 <Suspense fallback={<LoadingScreen />}>
                   <Routes>
-                    {/* Logout — accessible without authentication */}
+                    {/* Login/Logout — accessible without authentication */}
+                    <Route path={ROUTES.LOGIN} element={<LoginPage />} />
                     <Route path={ROUTES.LOGOUT} element={<LogoutPage />} />
 
                     {/* All other routes share the shell layout and require authentication */}
@@ -91,7 +93,7 @@ export default function App() {
                       <Route
                         path={ROUTES.SUBMISSION_HISTORY}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute bceidAllowed>
                             <SubmissionHistoryPage />
                           </ProtectedRoute>
                         }
@@ -99,7 +101,7 @@ export default function App() {
                       <Route
                         path={`${ROUTES.SUBMISSION_HISTORY}/:id`}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute bceidAllowed>
                             <ViewSubmissionPage />
                           </ProtectedRoute>
                         }
@@ -107,7 +109,7 @@ export default function App() {
                       <Route
                         path={ROUTES.UPLOAD_SUBMISSION}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute bceidAllowed>
                             <UploadSubmissionPage />
                           </ProtectedRoute>
                         }

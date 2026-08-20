@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { vi, describe, afterEach, it, expect } from 'vitest';
 
@@ -11,7 +11,7 @@ vi.mock('@/context/auth/useAuth', () => ({
 }));
 
 vi.mock('@/components/core/LoadingScreen', () => ({
-  LoadingScreen: () => <div>Loading</div>,
+  LoadingScreen: () => <div data-testid="loading">Loading</div>,
 }));
 
 const mockUseAuth = useAuthModule.useAuth as ReturnType<typeof vi.fn>;
@@ -22,11 +22,10 @@ describe('ProtectedRoute — OAuth callback guard', () => {
     vi.unstubAllGlobals();
   });
 
-  it('does not call signIn when code and state params are present', () => {
+  it('shows a loading screen instead of redirecting to /login when code and state params are present', () => {
     vi.stubGlobal('location', { search: '?code=abc&state=xyz' });
 
-    const signIn = vi.fn();
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: false });
 
     render(
       <MemoryRouter>
@@ -36,6 +35,7 @@ describe('ProtectedRoute — OAuth callback guard', () => {
       </MemoryRouter>,
     );
 
-    expect(signIn).not.toHaveBeenCalled();
+    expect(screen.getByTestId('loading')).toBeInTheDocument();
+    expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
   });
 });

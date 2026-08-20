@@ -25,18 +25,26 @@ vi.mock('@/context/layout/useLayout', () => ({
 vi.mock('@/context/auth/useAuth', () => ({
   useAuth: () => ({
     isAuthenticated: h.auth.isAuthenticated,
-    user: { username: 'mock-user', email: 'mock@test.com', roles: [], privileges: ['ADMIN'] },
+    user: { username: 'mock-user', email: 'mock@test.com', roles: [], privileges: ['ADMIN'], idpProvider: 'IDIR' },
     isLoading: false,
     signIn: vi.fn(),
     signOut: vi.fn(),
   }),
 }));
 
-// Render the role switcher as a plain combobox without localStorage side-effects.
+// Render the role/idp switchers as plain comboboxes without localStorage side-effects.
 vi.mock('@/components/Layout/MockRoleSelector', () => ({
   MockRoleSelector: () => (
     <select aria-label="Mock user role">
       <option value="ADMIN">ADMIN</option>
+    </select>
+  ),
+}));
+
+vi.mock('@/components/Layout/MockIdpSelector', () => ({
+  MockIdpSelector: () => (
+    <select aria-label="Mock identity provider">
+      <option value="IDIR">IDIR</option>
     </select>
   ),
 }));
@@ -54,10 +62,11 @@ describe('LayoutHeaderGlobalBar', () => {
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
-  it('renders the role combobox and no user-settings button when mock auth is on', () => {
+  it('renders the role and idp comboboxes and no user-settings button when mock auth is on', () => {
     h.env.mockUser = true;
     render(<LayoutHeaderGlobalBar />);
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /mock user role/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /mock identity provider/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /user settings/i })).not.toBeInTheDocument();
   });
 

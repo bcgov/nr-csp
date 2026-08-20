@@ -78,7 +78,22 @@ public class JwtService {
             if (matchesRole(groups, Roles.APPROVE)) authorities.add(new SimpleGrantedAuthority(Roles.APPROVE));
             if (matchesRole(groups, Roles.ADMIN))   authorities.add(new SimpleGrantedAuthority(Roles.ADMIN));
         }
+        authorities.add(new SimpleGrantedAuthority("IDP_" + extractIdpProvider(claims)));
         return authorities;
+    }
+
+    /**
+     * Derives the identity provider ("IDIR" or "BCEID") from the `custom:idp_name`
+     * id-token claim. FAM's raw claim value for BCeID is expected to be
+     * "bceidbusiness" (matching the convention already in use in the nr-scs
+     * sibling app) — any value starting with "bceid" (case-insensitive)
+     * collapses to "BCEID"; anything else, including an absent claim, defaults
+     * to "IDIR". Used to grant/deny access at the {@code /api/**} boundary in
+     * SecurityConfig — BCeID users are restricted to a small subset of endpoints.
+     */
+    private String extractIdpProvider(Claims claims) {
+        String idpName = claims.get("custom:idp_name", String.class);
+        return (idpName != null && idpName.trim().toUpperCase().startsWith("BCEID")) ? "BCEID" : "IDIR";
     }
 
     /**

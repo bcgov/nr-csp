@@ -1,10 +1,11 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as useAuthModule from '@/context/auth/useAuth';
 
 import { ProtectedRoute } from './ProtectedRoute';
+import { ROUTES } from './routePaths';
 
 vi.mock('@/context/auth/useAuth', () => ({
   useAuth: vi.fn(),
@@ -16,12 +17,17 @@ vi.mock('@/components/core/LoadingScreen', () => ({
 
 const mockUseAuth = useAuthModule.useAuth as ReturnType<typeof vi.fn>;
 
-function renderRoute() {
+function renderRoute({ bceidAllowed }: { bceidAllowed?: boolean } = {}) {
   return render(
-    <MemoryRouter>
-      <ProtectedRoute>
-        <div>Private Content</div>
-      </ProtectedRoute>
+    <MemoryRouter initialEntries={['/private']}>
+      <Routes>
+        <Route path={ROUTES.LOGIN} element={<div>Login Page</div>} />
+        <Route path={ROUTES.UPLOAD_SUBMISSION} element={<div>Upload Submission Page</div>} />
+        <Route
+          path="/private"
+          element={<ProtectedRoute bceidAllowed={bceidAllowed}>{<div>Private Content</div>}</ProtectedRoute>}
+        />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -37,77 +43,71 @@ describe('ProtectedRoute — auth states', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the loading screen and does not sign in while auth is loading', () => {
-    const signIn = vi.fn();
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: false,
-      isLoading: true,
-      isSigningOut: false,
-      signIn,
-    });
+  it('shows the loading screen while auth is loading', () => {
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: true, isSigningOut: false });
 
     renderRoute();
 
     expect(screen.getByTestId('loading')).toBeInTheDocument();
     expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
-    expect(signIn).not.toHaveBeenCalled();
   });
 
-  it('shows the loading screen and does not sign in while signing out', () => {
-    const signIn = vi.fn();
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: false,
-      isLoading: false,
-      isSigningOut: true,
-      signIn,
-    });
+  it('shows the loading screen while signing out', () => {
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: true });
 
     renderRoute();
 
     expect(screen.getByTestId('loading')).toBeInTheDocument();
     expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
-    expect(signIn).not.toHaveBeenCalled();
   });
 
-  it('triggers signIn once when unauthenticated and keeps showing the loading screen', () => {
-    const signIn = vi.fn().mockResolvedValue(undefined);
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: false,
-      isLoading: false,
-      isSigningOut: false,
-      signIn,
-    });
+  it('redirects to /login when unauthenticated', () => {
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: false });
 
-    const { rerender } = renderRoute();
+    renderRoute();
 
-    expect(signIn).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('loading')).toBeInTheDocument();
+    expect(screen.getByText('Login Page')).toBeInTheDocument();
     expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
-
-    // The loginAttempted ref must prevent a second redirect on re-render.
-    rerender(
-      <MemoryRouter>
-        <ProtectedRoute>
-          <div>Private Content</div>
-        </ProtectedRoute>
-      </MemoryRouter>,
-    );
-    expect(signIn).toHaveBeenCalledTimes(1);
   });
 
-  it('renders children when authenticated', () => {
-    const signIn = vi.fn();
+  it('renders children when authenticated as IDIR', () => {
     mockUseAuth.mockReturnValue({
+      user: { idpProvider: 'IDIR' },
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,
-      signIn,
     });
 
     renderRoute();
 
     expect(screen.getByText('Private Content')).toBeInTheDocument();
     expect(screen.queryByTestId('loading')).not.toBeInTheDocument();
-    expect(signIn).not.toHaveBeenCalled();
+  });
+
+  it('redirects a BCeID user to Upload Submission when the route is not bceidAllowed', () => {
+    mockUseAuth.mockReturnValue({
+      user: { idpProvider: 'BCEID' },
+      isAuthenticated: true,
+      isLoading: false,
+      isSigningOut: false,
+    });
+
+    renderRoute();
+
+    expect(screen.getByText('Upload Submission Page')).toBeInTheDocument();
+    expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
+  });
+
+  it('renders children for a BCeID user when the route is bceidAllowed', () => {
+    mockUseAuth.mockReturnValue({
+      user: { idpProvider: 'BCEID' },
+      isAuthenticated: true,
+      isLoading: false,
+      isSigningOut: false,
+    });
+
+    renderRoute({ bceidAllowed: true });
+
+    expect(screen.getByText('Private Content')).toBeInTheDocument();
   });
 });

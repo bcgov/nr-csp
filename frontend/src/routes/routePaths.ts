@@ -1,5 +1,6 @@
 export const ROUTES = {
   LANDING: '/',
+  LOGIN: '/login',
   LOGOUT: '/logout',
   SEARCH: '/search',
   SUBMISSION_HISTORY: '/submission-history',

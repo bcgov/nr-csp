@@ -2,6 +2,7 @@ import { UserAvatar } from '@carbon/icons-react';
 import { HeaderGlobalAction } from '@carbon/react';
 import { type FC } from 'react';
 
+import { MockIdpSelector } from '@/components/Layout/MockIdpSelector';
 import { MockRoleSelector } from '@/components/Layout/MockRoleSelector';
 import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
@@ -15,9 +16,14 @@ const LayoutHeaderGlobalBar: FC = () => {
 
   if (!isAuthenticated) return null;
 
-  // Dev-only: render role switcher when mock auth is active
+  // Dev-only: render role/idp switchers when mock auth is active
   if (env.mockUser) {
-    return <MockRoleSelector />;
+    return (
+      <>
+        <MockRoleSelector />
+        <MockIdpSelector />
+      </>
+    );
   }
 
   return (

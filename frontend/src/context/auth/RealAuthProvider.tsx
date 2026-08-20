@@ -15,7 +15,7 @@ import { ROLES } from './permissions';
 import { onSessionExpired } from './sessionExpiredSignal';
 
 import type { Role } from './permissions';
-import type { AuthContextValue, AuthUser } from './types';
+import type { AuthContextValue, AuthUser, IdpProvider } from './types';
 
 /**
  * Match a Cognito group name against a role constant.
@@ -24,6 +24,18 @@ import type { AuthContextValue, AuthUser } from './types';
 function groupMatchesRole(group: string, role: string): boolean {
   const upper = group.toUpperCase();
   return upper === role || upper.endsWith(`_${role}`);
+}
+
+/**
+ * Derives the identity provider from the `custom:idp_name` id-token claim.
+ * FAM's raw claim value for BCeID is expected to be "BCEIDBUSINESS" (matching
+ * the convention already in use in the nr-scs sibling app) — any value
+ * starting with "BCEID" collapses to the internal 'BCEID' provider; anything
+ * else (including an absent claim) defaults to 'IDIR'.
+ */
+function extractIdpProvider(payload: Record<string, unknown>): IdpProvider {
+  const raw = payload['custom:idp_name'];
+  return typeof raw === 'string' && raw.trim().toUpperCase().startsWith('BCEID') ? 'BCEID' : 'IDIR';
 }
 
 /**
@@ -68,6 +80,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
           email: String(payload['email'] ?? ''),
           roles: groups,
           privileges: extractPrivileges(groups),
+          idpProvider: extractIdpProvider(payload),
         });
       } else {
         setUser(null);
@@ -88,13 +101,16 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
    * When the federated logout chain is configured, this drives a full-page
    * navigation through SiteMinder → Keycloak → Cognito → app so every upstream
    * session is terminated (not just Cognito). Local Amplify tokens are cleared
-   * first so the post-chain landing on /logout renders logged-out. A popup
-   * concurrently logs out loginproxy's `idir` broker realm — the one layer the
-   * chain can't reach; without it the next sign-in is a silent SSO login (see
-   * openIdirRealmLogoutPopup). If the chain config is incomplete, it falls
-   * back to a plain Amplify `signOut()` (Cognito-only).
+   * first so the post-chain landing on /logout renders logged-out. For IDIR
+   * sessions, a popup concurrently logs out loginproxy's `idir` broker realm —
+   * the one layer the chain can't reach; without it the next sign-in is a
+   * silent SSO login (see openIdirRealmLogoutPopup). BCeID sessions never
+   * authenticated against that realm, so the popup is skipped for them. If
+   * the chain config is incomplete, it falls back to a plain Amplify
+   * `signOut()` (Cognito-only).
    */
   async function performSignOut() {
+    const idpProvider = user?.idpProvider;
     setIsSigningOut(true);
     clearPersistedTableState();
 
@@ -104,7 +120,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
       // Must be called synchronously within the click's user activation or
       // popup blockers will eat it. ProtectedRoute renders a LoadingScreen
       // while isSigningOut, covering the grace period.
-      const popup = openIdirRealmLogoutPopup(window.amplifyConfig);
+      const popup = idpProvider === 'BCEID' ? null : openIdirRealmLogoutPopup(window.amplifyConfig);
       if (popup) {
         await new Promise((resolve) => setTimeout(resolve, IDIR_REALM_LOGOUT_GRACE_MS));
         popup.close();
@@ -141,8 +157,11 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: user !== null,
     isLoading,
     isSigningOut,
-    signIn: () => {
-      const idpName = window.amplifyConfig?.idpName ?? 'DEV-IDIR';
+    signIn: (provider: IdpProvider) => {
+      const idpName =
+        provider === 'BCEID'
+          ? (window.amplifyConfig?.idpNameBceid ?? 'DEV-BCEID')
+          : (window.amplifyConfig?.idpName ?? 'DEV-IDIR');
       return signInWithRedirect({ provider: { custom: idpName } });
     },
     signOut: performSignOut,

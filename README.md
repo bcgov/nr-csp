@@ -120,6 +120,8 @@ For local development, use **mock mode** — no Cognito login required. Mock mod
 
 With the backend half off (and no JWT vars configured), the frontend will show a fake logged-in user but every API call will be rejected with 401. The mock user's roles are controlled by `AUTH_MOCK_ROLES` (default `ADMIN`).
 
+The mock user's identity provider defaults to `IDIR`. To exercise BCeID's page restrictions locally, set the backend's `AUTH_MOCK_IDP=BCEID` in `.env`, and use the IDP switcher next to the mock role switcher in the frontend header (stored in `localStorage` under `csp.mockIdp`).
+
 **Running with real Cognito auth locally**
 
 1. Set `AUTH_MOCK_ENABLED=false` in `.env` and fill in the JWT vars.
@@ -129,6 +131,7 @@ With the backend half off (and no JWT vars configured), the frontend will show a
 window.amplifyConfig = {
   "appEnv": "dev",
   "idpName": "DEV-IDIR",
+  "idpNameBceid": "DEV-BCEID",
   "region": "ca-central-1",
   "userPoolId": "ca-central-1_XXXXXXXXX",
   "userPoolClientId": "XXXXXXXXXXXXXXXXXXXXXXXXXX",
@@ -143,6 +146,8 @@ window.amplifyConfig = {
   "famClientId": "CSP"
 };
 ```
+
+> **BCeID login.** The `/login` page offers both "Log in with IDIR" and "Log in with BCeID" buttons, which redirect via the `idpName` / `idpNameBceid` Cognito custom identity providers respectively. BCeID users authenticate as external clients and are restricted, both in the UI (hidden nav, redirected routes) and at the API (`SecurityConfig`, `hasAuthority("IDP_IDIR")`), to only the Upload Submission and Submission History pages. `idpNameBceid` must match a Cognito custom IdP that FAM has registered for BCeID (`oidc_clients_csp.tf`) — coordinate with FAM to get this value per environment.
 
 > **How sign-out works.** Signing out drives a federated logout chain — SiteMinder → Keycloak → Cognito → back to the app's `/logout` page — built at runtime from the `logout*` values above (see `frontend/src/utils/logoutChain.ts`; same pattern as FAM's own console). This clears all three upstream sessions, not just Cognito's. Two registration constraints, both owned by FAM (`oidc_clients_csp.tf` in [nr-forests-access-management](https://github.com/bcgov/nr-forests-access-management)): `redirectSignOut` must be registered verbatim as a Cognito sign-out URL, and the Cognito domain must be on the shared Keycloak client's post-logout allow-list. If the `logout*` values are missing, the app falls back to a Cognito-only Amplify sign-out. Test/prod use `test.loginproxy`/`loginproxy` and (prod) `logon7` hosts — see the `LOGOUT_*` GitHub variables. Sign-out also briefly opens a small popup against loginproxy's `idir` broker realm: that realm holds a fourth session the chain cannot reach (its logout endpoint rejects redirect chaining and its pages are not frameable), and without clearing it the next sign-in silently logs the user back in without prompting for credentials.
 
@@ -235,4 +240,5 @@ The following secrets and variables must be configured on the repository for the
 | `COGNITO_OAUTH_SCOPES` | OAuth scopes, comma-separated (e.g. `openid,profile,email`) |
 | `APP_ENV` | Application environment label injected into the frontend config (`dev`, `test`, `prod`) |
 | `COGNITO_IDP_NAME` | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
+| `COGNITO_IDP_NAME_BCEID` | Cognito identity provider name for BCeID sign-in (`DEV-BCEID`, `TEST-BCEID`, `PROD-BCEID`) — provided by FAM |
 | `FAM_CLIENT_ID` | FAM application client ID for role-group mapping (injected at runtime via `amplify-config.js`) |

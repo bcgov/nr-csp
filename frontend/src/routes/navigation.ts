@@ -93,11 +93,13 @@ export const NAVIGATION_ITEMS = [
         name: 'Upload Submission',
         path: ROUTES.UPLOAD_SUBMISSION,
         icon: Upload,
+        bceidAllowed: true,
       },
       {
         name: 'Submission History',
         path: ROUTES.SUBMISSION_HISTORY,
         icon: RecentlyViewed,
+        bceidAllowed: true,
       },
     ],
   },

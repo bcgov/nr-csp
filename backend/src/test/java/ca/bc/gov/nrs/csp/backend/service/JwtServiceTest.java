@@ -71,6 +71,15 @@ class JwtServiceTest {
                 .compact();
     }
 
+    private String tokenWithIdpName(String idpName) {
+        var builder = Jwts.builder()
+                .header().keyId(KID).and()
+                .subject("sub")
+                .expiration(new Date(System.currentTimeMillis() + 3_600_000));
+        if (idpName != null) builder.claim("custom:idp_name", idpName);
+        return builder.signWith(keyPair.getPrivate()).compact();
+    }
+
     // ── extractUsername ───────────────────────────────────────────────────────
 
     @Test
@@ -170,7 +179,9 @@ class JwtServiceTest {
 
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
 
-        assertEquals(3, authorities.size());
+        // 3 role authorities + the default IDP_IDIR authority (see the IDP authority
+        // extraction tests below — no custom:idp_name claim on this token).
+        assertEquals(4, authorities.size());
         assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("VIEW")));
         assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("APPROVE")));
         assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("ADMIN")));
@@ -182,8 +193,8 @@ class JwtServiceTest {
 
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
 
-        assertEquals(1, authorities.size());
-        assertEquals("ADMIN", authorities.get(0).getAuthority());
+        assertEquals(2, authorities.size());
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("ADMIN")));
     }
 
     @Test
@@ -192,19 +203,54 @@ class JwtServiceTest {
 
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
 
-        assertEquals(1, authorities.size());
-        assertEquals("VIEW", authorities.get(0).getAuthority());
+        assertEquals(2, authorities.size());
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("VIEW")));
     }
 
     @Test
-    void extractAuthorities_returnsEmpty_whenGroupsClaimAbsent() {
+    void extractAuthorities_containsOnlyIdpAuthority_whenGroupsClaimAbsent() {
         String jwt = token("sub", null, null, null);
-        assertTrue(service.extractAuthorities(jwt).isEmpty());
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertEquals(1, authorities.size());
+        assertEquals("IDP_IDIR", authorities.get(0).getAuthority());
     }
 
     @Test
-    void extractAuthorities_returnsEmpty_whenNoGroupMatchesAnyRole() {
+    void extractAuthorities_containsOnlyIdpAuthority_whenNoGroupMatchesAnyRole() {
         String jwt = tokenWithGroups("sub", List.of("SOME_OTHER_GROUP", "VIEWER"));
-        assertTrue(service.extractAuthorities(jwt).isEmpty());
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertEquals(1, authorities.size());
+        assertEquals("IDP_IDIR", authorities.get(0).getAuthority());
+    }
+
+    // ── IDP authority extraction ──────────────────────────────────────────────
+
+    @Test
+    void extractAuthorities_addsIdpIdirAuthority_whenIdpNameClaimAbsent() {
+        String jwt = tokenWithIdpName(null);
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
+    }
+
+    @Test
+    void extractAuthorities_addsIdpIdirAuthority_whenIdpNameClaimIsIdir() {
+        String jwt = tokenWithIdpName("idir");
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
+    }
+
+    @Test
+    void extractAuthorities_addsIdpBceidAuthority_whenIdpNameClaimIsBceidBusiness() {
+        String jwt = tokenWithIdpName("bceidbusiness");
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEID")));
+        assertFalse(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
+    }
+
+    @Test
+    void extractAuthorities_matchesBceidClaim_caseInsensitively() {
+        String jwt = tokenWithIdpName("BCEIDBUSINESS");
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEID")));
     }
 }

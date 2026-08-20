@@ -24,6 +24,7 @@ function makeWrapper(privileges: Role[]) {
       email: 'test@example.com',
       roles: [],
       privileges,
+      idpProvider: 'IDIR',
     },
     isAuthenticated: true,
     isLoading: false,

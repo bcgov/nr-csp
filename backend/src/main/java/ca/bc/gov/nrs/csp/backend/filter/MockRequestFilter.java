@@ -32,14 +32,16 @@ public class MockRequestFilter extends OncePerRequestFilter {
 
     public MockRequestFilter(
             @org.springframework.beans.factory.annotation.Value("${auth.mock.username:local-dev-user}") String mockUsername,
-            @org.springframework.beans.factory.annotation.Value("${auth.mock.roles:ADMIN}") String mockRoles) {
+            @org.springframework.beans.factory.annotation.Value("${auth.mock.roles:ADMIN}") String mockRoles,
+            @org.springframework.beans.factory.annotation.Value("${auth.mock.idp:IDIR}") String mockIdp) {
         this.mockUsername = mockUsername;
-        this.mockAuthorities = Arrays.stream(mockRoles.split(","))
+        this.mockAuthorities = Arrays.stream(
+                        (mockRoles + ",IDP_" + mockIdp.trim().toUpperCase()).split(","))
                 .map(String::trim)
                 .map(SimpleGrantedAuthority::new)
                 .toList();
-        log.warn("MockRequestFilter is active — all requests will be authenticated as '{}' with roles {}. " +
-                "Do NOT enable this in production.", mockUsername, mockRoles);
+        log.warn("MockRequestFilter is active — all requests will be authenticated as '{}' with roles {} " +
+                "and idp '{}'. Do NOT enable this in production.", mockUsername, mockRoles, mockIdp);
     }
 
     @Override

@@ -62,6 +62,9 @@ parameters:
   - name: COGNITO_IDP_NAME
     description: Cognito identity provider name (DEV-IDIR, TEST-IDIR, PROD-IDIR)
     value: DEV-IDIR
+  - name: COGNITO_IDP_NAME_BCEID
+    description: Cognito identity provider name for BCeID sign-in (DEV-BCEID, TEST-BCEID, PROD-BCEID)
+    value: DEV-BCEID
   - name: COGNITO_REGION
     description: AWS region for Cognito
     value: ca-central-1
@@ -164,6 +167,7 @@ objects:
         window.amplifyConfig = {
           "appEnv": "${APP_ENV}",
           "idpName": "${COGNITO_IDP_NAME}",
+          "idpNameBceid": "${COGNITO_IDP_NAME_BCEID}",
           "region": "${COGNITO_REGION}",
           "userPoolId": "${COGNITO_USER_POOL_ID}",
           "userPoolClientId": "${COGNITO_USER_POOL_CLIENT_ID}",

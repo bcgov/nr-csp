@@ -1,5 +1,8 @@
 import type { Role } from './permissions';
 
+/** Which identity provider the user authenticated through. */
+export type IdpProvider = 'IDIR' | 'BCEID';
+
 export interface AuthUser {
   username: string;
   /**
@@ -18,6 +21,13 @@ export interface AuthUser {
    * Values are uppercase role constants: "ADMIN" | "APPROVE" | "VIEW".
    */
   privileges: Role[];
+  /**
+   * Identity provider the user authenticated through, derived from the
+   * `custom:idp_name` id-token claim. Defaults to "IDIR" when the claim is
+   * absent. BCeID users are restricted to a small subset of pages/routes —
+   * see ProtectedRoute and navigation.ts.
+   */
+  idpProvider: IdpProvider;
 }
 
 export interface AuthContextValue {
@@ -25,6 +35,6 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   isSigningOut: boolean;
-  signIn: () => Promise<void>;
+  signIn: (provider: IdpProvider) => Promise<void>;
   signOut: () => Promise<void>;
 }
