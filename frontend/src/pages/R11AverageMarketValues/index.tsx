@@ -12,6 +12,7 @@ import { useR11ReportMutation } from '@/services/r11.service';
 import {
   TIME_FRAME_ITEMS,
   HARDCODED_MODELLING_CODE_ITEMS,
+  calculateEndDateFromTimeFrame,
   formatDate,
   downloadBlob,
   itemToString,
@@ -41,6 +42,18 @@ export function R11AverageMarketValuesPage() {
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [formErrors, setFormErrors] = React.useState<string[]>([]);
   const [warnings, setWarnings] = React.useState<string[]>([]);
+  // Incrementing this forces all DateInputs to remount (clears flatpickr) on Clear all.
+  const [dateKey, setDateKey] = React.useState(0);
+
+  // When both start date and time frame are set, auto-fill end date. this only 
+  // re-fires (overwriting again) if start date or time frame subsequently change.
+  React.useEffect(() => {
+    if (dateFrom && timeFrame) {
+      setDateTo(calculateEndDateFromTimeFrame(dateFrom, timeFrame));
+      setFieldErrors((prev) => ({ ...prev, endDate: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, timeFrame]);
 
   const buildRequest = (reportFormat: 'PDF' | 'CSV') => ({
     reportFormat,
@@ -58,7 +71,10 @@ export function R11AverageMarketValuesPage() {
     setFieldErrors(clientSplit.fieldErrors);
     setFormErrors(clientSplit.formErrors);
     setWarnings(clientSplit.warnings);
-    if (clientResult.hasErrors()) return;
+    if (clientResult.hasErrors()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     generateReport(buildRequest(reportFormat), {
       onSuccess: ({ blob, filename }) => {
@@ -71,6 +87,7 @@ export function R11AverageMarketValuesPage() {
           setFieldErrors(split.fieldErrors);
           setFormErrors(split.formErrors);
           setWarnings(split.warnings);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
         addNotification(
@@ -80,6 +97,19 @@ export function R11AverageMarketValuesPage() {
         );
       },
     });
+  };
+
+  const handleClear = () => {
+    setDateFrom(null);
+    setDateTo(null);
+    setTimeFrame('');
+    setSelectedMaturities([]);
+    setSelectedModellingCode(null);
+    setBlended(false);
+    setFieldErrors({});
+    setFormErrors([]);
+    setWarnings([]);
+    setDateKey((prev) => prev + 1);
   };
 
   return (
@@ -120,6 +150,7 @@ export function R11AverageMarketValuesPage() {
 
         <Column lg={3} md={4} sm={4} className="r11-page__form-col r11-page__form-col--left">
           <DateInput
+            key={`start-date-${dateKey}`}
             id="start-date"
             labelText={<RequiredLabel>Start date</RequiredLabel>}
             invalid={!!fieldErrors.startDate}
@@ -132,13 +163,18 @@ export function R11AverageMarketValuesPage() {
         </Column>
         <Column lg={3} md={4} sm={4} className="r11-page__form-col">
           <DateInput
+            key={`end-date-${dateKey}`}
             id="end-date"
             labelText={<RequiredLabel>End date</RequiredLabel>}
+            value={dateTo ?? undefined}
             invalid={!!fieldErrors.endDate}
             invalidText={fieldErrors.endDate}
             onChange={(dates) => {
               setDateTo(dates[0] ?? null);
               setFieldErrors((prev) => ({ ...prev, endDate: '' }));
+              // Manually editing end date breaks its link to time frame — reset
+              // the selector back to "Select..." so it doesn't imply it's still driving the value.
+              if (timeFrame) setTimeFrame('');
             }}
           />
         </Column>
@@ -218,6 +254,13 @@ export function R11AverageMarketValuesPage() {
           {isPending ? null : (
             <Button kind="primary" renderIcon={DocumentExport} onClick={() => handleExport('CSV')} disabled={isPending}>
               Export CSV
+            </Button>
+          )}
+        </Column>
+        <Column lg={3} md={4} sm={2} className="r11-page__export-btn-col">
+          {!isPending && (
+            <Button kind="ghost" onClick={handleClear}>
+              Clear all
             </Button>
           )}
         </Column>
