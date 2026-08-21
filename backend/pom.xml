@@ -203,7 +203,7 @@
         <dependency>
             <groupId>com.ibm.icu</groupId>
             <artifactId>icu4j</artifactId>
-            <version>77.1</version>
+            <version>78.3</version>
         </dependency>
 
         <!-- DOM4J: JRXML column modification for R13 local report -->
