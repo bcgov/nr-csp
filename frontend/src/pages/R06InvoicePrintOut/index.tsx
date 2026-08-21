@@ -64,6 +64,8 @@ export function R06InvoicePrintOutPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  // Incrementing this forces all DateInputs to remount (clears flatpickr) on Clear all.
+  const [dateKey, setDateKey] = useState(0);
 
   const handleSellerSelect = (client: ClientLocationResponse | null) => {
     setSellerClient(client);
@@ -120,7 +122,10 @@ export function R06InvoicePrintOutPage() {
     setFieldErrors(clientSplit.fieldErrors);
     setFormErrors(clientSplit.formErrors);
     setWarnings(clientSplit.warnings);
-    if (clientResult.hasErrors()) return;
+    if (clientResult.hasErrors()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     generateReport(buildRequest(reportFormat), {
       onSuccess: ({ blob, filename }) => {
@@ -133,6 +138,7 @@ export function R06InvoicePrintOutPage() {
           setFieldErrors(split.fieldErrors);
           setFormErrors(split.formErrors);
           setWarnings(split.warnings);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
         addNotification(
@@ -142,6 +148,26 @@ export function R06InvoicePrintOutPage() {
         );
       },
     });
+  };
+
+  const handleClear = () => {
+    setDateFrom(null);
+    setDateTo(null);
+    setSelectedMaturities([]);
+    setSellerClient(null);
+    setBuyerClient(null);
+    setSellerNumber('');
+    setBuyerNumber('');
+    setSellerTypedName('');
+    setBuyerTypedName('');
+    setSubmissionId('');
+    setSelectedInvoiceStatus(null);
+    setSelectedInvoiceType(null);
+    setInvoiceRanges([{ id: crypto.randomUUID(), from: '', to: '' }]);
+    setFieldErrors({});
+    setFormErrors([]);
+    setWarnings([]);
+    setDateKey((prev) => prev + 1);
   };
 
   return (
@@ -182,6 +208,7 @@ export function R06InvoicePrintOutPage() {
 
         <Column lg={3} md={4} sm={4} className="r06-page__form-col r06-page__form-col--left">
           <DateInput
+            key={`start-date-${dateKey}`}
             id="start-date"
             labelText={<RequiredLabel>Start date (report range)</RequiredLabel>}
             invalid={!!fieldErrors.startDate}
@@ -194,6 +221,7 @@ export function R06InvoicePrintOutPage() {
         </Column>
         <Column lg={3} md={4} sm={4} className="r06-page__form-col">
           <DateInput
+            key={`end-date-${dateKey}`}
             id="end-date"
             labelText={<RequiredLabel>End date (report range)</RequiredLabel>}
             invalid={!!fieldErrors.endDate}
@@ -363,6 +391,13 @@ export function R06InvoicePrintOutPage() {
           {isPending ? null : (
             <Button kind="primary" renderIcon={DocumentExport} onClick={() => handleExport('CSV')} disabled={isPending}>
               Export CSV
+            </Button>
+          )}
+        </Column>
+        <Column lg={3} md={4} sm={2} className="r06-page__export-btn-col">
+          {!isPending && (
+            <Button kind="ghost" onClick={handleClear}>
+              Clear all
             </Button>
           )}
         </Column>

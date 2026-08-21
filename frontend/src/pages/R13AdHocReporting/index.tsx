@@ -23,7 +23,7 @@ import {
 import { parseReportValidationError } from '@/services/reportValidation';
 import { splitMessages } from '@/validations/validationResult';
 import { useR13ReportMutation, type R13ShowOptions } from '@/services/r13.service';
-import { formatDisplayDateV2 as formatDisplayDate } from '@/utils/format';
+import { useEndDateAutoFill } from '@/hooks/useEndDateAutoFill';
 import {
   type SelectItem,
   TIME_FRAME_ITEMS,
@@ -275,26 +275,12 @@ export function R13AdHocReportingPage() {
   // Incrementing this forces all DateInputs to remount (clears flatpickr).
   const [dateKey, setDateKey] = React.useState(0);
 
-  // ── Calculated end date ─────────────────────────────────────────────────
-  // When both startDate and timeFrame are set, the end date is derived:
-  // timeFrame N = last day of the month that is (N-1) months after startDate's month.
-  // e.g. start = March 15 + timeFrame '01' → March 31
-  //      start = March 15 + timeFrame '02' → April 30
-  const calculatedEndDate = React.useMemo((): Date | null => {
-    if (!filters.startDate || !filters.timeFrame) return null;
-    const months = Number.parseInt(filters.timeFrame, 10);
-    // Build a LOCAL-midnight last-day-of-month date so it stays consistent with
-    // startDate (DateInput emits local-midnight) and with the local-component
-    // formatters used for display (formatDisplayDateV2) and the request payload
-    // (formatDate). Using Date.UTC here would produce a UTC-midnight instant
-    // that those local getters then read back one day early in negative-offset
-    // timezones (e.g. Pacific), dropping the final day from the report range.
-    return new Date(filters.startDate.getFullYear(), filters.startDate.getMonth() + months, 0);
-  }, [filters.startDate, filters.timeFrame]);
-
-  // The date used for validation and the request payload. When timeFrame is set
-  // the calculated date takes precedence over any manually-entered end date.
-  const effectiveEndDate = filters.timeFrame && filters.startDate ? calculatedEndDate : filters.endDate;
+  useEndDateAutoFill({
+    startDate: filters.startDate,
+    timeFrame: filters.timeFrame,
+    setEndDate: (date) => set({ endDate: date }),
+    clearEndDateError: () => clearFieldError('endDate'),
+  });
 
   // ── Show options helper ─────────────────────────────────────────────────
   const toggleShow = (key: keyof R13ShowOptions, value: boolean) =>
@@ -305,7 +291,7 @@ export function R13AdHocReportingPage() {
     const result = validateR13(
       filters.reportName,
       filters.startDate,
-      effectiveEndDate,
+      filters.endDate,
       filters.timeFrame,
       filters.showOptions,
     );
@@ -331,7 +317,7 @@ export function R13AdHocReportingPage() {
     reportName: filters.reportName.trim(),
     reportFormat,
     ...(filters.startDate && { invoiceDateFrom: formatDate(filters.startDate) }),
-    ...(effectiveEndDate && { invoiceDateTo: formatDate(effectiveEndDate) }),
+    ...(filters.endDate && { invoiceDateTo: formatDate(filters.endDate) }),
     ...(filters.timeFrame && { timeFrame: filters.timeFrame }),
     ...(filters.selectedSubmissionStatuses.length > 0 && {
       submissionStatus: filters.selectedSubmissionStatuses.map((s) => s.code),
@@ -365,7 +351,10 @@ export function R13AdHocReportingPage() {
 
   // ── Export handler ──────────────────────────────────────────────────────
   const handleExport = (reportFormat: 'PDF' | 'CSV') => {
-    if (!validate()) return;
+    if (!validate()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     generateReport(buildRequest(reportFormat), {
       onSuccess: ({ blob, filename }) => {
         downloadBlob(blob, filename);
@@ -377,6 +366,7 @@ export function R13AdHocReportingPage() {
           setFieldErrors(split.fieldErrors);
           setFormErrors(split.formErrors);
           setWarnings(split.warnings);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
         addNotification(
@@ -480,31 +470,22 @@ export function R13AdHocReportingPage() {
           />
         </div>
 
-        {/* End date — shows calculated date when time frame is set, otherwise a DateInput */}
         <div className="r13-page__field--narrow">
-          {filters.timeFrame ? (
-            <TextInput
-              id="end-date-calculated"
-              size="md"
-              labelText={<RequiredLabel>End date (from time frame)</RequiredLabel>}
-              value={calculatedEndDate ? formatDisplayDate(calculatedEndDate) : ''}
-              readOnly
-              invalid={!!fieldErrors.endDate}
-              invalidText={fieldErrors.endDate}
-            />
-          ) : (
-            <DateInput
-              key={`end-date-${dateKey}`}
-              id="end-date"
-              labelText={<RequiredLabel>End date</RequiredLabel>}
-              invalid={!!fieldErrors.endDate}
-              invalidText={fieldErrors.endDate}
-              onChange={(dates) => {
-                set({ endDate: dates[0] ?? null });
-                clearFieldError('endDate');
-              }}
-            />
-          )}
+          <DateInput
+            key={`end-date-${dateKey}`}
+            id="end-date"
+            labelText={<RequiredLabel>End date</RequiredLabel>}
+            value={filters.endDate ?? undefined}
+            invalid={!!fieldErrors.endDate}
+            invalidText={fieldErrors.endDate}
+            onChange={(dates) => {
+              set({ endDate: dates[0] ?? null });
+              clearFieldError('endDate');
+              // Manually editing end date breaks its link to time frame — reset
+              // the selector back to "Select..."
+              if (filters.timeFrame) set({ timeFrame: '' });
+            }}
+          />
         </div>
 
         <div className="r13-page__field--narrow">
