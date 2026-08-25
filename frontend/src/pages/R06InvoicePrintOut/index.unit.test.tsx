@@ -197,4 +197,57 @@ describe('R06InvoicePrintOutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
     expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ invoiceNumbers: '300,300' }), expect.anything());
   });
+
+  describe('Clear all', () => {
+    it('renders a Clear all button', () => {
+      renderPage();
+      expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+    });
+
+    it('clears the submission number field', () => {
+      renderPage();
+      const input = screen.getByLabelText(/submission number/i);
+      fireEvent.change(input, { target: { value: '12345' } });
+      expect(input).toHaveValue('12345');
+
+      fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+      expect(input).toHaveValue('');
+    });
+
+    it('resets the invoice range rows back to a single empty row', () => {
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: /add another range/i }));
+      fireEvent.change(screen.getAllByLabelText('From')[0], { target: { value: '100' } });
+      expect(screen.getAllByLabelText('From')).toHaveLength(2);
+
+      fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+      expect(screen.getAllByLabelText('From')).toHaveLength(1);
+      expect(screen.getByLabelText('From')).toHaveValue('');
+    });
+
+    it('clears validation errors', () => {
+      const mutate = vi.fn();
+      mockUseR06ReportMutation.mockReturnValue({ mutate, isPending: false });
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(screen.getAllByText(/required when no invoice numbers are provided/i).length).toBeGreaterThan(0);
+
+      fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+      expect(screen.queryByText(/required when no invoice numbers are provided/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scroll on validation failure', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('scrolls to the top when client-side validation fails', () => {
+      const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+      mockUseR06ReportMutation.mockReturnValue({ mutate: vi.fn(), isPending: false });
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+    });
+  });
 });

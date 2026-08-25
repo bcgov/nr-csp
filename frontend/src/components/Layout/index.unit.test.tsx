@@ -1,5 +1,5 @@
 import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { NotificationContext } from '@/context/notification/NotificationContext';
 
 // Minimal stub so Layout doesn't blow up on auth/router deps
@@ -19,9 +19,60 @@ vi.mock('@carbon/react', async (importOriginal) => {
 vi.mock('@/components/Layout/LayoutHeader/LayoutHeader', () => ({
   LayoutHeader: () => null,
 }));
-vi.mock('react-router', () => ({ Outlet: () => null }));
+
+const mockUseLocation = vi.fn();
+vi.mock('react-router', () => ({
+  Outlet: () => null,
+  useLocation: () => mockUseLocation(),
+}));
 
 import Layout from './index';
+
+describe('Layout scroll reset', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const renderAtPath = (pathname: string) => {
+    mockUseLocation.mockReturnValue({ pathname });
+    return render(
+      <NotificationContext.Provider
+        value={{ notifications: [], addNotification: vi.fn(), removeNotification: vi.fn() }}
+      >
+        <Layout />
+      </NotificationContext.Provider>,
+    );
+  };
+
+  it('scrolls to the top on mount', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+    await act(async () => {
+      renderAtPath('/r13-ad-hoc');
+    });
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+  });
+
+  it('scrolls to the top again when the route changes', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+    let rerender!: ReturnType<typeof render>['rerender'];
+    await act(async () => {
+      ({ rerender } = renderAtPath('/r13-ad-hoc'));
+    });
+    scrollToSpy.mockClear();
+
+    mockUseLocation.mockReturnValue({ pathname: '/r06-invoice-print-out' });
+    await act(async () => {
+      rerender(
+        <NotificationContext.Provider
+          value={{ notifications: [], addNotification: vi.fn(), removeNotification: vi.fn() }}
+        >
+          <Layout />
+        </NotificationContext.Provider>,
+      );
+    });
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+  });
+});
 
 describe('Layout notifications', () => {
   it('renders a success toast when a notification is in context', async () => {
