@@ -59,30 +59,6 @@ jobs:
             -Dsonar.projectKey=bcgov-sonarcloud_nr-csp_backend \
             -Dsonar.token="$SONAR_TOKEN"
 
-  backend-integration-tests:
-    name: Backend Integration Tests
-    if: (! github.event.pull_request.draft)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Java 21 (Temurin) + Maven cache
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
-
-      # Runs only the failsafe-bound *IT.java tests (Oracle Testcontainers
-      # end-to-end checks); unit tests already run in backend-tests, so
-      # surefire is bypassed by invoking the failsafe goals directly.
-      - name: Maven failsafe (Oracle Testcontainers ITs)
-        working-directory: backend
-        run: mvn -B test-compile failsafe:integration-test failsafe:verify
-
   frontend-tests:
     name: Frontend Tests
     if: (! github.event.pull_request.draft)

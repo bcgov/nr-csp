@@ -50,20 +50,16 @@ jobs:
       target: test
       tag: ${{ needs.init.outputs.pr }}
 
-  # Tests (reusable-tests.yml) are disabled: the integration suite
-  # (common/tests/integration) and Playwright e2e suite don't exist yet.
-  # Re-enable this job (and restore deploy-prod's needs) once they do:
-  #
-  # tests:
-  #   name: Tests
-  #   needs: [deploy-test]
-  #   uses: ./.github/workflows/reusable-tests.yml
-  #   with:
-  #     target: test
+  tests:
+    name: Tests
+    needs: [deploy-test]
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      target: test
 
   deploy-prod:
     name: PROD Deploys (${{ needs.init.outputs.pr }})
-    needs: [deploy-test, init]
+    needs: [tests, init]
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
       oc_namespace: ${{ secrets.oc_namespace }}

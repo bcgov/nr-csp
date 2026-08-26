@@ -8,7 +8,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'build/', 'node_modules/'] },
+  { ignores: ['dist/', 'build/', 'node_modules/', 'playwright-report/', 'test-results/'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   // eslint-plugin-react-hooks v7 moved flat configs under `configs.flat`
