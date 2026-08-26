@@ -41,13 +41,13 @@ class R08ReportIT extends AbstractReportIT {
     }
 
     @Test
-    void returns400WithoutSellerBuyerOrSubmissionFilter() {
+    void returns400WithoutAnyFilter() {
+        // date range and submission number/year-month all absent — the validator
+        // requires at least one (report.r08.filter.required.error).
         ResponseEntity<byte[]> response = postReport("/api/R08", Map.of(
-                "reportFormat", "CSV",
-                "dateFrom", "20240101",
-                "dateTo", "20240131"));
+                "reportFormat", "CSV"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(asText(response)).contains("VALIDATION_ERROR");
+        assertThat(asText(response)).contains("report.r08.filter.required.error");
     }
 }

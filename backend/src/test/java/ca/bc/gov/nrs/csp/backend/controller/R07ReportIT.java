@@ -42,13 +42,13 @@ class R07ReportIT extends AbstractReportIT {
     }
 
     @Test
-    void returns400WithoutSellerBuyerOrSubmissionFilter() {
+    void returns400WithoutAnyFilter() {
+        // year/month, date range, seller, buyer, and submission number all absent —
+        // the validator requires at least one (report.r07.filter.required.error).
         ResponseEntity<byte[]> response = postReport("/api/R07", Map.of(
-                "reportFormat", "CSV",
-                "dateFrom", "20240101",
-                "dateTo", "20240131"));
+                "reportFormat", "CSV"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(asText(response)).contains("VALIDATION_ERROR");
+        assertThat(asText(response)).contains("report.r07.filter.required.error");
     }
 }
