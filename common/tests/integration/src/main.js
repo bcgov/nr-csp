@@ -8,10 +8,6 @@
  * failure so the CI job fails.
  */
 
-// The workflow's health-check step probes the same host with `curl -k`;
-// PR routes can lag on cert provisioning, so mirror that behaviour here.
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 const baseUrl = (process.env.BASE_URL || '').replace(/\/+$/, '');
 if (!baseUrl) {
   console.error('BASE_URL environment variable is required');
