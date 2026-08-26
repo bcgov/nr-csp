@@ -327,14 +327,50 @@ describe('R13AdHocReportingPage — Clear all', () => {
   });
 });
 
-// ── Time frame ─────────────────────────────────────────────────────────────────
+// ── Time frame / end date auto-fill ─────────────────────────────────────────────
 
 describe('R13AdHocReportingPage — time frame', () => {
-  it('shows a DateInput labelled "End date" when no time frame is selected', () => {
+  it('shows a single editable End date input regardless of time frame selection', () => {
     renderPage();
-    // RequiredLabel renders "* End date" so use a substring regex without anchors.
-    // The time-frame variant label is "* End date (from time frame)" — absent here.
     expect(screen.getByLabelText(/end date/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/end date.*time frame/i)).not.toBeInTheDocument();
+  });
+
+  it('auto-fills end date once start date and time frame are both set', () => {
+    renderPage();
+    fireEvent.input(screen.getByLabelText(/start date/i), { target: { value: '2026-03-15' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+    fireEvent.click(screen.getByText('01'));
+    expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+  });
+
+  it('keeps a manually-entered end date until start date or time frame change again, and resets time frame to Select...', () => {
+    renderPage();
+    fireEvent.input(screen.getByLabelText(/start date/i), { target: { value: '2026-03-15' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+    fireEvent.click(screen.getByText('01'));
+    expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+
+    fireEvent.input(screen.getByLabelText(/end date/i), { target: { value: '2026-03-20' } });
+    expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-20');
+    expect(screen.getByRole('combobox', { name: /time frame/i })).toHaveTextContent('Select...');
+  });
+});
+
+// ── Scroll on validation failure ─────────────────────────────────────────────────
+
+describe('R13AdHocReportingPage — scroll on validation failure', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('scrolls to the top when client-side validation fails', () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+    mockValidateR13.mockReturnValue(
+      makeErrors({ key: 'report.r13.reportname.required.error', message: 'Report name is required.' }),
+    );
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
   });
 });
