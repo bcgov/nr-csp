@@ -71,17 +71,13 @@ jobs:
       tag: ${{ github.event.pull_request.head.sha }}
       triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/')
 
-  # Tests (reusable-tests.yml) are disabled: the integration suite
-  # (common/tests/integration) and Playwright e2e suite don't exist yet.
-  # Re-enable this job (and add it back to results.needs) once they do:
-  #
-  # tests:
-  #    name: Tests
-  #    if: needs.deploys.outputs.triggered == 'true'
-  #    needs: [deploys, init]
-  #    uses: ./.github/workflows/reusable-tests.yml
-  #    with:
-  #      target: ${{ needs.init.outputs.zone }}
+  tests:
+    name: Tests
+    if: needs.deploys.outputs.triggered == 'true'
+    needs: [deploys, init]
+    uses: ./.github/workflows/reusable-tests.yml
+    with:
+      target: ${{ needs.init.outputs.zone }}
 
   # ==========================================================================
   # WARNING: This job acts as the required merge gate for this workflow.
@@ -90,7 +86,7 @@ jobs:
   # ==========================================================================
   results:
     name: PR Results
-    needs: [init, builds, deploys]
+    needs: [init, builds, deploys, tests]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 1
