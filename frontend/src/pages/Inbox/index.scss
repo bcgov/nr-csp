@@ -38,6 +38,15 @@
     flex: 1;
     min-width: 0;
 
+    // Carbon's `.cds--label` is `display: inline-block`, so in wrappers that
+    // hold it directly (ComboBox, Select) it sits in a line box and picks up
+    // the parent's half-leading, pushing label and field down ~2px. TextInput
+    // and DateInput escape that because their labels live in a flex wrapper.
+    // Blockify the label so every field in the row starts at the same height.
+    .cds--label {
+      display: block;
+    }
+
     .cds--btn {
       width: 100%;
       max-width: 100%;

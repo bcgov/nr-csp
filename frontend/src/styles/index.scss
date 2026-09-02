@@ -17,8 +17,18 @@
   .cds--text-input,
   .cds--date-picker__input,
   .cds--list-box,
-  .cds--list-box__field,
   .cds--search-input {
     background-color: #f4f4f4 !important;
+  }
+
+  // `.cds--list-box__field` is deliberately NOT in the list above. It fills the
+  // full height of `.cds--list-box`, border included, so an opaque background
+  // here paints over the underline Carbon draws on the parent — leaving
+  // dropdowns with no baseline while the text/date inputs beside them (whose
+  // border sits on the input itself) keep theirs. The parent already supplies
+  // the same #f4f4f4, so letting the field stay transparent looks identical
+  // and keeps the underline and the hover state visible.
+  .cds--list-box__field {
+    background-color: transparent !important;
   }
 }
