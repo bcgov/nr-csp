@@ -1,18 +1,18 @@
-import { useState } from 'react';
-import { Grid, Column, TextInput, Button } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
+import { Grid, Column, TextInput, Button } from '@carbon/react';
+import { useState } from 'react';
 
-import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import PageTitle from '@/components/core/PageTitle';
+import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ClientAutocomplete, { type ClientLocationResponse } from '@/components/Form/ClientAutocomplete';
 import DateInput from '@/components/Form/DateInput';
-import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { formatDisplayDate, formatIsoDate } from '@/utils/format';
-import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
-import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
+import SingleSelect from '@/components/Form/SingleSelect';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useSearchTableState } from '@/hooks/useSearchTableState';
+import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
+import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
+import { formatDisplayDate, formatIsoDate } from '@/utils/format';
 
 import './index.scss';
 

@@ -1,17 +1,22 @@
+import { Search as SearchIcon } from '@carbon/icons-react';
+import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
-import { Search as SearchIcon } from '@carbon/icons-react';
 
+import PageTitle from '@/components/core/PageTitle';
+import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
+import AutoCompleteInput from '@/components/Form/AutoCompleteInput';
+import DateInput from '@/components/Form/DateInput';
+import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
+import SingleSelect from '@/components/Form/SingleSelect';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useSearchTableState } from '@/hooks/useSearchTableState';
-import AutoCompleteInput from '@/components/Form/AutoCompleteInput';
-import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
-import PageTitle from '@/components/core/PageTitle';
-import DateInput from '@/components/Form/DateInput';
-import SingleSelect from '@/components/Form/SingleSelect';
-import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { formatIsoDate, formatDisplayDate } from '@/utils/format';
+import {
+  type LookupItemResponse,
+  useInvoiceStatusesQuery,
+  useInvoiceTypesQuery,
+  useMaturityCodesQuery,
+} from '@/services/lookup.service';
 import {
   type SearchResultResponse,
   type ClientLocationResponse,
@@ -19,12 +24,7 @@ import {
   getClientsByName,
   useSearchQuery,
 } from '@/services/search.service';
-import {
-  type LookupItemResponse,
-  useInvoiceStatusesQuery,
-  useInvoiceTypesQuery,
-  useMaturityCodesQuery,
-} from '@/services/lookup.service';
+import { formatIsoDate, formatDisplayDate } from '@/utils/format';
 
 import './index.scss';
 
