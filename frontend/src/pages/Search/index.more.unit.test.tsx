@@ -165,16 +165,38 @@ describe('SearchPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ sellerSubmitter: false });
   });
 
-  it('pads the submitter client number to 8 digits on blur and strips non-digits', () => {
+  it('strips non-digits from the submitter client number and sends it unpadded', () => {
     renderSearchPage();
     const input = screen.getByLabelText(/submitter client number/i);
     fireEvent.change(input, { target: { value: '12ab34' } });
     expect(input).toHaveValue('1234');
+
+    // Blur must leave the entry alone. Zero-padding it here would fill the
+    // field to its 8-digit cap and silently swallow every later keystroke;
+    // SearchService pads client numbers server-side instead.
     fireEvent.focusOut(input, { target: { value: '1234' } });
-    expect(input).toHaveValue('00001234');
+    expect(input).toHaveValue('1234');
 
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(lastQueryParams()).toMatchObject({ submitterClientNum: '00001234' });
+    expect(lastQueryParams()).toMatchObject({ submitterClientNum: '1234' });
+  });
+
+  it('keeps accepting typed digits in the submitter client number after a blur', () => {
+    renderSearchPage();
+    const input = screen.getByLabelText(/submitter client number/i) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '99' } });
+    fireEvent.focusOut(input, { target: { value: '99' } });
+
+    // Appending to an entry that has already been blurred must still work.
+    fireEvent.change(input, { target: { value: input.value + '7' } });
+    expect(input).toHaveValue('997');
+  });
+
+  it('caps the submitter client number at 8 digits', () => {
+    renderSearchPage();
+    const input = screen.getByLabelText(/submitter client number/i);
+    fireEvent.change(input, { target: { value: '1234567890' } });
+    expect(input).toHaveValue('12345678');
   });
 
   it('applies a seller/buyer selection from the autocomplete to the query', async () => {
