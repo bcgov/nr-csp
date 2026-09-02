@@ -41,6 +41,8 @@ type InvoiceRow = {
 
 type SellerSubmitterItem = { id: string; label: string };
 
+const DEFAULT_PAGE_SIZE = 100;
+
 const sellerSubmitterItems: SellerSubmitterItem[] = [
   { id: 'true', label: 'Yes' },
   { id: 'false', label: 'No' },
@@ -64,7 +66,7 @@ export function SearchPage() {
   const navigate = useNavigate();
   const NS = 'csp.table.search.v1';
   const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 100);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', DEFAULT_PAGE_SIZE);
   const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
 
   const invoiceColumns: ResultsTableColumn<InvoiceRow>[] = [
@@ -131,6 +133,8 @@ export function SearchPage() {
   const [maturityInput, setMaturityInput] = usePersistentState<LookupItemResponse | null>(NS, 'maturityInput', null);
   const [autoCompleteKey, setAutoCompleteKey] = useState(0);
   const [dateKey, setDateKey] = useState(0);
+  // Bumping this remounts ResultsTable, which owns its sort direction and keyword input.
+  const [tableKey, setTableKey] = useState(0);
   const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
@@ -151,8 +155,8 @@ export function SearchPage() {
 
   const { data, isLoading, isError } = useSearchQuery(queryParams, hasSearched);
 
-  const rows: InvoiceRow[] = (data?.content ?? []).map(toInvoiceRow);
-  const totalElements = data?.totalElements ?? 0;
+  const rows: InvoiceRow[] = hasSearched ? (data?.content ?? []).map(toInvoiceRow) : [];
+  const totalElements = hasSearched ? (data?.totalElements ?? 0) : 0;
 
   const buildSearchParams = (): SearchParams => ({
     invDate: invoiceDateInput || undefined,
@@ -184,6 +188,17 @@ export function SearchPage() {
     setCurrentPage(1);
   };
 
+  // Returns the results table to its default, pre-search state.
+  const resetTableState = () => {
+    setHasSearched(false);
+    setAppliedFilters({});
+    setCurrentPage(1);
+    setPageSize(DEFAULT_PAGE_SIZE);
+    setSortParam(undefined);
+    setKeyword('');
+    setTableKey((k) => k + 1);
+  };
+
   const handleClearFilters = () => {
     setInvoiceDateInput('');
     setStartDateInput('');
@@ -198,6 +213,7 @@ export function SearchPage() {
     setDateRangeError(null);
     setAutoCompleteKey((k) => k + 1);
     setDateKey((k) => k + 1);
+    resetTableState();
   };
 
   return (
@@ -364,6 +380,7 @@ export function SearchPage() {
 
         <Column lg={16} md={8} sm={4} className="search-page__table-col">
           <ResultsTable
+            key={tableKey}
             rows={rows}
             columns={invoiceColumns}
             isSortable

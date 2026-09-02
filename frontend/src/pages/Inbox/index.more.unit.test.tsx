@@ -87,6 +87,10 @@ const lastQueryParams = () =>
 
 const lastQueryEnabled = () => mockUseInboxSearchQuery.mock.calls[mockUseInboxSearchQuery.mock.calls.length - 1][1];
 
+// The table only renders rows once a search has been run. Tests that assert on table
+// content without going through the Search button seed that flag directly.
+const seedSearched = () => window.sessionStorage.setItem('csp.table.inbox.v1.hasSearched', 'true');
+
 const setDate = (label: RegExp, value: string) => {
   const input = screen.getByLabelText(label);
   fireEvent.input(input, { target: { value } });
@@ -102,6 +106,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('maps API rows into table rows, including fallbacks for missing ids and dates', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: { content: [fullRow, sparseRow], totalElements: 2 },
       isLoading: false,
@@ -177,6 +182,45 @@ describe('InboxPage interactions', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('resets the results table to its pre-search state when Clear filters is clicked', () => {
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow], totalElements: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'ABC' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(screen.getByText('SUB-555')).toBeInTheDocument();
+
+    // Drive sort and keyword away from their defaults so the reset has something to undo.
+    const sortHeader = () => within(screen.getByRole('columnheader', { name: /submission id/i })).getByRole('button');
+    fireEvent.click(sortHeader());
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'cedar' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ sort: 'submissionId,asc', keyword: 'cedar' });
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+
+    // The query is disabled again and every table param is back to its default.
+    expect(lastQueryEnabled()).toBe(false);
+    expect(lastQueryParams()).toEqual({ page: 0, size: 100, sort: undefined, keyword: undefined });
+
+    // The previous search's rows are gone — even though the mocked query still has them
+    // cached — and the keyword bar is hidden again so its text cannot linger.
+    expect(screen.queryByText('SUB-555')).not.toBeInTheDocument();
+    expect(screen.getByText('Your search results will appear here!')).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
+
+    // The table's own sort state reset too: the next sort starts ascending, not descending.
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.click(sortHeader());
+    expect(lastQueryParams()).toMatchObject({ sort: 'submissionId,asc' });
+  });
+
   it('shows the most specific backend validation message on error', () => {
     mockUseInboxSearchQuery.mockReturnValue({
       data: undefined,
@@ -211,6 +255,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('applies the keyword filter and resets to page 1 on Enter', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: { content: [fullRow], totalElements: 1 },
       isLoading: false,
@@ -225,6 +270,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('cycles the sort param asc -> desc -> none when a header is clicked', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: { content: [fullRow], totalElements: 1 },
       isLoading: false,
@@ -244,6 +290,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('updates page and page size through the pagination bar', () => {
+    seedSearched();
     // totalElements must exceed the default page size (100) so a second page exists
     // for the "next page" click below to actually navigate to.
     mockUseInboxSearchQuery.mockReturnValue({

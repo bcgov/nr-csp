@@ -56,10 +56,11 @@ function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
 }
 
 const NS = 'csp.table.inbox.v1';
+const DEFAULT_PAGE_SIZE = 100;
 
 export function InboxPage() {
   const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 100);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', DEFAULT_PAGE_SIZE);
   const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
   const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
   const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
@@ -77,6 +78,8 @@ export function InboxPage() {
   const [selectedType, setSelectedType] = usePersistentState<SelectItem | null>(NS, 'selectedType', null);
   const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(NS, 'selectedStatus', null);
   const [dateKey, setDateKey] = useState(0);
+  // Bumping this remounts ResultsTable, which owns its sort direction and keyword input.
+  const [tableKey, setTableKey] = useState(0);
 
   // Snapshot of filter criteria at the moment Search is clicked.
   const [appliedFilters, setAppliedFilters] = usePersistentState<InboxSearchParams>(NS, 'appliedFilters', {});
@@ -103,8 +106,8 @@ export function InboxPage() {
     return firstError ?? axiosError?.response?.data?.message ?? 'Failed to load results. Please try again.';
   })();
 
-  const rows: InboxRow[] = (data?.content ?? []).map((r, index) => toInboxRow(r, index));
-  const totalElements = data?.totalElements ?? 0;
+  const rows: InboxRow[] = hasSearched ? (data?.content ?? []).map((r, index) => toInboxRow(r, index)) : [];
+  const totalElements = hasSearched ? (data?.totalElements ?? 0) : 0;
 
   const inboxColumns: ResultsTableColumn<InboxRow>[] = [
     { key: 'submissionId', header: 'Submission ID' },
@@ -148,6 +151,17 @@ export function InboxPage() {
     setCurrentPage(1);
   };
 
+  // Returns the results table to its default, pre-search state.
+  const resetTableState = () => {
+    setHasSearched(false);
+    setAppliedFilters({});
+    setCurrentPage(1);
+    setPageSize(DEFAULT_PAGE_SIZE);
+    setSortParam(undefined);
+    setKeyword('');
+    setTableKey((k) => k + 1);
+  };
+
   const handleClearFilters = () => {
     setInvoiceNumberInput('');
     setSubmitterClient(null);
@@ -158,6 +172,7 @@ export function InboxPage() {
     setSelectedStatus(null);
     setDateRangeError(null);
     setDateKey((k) => k + 1);
+    resetTableState();
   };
 
   return (
@@ -286,6 +301,7 @@ export function InboxPage() {
 
         <Column lg={16} md={8} sm={4} className="inbox-page__table-col">
           <ResultsTable
+            key={tableKey}
             rows={rows}
             columns={inboxColumns}
             isSortable
