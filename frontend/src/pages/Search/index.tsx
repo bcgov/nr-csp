@@ -372,7 +372,7 @@ export function SearchPage() {
           </Button>
         </Column>
 
-        {isError && (
+        {hasSearched && isError && (
           <Column lg={16} md={8} sm={4} className="search-page__error-col">
             <p className="search-page__error">Failed to load results. Please try again.</p>
           </Column>
@@ -395,7 +395,7 @@ export function SearchPage() {
             }}
             searchKeyword={keyword}
             onSearchKeywordChange={
-              hasSearched || rows.length > 0
+              hasSearched
                 ? (kw) => {
                     setKeyword(kw);
                     setCurrentPage(1);

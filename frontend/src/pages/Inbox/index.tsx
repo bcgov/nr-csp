@@ -100,7 +100,7 @@ export function InboxPage() {
 
   // Extract the most specific message from a backend 400 validation response.
   const apiErrorMessage = (() => {
-    if (!isError) return null;
+    if (!hasSearched || !isError) return null;
     const axiosError = error as { response?: { data?: { errors?: { message?: string }[]; message?: string } } };
     const firstError = axiosError?.response?.data?.errors?.[0]?.message;
     return firstError ?? axiosError?.response?.data?.message ?? 'Failed to load results. Please try again.';
@@ -293,7 +293,7 @@ export function InboxPage() {
           </Button>
         </Column>
 
-        {isError && (
+        {apiErrorMessage && (
           <Column lg={16} md={8} sm={4} className="inbox-page__error-col">
             <p className="inbox-page__error">{apiErrorMessage}</p>
           </Column>
@@ -316,7 +316,7 @@ export function InboxPage() {
             paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} invoices`}
             searchKeyword={keyword}
             onSearchKeywordChange={
-              hasSearched || rows.length > 0
+              hasSearched
                 ? (kw) => {
                     setKeyword(kw);
                     setCurrentPage(1);

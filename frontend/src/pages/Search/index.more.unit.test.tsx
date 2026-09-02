@@ -254,6 +254,20 @@ describe('SearchPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ sort: 'invoiceDate,asc' });
   });
 
+  it('clears a stale error banner when Clear filters is clicked', () => {
+    // React Query keeps reporting a cached error for a disabled query whose key matches
+    // an earlier failed fetch — the key an unfiltered search produces.
+    mockUseSearchQuery.mockReturnValue({ data: emptyPage, isLoading: false, isError: true } as never);
+    seedSearched();
+    renderSearchPage();
+    expect(screen.getByText('Failed to load results. Please try again.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+
+    expect(screen.queryByText('Failed to load results. Please try again.')).not.toBeInTheDocument();
+    expect(screen.getByText('No search performed')).toBeInTheDocument();
+  });
+
   it('applies the keyword filter and resets to page 1 on Enter', () => {
     seedSearched();
     mockUseSearchQuery.mockReturnValue({

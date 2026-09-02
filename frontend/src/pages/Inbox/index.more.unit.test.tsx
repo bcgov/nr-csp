@@ -221,7 +221,27 @@ describe('InboxPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ sort: 'submissionId,asc' });
   });
 
+  it('clears a stale error banner when Clear filters is clicked', () => {
+    // React Query keeps reporting a cached error for a disabled query whose key matches
+    // an earlier failed fetch — the key an unfiltered search produces.
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { response: { data: { message: 'Bad request.' } } },
+    } as never);
+    seedSearched();
+    renderInboxPage();
+    expect(screen.getByText('Bad request.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+
+    expect(screen.queryByText('Bad request.')).not.toBeInTheDocument();
+    expect(screen.getByText('Your search results will appear here!')).toBeInTheDocument();
+  });
+
   it('shows the most specific backend validation message on error', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -233,6 +253,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('falls back to the top-level backend message on error', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -244,6 +265,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('falls back to a generic message when the error has no response body', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
