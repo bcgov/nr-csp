@@ -131,7 +131,7 @@ function FlatPriceConversionFormFields({
       />
       <TextInput
         id={`${mode}-flat-price-conversion`}
-        labelText="Flat price conversion *"
+        labelText="Relative price *"
         type="number"
         min={1}
         max={999}
@@ -301,7 +301,7 @@ export function FlatPriceConversionPage() {
     { key: 'species', header: 'Species', renderCell: (row) => speciesDescriptions[row.species] ?? row.species },
     { key: 'sortCode', header: 'Sort code', renderCell: (row) => sortCodeDescriptions[row.sortCode] ?? row.sortCode },
     { key: 'grade', header: 'Grade' },
-    { key: 'flatPriceConversion', header: 'Flat price conversion', headerAlign: 'center', cellAlign: 'center' },
+    { key: 'flatPriceConversion', header: 'Relative price', headerAlign: 'center', cellAlign: 'center' },
     { key: 'effectiveDate', header: 'Effective date', renderCell: (row) => formatDisplayDate(row.effectiveDate) },
     {
       key: 'expiryDate',
