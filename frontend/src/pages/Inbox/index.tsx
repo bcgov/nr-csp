@@ -12,6 +12,7 @@ import { formatDisplayDate, formatIsoDate } from '@/utils/format';
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { useSearchTableState } from '@/hooks/useSearchTableState';
 
 import './index.scss';
 
@@ -59,11 +60,22 @@ const NS = 'csp.table.inbox.v1';
 const DEFAULT_PAGE_SIZE = 100;
 
 export function InboxPage() {
-  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', DEFAULT_PAGE_SIZE);
-  const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
-  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
-  const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
+  const {
+    hasSearched,
+    setHasSearched,
+    appliedFilters,
+    setAppliedFilters,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    setPageSize,
+    sortParam,
+    setSortParam,
+    keyword,
+    setKeyword,
+    tableKey,
+    reset: resetTableState,
+  } = useSearchTableState<InboxSearchParams>(NS, DEFAULT_PAGE_SIZE);
 
   // Filter inputs
   const [invoiceNumberInput, setInvoiceNumberInput] = usePersistentState(NS, 'invoiceNumberInput', '');
@@ -78,11 +90,6 @@ export function InboxPage() {
   const [selectedType, setSelectedType] = usePersistentState<SelectItem | null>(NS, 'selectedType', null);
   const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(NS, 'selectedStatus', null);
   const [dateKey, setDateKey] = useState(0);
-  // Bumping this remounts ResultsTable, which owns its sort direction and keyword input.
-  const [tableKey, setTableKey] = useState(0);
-
-  // Snapshot of filter criteria at the moment Search is clicked.
-  const [appliedFilters, setAppliedFilters] = usePersistentState<InboxSearchParams>(NS, 'appliedFilters', {});
 
   const { data: statusItems = [], isLoading: statusLoading } = useSubmissionStatusesQuery();
 
@@ -149,17 +156,6 @@ export function InboxPage() {
     setAppliedFilters(buildSearchParams());
     setHasSearched(true);
     setCurrentPage(1);
-  };
-
-  // Returns the results table to its default, pre-search state.
-  const resetTableState = () => {
-    setHasSearched(false);
-    setAppliedFilters({});
-    setCurrentPage(1);
-    setPageSize(DEFAULT_PAGE_SIZE);
-    setSortParam(undefined);
-    setKeyword('');
-    setTableKey((k) => k + 1);
   };
 
   const handleClearFilters = () => {

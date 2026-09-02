@@ -4,6 +4,7 @@ import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
 
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { useSearchTableState } from '@/hooks/useSearchTableState';
 import AutoCompleteInput from '@/components/Form/AutoCompleteInput';
 import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
 import PageTitle from '@/components/core/PageTitle';
@@ -65,9 +66,22 @@ function toInvoiceRow(r: SearchResultResponse): InvoiceRow {
 export function SearchPage() {
   const navigate = useNavigate();
   const NS = 'csp.table.search.v1';
-  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', DEFAULT_PAGE_SIZE);
-  const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
+  const {
+    hasSearched,
+    setHasSearched,
+    appliedFilters,
+    setAppliedFilters,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    setPageSize,
+    sortParam,
+    setSortParam,
+    keyword,
+    setKeyword,
+    tableKey,
+    reset: resetTableState,
+  } = useSearchTableState<SearchParams>(NS, DEFAULT_PAGE_SIZE);
 
   const invoiceColumns: ResultsTableColumn<InvoiceRow>[] = [
     {
@@ -133,17 +147,7 @@ export function SearchPage() {
   const [maturityInput, setMaturityInput] = usePersistentState<LookupItemResponse | null>(NS, 'maturityInput', null);
   const [autoCompleteKey, setAutoCompleteKey] = useState(0);
   const [dateKey, setDateKey] = useState(0);
-  // Bumping this remounts ResultsTable, which owns its sort direction and keyword input.
-  const [tableKey, setTableKey] = useState(0);
-  const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
-
-  // Snapshot of filters at the moment Search is clicked (the criteria part — page/size/sort/keyword
-  // are tracked separately so changing them re-queries without re-snapshotting filter inputs).
-  const [appliedFilters, setAppliedFilters] = usePersistentState<SearchParams>(NS, 'appliedFilters', {});
-
-  // Spring-style "field,direction" sort string, or undefined when unsorted.
-  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
 
   const queryParams: SearchParams = {
     ...appliedFilters,
@@ -186,17 +190,6 @@ export function SearchPage() {
     setAppliedFilters(buildSearchParams());
     setHasSearched(true);
     setCurrentPage(1);
-  };
-
-  // Returns the results table to its default, pre-search state.
-  const resetTableState = () => {
-    setHasSearched(false);
-    setAppliedFilters({});
-    setCurrentPage(1);
-    setPageSize(DEFAULT_PAGE_SIZE);
-    setSortParam(undefined);
-    setKeyword('');
-    setTableKey((k) => k + 1);
   };
 
   const handleClearFilters = () => {
