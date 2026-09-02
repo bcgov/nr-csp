@@ -282,6 +282,69 @@ describe('SearchPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ keyword: 'hemlock', page: 0 });
   });
 
+  it('drops the keyword filter when the bar is emptied without Enter, then a filter is applied', () => {
+    mockUseSearchQuery.mockReturnValue({
+      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderSearchPage();
+
+    // 1. Search by keyword.
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'tree' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ keyword: 'tree' });
+
+    // 2. Delete the text without pressing Enter.
+    fireEvent.change(keywordInput, { target: { value: '' } });
+
+    // 3. Apply a filter and click Search.
+    fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'WFP521046' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    // 4. Results reflect only the new filter — the stale keyword is gone.
+    const params = lastQueryParams();
+    expect(params.keyword).toBeUndefined();
+    expect(params.invNumber).toBe('WFP521046');
+  });
+
+  it('applies the keyword showing in the bar when Search is clicked without Enter', () => {
+    mockUseSearchQuery.mockReturnValue({
+      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderSearchPage();
+
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'oak' } });
+    expect(lastQueryParams().keyword).toBeUndefined();
+
+    // Clicking Search takes focus out of the bar, which commits what it shows.
+    fireEvent.blur(keywordInput);
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(lastQueryParams()).toMatchObject({ keyword: 'oak' });
+  });
+
+  it('clears the keyword and empties the bar when Clear filters is clicked', () => {
+    mockUseSearchQuery.mockReturnValue({
+      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderSearchPage();
+
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'hemlock' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ keyword: 'hemlock' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(keywordInput).toHaveValue('');
+    expect(lastQueryParams().keyword).toBeUndefined();
+  });
+
   it('cycles the sort param asc -> desc -> none when a header is clicked', () => {
     seedSearched();
     mockUseSearchQuery.mockReturnValue({

@@ -167,6 +167,9 @@ export function InboxPage() {
     setSelectedType(null);
     setSelectedStatus(null);
     setDateRangeError(null);
+    // The keyword bar is a filter too — leaving it applied behind a cleared
+    // form is the same stale-filter trap as an emptied bar that never committed.
+    setKeyword('');
     setDateKey((k) => k + 1);
     resetTableState();
   };
