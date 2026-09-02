@@ -1,17 +1,18 @@
-import { useState } from 'react';
-import { Grid, Column, TextInput, Button } from '@carbon/react';
 import { Search as SearchIcon } from '@carbon/icons-react';
+import { Grid, Column, TextInput, Button } from '@carbon/react';
+import { useState } from 'react';
 
-import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import PageTitle from '@/components/core/PageTitle';
+import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ClientAutocomplete, { type ClientLocationResponse } from '@/components/Form/ClientAutocomplete';
 import DateInput from '@/components/Form/DateInput';
-import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { formatDisplayDate, formatIsoDate } from '@/utils/format';
-import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
-import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
+import SingleSelect from '@/components/Form/SingleSelect';
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { useSearchTableState } from '@/hooks/useSearchTableState';
+import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
+import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
+import { formatDisplayDate, formatIsoDate } from '@/utils/format';
 
 import './index.scss';
 
@@ -56,13 +57,25 @@ function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
 }
 
 const NS = 'csp.table.inbox.v1';
+const DEFAULT_PAGE_SIZE = 100;
 
 export function InboxPage() {
-  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 100);
-  const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
-  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
-  const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
+  const {
+    hasSearched,
+    setHasSearched,
+    appliedFilters,
+    setAppliedFilters,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    setPageSize,
+    sortParam,
+    setSortParam,
+    keyword,
+    setKeyword,
+    tableKey,
+    reset: resetTableState,
+  } = useSearchTableState<InboxSearchParams>(NS, DEFAULT_PAGE_SIZE);
 
   // Filter inputs
   const [invoiceNumberInput, setInvoiceNumberInput] = usePersistentState(NS, 'invoiceNumberInput', '');
@@ -77,9 +90,6 @@ export function InboxPage() {
   const [selectedType, setSelectedType] = usePersistentState<SelectItem | null>(NS, 'selectedType', null);
   const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(NS, 'selectedStatus', null);
   const [dateKey, setDateKey] = useState(0);
-
-  // Snapshot of filter criteria at the moment Search is clicked.
-  const [appliedFilters, setAppliedFilters] = usePersistentState<InboxSearchParams>(NS, 'appliedFilters', {});
 
   const { data: statusItems = [], isLoading: statusLoading } = useSubmissionStatusesQuery();
 
@@ -97,14 +107,14 @@ export function InboxPage() {
 
   // Extract the most specific message from a backend 400 validation response.
   const apiErrorMessage = (() => {
-    if (!isError) return null;
+    if (!hasSearched || !isError) return null;
     const axiosError = error as { response?: { data?: { errors?: { message?: string }[]; message?: string } } };
     const firstError = axiosError?.response?.data?.errors?.[0]?.message;
     return firstError ?? axiosError?.response?.data?.message ?? 'Failed to load results. Please try again.';
   })();
 
-  const rows: InboxRow[] = (data?.content ?? []).map((r, index) => toInboxRow(r, index));
-  const totalElements = data?.totalElements ?? 0;
+  const rows: InboxRow[] = hasSearched ? (data?.content ?? []).map((r, index) => toInboxRow(r, index)) : [];
+  const totalElements = hasSearched ? (data?.totalElements ?? 0) : 0;
 
   const inboxColumns: ResultsTableColumn<InboxRow>[] = [
     { key: 'submissionId', header: 'Submission ID' },
@@ -158,6 +168,7 @@ export function InboxPage() {
     setSelectedStatus(null);
     setDateRangeError(null);
     setDateKey((k) => k + 1);
+    resetTableState();
   };
 
   return (
@@ -278,7 +289,7 @@ export function InboxPage() {
           </Button>
         </Column>
 
-        {isError && (
+        {apiErrorMessage && (
           <Column lg={16} md={8} sm={4} className="inbox-page__error-col">
             <p className="inbox-page__error">{apiErrorMessage}</p>
           </Column>
@@ -286,6 +297,7 @@ export function InboxPage() {
 
         <Column lg={16} md={8} sm={4} className="inbox-page__table-col">
           <ResultsTable
+            key={tableKey}
             rows={rows}
             columns={inboxColumns}
             isSortable
@@ -300,7 +312,7 @@ export function InboxPage() {
             paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} invoices`}
             searchKeyword={keyword}
             onSearchKeywordChange={
-              hasSearched || rows.length > 0
+              hasSearched
                 ? (kw) => {
                     setKeyword(kw);
                     setCurrentPage(1);

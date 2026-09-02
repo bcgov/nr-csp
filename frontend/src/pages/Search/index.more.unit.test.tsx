@@ -77,6 +77,12 @@ function renderSearchPage() {
 const lastQueryParams = () =>
   mockUseSearchQuery.mock.calls[mockUseSearchQuery.mock.calls.length - 1][0] as Record<string, unknown>;
 
+// The table only renders rows once a search has been run. Tests that assert on table
+// content without going through the Search button seed that flag directly.
+const seedSearched = () => window.sessionStorage.setItem('csp.table.search.v1.hasSearched', 'true');
+
+const lastQueryEnabled = () => mockUseSearchQuery.mock.calls[mockUseSearchQuery.mock.calls.length - 1][1];
+
 const setDate = (label: RegExp, value: string) => {
   const input = screen.getByLabelText(label);
   fireEvent.input(input, { target: { value } });
@@ -97,6 +103,7 @@ describe('SearchPage interactions', () => {
   });
 
   it('navigates to the invoice page when an invoice number link is clicked', () => {
+    seedSearched();
     mockUseSearchQuery.mockReturnValue({
       data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
       isLoading: false,
@@ -108,6 +115,7 @@ describe('SearchPage interactions', () => {
   });
 
   it('renders a Cants / Export maturity cell as Cants', () => {
+    seedSearched();
     mockUseSearchQuery.mockReturnValue({
       data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
       isLoading: false,
@@ -208,7 +216,60 @@ describe('SearchPage interactions', () => {
     expect(params.submitterClientNum).toBeUndefined();
   });
 
+  it('resets the results table to its pre-search state when Clear filters is clicked', () => {
+    mockUseSearchQuery.mockReturnValue({
+      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderSearchPage();
+
+    fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'WFP*' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(screen.getByRole('link', { name: 'WFP521046' })).toBeInTheDocument();
+
+    // Drive sort and keyword away from their defaults so the reset has something to undo.
+    const sortHeader = () => within(screen.getByRole('columnheader', { name: /invoice date/i })).getByRole('button');
+    fireEvent.click(sortHeader());
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'hemlock' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ sort: 'invoiceDate,asc', keyword: 'hemlock' });
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+
+    // The query is disabled again and every table param is back to its default.
+    expect(lastQueryEnabled()).toBe(false);
+    expect(lastQueryParams()).toEqual({ page: 0, size: 100, sort: undefined, keyword: undefined });
+
+    // The previous search's rows are gone — even though the mocked query still has them
+    // cached — and the keyword bar is hidden again so its text cannot linger.
+    expect(screen.queryByRole('link', { name: 'WFP521046' })).not.toBeInTheDocument();
+    expect(screen.getByText('No search performed')).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
+
+    // The table's own sort state reset too: the next sort starts ascending, not descending.
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.click(sortHeader());
+    expect(lastQueryParams()).toMatchObject({ sort: 'invoiceDate,asc' });
+  });
+
+  it('clears a stale error banner when Clear filters is clicked', () => {
+    // React Query keeps reporting a cached error for a disabled query whose key matches
+    // an earlier failed fetch — the key an unfiltered search produces.
+    mockUseSearchQuery.mockReturnValue({ data: emptyPage, isLoading: false, isError: true } as never);
+    seedSearched();
+    renderSearchPage();
+    expect(screen.getByText('Failed to load results. Please try again.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+
+    expect(screen.queryByText('Failed to load results. Please try again.')).not.toBeInTheDocument();
+    expect(screen.getByText('No search performed')).toBeInTheDocument();
+  });
+
   it('applies the keyword filter and resets to page 1 on Enter', () => {
+    seedSearched();
     mockUseSearchQuery.mockReturnValue({
       data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
       isLoading: false,
@@ -222,6 +283,7 @@ describe('SearchPage interactions', () => {
   });
 
   it('cycles the sort param asc -> desc -> none when a header is clicked', () => {
+    seedSearched();
     mockUseSearchQuery.mockReturnValue({
       data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
       isLoading: false,
@@ -240,6 +302,7 @@ describe('SearchPage interactions', () => {
   });
 
   it('updates page and page size through the pagination bar', () => {
+    seedSearched();
     // totalElements must exceed the default page size (100) so a second page exists
     // for the "next page" click below to actually navigate to.
     mockUseSearchQuery.mockReturnValue({
