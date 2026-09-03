@@ -211,7 +211,19 @@ describe('FlatPriceConversionPage', () => {
 
   it('renders Export table menu button', () => {
     renderPage();
+    clickSearch();
     expect(screen.getByRole('button', { name: /export table/i })).toBeInTheDocument();
+  });
+
+  it('disables Export table until a search has been run', () => {
+    renderPage();
+    expect(screen.getByRole('button', { name: /export table/i })).toBeDisabled();
+
+    clickSearch();
+    expect(screen.getByRole('button', { name: /export table/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+    expect(screen.getByRole('button', { name: /export table/i })).toBeDisabled();
   });
 
   it('calls export mutation with csv when Export as CSV is clicked', async () => {
@@ -224,6 +236,7 @@ describe('FlatPriceConversionPage', () => {
       reset: vi.fn(),
     } as any);
     renderPage();
+    clickSearch();
     // Open the MenuButton first, then click the menu item
     fireEvent.click(screen.getByRole('button', { name: /export table/i }));
     fireEvent.click(await screen.findByRole('menuitem', { name: /export as csv/i }));
@@ -240,6 +253,7 @@ describe('FlatPriceConversionPage', () => {
       reset: vi.fn(),
     } as any);
     renderPage();
+    clickSearch();
     fireEvent.click(screen.getByRole('button', { name: /export table/i }));
     fireEvent.click(await screen.findByRole('menuitem', { name: /export as pdf/i }));
     expect(mutateMock).toHaveBeenCalledWith(expect.objectContaining({ format: 'pdf' }), expect.any(Object));

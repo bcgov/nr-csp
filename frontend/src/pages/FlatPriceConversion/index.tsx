@@ -460,7 +460,13 @@ export function FlatPriceConversionPage() {
         <Column sm={4} md={8} lg={16}>
           <TableToolbar>
             <TableToolbarContent>
-              <MenuButton label="Export table" kind="ghost" className="flat-price-conversion-page__export-btn">
+              {/* Export follows the table: with no search run there are no results to export. */}
+              <MenuButton
+                label="Export table"
+                kind="ghost"
+                className="flat-price-conversion-page__export-btn"
+                disabled={!hasSearched}
+              >
                 <MenuItem label="Export as CSV" onClick={() => handleExport('csv')} />
                 <MenuItem label="Export as PDF" onClick={() => handleExport('pdf')} />
               </MenuButton>
