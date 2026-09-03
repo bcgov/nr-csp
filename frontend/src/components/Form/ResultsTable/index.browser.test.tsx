@@ -87,6 +87,18 @@ describe('ResultsTable', () => {
     expect(onSearchKeywordChange).toHaveBeenCalledWith('');
   });
 
+  it('does not commit when the bar is emptied but no keyword was applied', async () => {
+    const onSearchKeywordChange = vi.fn();
+    render(
+      <ResultsTable rows={rows} columns={columns} searchKeyword="" onSearchKeywordChange={onSearchKeywordChange} />,
+    );
+    // Typing then deleting with nothing applied must stay silent: consumers reset
+    // the page on commit, so an empty commit here would kick the user to page 1.
+    await userEvent.type(screen.getByRole('searchbox'), 'oa');
+    await userEvent.clear(screen.getByRole('searchbox'));
+    expect(onSearchKeywordChange).not.toHaveBeenCalled();
+  });
+
   it('does not commit a partially typed keyword before Enter', async () => {
     const onSearchKeywordChange = vi.fn();
     render(

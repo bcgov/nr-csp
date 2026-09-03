@@ -148,14 +148,18 @@ const ResultsTable = <T extends { id: string }>({
 
   // Draft text in the keyword bar. It is committed to `onSearchKeywordChange`
   // on Enter, on clear, on emptying, and on blur — not on every keystroke.
-  const [inputValue, setInputValue] = useState(searchKeyword ?? '');
+  const appliedKeyword = searchKeyword ?? '';
+  const [inputValue, setInputValue] = useState(appliedKeyword);
 
-  // Re-seed the draft whenever the committed keyword changes from outside the
-  // bar (a page's "Clear filters" resetting it, or restored session state), so
-  // the bar can never display a keyword that is no longer being applied.
-  useEffect(() => {
-    setInputValue(searchKeyword ?? '');
-  }, [searchKeyword]);
+  // Re-seed the draft whenever the committed keyword changes from outside the bar
+  // (a page's "Clear filters" resetting it, or restored session state), so the bar
+  // can never display a keyword that is no longer being applied. Adjusting during
+  // render rather than in an effect keeps it to a single render pass.
+  const [lastAppliedKeyword, setLastAppliedKeyword] = useState(appliedKeyword);
+  if (lastAppliedKeyword !== appliedKeyword) {
+    setLastAppliedKeyword(appliedKeyword);
+    setInputValue(appliedKeyword);
+  }
 
   // Sort state drives both the column-header icons and (when client-side) row ordering.
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -245,7 +249,7 @@ const ResultsTable = <T extends { id: string }>({
         if (e.currentTarget.contains(e.relatedTarget)) return;
         // Leaving the bar commits what it shows, so clicking Search applies the
         // visible keyword rather than the last one that happened to be Entered.
-        if (inputValue !== (searchKeyword ?? '')) onSearchKeywordChange(inputValue);
+        if (inputValue !== appliedKeyword) onSearchKeywordChange(inputValue);
       }}
     >
       <Search
@@ -258,8 +262,11 @@ const ResultsTable = <T extends { id: string }>({
           setInputValue(value);
           // Emptying the bar by deleting the text is the same intent as clicking
           // its clear button, so commit it straight away rather than leaving the
-          // previous keyword applied behind an empty-looking bar.
-          if (value === '') onSearchKeywordChange('');
+          // previous keyword applied behind an empty-looking bar. Only when a
+          // keyword was actually applied, though — consumers reset the page on
+          // commit, so an unconditional one would kick a user off page 4 for
+          // typing and deleting a word they never searched for.
+          if (value === '' && appliedKeyword !== '') onSearchKeywordChange('');
         }}
         onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
           if (e.key === 'Enter') onSearchKeywordChange(inputValue);
