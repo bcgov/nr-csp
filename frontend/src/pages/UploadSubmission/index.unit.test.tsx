@@ -137,6 +137,10 @@ const makeSubmit = (over: Partial<SubmissionSubmitResponse> = {}): SubmissionSub
 // An axios-style thrown 422 with the envelope on response.data.
 const envelopeError = (body: unknown) => ({ response: { data: body } });
 
+// The page debounces re-validation by 600ms; these give the real timers room.
+const DEBOUNCE_SETTLE_MS = 900;
+const TIMEOUT = 3000;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function renderPage() {
@@ -364,15 +368,16 @@ describe('UploadSubmissionPage', () => {
     expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
   });
 
-  it('re-enables Submit once an editable-field error is corrected', async () => {
+  it('re-validates the edited fields and re-enables Submit once the errors clear', async () => {
     mockParse.mockResolvedValue(makeParse());
-    mockValidate.mockResolvedValue(
+    // First run rejects on the submitter client/location; the re-run (with the
+    // corrected values) comes back clean.
+    mockValidate.mockResolvedValueOnce(
       makeValidation({
         valid: false,
         code: 'REJECTED',
         acceptedInvoices: [],
         rejectedInvoices: ['INV-001'],
-        // Maps to both submitter fields; clearing both lifts the error.
         errors: [
           msg(
             'invoice.submitter.client.location.invalid.error',
@@ -382,6 +387,7 @@ describe('UploadSubmissionPage', () => {
         ],
       }),
     );
+    mockValidate.mockResolvedValue(makeValidation());
 
     await uploadAndSettle();
     await screen.findByText('1 error found.');
@@ -391,7 +397,87 @@ describe('UploadSubmissionPage', () => {
     fireEvent.change(screen.getByLabelText('Submission Client Number'), { target: { value: '99998888' } });
     fireEvent.change(screen.getByLabelText('Submission Client Location Code'), { target: { value: '02' } });
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled());
+    // One debounced re-validation covering both edits, carrying the new values.
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(2), { timeout: TIMEOUT });
+    expect(mockValidate).toHaveBeenLastCalledWith(
+      expect.any(File),
+      expect.objectContaining({ submissionClientNumber: '99998888', submissionClientLocnCode: '02' }),
+    );
+
+    // The fresh verdict replaces the stale one: banner clean, Submit allowed.
+    expect(await screen.findByText('sub.xml was uploaded with no issues found.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled(), { timeout: TIMEOUT });
+  });
+
+  it('keeps Submit blocked when re-validation still rejects the submission', async () => {
+    const rejected = makeValidation({
+      valid: false,
+      code: 'REJECTED',
+      acceptedInvoices: [],
+      rejectedInvoices: ['INV-001'],
+      errors: [
+        msg(
+          'invoice.submitter.client.location.invalid.error',
+          'submission: Submitter client/location invalid.',
+          'ERROR',
+        ),
+      ],
+    });
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValueOnce(rejected);
+    // The correction is well-formed but still not a real client/location: the
+    // server says no again, so the error comes straight back.
+    mockValidate.mockRejectedValue(envelopeError(rejected));
+
+    await uploadAndSettle();
+    await screen.findByText('1 error found.');
+
+    fireEvent.change(screen.getByLabelText('Submission Client Number'), { target: { value: '99998888' } });
+
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(2), { timeout: TIMEOUT });
+    expect(await screen.findByText('1 error found.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+  });
+
+  it('does not re-validate for fields no business rule reads, or for an unchanged value', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(makeValidation());
+
+    await uploadAndSettle();
+    await screen.findByText('sub.xml was uploaded with no issues found.');
+    expect(mockValidate).toHaveBeenCalledTimes(1);
+
+    // Email/telephone are persisted but no rule reads them; nor is the
+    // submission-level Month Complete flag (the month-completed warning keys off
+    // the invoice date and the submitting party, not this field).
+    fireEvent.change(screen.getByLabelText('Email Address'), { target: { value: 'new@example.com' } });
+    fireEvent.change(screen.getByLabelText('Telephone Number'), { target: { value: '5559998888' } });
+    fireEvent.change(screen.getByLabelText('Month Complete'), { target: { value: 'N' } });
+    // A rule-bearing field edited back to the value already validated.
+    const clientInput = screen.getByLabelText('Submission Client Number');
+    fireEvent.change(clientInput, { target: { value: '99998888' } });
+    fireEvent.change(clientInput, { target: { value: '12345678' } });
+
+    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_SETTLE_MS));
+    expect(mockValidate).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+  });
+
+  it('shows the inline format error and skips the server for a malformed edit', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(makeValidation());
+
+    await uploadAndSettle();
+    await screen.findByText('sub.xml was uploaded with no issues found.');
+
+    // Half a client number: the client-side check owns this, so no round trip.
+    fireEvent.change(screen.getByLabelText('Submission Client Number'), { target: { value: '123' } });
+
+    expect(await screen.findByText('Submission client number must be exactly 8 digits.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+
+    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_SETTLE_MS));
+    expect(mockValidate).toHaveBeenCalledTimes(1);
   });
 
   it('renders plural invoice/line-item counts for multiple rows', async () => {

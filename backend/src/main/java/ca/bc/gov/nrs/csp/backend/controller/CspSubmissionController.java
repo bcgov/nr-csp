@@ -41,7 +41,9 @@ import java.util.function.Function;
  * <ul>
  *   <li>{@code POST /api/submissions/validate/structural} — format / ESF
  *       envelope / XSD schema.</li>
- *   <li>{@code POST /api/submissions/validate/business} — CSP business rules.</li>
+ *   <li>{@code POST /api/submissions/validate/business} — CSP business rules,
+ *       applied after the caller's editable submission metadata is overlaid on
+ *       the parsed document (so the form can re-validate an edited field).</li>
  *   <li>{@code POST /api/submissions/parse} — structural validation plus the
  *       parsed submission content used to populate the upload form.</li>
  * </ul>
@@ -82,8 +84,44 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     @Override
-    public ResponseEntity<SubmissionValidationResponse> validateBusiness(MultipartFile file) {
-        return handle("business", file, validationService::validateBusiness);
+    public ResponseEntity<SubmissionValidationResponse> validateBusiness(MultipartFile file,
+            String submissionClientNumber, String submissionClientLocnCode,
+            String monthComplete, String sellerSubmission) {
+        // Do not log user-controlled values (e.g. the original filename) — they
+        // can carry forged/injected log content. Log only safe, derived facts.
+        log.info("POST /api/submissions/validate/business received file part: present={} size={}",
+                file != null && !file.isEmpty(),
+                file == null ? 0 : file.getSize());
+
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(error(CODE_UPLOAD_MISSING, MSG_UPLOAD_MISSING));
+        }
+
+        byte[] xml;
+        try {
+            xml = file.getBytes();
+        } catch (IOException e) {
+            log.warn(LOG_UPLOAD_UNREADABLE, e.getMessage());
+            return ResponseEntity.badRequest().body(error(CODE_UPLOAD_UNREADABLE, MSG_UPLOAD_UNREADABLE));
+        }
+
+        // Parse first (the rules operate on the tree), then overlay the user's
+        // metadata edits so re-validation after a correction reflects what the
+        // form now holds — the same tree the submit path validates and persists.
+        StructuralValidationService.ValidationOutcome outcome = validationService.parse(xml);
+        if (!outcome.result().valid() || outcome.submission() == null) {
+            // Business rules cannot run on an unparseable document: report the
+            // structural errors instead.
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(toResponse(outcome.result()));
+        }
+
+        CSPSubmissionType submission = (CSPSubmissionType) outcome.submission();
+        applyMetadataEdits(submission, submissionClientNumber, submissionClientLocnCode,
+                monthComplete, sellerSubmission);
+
+        SubmissionValidationResult result = validationService.validateBusiness(submission);
+        HttpStatus status = result.valid() ? HttpStatus.OK : HttpStatus.UNPROCESSABLE_ENTITY;
+        return ResponseEntity.status(status).body(toResponse(result));
     }
 
     @Override
@@ -330,8 +368,10 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     /**
-     * Shared intake: validate the file part, read its bytes, run the given
-     * validation phase, and map the result onto the response envelope.
+     * Structural intake: validate the file part, read its bytes, run the
+     * structural phase, and map the result onto the response envelope. The
+     * business endpoint does not share this because it parses the document and
+     * applies the user's metadata edits before validating.
      */
     private ResponseEntity<SubmissionValidationResponse> handle(
             String phase, MultipartFile file, Function<byte[], SubmissionValidationResult> validator) {

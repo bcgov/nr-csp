@@ -164,9 +164,21 @@ class CspSubmissionControllerTest {
 
     // ---------- business endpoint ----------
 
+    /**
+     * Stubs a clean parse of a minimal submission tree. The business endpoint
+     * parses before validating (the rules run on the tree, and the caller's
+     * metadata edits are overlaid on it), so every business test needs one.
+     */
+    private void givenParsedSubmission() throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+    }
+
     @Test
     void business_valid_returns200() throws Exception {
-        given(validationService.validateBusiness(any())).willReturn(SubmissionValidationResult.ok());
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(SubmissionValidationResult.ok());
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -180,7 +192,8 @@ class CspSubmissionControllerTest {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.error("invoice INV-1", "invoice.date.in.future.error",
                         new Object[]{"INV-1", LocalDate.of(2026, Month.JANUARY, 1)})));
-        given(validationService.validateBusiness(any())).willReturn(failed);
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -202,7 +215,8 @@ class CspSubmissionControllerTest {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.warning("invoice INV-1",
                         "invoice.totalamount.dismatch.warning", new Object[]{new BigDecimal("90.00")})));
-        given(validationService.validateBusiness(any())).willReturn(failed);
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -221,7 +235,8 @@ class CspSubmissionControllerTest {
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 SubmissionValidationError.error("invoice INV-1",
                         "invoice.totalamount.negative.error", new Object[0])));
-        given(validationService.validateBusiness(any())).willReturn(failed);
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -248,7 +263,8 @@ class CspSubmissionControllerTest {
                         "invoice.date.in.future.error",
                         new Object[]{"INV-BAD", LocalDate.of(2026, Month.JANUARY, 1)})),
                 new SubmissionAcceptance(List.of("INV-GOOD"), List.of("INV-BAD")));
-        given(validationService.validateBusiness(any())).willReturn(partial);
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(partial);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
@@ -258,6 +274,71 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.acceptedInvoices[0]").value("INV-GOOD"))
                 .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"));
+    }
+
+    @Test
+    void business_appliesEditedMetadataBeforeValidating() throws Exception {
+        // What the form now holds — not what the file said — is what gets validated,
+        // so the page can re-check a corrected field without re-uploading.
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes()))
+                        .param("submissionClientNumber", "00999999")
+                        .param("submissionClientLocnCode", "07")
+                        .param("monthComplete", "N")
+                        .param("sellerSubmission", "N"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true));
+
+        ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
+        verify(validationService).validateBusiness(captor.capture());
+        CSPSubmissionType validated = captor.getValue();
+        assertThat(validated.getMonthComplete()).isEqualTo("N");
+        assertThat(validated.getCSPSubmitter().getSubmissionClientNumber()).isEqualTo("00999999");
+        assertThat(validated.getCSPSubmitter().getSubmissionClientLocnCode()).isEqualTo("07");
+        assertThat(validated.getCSPSubmitter().getSellerSubmission()).isEqualTo(SellerSubmissionType.N);
+    }
+
+    @Test
+    void business_omittedMetadata_leavesParsedValuesInPlace() throws Exception {
+        // No edits supplied (the first run, straight after upload): validate the
+        // file exactly as parsed.
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
+        verify(validationService).validateBusiness(captor.capture());
+        assertThat(captor.getValue().getMonthComplete()).isEqualTo("Y");
+        assertThat(captor.getValue().getCSPSubmitter().getSubmissionClientNumber()).isEqualTo("00012345");
+    }
+
+    @Test
+    void business_structuralFailure_returns422AndSkipsTheRules() throws Exception {
+        // Business rules cannot run on an unparseable document: report the
+        // structural errors and never reach the rules.
+        messageSource.addMessage("FORMAT_UNRECOGNIZED", Locale.getDefault(), "could not detect format");
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.of("FORMAT_UNRECOGNIZED", new Object[0])));
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(failed, null));
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("x.txt", "{".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("FORMAT_UNRECOGNIZED"))
+                .andExpect(jsonPath("$.errors[0].message").value("could not detect format"));
+
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
     }
 
     // ---------- parse endpoint ----------
@@ -791,7 +872,8 @@ class CspSubmissionControllerTest {
         // A message carrying no explicit severity is reported as an ERROR.
         SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
                 new SubmissionValidationError("invoice INV-1", "some.code", new Object[0], null)));
-        given(validationService.validateBusiness(any())).willReturn(failed);
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(failed);
 
         mockMvc.perform(multipart("/api/submissions/validate/business")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
