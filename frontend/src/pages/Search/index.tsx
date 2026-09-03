@@ -204,9 +204,6 @@ export function SearchPage() {
     setSellerSubmitterInput(null);
     setMaturityInput(null);
     setDateRangeError(null);
-    // The keyword bar is a filter too — leaving it applied behind a cleared
-    // form is the same stale-filter trap as an emptied bar that never committed.
-    setKeyword('');
     setAutoCompleteKey((k) => k + 1);
     setDateKey((k) => k + 1);
     resetTableState();

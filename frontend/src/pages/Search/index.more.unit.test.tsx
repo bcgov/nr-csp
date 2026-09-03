@@ -305,6 +305,7 @@ describe('SearchPage interactions', () => {
   });
 
   it('drops the keyword filter when the bar is emptied without Enter, then a filter is applied', () => {
+    seedSearched();
     mockUseSearchQuery.mockReturnValue({
       data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
       isLoading: false,
@@ -332,6 +333,7 @@ describe('SearchPage interactions', () => {
   });
 
   it('applies the keyword showing in the bar when Search is clicked without Enter', () => {
+    seedSearched();
     mockUseSearchQuery.mockReturnValue({
       data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
       isLoading: false,
@@ -350,6 +352,7 @@ describe('SearchPage interactions', () => {
   });
 
   it('clears the keyword and empties the bar when Clear filters is clicked', () => {
+    seedSearched();
     mockUseSearchQuery.mockReturnValue({
       data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
       isLoading: false,
@@ -363,8 +366,13 @@ describe('SearchPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ keyword: 'hemlock' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-    expect(keywordInput).toHaveValue('');
+
+    // Clearing returns the table to its pre-search state, which takes the
+    // keyword bar off screen with it — so assert the keyword is gone from both
+    // the query and the persisted state rather than from a detached input.
     expect(lastQueryParams().keyword).toBeUndefined();
+    expect(window.sessionStorage.getItem('csp.table.search.v1.keyword')).toBe('""');
+    expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
   });
 
   it('cycles the sort param asc -> desc -> none when a header is clicked', () => {

@@ -292,6 +292,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('drops the keyword filter when the bar is emptied without Enter, then a filter is applied', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: { content: [fullRow], totalElements: 1 },
       isLoading: false,
@@ -320,6 +321,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('applies the keyword showing in the bar when Search is clicked without Enter', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: { content: [fullRow], totalElements: 1 },
       isLoading: false,
@@ -339,6 +341,7 @@ describe('InboxPage interactions', () => {
   });
 
   it('clears the keyword and empties the bar when Clear filters is clicked', () => {
+    seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({
       data: { content: [fullRow], totalElements: 1 },
       isLoading: false,
@@ -353,8 +356,13 @@ describe('InboxPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ keyword: 'cedar' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
-    expect(keywordInput).toHaveValue('');
+
+    // Clearing returns the table to its pre-search state, which takes the
+    // keyword bar off screen with it — so assert the keyword is gone from both
+    // the query and the persisted state rather than from a detached input.
     expect(lastQueryParams().keyword).toBeUndefined();
+    expect(window.sessionStorage.getItem('csp.table.inbox.v1.keyword')).toBe('""');
+    expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
   });
 
   it('cycles the sort param asc -> desc -> none when a header is clicked', () => {
