@@ -178,15 +178,18 @@ function FlatPriceConversionFormFields({
 
 export function FlatPriceConversionPage() {
   const modellingCode = 'P';
-  const NS = 'csp.table.flatPriceConversion.v1';
+  const NS = 'csp.table.flatPriceConversion.v2';
   const [filterMaturity, setFilterMaturity] = usePersistentState<string | null>(NS, 'filterMaturity', null);
   const [filterSpecies, setFilterSpecies] = usePersistentState<string | null>(NS, 'filterSpecies', null);
   const [filterGrade, setFilterGrade] = usePersistentState<string | null>(NS, 'filterGrade', null);
   const [filterSortCode, setFilterSortCode] = usePersistentState<string | null>(NS, 'filterSortCode', null);
-  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', true);
+  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
   const [page, setPage] = usePersistentState(NS, 'page', 1);
   const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 20);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
+  // ResultsTable owns its sort direction internally; bumping this key remounts it so
+  // "Clear filters" also returns the column sorting to its default.
+  const [tableKey, setTableKey] = useState(0);
   const [searchParams, setSearchParams] = usePersistentState<SearchFlatPriceConversionParams>(NS, 'searchParams', {
     modellingCode: 'P',
   });
@@ -196,7 +199,9 @@ export function FlatPriceConversionPage() {
   const canDelete = usePermission(PROD_FLAT_PRICE_CONV_DELETE);
   const canAdd = usePermission(PROD_FLAT_PRICE_CONV_ADD_NEW_ROW);
 
-  const { data, isLoading, isError, error } = useSearchFlatPriceConversionsQuery(searchParams);
+  // The table starts empty on page entry, matching Invoice search and Inbox: no query
+  // runs until the user clicks Search.
+  const { data, isLoading, isError, error } = useSearchFlatPriceConversionsQuery(searchParams, hasSearched);
   const exportMutation = useExportFlatPriceConversionsMutation();
 
   const handleExport = useCallback(
@@ -285,16 +290,19 @@ export function FlatPriceConversionPage() {
     setFilterSpecies(null);
     setFilterGrade(null);
     setFilterSortCode(null);
-    setHasSearched(true);
+    setHasSearched(false);
     setPage(1);
     setSearchParams({ modellingCode });
+    setTableKey((k) => k + 1);
   };
 
   const handleDeleteSubmit = useCallback(() => {
     if (modal.kind === 'delete') deleteHook.handleConfirm(modal.row.id);
   }, [modal, deleteHook]);
 
-  const rows: FlatPriceConversionTableRow[] = (data ?? []).map((r) => ({ ...r, id: String(r.id), numericId: r.id }));
+  const rows: FlatPriceConversionTableRow[] = hasSearched
+    ? (data ?? []).map((r) => ({ ...r, id: String(r.id), numericId: r.id }))
+    : [];
 
   const columns: ResultsTableColumn<FlatPriceConversionTableRow>[] = [
     { key: 'maturity', header: 'Maturity', renderCell: (row) => maturityDescriptions[row.maturity] ?? row.maturity },
@@ -343,7 +351,7 @@ export function FlatPriceConversionPage() {
   ];
 
   const renderTable = () => {
-    if (isError) {
+    if (hasSearched && isError) {
       return (
         <InlineNotification
           kind="error"
@@ -355,6 +363,7 @@ export function FlatPriceConversionPage() {
     }
     return (
       <ResultsTable
+        key={tableKey}
         rows={rows}
         columns={columns}
         isSortable
