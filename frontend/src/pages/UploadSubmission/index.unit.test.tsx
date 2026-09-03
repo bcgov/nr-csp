@@ -296,7 +296,7 @@ describe('UploadSubmissionPage', () => {
               'submission: Submitter client/location invalid.',
               'ERROR',
             ),
-            msg('invoice.month.completed.warning', 'submission: Month may be incomplete.', 'WARNING'),
+            msg('invoice.month.completed.warning', 'invoice #1 (INV-001): Month may be incomplete.', 'WARNING'),
             msg('some.generic.error', 'submission: General submission problem.', 'ERROR'),
           ],
         }),
@@ -323,12 +323,9 @@ describe('UploadSubmissionPage', () => {
 
     // Submission-level field highlight (invalidText rendered inline on both mapped fields).
     expect(screen.getAllByText('Submitter client/location invalid.').length).toBeGreaterThanOrEqual(1);
-    // Warning routed to monthComplete field.
+    // The month-completed warning belongs to the invoice that carries the date,
+    // so it is listed with that invoice rather than on the Month Complete field.
     expect(screen.getByText('Month may be incomplete.')).toBeInTheDocument();
-
-    // Editing a field that carries a server issue clears it (setIssues delete branch).
-    fireEvent.change(screen.getByLabelText('Month Complete'), { target: { value: 'N' } });
-    await waitFor(() => expect(screen.queryByText('Month may be incomplete.')).not.toBeInTheDocument());
   });
 
   it('disables Submit while a hard (ERROR) validation issue is present', async () => {
@@ -358,7 +355,7 @@ describe('UploadSubmissionPage', () => {
         code: 'PARTIALLY_ACCEPTED',
         acceptedInvoices: ['INV-001'],
         rejectedInvoices: [],
-        errors: [msg('invoice.month.completed.warning', 'submission: Month may be incomplete.', 'WARNING')],
+        errors: [msg('invoice.month.completed.warning', 'invoice #1 (INV-001): Month may be incomplete.', 'WARNING')],
       }),
     );
 

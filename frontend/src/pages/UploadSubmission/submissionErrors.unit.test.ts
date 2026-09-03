@@ -140,11 +140,16 @@ describe('mapSubmissionIssues', () => {
     ]);
   });
 
-  it('maps a submission-level single-field key to that metadata field (SUBMISSION_KEY_TO_FIELD)', () => {
+  it('attributes the month-completed warning to its invoice, not the Month Complete field', () => {
+    // The rule is invoice-scoped (it keys off the invoice date and the submitting
+    // party), so the message arrives with an invoice locator and belongs to that
+    // row — the submission's Month Complete flag is a persisted value, not a
+    // validated one.
     const result = mapSubmissionIssues([
-      msg('invoice.month.completed.warning', 'submission: Month not complete.', 'WARNING'),
+      msg('invoice.month.completed.warning', 'invoice #1 (INV-1): Month not complete.', 'WARNING'),
     ]);
-    expect(result.submissionFields).toEqual({ monthComplete: [{ message: 'Month not complete.', type: 'WARNING' }] });
+    expect(result.invoices[1].row).toEqual([{ message: 'Month not complete.', type: 'WARNING' }]);
+    expect(result.submissionFields).toEqual({});
     expect(result.formIssues).toEqual([]);
   });
 
