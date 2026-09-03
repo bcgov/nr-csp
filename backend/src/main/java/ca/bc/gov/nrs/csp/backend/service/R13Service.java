@@ -469,13 +469,28 @@ public class R13Service {
         return result.isEmpty() ? null : result;
     }
 
+    /**
+     * Builds the WHERE-clause snippet for one "value + from/to" filter row, mirroring the legacy
+     * app (R13Bean.rangeSqlHelper).
+     *
+     * <p>The exact-value box is a case-insensitive <em>contains</em> match, which is what gives the
+     * user wildcards for free: whatever is typed is dropped inside a {@code LIKE '%…%'} pattern, so
+     * a {@code %} within the value ({@code BM%99}) stands for any sequence of characters, and
+     * {@code _} for a single one. A plain {@code LIKE} is also the only correct
+     * operator here — these columns are {@code listagg} CSV aggregates ("B123,B124"), so an equality
+     * or {@code IN} test could never match a row with more than one value.
+     *
+     * <p>The from/to boxes stay on {@code csp_reports_pkg.match_range}, which does the CSV-aware
+     * range comparison. When both are supplied the two clauses are ANDed, as in the legacy app.
+     */
     private String buildRangeSql(String column, List<String> values, String from, String to) {
         StringBuilder sql = new StringBuilder();
         if (values != null && !values.isEmpty()) {
-            sql.append(column).append(" IN (");
+            sql.append("(");
             for (int i = 0; i < values.size(); i++) {
-                if (i > 0) sql.append(",");
-                sql.append("'").append(values.get(i).replace("'", "''")).append("'");
+                if (i > 0) sql.append(" OR ");
+                sql.append("UPPER(").append(column).append(") LIKE UPPER('%")
+                   .append(values.get(i).replace("'", "''")).append("%')");
             }
             sql.append(")");
         }

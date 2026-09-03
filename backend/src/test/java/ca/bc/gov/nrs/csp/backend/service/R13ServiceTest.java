@@ -17,6 +17,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -508,13 +510,16 @@ class R13ServiceTest {
             assertThat(p)
                     .isNotNull()
                     // Range SQL: values only (with single-quote escaping)
-                    .containsEntry("INVOICE_REPLACES_ADJUSTS_SQL", "rep_adj.rep_adj_inv_id IN ('O''BRIEN')")
+                    .containsEntry("INVOICE_REPLACES_ADJUSTS_SQL",
+                            "(UPPER(rep_adj.rep_adj_inv_id) LIKE UPPER('%O''BRIEN%'))")
                     // Range SQL: from only
                     .containsEntry("INVOICE_BOOM_NUMBER_SQL", "csp_reports_pkg.match_range(boom_nums.boom_num_src, 'B1', null) = 'Y'")
                     // Range SQL: to only
                     .containsEntry("INVOICE_TIMBER_MARK_SQL", "csp_reports_pkg.match_range(tmbr_mks.tmbr_mks_src, null, 'T9') = 'Y'")
                     // Range SQL: values plus from/to range
-                    .containsEntry("INVOICE_WEIGH_SLIP_SQL", "weigh_sl.weigh_slips_src IN ('WS1','WS2')"
+                    .containsEntry("INVOICE_WEIGH_SLIP_SQL",
+                            "(UPPER(weigh_sl.weigh_slips_src) LIKE UPPER('%WS1%')"
+                            + " OR UPPER(weigh_sl.weigh_slips_src) LIKE UPPER('%WS2%'))"
                             + " AND csp_reports_pkg.match_range(weigh_sl.weigh_slips_src, 'W1', 'W9') = 'Y'")
                     .containsEntry("SUBMISSION_MONTH_YEAR", "202001")
                     .containsEntry("SUBMISSION_NUMBER", "123")
@@ -576,6 +581,22 @@ class R13ServiceTest {
             String sql = invokeBuildRangeSql("col", null, "o'b", null);
 
             assertThat(sql).isEqualTo("csp_reports_pkg.match_range(col, 'o''b', null) = 'Y'");
+        }
+
+        @Test
+        void buildRangeSql_shouldPassWildcardThroughToLikePattern() {
+            // The exact-value box is a contains match, so a typed % reaches the LIKE
+            // pattern intact and behaves as a wildcard (legacy R13Bean behaviour).
+            String sql = invokeBuildRangeSql("boom_nums.boom_num_src", List.of("BM%"), null, null);
+
+            assertThat(sql).isEqualTo("(UPPER(boom_nums.boom_num_src) LIKE UPPER('%BM%%'))");
+        }
+
+        @Test
+        void buildRangeSql_shouldEscapeQuotesInValues() {
+            String sql = invokeBuildRangeSql("col", List.of("o'b"), null, null);
+
+            assertThat(sql).isEqualTo("(UPPER(col) LIKE UPPER('%o''b%'))");
         }
     }
 
@@ -730,6 +751,35 @@ class R13ServiceTest {
             Element totalLabel = find(result, "summary", "staticText", "TOTAL_LABEL");
             assertThat(totalLabel).isNotNull();
             assertThat(totalLabel.attributeValue("x")).isEqualTo("5");
+        }
+    }
+
+    @Nested
+    @DisplayName("JRXML header — year-month criteria")
+    class HeaderYearMonthExpressions {
+
+        private String template(String path) throws IOException {
+            try (java.io.InputStream in = R13Service.class.getResourceAsStream(path)) {
+                assertThat(in).as("template %s on the classpath", path).isNotNull();
+                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"/reports/R13.jrxml", "/reports/R13_CSV.jrxml"})
+        void shouldFormatYearMonthCriteriaWithASixDigitPattern(String path) throws IOException {
+            String jrxml = template(path);
+
+            // APPROVAL_MONTH_YEAR / SUBMISSION_MONTH_YEAR are supplied as yyyyMM. Parsing
+            // them with a yyyyMMdd formatter throws ParseException while the header band is
+            // filled, which fails the entire report — the bug this guards against.
+            for (String param : List.of("APPROVAL_MONTH_YEAR", "SUBMISSION_MONTH_YEAR")) {
+                assertThat(jrxml)
+                        .as("%s header expression in %s", param, path)
+                        .contains("new SimpleDateFormat(\"yyyy-MM\").format("
+                                + "new SimpleDateFormat(\"yyyyMM\").parse($P{" + param + "}))")
+                        .doesNotContain("new SimpleDateFormat(\"yyyyMMdd\").parse($P{" + param + "})");
+            }
         }
     }
 }
