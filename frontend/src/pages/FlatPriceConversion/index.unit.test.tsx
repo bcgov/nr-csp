@@ -49,6 +49,11 @@ const SAMPLE_ROWS: service.FlatPriceConversionResponse[] = [
   },
 ];
 
+const NS = 'csp.table.flatPriceConversion.v2';
+
+/** The table only queries once Search has been clicked, so most assertions need a search first. */
+const clickSearch = () => fireEvent.click(screen.getByRole('button', { name: /^search$/i }));
+
 const renderPage = () => {
   const qc = new QueryClient();
   render(
@@ -106,6 +111,7 @@ describe('FlatPriceConversionPage', () => {
 
   it('renders all table column headers', () => {
     renderPage();
+    clickSearch();
     const table = screen.getByRole('table');
     expect(within(table).getByText('Maturity')).toBeInTheDocument();
     expect(within(table).getByText('Species')).toBeInTheDocument();
@@ -117,11 +123,34 @@ describe('FlatPriceConversionPage', () => {
     expect(within(table).getByText('Actions')).toBeInTheDocument();
   });
 
+  it('starts with an empty table before any search', () => {
+    renderPage();
+    expect(screen.getByText(/no search performed/i)).toBeInTheDocument();
+    expect(screen.queryByText('FD')).not.toBeInTheDocument();
+  });
+
+  it('passes enabled=false to the search query before any search', () => {
+    renderPage();
+    expect(service.useSearchFlatPriceConversionsQuery).toHaveBeenCalledWith(expect.anything(), false);
+  });
+
   it('renders data rows from the query', () => {
     renderPage();
+    clickSearch();
     expect(screen.getByText('FD')).toBeInTheDocument();
     expect(screen.getByText('O')).toBeInTheDocument();
     expect(screen.getByText('C')).toBeInTheDocument();
+  });
+
+  it('returns the table to the empty state when Clear filters is clicked', () => {
+    renderPage();
+    clickSearch();
+    expect(screen.getByText('FD')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+
+    expect(screen.getByText(/no search performed/i)).toBeInTheDocument();
+    expect(screen.queryByText('FD')).not.toBeInTheDocument();
   });
 
   it('shows no data rows when isLoading is true', () => {
@@ -132,6 +161,7 @@ describe('FlatPriceConversionPage', () => {
       error: null,
     } as any);
     renderPage();
+    clickSearch();
     expect(screen.queryByText('FD')).not.toBeInTheDocument();
   });
 
@@ -143,6 +173,7 @@ describe('FlatPriceConversionPage', () => {
       error: null,
     } as any);
     renderPage();
+    clickSearch();
     expect(screen.getByText(/no results found/i)).toBeInTheDocument();
   });
 
@@ -154,6 +185,7 @@ describe('FlatPriceConversionPage', () => {
       error: { message: 'Network error' },
     } as any);
     renderPage();
+    clickSearch();
     expect(screen.getByText(/failed to load flat price conversions/i)).toBeInTheDocument();
   });
 
@@ -165,19 +197,33 @@ describe('FlatPriceConversionPage', () => {
 
   it('opens edit modal when Edit is clicked', () => {
     renderPage();
+    clickSearch();
     fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
     expect(screen.getByRole('heading', { name: /edit row/i })).toBeInTheDocument();
   });
 
   it('opens delete modal when Delete is clicked', () => {
     renderPage();
+    clickSearch();
     fireEvent.click(screen.getAllByRole('button', { name: /delete/i })[0]);
     expect(screen.getByRole('heading', { name: /delete row/i })).toBeInTheDocument();
   });
 
   it('renders Export table menu button', () => {
     renderPage();
+    clickSearch();
     expect(screen.getByRole('button', { name: /export table/i })).toBeInTheDocument();
+  });
+
+  it('disables Export table until a search has been run', () => {
+    renderPage();
+    expect(screen.getByRole('button', { name: /export table/i })).toBeDisabled();
+
+    clickSearch();
+    expect(screen.getByRole('button', { name: /export table/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+    expect(screen.getByRole('button', { name: /export table/i })).toBeDisabled();
   });
 
   it('calls export mutation with csv when Export as CSV is clicked', async () => {
@@ -190,6 +236,7 @@ describe('FlatPriceConversionPage', () => {
       reset: vi.fn(),
     } as any);
     renderPage();
+    clickSearch();
     // Open the MenuButton first, then click the menu item
     fireEvent.click(screen.getByRole('button', { name: /export table/i }));
     fireEvent.click(await screen.findByRole('menuitem', { name: /export as csv/i }));
@@ -206,18 +253,17 @@ describe('FlatPriceConversionPage', () => {
       reset: vi.fn(),
     } as any);
     renderPage();
+    clickSearch();
     fireEvent.click(screen.getByRole('button', { name: /export table/i }));
     fireEvent.click(await screen.findByRole('menuitem', { name: /export as pdf/i }));
     expect(mutateMock).toHaveBeenCalledWith(expect.objectContaining({ format: 'pdf' }), expect.any(Object));
   });
 
   it('restores filters, search params, and pagination from sessionStorage on mount', async () => {
-    window.sessionStorage.setItem('csp.table.flatPriceConversion.v1.filterSpecies', JSON.stringify('FD'));
-    window.sessionStorage.setItem('csp.table.flatPriceConversion.v1.page', '2');
-    window.sessionStorage.setItem(
-      'csp.table.flatPriceConversion.v1.searchParams',
-      JSON.stringify({ modellingCode: 'P', species: 'FD' }),
-    );
+    window.sessionStorage.setItem(`${NS}.hasSearched`, 'true');
+    window.sessionStorage.setItem(`${NS}.filterSpecies`, JSON.stringify('FD'));
+    window.sessionStorage.setItem(`${NS}.page`, '2');
+    window.sessionStorage.setItem(`${NS}.searchParams`, JSON.stringify({ modellingCode: 'P', species: 'FD' }));
 
     vi.mocked(lookup.useSpeciesLookupQuery).mockReturnValue({
       data: [{ code: 'FD', description: 'Douglas Fir' }],
