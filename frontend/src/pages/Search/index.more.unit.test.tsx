@@ -165,16 +165,38 @@ describe('SearchPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ sellerSubmitter: false });
   });
 
-  it('pads the submitter client number to 8 digits on blur and strips non-digits', () => {
+  it('strips non-digits from the submitter client number and sends it unpadded', () => {
     renderSearchPage();
     const input = screen.getByLabelText(/submitter client number/i);
     fireEvent.change(input, { target: { value: '12ab34' } });
     expect(input).toHaveValue('1234');
+
+    // Blur must leave the entry alone. Zero-padding it here would fill the
+    // field to its 8-digit cap and silently swallow every later keystroke;
+    // SearchService pads client numbers server-side instead.
     fireEvent.focusOut(input, { target: { value: '1234' } });
-    expect(input).toHaveValue('00001234');
+    expect(input).toHaveValue('1234');
 
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(lastQueryParams()).toMatchObject({ submitterClientNum: '00001234' });
+    expect(lastQueryParams()).toMatchObject({ submitterClientNum: '1234' });
+  });
+
+  it('keeps accepting typed digits in the submitter client number after a blur', () => {
+    renderSearchPage();
+    const input = screen.getByLabelText(/submitter client number/i) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '99' } });
+    fireEvent.focusOut(input, { target: { value: '99' } });
+
+    // Appending to an entry that has already been blurred must still work.
+    fireEvent.change(input, { target: { value: input.value + '7' } });
+    expect(input).toHaveValue('997');
+  });
+
+  it('caps the submitter client number at 8 digits', () => {
+    renderSearchPage();
+    const input = screen.getByLabelText(/submitter client number/i);
+    fireEvent.change(input, { target: { value: '1234567890' } });
+    expect(input).toHaveValue('12345678');
   });
 
   it('applies a seller/buyer selection from the autocomplete to the query', async () => {
@@ -280,6 +302,77 @@ describe('SearchPage interactions', () => {
     fireEvent.change(keywordInput, { target: { value: 'hemlock' } });
     fireEvent.keyDown(keywordInput, { key: 'Enter' });
     expect(lastQueryParams()).toMatchObject({ keyword: 'hemlock', page: 0 });
+  });
+
+  it('drops the keyword filter when the bar is emptied without Enter, then a filter is applied', () => {
+    seedSearched();
+    mockUseSearchQuery.mockReturnValue({
+      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderSearchPage();
+
+    // 1. Search by keyword.
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'tree' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ keyword: 'tree' });
+
+    // 2. Delete the text without pressing Enter.
+    fireEvent.change(keywordInput, { target: { value: '' } });
+
+    // 3. Apply a filter and click Search.
+    fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'WFP521046' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    // 4. Results reflect only the new filter — the stale keyword is gone.
+    const params = lastQueryParams();
+    expect(params.keyword).toBeUndefined();
+    expect(params.invNumber).toBe('WFP521046');
+  });
+
+  it('applies the keyword showing in the bar when Search is clicked without Enter', () => {
+    seedSearched();
+    mockUseSearchQuery.mockReturnValue({
+      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderSearchPage();
+
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'oak' } });
+    expect(lastQueryParams().keyword).toBeUndefined();
+
+    // Clicking Search takes focus out of the bar, which commits what it shows.
+    fireEvent.blur(keywordInput);
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(lastQueryParams()).toMatchObject({ keyword: 'oak' });
+  });
+
+  it('clears the keyword and empties the bar when Clear filters is clicked', () => {
+    seedSearched();
+    mockUseSearchQuery.mockReturnValue({
+      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+      isLoading: false,
+      isError: false,
+    } as never);
+    renderSearchPage();
+
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'hemlock' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ keyword: 'hemlock' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    // Clearing returns the table to its pre-search state, which takes the
+    // keyword bar off screen with it — so assert the keyword is gone from both
+    // the query and the persisted state rather than from a detached input.
+    expect(lastQueryParams().keyword).toBeUndefined();
+    expect(window.sessionStorage.getItem('csp.table.search.v1.keyword')).toBe('""');
+    expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
   });
 
   it('cycles the sort param asc -> desc -> none when a header is clicked', () => {
