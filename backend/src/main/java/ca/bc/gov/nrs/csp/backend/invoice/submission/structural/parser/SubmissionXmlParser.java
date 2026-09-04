@@ -24,6 +24,10 @@ import java.util.List;
  * schema-aware event handler. The JAXB context package comes from
  * {@link SubmissionValidationProperties}, so the parser carries no
  * compile-time dependency on the generated types.
+ *
+ * <p>Element text is trimmed as it is read (see
+ * {@link WhitespaceTrimmingStreamReader}), so a value is measured against the
+ * schema's facets without the padding or indentation the file was laid out with.
  */
 @Component
 @RequiredArgsConstructor
@@ -70,7 +74,11 @@ public class SubmissionXmlParser {
       XMLInputFactory factory = XMLInputFactory.newDefaultFactory();
       factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
       factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-      XMLStreamReader reader = factory.createXMLStreamReader(new ByteArrayInputStream(xml));
+      // Coalescing so each value arrives as one character event, which is what
+      // lets the trimming reader below strip only the ends of a value.
+      factory.setProperty(XMLInputFactory.IS_COALESCING, true);
+      XMLStreamReader reader = new WhitespaceTrimmingStreamReader(
+          factory.createXMLStreamReader(new ByteArrayInputStream(xml)));
       Object root = unmarshaller.unmarshal(reader);
       return new ParseOutcome(unwrap(root), errors);
     } catch (Exception e) {
