@@ -3,8 +3,6 @@
 	<property name="ireport.zoom" value="1.7715610000000015"/>
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
-	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R06"/>
-	<property name="ireport.jasperserver.url" value="http://localhost:8080/jasperserver/services/repository"/>
 	<parameter name="COASTAL_LOG_SALE_ID" class="java.lang.String">
 		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
 	</parameter>

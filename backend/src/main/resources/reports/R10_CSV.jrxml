@@ -4,12 +4,9 @@
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
 	<property name="ireport.callouts" value="##Wed Feb 05 13:03:00 AST 2014"/>
-	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R10_CSV"/>
-	<property name="ireport.jasperserver.url" value="https://d1apps.cgi-dev.ca/int/nrsrs/"/>
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="CSP_ISP_Adapter"/>
 	<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
 	<property name="com.jaspersoft.jrs.export.csv.paginated" value="false"/>
-	<property name="ireport.jasperserver.user" value="jasperadmin"/>
 	<property name="com.jaspersoft.studio.report.unit.description" value="CSV friendly version of the log sales report"/>
 	<property name="com.jaspersoft.studio.unit." value="pixel"/>
 	<property name="com.jaspersoft.studio.unit.pageHeight" value="pixel"/>
