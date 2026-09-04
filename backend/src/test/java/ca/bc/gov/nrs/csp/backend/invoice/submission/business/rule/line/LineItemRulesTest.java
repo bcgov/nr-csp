@@ -62,12 +62,15 @@ class LineItemRulesTest {
   }
 
   @Test
-  void secondarySortCode_errors_when_blank() throws Exception {
+  void secondarySortCode_reports_a_blank_as_missing_not_as_an_invalid_code() throws Exception {
     ValidationCollector collector = new ValidationCollector();
 
     rules.secondarySortCodeValid(lineContext(collector, line -> line.setSecondarySortCode("")));
 
     assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code())
+        .isEqualTo("invoice.secondry.sortcode.required.error");
+    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
   }
 
   // --- L2 species + grade combination -----------------------------------------
@@ -101,6 +104,52 @@ class LineItemRulesTest {
     assertThat(collector.entries()).isEmpty();
   }
 
+  @Test
+  void species_blank_reports_the_missing_field_and_skips_the_combination_lookup() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.speciesGradeCombinationValid(lineContext(collector, line -> {
+      line.setSpecies("");
+      line.setGrade("1");
+    }));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.species.required.error");
+    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
+  }
+
+  @Test
+  void grade_blank_skips_the_combination_lookup_so_the_required_rule_speaks_alone() throws Exception {
+    // The reported case: a blank grade used to surface as "the combination of
+    // Species FI and Grade cannot be found", pointing at the species. The
+    // combination rule now stands down and the grade-required rule (in the shared
+    // value rules) names the empty field.
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.speciesGradeCombinationValid(lineContext(collector, line -> {
+      line.setSpecies("FIR");
+      line.setGrade("");
+    }));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void blank_grade_on_a_full_line_reports_only_the_required_error() throws Exception {
+    given(referenceData.sortCodeValidOn("SC", INVOICE_DATE)).willReturn(true);
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(lineContext(collector, "SAL", line -> {
+      cleanLine(line);
+      line.setGrade("");
+    }));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code())
+        .isEqualTo("invoice.grade.invalid.required.error");
+    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
+  }
+
   // --- L3–L9 delegation smoke tests (refactor doc §8) --------------------------
   // The exhaustive value-rule matrix lives in the core InvoiceLineRuleSetTest.
   // Here we only prove the adapter: the JAXB line maps onto InvoiceLine, findings
@@ -109,7 +158,9 @@ class LineItemRulesTest {
 
   @Test
   void valueRule_error_surfaces_through_the_collector_with_code_and_args() throws Exception {
-    stubReferenceDataToPass(null); // L2 sees the null grade — stub it to pass too
+    // Only L1 is stubbed: L2 stands down on a missing grade, so the single finding
+    // comes from the delegated value rules.
+    given(referenceData.sortCodeValidOn("SC", INVOICE_DATE)).willReturn(true);
     ValidationCollector collector = new ValidationCollector();
 
     // Grade missing → L3 ERROR; every other value is rule-clean.

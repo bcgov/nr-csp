@@ -13,10 +13,19 @@ public class InvoiceCodeRules implements InvoiceRule {
     primarySortCodeValid(ctx);
   }
 
-  /** Maturity code must be recognised and active on the invoice date. Template: code, date. */
+  /**
+   * Maturity is required, and must be recognised and active on the invoice date.
+   * The two failures are reported separately: an empty element (which the schema
+   * permits — its type only caps the length) says the field is missing rather
+   * than blaming a code that was never supplied. Template: code, date.
+   */
   void maturityValid(InvoiceRuleContext ctx) {
     String maturity = ctx.maturity();
-    if (isBlank(maturity) || !ctx.referenceData().maturityValidOn(maturity, ctx.invoiceDate())) {
+    if (isBlank(maturity)) {
+      ctx.error("invoice.maturity.required.error", new Object[0]);
+      return;
+    }
+    if (!ctx.referenceData().maturityValidOn(maturity, ctx.invoiceDate())) {
       ctx.error("invoice.maturity.invalid.error", new Object[] {maturity, ctx.invoiceDate()});
     }
   }

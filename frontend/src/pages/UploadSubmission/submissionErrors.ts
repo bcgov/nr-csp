@@ -73,6 +73,7 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.type.invalid.error': 'invoiceType',
   'invoice.type.not.saleorpurchase.warning': 'invoiceType',
   'invoice.type.invalid.submitter': 'invoiceType',
+  'invoice.maturity.required.error': 'maturity',
   'invoice.maturity.invalid.error': 'maturity',
   'invoice.fob.required.error': 'locationFOB',
   'invoice.totalamount.negative.error': 'totalAmount',
@@ -118,9 +119,11 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
 
 /** Maps a business-validation message key to the line-item-table column. */
 export const LINE_KEY_TO_FIELD: Record<string, string> = {
+  'invoice.species.required.error': 'species',
   'invoice.species.grade.combination.error': 'species',
   'invoice.grade.invalid.required.error': 'grade',
   'invoice.grade.z.warning': 'grade',
+  'invoice.secondry.sortcode.required.error': 'secondarySortCode',
   'invoice.secondry.sortcode.invalid.error': 'secondarySortCode',
   'invoice.numberof.pieces.negative.or.zero.error': 'numberOfPieces',
   'invoice.volume.negative.value.error': 'volume',

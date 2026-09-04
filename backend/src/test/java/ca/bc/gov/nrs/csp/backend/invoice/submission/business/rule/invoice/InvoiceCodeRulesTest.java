@@ -71,23 +71,27 @@ class InvoiceCodeRulesTest {
   }
 
   @Test
-  void maturity_errors_on_blank_without_hitting_the_db() throws Exception {
+  void maturity_reports_a_blank_as_missing_not_as_an_unknown_code() throws Exception {
+    // An empty <maturity/> element passes the schema, so a blank reaches here. It
+    // must name the missing field instead of blaming a code that was never given.
     ValidationCollector collector = new ValidationCollector();
 
     rules.maturityValid(context(collector, "", null));
 
     assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.maturity.required.error");
+    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
     verifyNoInteractions(referenceData);
   }
 
   @Test
-  void maturity_errors_on_null_without_hitting_the_db() throws Exception {
+  void maturity_reports_null_as_missing_without_hitting_the_db() throws Exception {
     ValidationCollector collector = new ValidationCollector();
 
     rules.maturityValid(context(collector, null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.maturity.invalid.error");
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.maturity.required.error");
     verifyNoInteractions(referenceData);
   }
 

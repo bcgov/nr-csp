@@ -34,24 +34,41 @@ public class LineItemRules implements LineItemRule {
   }
 
   /**
-   * Secondary sort code must be a recognised code active on the invoice
-   * date. Template: code, date, line label.
+   * Secondary sort code is required, and must be a recognised code active on the
+   * invoice date. A missing value is reported as such rather than as an
+   * unrecognised code — the schema lets the element be present but empty, so a
+   * blank here means "not supplied", not "wrong". Template: code, date, line label.
    */
   void secondarySortCodeValid(LineItemRuleContext ctx) {
     String sortCode = ctx.line().getSecondarySortCode();
-    if (isBlank(sortCode) || !ctx.referenceData().sortCodeValidOn(sortCode, ctx.invoiceDate())) {
+    if (isBlank(sortCode)) {
+      ctx.error("invoice.secondry.sortcode.required.error", new Object[] {lineLabel(ctx)});
+      return;
+    }
+    if (!ctx.referenceData().sortCodeValidOn(sortCode, ctx.invoiceDate())) {
       ctx.error("invoice.secondry.sortcode.invalid.error",
           new Object[] {sortCode, ctx.invoiceDate(), lineLabel(ctx)});
     }
   }
 
   /**
-   * The species + grade combination must exist in CSP_SPECIES_GRADE_XREF.
-   * Template: species, grade, line label.
+   * Species is required and, together with grade, must exist in
+   * CSP_SPECIES_GRADE_XREF. Template: species, grade, line label.
+   *
+   * <p>Either code being blank is reported as that field being required — species
+   * here, grade by {@link InvoiceLineRuleSet} — and the combination lookup is
+   * skipped. Running it on a blank would only be able to report the pair as
+   * unknown, which is what hid the missing field in the first place.
    */
   void speciesGradeCombinationValid(LineItemRuleContext ctx) {
     String species = ctx.line().getSpecies();
     String grade = ctx.line().getGrade();
+    if (isBlank(species)) {
+      ctx.error("invoice.species.required.error", new Object[] {lineLabel(ctx)});
+    }
+    if (isBlank(species) || isBlank(grade)) {
+      return;
+    }
     if (!ctx.referenceData().speciesGradeCombinationExists(species, grade)) {
       ctx.error("invoice.species.grade.combination.error",
           new Object[] {species, grade, lineLabel(ctx)});
