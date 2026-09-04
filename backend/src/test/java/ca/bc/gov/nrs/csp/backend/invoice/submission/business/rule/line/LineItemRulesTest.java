@@ -31,6 +31,13 @@ class LineItemRulesTest {
 
   private static final LocalDate INVOICE_DATE = LocalDate.of(2024, Month.JUNE, 15);
 
+  /**
+   * What this channel puts in the templates' trailing channel-label slot. It is
+   * empty because every message carries a locator naming the line, so filling the
+   * slot too would repeat it in the text ("… CSP. Line 1").
+   */
+  private static final String NO_LINE_LABEL = "";
+
   @Mock
   ReferenceDataService referenceData;
 
@@ -70,7 +77,7 @@ class LineItemRulesTest {
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.secondry.sortcode.required.error");
-    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
+    assertThat(collector.entries().get(0).error().args()).containsExactly(NO_LINE_LABEL);
   }
 
   // --- L2 species + grade combination -----------------------------------------
@@ -115,7 +122,7 @@ class LineItemRulesTest {
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.species.required.error");
-    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
+    assertThat(collector.entries().get(0).error().args()).containsExactly(NO_LINE_LABEL);
   }
 
   @Test
@@ -173,7 +180,7 @@ class LineItemRulesTest {
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.grade.invalid.required.error");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
-    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
+    assertThat(collector.entries().get(0).error().args()).containsExactly(NO_LINE_LABEL);
   }
 
   @Test
@@ -191,7 +198,7 @@ class LineItemRulesTest {
     assertThat(collector.entries().get(0).error().code())
         .isEqualTo("invoice.price.zero.value.warning");
     assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.WARNING);
-    assertThat(collector.entries().get(0).error().args()).containsExactly("Line 1");
+    assertThat(collector.entries().get(0).error().args()).containsExactly(NO_LINE_LABEL);
   }
 
   @Test

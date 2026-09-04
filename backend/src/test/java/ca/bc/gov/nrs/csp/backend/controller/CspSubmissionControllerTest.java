@@ -229,6 +229,28 @@ class CspSubmissionControllerTest {
     }
 
     @Test
+    void business_lineMessage_namesItsLineOnceAndEndsWithoutATrailingLabel() throws Exception {
+        // The shared line templates end with a channel-label slot that the manual
+        // page fills with its line-item id. This channel leaves it empty because its
+        // locator already names the line, so the text must not end in that slot's
+        // leftover space — the line is named once, in the prefix.
+        messageSource.addMessage("invoice.species.grade.combination.error", Locale.getDefault(),
+                "The combination of the Species {0} and Grade {1} cannot be found in CSP. {2}");
+        SubmissionValidationResult failed = SubmissionValidationResult.failed(List.of(
+                SubmissionValidationError.error("invoice #1 (INV-1), line 1",
+                        "invoice.species.grade.combination.error", new Object[]{"FI", "B", ""})));
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(failed);
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "invoice #1 (INV-1), line 1: "
+                                + "The combination of the Species FI and Grade B cannot be found in CSP."));
+    }
+
+    @Test
     void business_argsCarryingMessage_fallsBackToTheKeyWhenNoBundleEntry() throws Exception {
         // No template registered for the key → the resolved text falls back to the
         // bare key (locator-prefixed) instead of throwing.

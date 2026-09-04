@@ -443,7 +443,10 @@ public class CspSubmissionController implements CspSubmissionApi {
         // locator so multi-invoice submissions stay attributable; fall back to the
         // bare key when the bundle has no entry.
         String type = err.severity() == null ? MessageType.ERROR.name() : err.severity().name();
-        String text = messageSource.getMessage(err.code(), err.args(), err.code(), Locale.getDefault());
+        // Trimmed because the shared line templates end with a channel-label slot
+        // this channel deliberately leaves empty (its locator names the line
+        // instead), which would otherwise leave the text ending in a space.
+        String text = messageSource.getMessage(err.code(), err.args(), err.code(), Locale.getDefault()).trim();
         String message = err.path() == null ? text : err.path() + ": " + text;
         return new ValidationMessageResponse(err.code(), err.args(), type, message);
     }
