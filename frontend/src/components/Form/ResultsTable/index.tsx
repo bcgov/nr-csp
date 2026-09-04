@@ -153,8 +153,14 @@ const ResultsTable = <T extends { id: string }>({
 
   // Re-seed the draft whenever the committed keyword changes from outside the bar
   // (a page's "Clear filters" resetting it, or restored session state), so the bar
-  // can never display a keyword that is no longer being applied. Adjusting during
-  // render rather than in an effect keeps it to a single render pass.
+  // can never display a keyword that is no longer being applied.
+  //
+  // This is React's documented way to adjust state when a prop changes, not an
+  // oversight: it sets only this component's own state and is guarded by a
+  // condition, so React re-runs the render immediately and never commits the stale
+  // pass. Moving it into an effect costs a second render pass and trips the
+  // `react-hooks/set-state-in-effect` rule this repo enables. `index.unit.test.tsx`
+  // pins the behaviour under StrictMode.
   const [lastAppliedKeyword, setLastAppliedKeyword] = useState(appliedKeyword);
   if (lastAppliedKeyword !== appliedKeyword) {
     setLastAppliedKeyword(appliedKeyword);
