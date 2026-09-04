@@ -3,8 +3,6 @@
 	<property name="ireport.zoom" value="1.6500000000000001"/>
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
-	<property name="ireport.jasperserver.reportUnit" value="/reports/CSP/R13"/>
-	<property name="ireport.jasperserver.url" value="http://d-yyj0132.vic.cgi.com:8080/jasperserver/services/repository"/>
 	<parameter name="USER_NAME" forPrompting="false" class="java.lang.String"/>
 	<parameter name="USER_ID" forPrompting="false" class="java.lang.String"/>
 	<parameter name="INVOICE_DATE_FROM" class="java.lang.String"/>
