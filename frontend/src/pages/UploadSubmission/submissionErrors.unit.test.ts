@@ -107,6 +107,20 @@ describe('mapSubmissionIssues', () => {
     expect(Object.keys(result.invoices[1].fields)).toEqual(['maturity']);
   });
 
+  it('marks a rejected invoice number on the Invoice # field', () => {
+    const result = mapSubmissionIssues([
+      msg(
+        'invoice.number.pattern.error',
+        'invoice #1 (INV 1): Invoice number may only contain uppercase letters, digits and hyphens.',
+      ),
+      msg('invoice.number.required.error', 'invoice #2: Invoice number is required.'),
+    ]);
+
+    expect(Object.keys(result.invoices[1].fields)).toEqual(['invoiceNumber']);
+    expect(Object.keys(result.invoices[2].fields)).toEqual(['invoiceNumber']);
+    expect(result.hasErrors).toBe(true);
+  });
+
   it('attaches an unmapped line-level key at the row level', () => {
     const result = mapSubmissionIssues([msg('invoice.unknown.line.error', 'invoice #2 (INV-1), line 3: mystery.')]);
     expect(result.lineItems['2:3']).toEqual({ fields: {}, row: [{ message: 'mystery.', type: 'ERROR' }] });

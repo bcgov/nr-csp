@@ -83,6 +83,8 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.totalpieces.negative.error': 'totalPieces',
   'invoice.totalpieces.dismatch.warning': 'totalPieces',
   'invoice.submitter.not.equal.seller.client.number.error': 'sellerClientNumber',
+  'invoice.number.required.error': 'invoiceNumber',
+  'invoice.number.pattern.error': 'invoiceNumber',
   'invoice.number.duplicate.same.type.warning': 'invoiceNumber',
 
   // ── Detail-card fields (shown in the expanded "Invoice details" card) ──────
