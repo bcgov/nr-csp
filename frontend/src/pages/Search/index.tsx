@@ -1,16 +1,22 @@
+import { Search as SearchIcon } from '@carbon/icons-react';
+import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
-import { Search as SearchIcon } from '@carbon/icons-react';
 
-import { usePersistentState } from '@/hooks/usePersistentState';
-import AutoCompleteInput from '@/components/Form/AutoCompleteInput';
-import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
 import PageTitle from '@/components/core/PageTitle';
+import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
+import AutoCompleteInput from '@/components/Form/AutoCompleteInput';
 import DateInput from '@/components/Form/DateInput';
-import SingleSelect from '@/components/Form/SingleSelect';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { formatIsoDate, formatDisplayDate } from '@/utils/format';
+import SingleSelect from '@/components/Form/SingleSelect';
+import { usePersistentState } from '@/hooks/usePersistentState';
+import { useSearchTableState } from '@/hooks/useSearchTableState';
+import {
+  type LookupItemResponse,
+  useInvoiceStatusesQuery,
+  useInvoiceTypesQuery,
+  useMaturityCodesQuery,
+} from '@/services/lookup.service';
 import {
   type SearchResultResponse,
   type ClientLocationResponse,
@@ -18,12 +24,7 @@ import {
   getClientsByName,
   useSearchQuery,
 } from '@/services/search.service';
-import {
-  type LookupItemResponse,
-  useInvoiceStatusesQuery,
-  useInvoiceTypesQuery,
-  useMaturityCodesQuery,
-} from '@/services/lookup.service';
+import { formatIsoDate, formatDisplayDate } from '@/utils/format';
 
 import './index.scss';
 
@@ -40,6 +41,8 @@ type InvoiceRow = {
 };
 
 type SellerSubmitterItem = { id: string; label: string };
+
+const DEFAULT_PAGE_SIZE = 100;
 
 const sellerSubmitterItems: SellerSubmitterItem[] = [
   { id: 'true', label: 'Yes' },
@@ -63,9 +66,22 @@ function toInvoiceRow(r: SearchResultResponse): InvoiceRow {
 export function SearchPage() {
   const navigate = useNavigate();
   const NS = 'csp.table.search.v1';
-  const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 100);
-  const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
+  const {
+    hasSearched,
+    setHasSearched,
+    appliedFilters,
+    setAppliedFilters,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    setPageSize,
+    sortParam,
+    setSortParam,
+    keyword,
+    setKeyword,
+    tableKey,
+    reset: resetTableState,
+  } = useSearchTableState<SearchParams>(NS, DEFAULT_PAGE_SIZE);
 
   const invoiceColumns: ResultsTableColumn<InvoiceRow>[] = [
     {
@@ -131,15 +147,7 @@ export function SearchPage() {
   const [maturityInput, setMaturityInput] = usePersistentState<LookupItemResponse | null>(NS, 'maturityInput', null);
   const [autoCompleteKey, setAutoCompleteKey] = useState(0);
   const [dateKey, setDateKey] = useState(0);
-  const [keyword, setKeyword] = usePersistentState(NS, 'keyword', '');
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
-
-  // Snapshot of filters at the moment Search is clicked (the criteria part — page/size/sort/keyword
-  // are tracked separately so changing them re-queries without re-snapshotting filter inputs).
-  const [appliedFilters, setAppliedFilters] = usePersistentState<SearchParams>(NS, 'appliedFilters', {});
-
-  // Spring-style "field,direction" sort string, or undefined when unsorted.
-  const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
 
   const queryParams: SearchParams = {
     ...appliedFilters,
@@ -151,8 +159,8 @@ export function SearchPage() {
 
   const { data, isLoading, isError } = useSearchQuery(queryParams, hasSearched);
 
-  const rows: InvoiceRow[] = (data?.content ?? []).map(toInvoiceRow);
-  const totalElements = data?.totalElements ?? 0;
+  const rows: InvoiceRow[] = hasSearched ? (data?.content ?? []).map(toInvoiceRow) : [];
+  const totalElements = hasSearched ? (data?.totalElements ?? 0) : 0;
 
   const buildSearchParams = (): SearchParams => ({
     invDate: invoiceDateInput || undefined,
@@ -198,6 +206,7 @@ export function SearchPage() {
     setDateRangeError(null);
     setAutoCompleteKey((k) => k + 1);
     setDateKey((k) => k + 1);
+    resetTableState();
   };
 
   return (
@@ -356,7 +365,7 @@ export function SearchPage() {
           </Button>
         </Column>
 
-        {isError && (
+        {hasSearched && isError && (
           <Column lg={16} md={8} sm={4} className="search-page__error-col">
             <p className="search-page__error">Failed to load results. Please try again.</p>
           </Column>
@@ -364,6 +373,7 @@ export function SearchPage() {
 
         <Column lg={16} md={8} sm={4} className="search-page__table-col">
           <ResultsTable
+            key={tableKey}
             rows={rows}
             columns={invoiceColumns}
             isSortable
@@ -378,7 +388,7 @@ export function SearchPage() {
             }}
             searchKeyword={keyword}
             onSearchKeywordChange={
-              hasSearched || rows.length > 0
+              hasSearched
                 ? (kw) => {
                     setKeyword(kw);
                     setCurrentPage(1);

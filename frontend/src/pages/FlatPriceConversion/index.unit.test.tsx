@@ -111,7 +111,7 @@ describe('FlatPriceConversionPage', () => {
     expect(within(table).getByText('Species')).toBeInTheDocument();
     expect(within(table).getByText('Sort code')).toBeInTheDocument();
     expect(within(table).getByText('Grade')).toBeInTheDocument();
-    expect(within(table).getByText('Flat price conversion')).toBeInTheDocument();
+    expect(within(table).getByText('Relative price')).toBeInTheDocument();
     expect(within(table).getByText('Effective date')).toBeInTheDocument();
     expect(within(table).getByText('Expiry date')).toBeInTheDocument();
     expect(within(table).getByText('Actions')).toBeInTheDocument();

@@ -16,6 +16,29 @@ env:
 permissions: {}
 
 jobs:
+  # Oracle Testcontainers ITs (backend *IT.java) — self-contained against a
+  # throwaway database, no deployed environment needed; runs here alongside
+  # the deployed-environment suites so all non-unit tests share one workflow.
+  # Unit tests already run in analysis.yml, so surefire is bypassed by
+  # invoking the failsafe goals directly.
+  backend-integration-tests:
+    name: Backend Integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Java 21 (Temurin) + Maven cache
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Maven failsafe (Oracle Testcontainers ITs)
+        working-directory: backend
+        run: mvn -B test-compile failsafe:integration-test failsafe:verify
+
   integration-tests:
     name: Integration
     runs-on: ubuntu-24.04
