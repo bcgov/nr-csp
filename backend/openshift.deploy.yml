@@ -6,7 +6,7 @@
 # A firewall rule in the OpenShift namespace allows egress to the Oracle host
 # on port 1543 (TCPS); this init container is what triggers that rule.
 #
-# Sensitive values (DB credentials, Jasper credentials, keystore secret) are
+# Sensitive values (DB credentials, keystore secret) are
 # written into a per-ZONE Secret and mounted as environment variables so they
 # never appear in pod specs or logs.
 apiVersion: template.openshift.io/v1
