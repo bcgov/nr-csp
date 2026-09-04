@@ -55,12 +55,18 @@ export interface R13ReportRequest {
   invoiceTypes?: string[];
   invoiceNumberFrom?: string;
   invoiceNumberTo?: string;
+  // The exact-value boxes of the four aggregated-column filters. Values are
+  // matched with a case-insensitive contains, so % works as a wildcard.
+  invoiceReplacesAdjusts?: string[];
   invoiceReplacesAdjustsFrom?: string;
   invoiceReplacesAdjustsTo?: string;
+  invoiceBoomNumbers?: string[];
   invoiceBoomNumberFrom?: string;
   invoiceBoomNumberTo?: string;
+  invoiceTimberMarks?: string[];
   invoiceTimberMarkFrom?: string;
   invoiceTimberMarkTo?: string;
+  invoiceWeighSlips?: string[];
   invoiceWeighSlipFrom?: string;
   invoiceWeighSlipTo?: string;
   sellerName?: string;

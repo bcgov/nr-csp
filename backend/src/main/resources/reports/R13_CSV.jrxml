@@ -445,7 +445,7 @@
 			<expression><![CDATA[$P{SUBMISSION_NUMBER}]]></expression>
 		</element>
 		<element kind="textField" uuid="0d2f6457-267f-4d99-a982-37f7919b5967" key="SUBMISSION_MONTH_YEAR" x="342" y="79" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
-			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{SUBMISSION_MONTH_YEAR}))]]></expression>
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM").format(new SimpleDateFormat("yyyyMM").parse($P{SUBMISSION_MONTH_YEAR}))]]></expression>
 		</element>
 		<element kind="textField" uuid="11b3d792-43b2-480f-9750-711cea83b4ad" key="SUBMISSION_STATUS" x="342" y="92" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
 			<expression><![CDATA[$P{SUBMISSION_STATUS}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
@@ -457,7 +457,7 @@
 			<expression><![CDATA[$P{APPROVED_BY}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>
 		</element>
 		<element kind="textField" uuid="e243aa7c-0242-4bb4-8905-15222f6cf6b1" key="APPROVAL_MONTH_YEAR" x="342" y="131" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="" blankWhenNull="true">
-			<expression><![CDATA[new SimpleDateFormat("yyyy-MM-dd").format(new SimpleDateFormat("yyyyMMdd").parse($P{APPROVAL_MONTH_YEAR}))]]></expression>
+			<expression><![CDATA[new SimpleDateFormat("yyyy-MM").format(new SimpleDateFormat("yyyyMM").parse($P{APPROVAL_MONTH_YEAR}))]]></expression>
 		</element>
 		<element kind="textField" uuid="5a93a2be-8d65-4e0a-9688-8320345f3c65" key="BUYER_NUMBER" x="342" y="144" width="192" height="13" fontSize="8.0" textAdjust="StretchHeight" pattern="" blankWhenNull="true">
 			<expression><![CDATA[$P{BUYER_NUMBER}.toString().replace('[',' ').replace(']', ' ').trim() + " " + $P{BUYER_CLIENT_LOCN_CODE}.toString().replace('[',' ').replace(']', ' ').trim()]]></expression>

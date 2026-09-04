@@ -203,13 +203,6 @@ $label-letter-spacing: 0.08em;
     }
   }
 
-  // ── Show-options error ────────────────────────────────────────────────
-  &__show-error {
-    color: var(--cds-support-error);
-    @include type.type-style('label-01');
-    margin-top: $spacing-03;
-  }
-
   // ── Action buttons ────────────────────────────────────────────────────
   &__actions {
     display: flex;
