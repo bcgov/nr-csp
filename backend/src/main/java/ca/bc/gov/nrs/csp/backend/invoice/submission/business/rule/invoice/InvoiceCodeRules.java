@@ -4,12 +4,22 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.InvoiceRule;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.InvoiceRuleContext;
 import org.springframework.stereotype.Component;
 
+/**
+ * The coded fields on the invoice-details block — the same trio the manual path
+ * validates together: maturity and primary sort code against reference data, and
+ * FOB location for presence only (the schema notes the client may enter any value
+ * there and that it is checked against no table).
+ */
 @Component
 public class InvoiceCodeRules implements InvoiceRule {
+
+  /** For keys whose messages.properties template takes no placeholders. */
+  private static final Object[] NO_ARGS = new Object[0];
 
   @Override
   public void validate(InvoiceRuleContext ctx) {
     maturityValid(ctx);
+    locationFobProvided(ctx);
     primarySortCodeValid(ctx);
   }
 
@@ -27,6 +37,19 @@ public class InvoiceCodeRules implements InvoiceRule {
     }
     if (!ctx.referenceData().maturityValidOn(maturity, ctx.invoiceDate())) {
       ctx.error("invoice.maturity.invalid.error", new Object[] {maturity, ctx.invoiceDate()});
+    }
+  }
+
+  /**
+   * FOB location is required (0-arg template). The schema requires the element
+   * but permits it to be empty — its type only caps the length — so presence has
+   * to be checked here or a blank sails through: nothing else looks at this field,
+   * since its value is matched against no reference table. Shares the manual
+   * path's message key, so both channels report it identically.
+   */
+  void locationFobProvided(InvoiceRuleContext ctx) {
+    if (isBlank(ctx.locationFOB())) {
+      ctx.error("invoice.fob.required.error", NO_ARGS);
     }
   }
 

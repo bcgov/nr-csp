@@ -96,6 +96,53 @@ class InvoiceCodeRulesTest {
   }
 
   @Test
+  void locationFob_errors_when_blank() throws Exception {
+    // The schema requires the element but lets it be empty, and no reference
+    // lookup ever reads the value — so without this check a blank FOB submitted
+    // clean.
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.locationFobProvided(context(collector, "O", null, ""));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.fob.required.error");
+    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
+    verifyNoInteractions(referenceData);
+  }
+
+  @Test
+  void locationFob_errors_when_absent() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.locationFobProvided(context(collector, "O", null, null));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.fob.required.error");
+  }
+
+  @Test
+  void locationFob_passes_when_supplied() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.locationFobProvided(context(collector, "O", null, "VANCOUVER"));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void validate_blocks_a_blank_fob_on_an_otherwise_clean_invoice() throws Exception {
+    // The reported case end to end: every other code is valid, so the blank FOB
+    // is the only thing standing between the invoice and a clean pass.
+    given(referenceData.maturityValidOn("O", INVOICE_DATE)).willReturn(true);
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(context(collector, "O", null, " "));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.fob.required.error");
+  }
+
+  @Test
   void primarySortCode_errors_when_supplied_and_not_active_on_invoice_date() throws Exception {
     given(referenceData.sortCodeValidOn("X1", INVOICE_DATE)).willReturn(false);
     ValidationCollector collector = new ValidationCollector();
@@ -129,9 +176,16 @@ class InvoiceCodeRulesTest {
 
   private InvoiceRuleContext context(ValidationCollector collector, String maturity, String primarySortCode)
       throws Exception {
+    return context(collector, maturity, primarySortCode, "TEST-FOB");
+  }
+
+  private InvoiceRuleContext context(
+      ValidationCollector collector, String maturity, String primarySortCode, String locationFob)
+      throws Exception {
     CSPInvoiceDetailsType details = new CSPInvoiceDetailsType();
     details.setMaturity(maturity);
     details.setPrimarySortCode(primarySortCode);
+    details.setLocationFOB(locationFob);
 
     CSPInvoiceType invoice = new CSPInvoiceType();
     invoice.setInvoiceNumber("INV-1");
