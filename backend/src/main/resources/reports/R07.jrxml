@@ -4,13 +4,9 @@
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
 	<property name="ireport.callouts" value="##Wed Feb 05 13:03:00 AST 2014"/>
-	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R07"/>
-	<property name="ireport.jasperserver.url" value="http://d-yyj0004.vic.cgi.com:8080/jasperserver/"/>
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="CSP_ISP_Adapter"/>
-	<property name="ireport.jasperserver.user" value="cspuser"/>
 	<property name="com.jaspersoft.studio.report.unit.description" value="R07"/>
 	<property name="com.jaspersoft.studio.report.description" value="Main jrxml"/>
-	<property name="ireport.jasperserver.report.resource" value="/JCRS/CSP/Reports/R07_files/R07_jrxml"/>
 	<parameter name="MONTH" class="java.lang.String"/>
 	<parameter name="YEAR" class="java.lang.String"/>
 	<parameter name="INVOICE_DATE_FROM" class="java.lang.String"/>
