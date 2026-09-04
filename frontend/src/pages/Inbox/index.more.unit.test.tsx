@@ -291,6 +291,80 @@ describe('InboxPage interactions', () => {
     expect(lastQueryParams()).toMatchObject({ keyword: 'cedar', page: 0 });
   });
 
+  it('drops the keyword filter when the bar is emptied without Enter, then a filter is applied', () => {
+    seedSearched();
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow], totalElements: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    // 1. Search by keyword.
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'tree' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ keyword: 'tree' });
+
+    // 2. Delete the text without pressing Enter.
+    fireEvent.change(keywordInput, { target: { value: '' } });
+
+    // 3. Apply a filter and click Search.
+    fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'INV-9' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    // 4. Results reflect only the new filter — the stale keyword is gone.
+    const params = lastQueryParams();
+    expect(params.keyword).toBeUndefined();
+    expect(params.invoiceNum).toBe('INV-9');
+  });
+
+  it('applies the keyword showing in the bar when Search is clicked without Enter', () => {
+    seedSearched();
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow], totalElements: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'oak' } });
+    expect(lastQueryParams().keyword).toBeUndefined();
+
+    // Clicking Search takes focus out of the bar, which commits what it shows.
+    fireEvent.blur(keywordInput);
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(lastQueryParams()).toMatchObject({ keyword: 'oak' });
+  });
+
+  it('clears the keyword and empties the bar when Clear filters is clicked', () => {
+    seedSearched();
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow], totalElements: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    const keywordInput = screen.getByRole('searchbox', { name: /search by keyword/i });
+    fireEvent.change(keywordInput, { target: { value: 'cedar' } });
+    fireEvent.keyDown(keywordInput, { key: 'Enter' });
+    expect(lastQueryParams()).toMatchObject({ keyword: 'cedar' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    // Clearing returns the table to its pre-search state, which takes the
+    // keyword bar off screen with it — so assert the keyword is gone from both
+    // the query and the persisted state rather than from a detached input.
+    expect(lastQueryParams().keyword).toBeUndefined();
+    expect(window.sessionStorage.getItem('csp.table.inbox.v1.keyword')).toBe('""');
+    expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
+  });
+
   it('cycles the sort param asc -> desc -> none when a header is clicked', () => {
     seedSearched();
     mockUseInboxSearchQuery.mockReturnValue({

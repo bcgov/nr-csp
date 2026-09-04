@@ -1,4 +1,5 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
 import ResultsTable, { type ResultsTableColumn } from './index';
@@ -154,5 +155,44 @@ describe('ResultsTable - page clamping', () => {
     // Give any (incorrect) re-fire a chance to happen before asserting it didn't.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onPaginationChange).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ResultsTable - keyword re-seed', () => {
+  // The draft is re-seeded by comparing against the previous applied keyword during
+  // render, which is React's documented way to adjust state when a prop changes. An
+  // effect would trip the `react-hooks/set-state-in-effect` rule this repo enables and
+  // cost a second render pass. Guarding it here so the pattern is not "corrected" back
+  // into an effect: it only ever sets this component's own state, it is guarded by a
+  // condition, and StrictMode's double render is clean.
+  it('tracks the applied keyword in both directions under StrictMode, without React warnings', () => {
+    const errors: string[] = [];
+    const errSpy = vi.spyOn(console, 'error').mockImplementation((...a) => void errors.push(String(a[0])));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation((...a) => void errors.push(String(a[0])));
+
+    const table = (keyword: string) => (
+      <StrictMode>
+        <ResultsTable
+          rows={[{ id: '1', name: 'Alpha' }]}
+          columns={columns}
+          searchKeyword={keyword}
+          onSearchKeywordChange={vi.fn()}
+        />
+      </StrictMode>
+    );
+
+    const { rerender } = render(table('oak'));
+    expect(screen.getByRole('searchbox')).toHaveValue('oak');
+
+    // The reset a page's "Clear filters" performs.
+    rerender(table(''));
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+
+    rerender(table('cedar'));
+    expect(screen.getByRole('searchbox')).toHaveValue('cedar');
+
+    errSpy.mockRestore();
+    warnSpy.mockRestore();
+    expect(errors.filter((m) => !m.includes('key')).join(' | ')).toBe('');
   });
 });
