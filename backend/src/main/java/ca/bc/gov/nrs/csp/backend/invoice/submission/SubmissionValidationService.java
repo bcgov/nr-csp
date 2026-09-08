@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.csp.backend.invoice.submission;
 
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.BusinessValidationOutcome;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.BusinessValidationService;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.IdentifierNormalizer;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationResult;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidationService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,10 @@ import org.springframework.stereotype.Service;
  *       so this parses first; if the XML doesn't parse it returns those
  *       structural errors, because business rules cannot run on it.</li>
  * </ul>
+ *
+ * <p>{@link #parse(byte[])} also canonicalises the tree it returns (see
+ * {@link IdentifierNormalizer}); the structural phase itself stays free of
+ * application-specific logic.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +33,7 @@ public class SubmissionValidationService {
 
   private final StructuralValidationService structuralValidationService;
   private final BusinessValidationService businessValidationService;
+  private final IdentifierNormalizer identifierNormalizer;
 
   /** Phase 1 — structural validation only. */
   public SubmissionValidationResult validateStructural(byte[] xml) {
@@ -39,9 +45,17 @@ public class SubmissionValidationService {
    * can both report structural errors and surface the parsed content (e.g. to
    * populate the upload form). On a parse/schema failure the outcome's
    * submission is null and its result carries the structural errors.
+   *
+   * <p>The tree is canonicalised on the way out — identifiers and coded values
+   * trimmed and upper-cased — so a file that spells a valid code in lower case
+   * validates, displays and persists as that code. Doing it here means the form,
+   * the rules and the saved row all see the same values.
    */
   public StructuralValidationService.ValidationOutcome parse(byte[] xml) {
-    return structuralValidationService.validateAndParse(xml);
+    StructuralValidationService.ValidationOutcome outcome =
+        structuralValidationService.validateAndParse(xml);
+    identifierNormalizer.normalizeSubmission(outcome.submission());
+    return outcome;
   }
 
   /**
@@ -50,8 +64,9 @@ public class SubmissionValidationService {
    * structural errors since business rules cannot run on an unparseable document.
    */
   public SubmissionValidationResult validateBusiness(byte[] xml) {
-    StructuralValidationService.ValidationOutcome structural =
-        structuralValidationService.validateAndParse(xml);
+    // Through parse(), not the structural service directly, so this entry point
+    // cannot drift from the one the controller uses — it canonicalises the tree.
+    StructuralValidationService.ValidationOutcome structural = parse(xml);
     if (!structural.result().valid() || structural.submission() == null) {
       return structural.result();
     }

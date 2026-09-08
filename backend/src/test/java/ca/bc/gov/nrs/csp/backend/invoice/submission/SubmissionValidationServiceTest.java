@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.csp.backend.invoice.submission;
 
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.BusinessValidationOutcome;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.BusinessValidationService;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.IdentifierNormalizer;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.Severity;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionAcceptance;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationError;
@@ -31,6 +32,7 @@ class SubmissionValidationServiceTest {
 
   @Mock StructuralValidationService structuralValidationService;
   @Mock BusinessValidationService businessValidationService;
+  @Mock IdentifierNormalizer identifierNormalizer;
 
   @InjectMocks SubmissionValidationService service;
 
@@ -46,12 +48,16 @@ class SubmissionValidationServiceTest {
   }
 
   @Test
-  void parse_delegates_to_structural_validate_and_parse() {
+  void parse_delegates_to_structural_validate_and_parse_and_canonicalises_the_tree() {
+    Object tree = new Object();
     StructuralValidationService.ValidationOutcome outcome =
-        new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), new Object());
+        new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), tree);
     given(structuralValidationService.validateAndParse(XML)).willReturn(outcome);
 
     assertThat(service.parse(XML)).isSameAs(outcome);
+    // Codes/identifiers are canonicalised once here, so the form, the rules and
+    // the persisted row all see the same values.
+    then(identifierNormalizer).should().normalizeSubmission(tree);
     then(businessValidationService).shouldHaveNoInteractions();
   }
 

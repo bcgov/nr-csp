@@ -1,11 +1,12 @@
 import { Download } from '@carbon/icons-react';
 import { Button, Column, Grid, InlineLoading, InlineNotification, Link, TextInput } from '@carbon/react';
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import DataPreviewTable, { type DataPreviewColumn, type RowIssues } from '@/components/core/DataPreviewTable';
 import FileDropZone from '@/components/core/FileDropZone';
 import PageTitle from '@/components/core/PageTitle';
+import useDebounce from '@/hooks/useDebounce';
 import { ROUTES } from '@/routes/routePaths';
 import {
   parseSubmission,
@@ -15,6 +16,7 @@ import {
   type ParsedInvoice,
   type ParsedLineItem,
   type ParsedSubmission,
+  type SubmissionMetadataEdits,
   type SubmissionParseResponse,
   type SubmissionSubmitResponse,
   type SubmissionValidationResponse,
@@ -85,6 +87,41 @@ const fieldsFromSubmission = (s: ParsedSubmission): EditableFields => ({
 const EMPTY_TABLE_MESSAGE = 'No data available — upload an XML file to populate this table.';
 
 /**
+ * How long an editable field must sit unchanged before business validation is
+ * re-run. Long enough that typing a value out costs one request, short enough
+ * that the corrected result lands before the user reaches for Submit.
+ */
+const REVALIDATE_DEBOUNCE_MS = 600;
+
+/**
+ * The editable metadata sent with a re-validation, trimmed. Mirrors exactly what
+ * Submit applies, so the verdict on screen is the verdict Submit will get.
+ * Email/telephone are excluded: they are persisted, never validated.
+ */
+const businessEdits = (f: EditableFields): SubmissionMetadataEdits => ({
+  submissionClientNumber: f.submissionClientNumber.trim(),
+  submissionClientLocnCode: f.submissionClientLocnCode.trim(),
+  monthComplete: f.monthComplete.trim(),
+  sellerSubmission: f.sellerSubmission.trim(),
+});
+
+/**
+ * Stable identity for the edits that can actually change a verdict — it decides
+ * both whether a re-validation is worth making and whether the displayed result
+ * still describes the form.
+ *
+ * `monthComplete` is deliberately left out. No business rule reads it: the
+ * submission-level value is only persisted (`CspSubmissionPersistenceService`),
+ * and the `invoice.month.completed.warning` rule keys off the invoice date and
+ * the submitting party's client/location, not this field. So editing it cannot
+ * clear or raise an error and must not cost a round trip. It is still *sent* by
+ * `businessEdits`, so a rule that starts reading it sees the edited value — move
+ * it into this key if that ever happens.
+ */
+const revalidationKeyOf = (e: SubmissionMetadataEdits): string =>
+  JSON.stringify([e.submissionClientNumber, e.submissionClientLocnCode, e.sellerSubmission]);
+
+/**
  * The top status banner, keyed by the submission's worst severity: green when
  * clean, amber when only warnings remain, red when any error is present.
  */
@@ -132,6 +169,14 @@ export function UploadSubmissionPage() {
   // Which invoice rows are expanded (open) in the Invoice Details table. Keyed by
   // the invoice row id (`inv-${index}`).
   const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
+  // `editsKeyOf` of the field values the current `businessResult` was produced
+  // from — null until a file has been validated. While the form holds anything
+  // else, the displayed result is stale and Submit stays blocked.
+  const [validatedEditsKey, setValidatedEditsKey] = useState<string | null>(null);
+  // Monotonic id of the newest re-validation request. A response whose id is no
+  // longer current has been superseded (a later edit, a new file, a submit) and
+  // is dropped, so results can't land out of order.
+  const revalidateSeq = useRef(0);
 
   const resetResults = () => {
     setSubmission(null);
@@ -142,6 +187,9 @@ export function UploadSubmissionPage() {
     setClientFieldErrors({});
     setNotificationVisible(true);
     setExpandedRowIds(new Set());
+    // Abandon any in-flight re-validation: it describes the previous file.
+    revalidateSeq.current += 1;
+    setValidatedEditsKey(null);
   };
 
   const handleClear = () => {
@@ -151,7 +199,7 @@ export function UploadSubmissionPage() {
     setStatus('idle');
   };
 
-  const applyBusinessResult = (result: SubmissionValidationResponse | SubmissionSubmitResponse) => {
+  const applyBusinessResult = useCallback((result: SubmissionValidationResponse | SubmissionSubmitResponse) => {
     setBusinessResult({
       valid: result.valid,
       code: result.code,
@@ -161,7 +209,7 @@ export function UploadSubmissionPage() {
       errors: result.errors,
     });
     setIssues(mapSubmissionIssues(result.errors));
-  };
+  }, []);
 
   const handleSubmit = async () => {
     if (!selectedFile) return;
@@ -178,6 +226,9 @@ export function UploadSubmissionPage() {
     setClientFieldErrors(fieldErrors);
     if (clientResult.hasErrors()) return;
 
+    // Submit owns the result from here on: drop any re-validation still in flight
+    // so its (older) response can't overwrite the submit outcome.
+    revalidateSeq.current += 1;
     setStatus('submitting');
     try {
       const result = await submitSubmission(selectedFile, {
@@ -233,8 +284,12 @@ export function UploadSubmissionPage() {
       return;
     }
 
+    const parsedFields = fieldsFromSubmission(parsed.submission);
     setSubmission(parsed.submission);
-    setFields(fieldsFromSubmission(parsed.submission));
+    setFields(parsedFields);
+    // The values below are the ones the upcoming validation run reflects, so the
+    // debounced re-validation stays idle until the user actually changes one.
+    setValidatedEditsKey(revalidationKeyOf(businessEdits(parsedFields)));
     // Expand every invoice by default so all line items are visible at a glance;
     // the user can collapse rows individually or via "Collapse all".
     setExpandedRowIds(new Set(parsed.submission.invoices.map((inv) => `inv-${inv.index}`)));
@@ -259,11 +314,100 @@ export function UploadSubmissionPage() {
   const hasSubmission = submission != null;
   // Any ERROR-severity ("hard") validation issue disables Submit — the user must
   // resolve it before the submission can be sent. Errors on the editable metadata
-  // fields lift as the user corrects them (setField clears them); errors on the
+  // fields lift as the user corrects them (setField clears the stale ones, and the
+  // re-validation below replaces them with a fresh verdict); errors on the
   // read-only invoice/line data require re-uploading a corrected file. Warnings
   // do not block submission.
   const hasHardValidationErrors = hasHardErrors(issues);
-  const canSubmit = hasSubmission && !isBusy && !hasHardValidationErrors;
+  const hasClientFieldErrors = Object.values(clientFieldErrors).some(Boolean);
+
+  // The business-relevant edits, and whether they still match what the displayed
+  // validation result was produced from. `businessEdits` is memoised on `fields`
+  // so its identity only changes when a field actually does — which is what keeps
+  // the debounce below from restarting on every render.
+  const edits = useMemo(() => businessEdits(fields), [fields]);
+  const editsKey = revalidationKeyOf(edits);
+  const editsSettled = useDebounce(edits, REVALIDATE_DEBOUNCE_MS);
+  // A field has changed since the last run, so the displayed verdict no longer
+  // describes the form. This covers the whole re-validation window — waiting out
+  // the debounce and waiting for the response — because `validatedEditsKey` only
+  // moves when a response lands; Submit stays blocked for all of it.
+  const hasStaleValidation = hasSubmission && editsKey !== validatedEditsKey;
+  // …and while nothing client-side is blocking, that window ends in a request,
+  // so it is also when the "re-checking" indicator belongs on screen.
+  const revalidationPending = hasStaleValidation && !hasClientFieldErrors;
+
+  const canSubmit =
+    hasSubmission && !isBusy && !hasStaleValidation && !hasClientFieldErrors && !hasHardValidationErrors;
+
+  /**
+   * Re-runs business validation when a rule-bearing metadata field settles on a
+   * new value, so a corrected Submission Client Number / Location Code — or a
+   * flipped Seller Submission, which decides whether the submitter is read as the
+   * seller or the buyer — is re-checked without re-uploading the file.
+   *
+   * Three guards keep the request count down: the values are debounced, so typing
+   * one out costs a single call; a settled value identical to the last validated
+   * one is skipped, so returning a field to its original value — or editing one
+   * no rule reads (email, telephone, month complete) — makes no request at all;
+   * and a field already showing a client-side format error is not worth asking
+   * the server about (`setField` re-checks those on every keystroke, and clearing
+   * the error re-runs this effect).
+   */
+  useEffect(() => {
+    if (!selectedFile || submission == null) return;
+    // Parse or submit is in flight and owns the result; that request re-validates
+    // with the current values anyway.
+    if (isBusy) return;
+    if (hasClientFieldErrors) return;
+    const key = revalidationKeyOf(editsSettled);
+    // The debounce still trails the form (it also trails a freshly parsed file):
+    // only ever validate values the form actually holds.
+    if (key !== editsKey) return;
+    if (key === validatedEditsKey) return;
+
+    const seq = revalidateSeq.current + 1;
+    revalidateSeq.current = seq;
+
+    // Applies a landed response, unless a later edit / file / submit superseded it.
+    const settle = (apply: () => void) => {
+      if (seq === revalidateSeq.current) apply();
+    };
+
+    validateSubmissionBusiness(selectedFile, editsSettled)
+      .then((result) =>
+        settle(() => {
+          applyBusinessResult(result);
+          setValidatedEditsKey(key);
+          setStatus('done');
+        }),
+      )
+      .catch((error: unknown) =>
+        settle(() => {
+          const body = submissionErrorBody<SubmissionValidationResponse>(error);
+          if (body) {
+            // A 422 is a normal rejected verdict: show it as the current result.
+            applyBusinessResult(body);
+            setStatus('done');
+          } else {
+            setStatus('network-error');
+          }
+          // Either way these values have had their turn: marking them validated
+          // stops the indicator and hands the final say back to Submit, which
+          // re-validates server-side before anything is saved.
+          setValidatedEditsKey(key);
+        }),
+      );
+  }, [
+    editsSettled,
+    editsKey,
+    validatedEditsKey,
+    selectedFile,
+    submission,
+    isBusy,
+    hasClientFieldErrors,
+    applyBusinessResult,
+  ]);
 
   // Progress text shown by the inline loader for each in-flight phase.
   const loadingDescription = (): string => {
@@ -289,11 +433,27 @@ export function UploadSubmissionPage() {
 
   const setField = (key: keyof EditableFields, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
-    // Clear this field's stale errors as soon as the user edits it (both the
-    // client-side check and any server issue routed to it), so the red highlight
-    // lifts while they correct it — matching the report pages. The submit
-    // endpoint re-validates and re-surfaces anything still wrong.
-    setClientFieldErrors((prev) => (prev[key] ? { ...prev, [key]: '' } : prev));
+
+    const next = { ...fields, [key]: value };
+
+    if (revalidationKeyOf(businessEdits(next)) !== revalidationKeyOf(businessEdits(fields))) {
+      revalidateSeq.current += 1;
+    }
+
+    // Re-run the client-side (required/pattern) check for the field being edited,
+    // so its inline error appears or lifts as the user types — matching the report
+    // pages. Only this field's error is read, so the other three values in `next`
+    // do not affect the outcome. The others keep whatever Submit last reported;
+    // scoping it this way also means the effect above can treat a standing client
+    // error as "don't bother the server yet".
+    const { fieldErrors } = splitMessages(
+      validateSubmissionMetadata(businessEdits(next)).messages,
+      SUBMISSION_METADATA_KEY_TO_FIELD,
+    );
+    setClientFieldErrors((prev) => ({ ...prev, [key]: fieldErrors[key] ?? '' }));
+    // Drop any server issue routed to this field too, so the red highlight lifts
+    // while they correct it. Submit stays blocked until the debounced
+    // re-validation lands a fresh verdict, which re-surfaces anything still wrong.
     setIssues((prev) => {
       if (!prev?.submissionFields[key]) return prev;
       const submissionFields = { ...prev.submissionFields };
@@ -628,6 +788,8 @@ export function UploadSubmissionPage() {
                     )}
                   </div>
                   <div className="upload-submission-page__actions">
+                    {/* Explains why Submit is briefly disabled after an edit. */}
+                    {revalidationPending && <InlineLoading description="Re-checking your changes…" />}
                     <Button kind="tertiary" size="md" onClick={handleClear} disabled={isBusy}>
                       Clear
                     </Button>

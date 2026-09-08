@@ -73,6 +73,7 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.type.invalid.error': 'invoiceType',
   'invoice.type.not.saleorpurchase.warning': 'invoiceType',
   'invoice.type.invalid.submitter': 'invoiceType',
+  'invoice.maturity.required.error': 'maturity',
   'invoice.maturity.invalid.error': 'maturity',
   'invoice.fob.required.error': 'locationFOB',
   'invoice.totalamount.negative.error': 'totalAmount',
@@ -82,6 +83,8 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.totalpieces.negative.error': 'totalPieces',
   'invoice.totalpieces.dismatch.warning': 'totalPieces',
   'invoice.submitter.not.equal.seller.client.number.error': 'sellerClientNumber',
+  'invoice.number.required.error': 'invoiceNumber',
+  'invoice.number.pattern.error': 'invoiceNumber',
   'invoice.number.duplicate.same.type.warning': 'invoiceNumber',
 
   // ── Detail-card fields (shown in the expanded "Invoice details" card) ──────
@@ -118,9 +121,11 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
 
 /** Maps a business-validation message key to the line-item-table column. */
 export const LINE_KEY_TO_FIELD: Record<string, string> = {
+  'invoice.species.required.error': 'species',
   'invoice.species.grade.combination.error': 'species',
   'invoice.grade.invalid.required.error': 'grade',
   'invoice.grade.z.warning': 'grade',
+  'invoice.secondry.sortcode.required.error': 'secondarySortCode',
   'invoice.secondry.sortcode.invalid.error': 'secondarySortCode',
   'invoice.numberof.pieces.negative.or.zero.error': 'numberOfPieces',
   'invoice.volume.negative.value.error': 'volume',
@@ -133,9 +138,12 @@ export const LINE_KEY_TO_FIELD: Record<string, string> = {
  * Maps a submission-level message key to the metadata field(s) it should
  * highlight. A key may target more than one field (e.g. the submitter
  * client-number + location combination is one message about two fields).
+ *
+ * Only messages the backend raises from a `SubmissionRule` reach here — those
+ * carry the bare "submission" locator. Anything raised per invoice or per line
+ * is attributed to that row instead, via INVOICE_KEY_TO_FIELD / LINE_KEY_TO_FIELD.
  */
-export const SUBMISSION_KEY_TO_FIELD: Record<string, string | string[]> = {
-  'invoice.month.completed.warning': 'monthComplete',
+export const SUBMISSION_KEY_TO_FIELD: Record<string, string[]> = {
   'invoice.submitter.client.location.invalid.error': ['submissionClientNumber', 'submissionClientLocnCode'],
 };
 
@@ -249,12 +257,11 @@ const addToRow = (rowIssues: RowIssues, field: string | undefined, issue: CellIs
 
 /** Routes a submission-level message to its mapped field(s), or the banner list. */
 const addSubmissionIssue = (result: MappedIssues, messageKey: string, issue: CellIssue): void => {
-  const mapped = SUBMISSION_KEY_TO_FIELD[messageKey];
-  if (!mapped) {
+  const fields = SUBMISSION_KEY_TO_FIELD[messageKey];
+  if (!fields) {
     result.formIssues.push(issue);
     return;
   }
-  const fields = Array.isArray(mapped) ? mapped : [mapped];
   for (const field of fields) {
     result.submissionFields[field] ??= [];
     result.submissionFields[field].push(issue);
