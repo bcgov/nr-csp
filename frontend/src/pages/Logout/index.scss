@@ -1,27 +1,141 @@
+@use '../../styles/variables' as vars;
+@use '@bcgov-nr/nr-theme/design-tokens/colors.scss' as colors;
+@use '@carbon/react/scss/breakpoint' as *;
 @use '@carbon/react/scss/spacing' as *;
-@use '@carbon/type';
+@use '@carbon/type/scss/scale' as scale;
+
+// Carbon's UI shell header is a fixed 3rem strip, so the page body has to clear it.
+$header-height: 3rem;
 
 .logout-page {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  gap: 7rem;
+  min-height: calc(100vh - #{$header-height});
+  margin-top: $header-height;
+  padding: $spacing-07;
+  // Carbon's <Theme> wrapper paints g10's grey `background` behind the app;
+  // every surface this app actually shows is white (see styles/_overrides.scss),
+  // and the design calls for white here too. The dark illustration is retinted
+  // against g100's true page ground, so g100 uses that rather than a layer.
+  background-color: colors.$white;
+
+  // The illustration ships as two files: the artwork as drawn, and a dark
+  // variant. Two of its fills are near-white by design — the ground shadow and
+  // the ring around the check — so on g100 the original is the brightest thing
+  // on the page. They differ only in those two fills:
+  //   #eaf1fe -> #252b38 (ground shadow), #def1e4 -> #1b211c (check glow)
+  //
+  // Source is the design's own 484x516 bitmap with its white page background
+  // removed. It renders here at roughly 1.36x, so it is soft on hi-dpi screens;
+  // a higher-resolution export would drop straight in. Both files must stay the
+  // same pixel size — `aspect-ratio` tracks it.
+  &__illustration {
+    flex: 0 1 auto;
+    inline-size: 32rem;
+    max-inline-size: 100%;
+    aspect-ratio: 373 / 292;
+    background: url('../../assets/img/logout-illustration.png') center / contain no-repeat;
+  }
 
   &__content {
-    text-align: center;
-    max-width: 40rem;
-    padding: $spacing-09 $spacing-07;
+    flex: 0 1 auto;
+    // Wide enough to keep "You've successfully" on one line, narrow enough to
+    // push "logged out" onto the next — the two-line break the design calls for.
+    max-inline-size: 42rem;
   }
 
   &__heading {
-    @include type.type-style('expressive-heading-05', true);
-    margin-bottom: $spacing-06;
+    font-size: scale.type-scale(15);
+    font-weight: 300;
+    line-height: 1.07;
+    letter-spacing: 0;
     color: var(--cds-text-primary);
+    margin-block-end: $spacing-07;
   }
 
   &__body {
-    @include type.type-style('body-long-02', true);
+    font-size: scale.type-scale(7);
+    font-weight: 400;
+    line-height: 1.25;
     color: var(--cds-text-secondary);
-    margin-bottom: $spacing-07;
+    margin-block-end: $spacing-08;
+  }
+
+  // Carbon reserves 63px of end padding for the icon and sizes the button to
+  // its content; the design instead pins the icon to the far edge of a
+  // fixed-width button with even 1rem gutters. Qualifying with Carbon's own
+  // class outweighs its single-class rule regardless of stylesheet order.
+  &__action.#{vars.$bcgov-prefix}--btn {
+    inline-size: 21rem;
+    max-inline-size: 100%;
+    padding-inline-end: calc(#{$spacing-05} - 1px);
+  }
+
+  @include breakpoint-down(xlg) {
+    gap: 4rem;
+
+    &__illustration {
+      inline-size: 24rem;
+    }
+
+    &__content {
+      max-inline-size: 34rem;
+    }
+
+    &__heading {
+      font-size: scale.type-scale(13);
+      line-height: 1.1;
+    }
+
+    &__body {
+      font-size: scale.type-scale(6);
+    }
+  }
+
+  // Too narrow for two columns: stack them into one centred block, with the
+  // copy still left-aligned inside it as the design has it.
+  @include breakpoint-down(lg) {
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-08;
+    padding: $spacing-08 $spacing-06;
+
+    &__illustration {
+      inline-size: 22rem;
+    }
+  }
+
+  @include breakpoint-down(md) {
+    gap: $spacing-07;
+    padding: $spacing-07 $spacing-05;
+
+    &__illustration {
+      inline-size: 16rem;
+    }
+
+    &__heading {
+      font-size: scale.type-scale(11);
+      line-height: 1.15;
+      margin-block-end: $spacing-06;
+    }
+
+    &__body {
+      font-size: scale.type-scale(5);
+      margin-block-end: $spacing-07;
+    }
+
+    &__action.#{vars.$bcgov-prefix}--btn {
+      inline-size: 100%;
+    }
+  }
+
+  :root[data-carbon-theme='g100'] & {
+    background-color: var(--cds-background);
+
+    .logout-page__illustration {
+      background-image: url('../../assets/img/logout-illustration-dark.png');
+    }
   }
 }
