@@ -58,10 +58,17 @@ describe('HeaderPanelProfile', () => {
     expect(screen.queryByText(/^IDIR:/)).not.toBeInTheDocument();
   });
 
-  it('falls back to the username when there is no display name', () => {
-    arrange({ ...baseUser, displayName: undefined });
-    expect(screen.getByText('jdoe')).toBeInTheDocument();
+  it('falls back to the IDIR username (never the raw Cognito username) when there is no display name', () => {
+    const { container } = arrange({ ...baseUser, displayName: undefined });
+    expect(container.querySelector('.header-panel-profile-name')).toHaveTextContent('JDOE');
+    expect(screen.queryByText('jdoe')).not.toBeInTheDocument();
     expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the email local part when there is no display name or IDIR username', () => {
+    const { container } = arrange({ ...baseUser, displayName: undefined, idirUsername: undefined });
+    expect(container.querySelector('.header-panel-profile-name')).toHaveTextContent('jane.doe');
+    expect(screen.queryByText('jdoe')).not.toBeInTheDocument();
   });
 
   it('renders without crashing when there is no user', () => {

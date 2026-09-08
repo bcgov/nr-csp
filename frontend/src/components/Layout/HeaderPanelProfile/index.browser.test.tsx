@@ -57,11 +57,12 @@ describe('HeaderPanelProfile', () => {
     expect(mockSignOut).toHaveBeenCalled();
   });
 
-  it('falls back to username when displayName is absent', () => {
+  it('falls back to the email local part, never the raw username, when displayName is absent', () => {
     vi.mocked(useAuth).mockReturnValue(
-      makeAuthValue({ username: 'fallback-user', email: 'x@x.com', roles: [], privileges: [] }),
+      makeAuthValue({ username: 'dev-idir_abc@idir', email: 'jsmith@gov.bc.ca', roles: [], privileges: [] }),
     );
     render(<HeaderPanelProfile />);
-    expect(screen.getByText('fallback-user')).toBeInTheDocument();
+    expect(screen.getByText('jsmith')).toBeInTheDocument();
+    expect(screen.queryByText('dev-idir_abc@idir')).not.toBeInTheDocument();
   });
 });
