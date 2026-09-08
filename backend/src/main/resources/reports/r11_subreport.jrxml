@@ -3,8 +3,6 @@
 	<property name="ireport.zoom" value="1.5"/>
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
-	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R11"/>
-	<property name="ireport.jasperserver.url" value="http://localhost:8080/jasperserver/services/repository"/>
 	<style name="Crosstab Data Text" hTextAlign="Center" hImageAlign="Center">
 		<conditionalStyle forecolor="#BF3F3F">
 			<conditionExpression><![CDATA[!$P{MODELING_CODE}.equals("P")]]></conditionExpression>

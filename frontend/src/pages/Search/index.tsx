@@ -298,13 +298,14 @@ export function SearchPage() {
                 labelText="Submitter client number"
                 placeholder="Submitter client number"
                 value={submitterClientNumInput}
+                maxLength={8}
+                // Digits only, capped at 8. The field deliberately does NOT
+                // zero-pad what it holds: padding a short entry to the full 8
+                // made the field permanently full, so every later keystroke was
+                // truncated away and the field looked like it had stopped
+                // accepting input. SearchService zero-pads client numbers
+                // server-side, so "99" and "00000099" search identically.
                 onChange={(e) => setSubmitterClientNumInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                onBlur={(e) => {
-                  const val = e.target.value.trim();
-                  if (val && /^\d+$/.test(val)) {
-                    setSubmitterClientNumInput(val.padStart(8, '0'));
-                  }
-                }}
               />
             </div>
             <div className="search-page__filter-item search-page__filter-item--double">

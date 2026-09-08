@@ -20,7 +20,7 @@ import {
   useGradeLookupQuery,
   useSubmissionStatusesQuery,
 } from '@/services/lookup.service';
-import { parseReportValidationError } from '@/services/reportValidation';
+import { parseReportErrorMessage, parseReportValidationError } from '@/services/reportValidation';
 import { splitMessages } from '@/validations/validationResult';
 import { useR13ReportMutation, type R13ShowOptions } from '@/services/r13.service';
 import { useEndDateAutoFill } from '@/hooks/useEndDateAutoFill';
@@ -45,6 +45,10 @@ const SUBMISSION_TYPE_ITEMS: SelectItem[] = [
   { id: 'Electronic', label: 'Electronic' },
   { id: 'Manual', label: 'Manual' },
 ];
+
+// The approval ID filters on csp_submission.submission_id, a NUMBER(10) column —
+// the same cap the other report pages put on their submission number field.
+const APPROVAL_ID_MAX_LENGTH = 10;
 
 const MATURITY_ITEMS: LookupItemResponse[] = [
   { code: 'O', description: 'Old Growth' },
@@ -177,9 +181,10 @@ const FilterRow = ({ label, showKey, showValue, onShowChange, children }: Filter
 // 5-column table row: label | Value (no header) | From | To | Show on report
 //
 // All three inputs are independent. Typical usage:
-//   • Value only → sent as an exact-match range (From = To = Value)
+//   • Value only → contains match, so % works as a wildcard (invoice number,
+//     which has no value parameter, is sent as an exact From = To = Value range)
 //   • From and/or To only → open- or closed-ended range
-//   • All three → Value is used as the exact-match; From / To are also sent
+//   • All three → both filters apply, and a row has to satisfy each of them
 
 interface RangeFilterRowProps {
   label: string;
@@ -303,14 +308,30 @@ export function R13AdHocReportingPage() {
   };
 
   // ── Range field request params ──────────────────────────────────────────
-  // Exact value → send as both From and To (= exact-match range).
-  const rangeToParams = (fromKey: string, toKey: string, rs: RangeState): Record<string, string> => {
-    if (rs.value.trim()) return { [fromKey]: rs.value.trim(), [toKey]: rs.value.trim() };
+  // Invoice number has no dedicated "value" parameter, so an exact value is sent
+  // as a closed from/to range — the report SQL compares it with >= and <=.
+  const invoiceNumberParams = (rs: RangeState): Record<string, string> => {
+    if (rs.value.trim()) return { invoiceNumberFrom: rs.value.trim(), invoiceNumberTo: rs.value.trim() };
     return {
-      ...(rs.from.trim() && { [fromKey]: rs.from.trim() }),
-      ...(rs.to.trim() && { [toKey]: rs.to.trim() }),
+      ...(rs.from.trim() && { invoiceNumberFrom: rs.from.trim() }),
+      ...(rs.to.trim() && { invoiceNumberTo: rs.to.trim() }),
     };
   };
+
+  // The other range rows filter on comma-aggregated columns. Their exact-value box
+  // maps to the dedicated "values" parameter, which the backend turns into a
+  // case-insensitive contains match — that is what makes % work as a wildcard.
+  // From / To are independent and are ANDed with the value when both are given.
+  const rangeToParams = (
+    valuesKey: string,
+    fromKey: string,
+    toKey: string,
+    rs: RangeState,
+  ): Record<string, string | string[]> => ({
+    ...(rs.value.trim() && { [valuesKey]: [rs.value.trim()] }),
+    ...(rs.from.trim() && { [fromKey]: rs.from.trim() }),
+    ...(rs.to.trim() && { [toKey]: rs.to.trim() }),
+  });
 
   // ── Build request ───────────────────────────────────────────────────────
   const buildRequest = (reportFormat: 'PDF' | 'CSV') => ({
@@ -333,11 +354,16 @@ export function R13AdHocReportingPage() {
     ...(filters.selectedInvoiceStatuses.length > 0 && {
       invoiceStatus: filters.selectedInvoiceStatuses.map((s) => s.code),
     }),
-    ...rangeToParams('invoiceNumberFrom', 'invoiceNumberTo', filters.invoiceNumber),
-    ...rangeToParams('invoiceReplacesAdjustsFrom', 'invoiceReplacesAdjustsTo', filters.replacesAdjusts),
-    ...rangeToParams('invoiceBoomNumberFrom', 'invoiceBoomNumberTo', filters.boomNumber),
-    ...rangeToParams('invoiceTimberMarkFrom', 'invoiceTimberMarkTo', filters.timberMark),
-    ...rangeToParams('invoiceWeighSlipFrom', 'invoiceWeighSlipTo', filters.weighSlip),
+    ...invoiceNumberParams(filters.invoiceNumber),
+    ...rangeToParams(
+      'invoiceReplacesAdjusts',
+      'invoiceReplacesAdjustsFrom',
+      'invoiceReplacesAdjustsTo',
+      filters.replacesAdjusts,
+    ),
+    ...rangeToParams('invoiceBoomNumbers', 'invoiceBoomNumberFrom', 'invoiceBoomNumberTo', filters.boomNumber),
+    ...rangeToParams('invoiceTimberMarks', 'invoiceTimberMarkFrom', 'invoiceTimberMarkTo', filters.timberMark),
+    ...rangeToParams('invoiceWeighSlips', 'invoiceWeighSlipFrom', 'invoiceWeighSlipTo', filters.weighSlip),
     ...(filters.sellerClient?.clientName && { sellerName: filters.sellerClient.clientName }),
     ...(filters.sellerClient?.clientNumber && { sellerNumbers: [filters.sellerClient.clientNumber] }),
     ...(filters.buyerClient?.clientName && { buyerName: filters.buyerClient.clientName }),
@@ -369,11 +395,19 @@ export function R13AdHocReportingPage() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
           return;
         }
-        addNotification(
-          isNoDataError(error)
-            ? { kind: 'warning', title: 'No data found. No records matched the selected criteria.' }
-            : { kind: 'error', title: 'Report generation failed.' },
-        );
+        if (isNoDataError(error)) {
+          addNotification({ kind: 'warning', title: 'No data found. No records matched the selected criteria.' });
+          return;
+        }
+        // A rejected field (e.g. a bad request parameter) comes back as a plain
+        // API error rather than the structured validation shape. Surface its
+        // message so the user can tell which input the server objected to.
+        const apiMessage = await parseReportErrorMessage(error);
+        addNotification({
+          kind: 'error',
+          title: 'Report generation failed.',
+          ...(apiMessage && { subtitle: apiMessage }),
+        });
       },
     });
   };
@@ -592,8 +626,16 @@ export function R13AdHocReportingPage() {
                 labelText=""
                 hideLabel
                 size="md"
+                placeholder="Digits only"
                 value={filters.approvalIdNumber}
-                onChange={(e) => set({ approvalIdNumber: e.target.value })}
+                invalid={!!fieldErrors.approvalIdNumber}
+                invalidText={fieldErrors.approvalIdNumber}
+                // The approval ID is a 10-digit numeric submission ID, so anything else
+                // is dropped as it is typed rather than accepted and rejected on submit.
+                onChange={(e) => {
+                  set({ approvalIdNumber: e.target.value.replace(/\D/g, '').slice(0, APPROVAL_ID_MAX_LENGTH) });
+                  clearFieldError('approvalIdNumber');
+                }}
               />
             </FilterRow>
 
@@ -638,7 +680,9 @@ export function R13AdHocReportingPage() {
         <h2>Invoice information</h2>
         <p className="r13-page__section-hint">
           Filter invoices by type or status using the dropdowns, or narrow by numeric identifier using an exact value or
-          a from/to range. For ranges, leave From or To empty for an open-ended range.
+          a from/to range. For ranges, leave From or To empty for an open-ended range. In the value box of the
+          Replaces&nbsp;/&nbsp;adjusts, Boom number, Timber mark and Weigh slip rows, a value matches anywhere in the
+          field, and <strong>%</strong> stands for any sequence of characters — <code>BM%99</code> matches BM1299.
         </p>
 
         {/* Dropdown rows */}
@@ -1028,8 +1072,6 @@ export function R13AdHocReportingPage() {
             />
           </div>
         </div>
-
-        {fieldErrors.showOptions && <p className="r13-page__show-error">{fieldErrors.showOptions}</p>}
       </div>
 
       {/* ── Action buttons ── */}

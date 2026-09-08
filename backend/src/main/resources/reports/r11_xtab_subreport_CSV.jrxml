@@ -3,10 +3,6 @@
 	<property name="ireport.zoom" value="2.357947691000002"/>
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
-	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R11_CSV"/>
-	<property name="ireport.jasperserver.url" value="https://d1apps.cgi-dev.ca/int/nrsrs/"/>
-	<property name="ireport.jasperserver.user" value="jasperadmin"/>
-	<property name="ireport.jasperserver.report.resource" value="/JCRS/CSP/Reports/R11_CSV_files/r11_xtab_subreport_CSV.jrxml"/>
 	<property name="com.jaspersoft.studio.report.unit.description" value="R11-AMV-Average Market Value report, CSV friendly version"/>
 	<property name="com.jaspersoft.studio.report.description" value="r11_xtab_subreport_CSV.jrxml"/>
 	<style name="Crosstab Data Text" hTextAlign="Center" hImageAlign="Center"/>

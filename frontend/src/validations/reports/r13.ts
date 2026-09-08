@@ -35,5 +35,8 @@ export function validateR13(
     messages.addError('report.r13.showcolumns.minimum.error');
   }
 
+  // The approval ID number needs no rule here: the field only accepts digits, and
+  // the backend validator still guards the API for non-UI callers.
+
   return messages.result();
 }

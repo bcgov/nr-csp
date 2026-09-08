@@ -3,10 +3,6 @@
 	<property name="ireport.zoom" value="1.2100000000000006"/>
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
-	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R06_CSV"/>
-	<property name="ireport.jasperserver.url" value="https://d1apps.cgi-dev.ca/int/nrsrs/"/>
-	<property name="ireport.jasperserver.user" value="jasperadmin"/>
-	<property name="ireport.jasperserver.report.resource" value="/JCRS/CSP/Reports/R06_CSV_files/r06_subreport2_CSV.jrxml"/>
 	<property name="com.jaspersoft.studio.report.unit.description" value="CSV friendly version of R06 Invoice Print Out Report"/>
 	<parameter name="COASTAL_LOG_SALE_ID" class="java.lang.String">
 		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
