@@ -13,6 +13,7 @@ describe('HeaderPanelProfile', () => {
 
   const baseUser: AuthUser = {
     username: 'jdoe',
+    idirUsername: 'JDOE',
     displayName: 'Jane Doe',
     email: 'jane.doe@gov.bc.ca',
     roles: ['CSP_SUBMITTER'],
@@ -28,10 +29,33 @@ describe('HeaderPanelProfile', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the display name and email of the signed-in user', () => {
+  it('shows the name, role, IDIR, email and avatar initials of the signed-in user', () => {
     arrange();
     expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+    expect(screen.getByText('Role: Admin')).toBeInTheDocument();
+    expect(screen.getByText('IDIR: JDOE')).toBeInTheDocument();
     expect(screen.getByText('jane.doe@gov.bc.ca')).toBeInTheDocument();
+    expect(screen.getByTestId('avatar-initials')).toHaveTextContent('JD');
+  });
+
+  it('shows the highest-precedence role when the user holds several', () => {
+    arrange({ ...baseUser, privileges: ['VIEW', 'ADMIN'] });
+    expect(screen.getByText('Role: Admin')).toBeInTheDocument();
+  });
+
+  it('maps each role constant to its label', () => {
+    arrange({ ...baseUser, privileges: ['APPROVE'] });
+    expect(screen.getByText('Role: Approver')).toBeInTheDocument();
+  });
+
+  it('omits the Role line when the user has no privileges', () => {
+    arrange({ ...baseUser, privileges: [] });
+    expect(screen.queryByText(/^Role:/)).not.toBeInTheDocument();
+  });
+
+  it('omits the IDIR line when there is no IDIR username', () => {
+    arrange({ ...baseUser, idirUsername: undefined });
+    expect(screen.queryByText(/^IDIR:/)).not.toBeInTheDocument();
   });
 
   it('falls back to the username when there is no display name', () => {
@@ -43,12 +67,13 @@ describe('HeaderPanelProfile', () => {
   it('renders without crashing when there is no user', () => {
     const { container } = arrange(null);
     expect(container.querySelector('.header-panel-profile-name')).toBeEmptyDOMElement();
-    expect(container.querySelector('.header-panel-profile-email')).toBeEmptyDOMElement();
+    expect(screen.queryByText(/^Role:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^IDIR:/)).not.toBeInTheDocument();
   });
 
-  it('signs the user out when the sign out button is clicked', () => {
+  it('logs the user out when the Log out row is clicked', () => {
     arrange();
-    fireEvent.click(screen.getByRole('button', { name: /sign out/i }));
+    fireEvent.click(screen.getByRole('button', { name: /log out/i }));
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 });

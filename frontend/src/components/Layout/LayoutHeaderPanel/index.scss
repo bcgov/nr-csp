@@ -4,8 +4,23 @@
 @use '@carbon/react/scss/theme' as *;
 @use '@bcgov-nr/nr-theme/design-tokens/colors.scss' as colors;
 
+// Sits below the panel but above app content and the side nav. Offset by the
+// 3rem header height so the header stays bright, matching the design.
+.profile-panel-overlay {
+  position: fixed;
+  inset-block: $spacing-09 0;
+  inset-inline: 0;
+  z-index: 9000;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
 .profile-panel {
-  inline-size: 20rem !important;
+  inline-size: 24rem !important;
+  z-index: 9001 !important;
   background-color: var(--#{vars.$bcgov-prefix}-layer-02);
   color: var(--#{vars.$bcgov-prefix}-text-primary);
   transition: width 0.11s cubic-bezier(0.2, 0, 1, 0.9);
@@ -18,4 +33,11 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
+
+  // "My profile" is a regular-weight, black heading in the design (Carbon's
+  // HeaderPanel otherwise renders its text grey).
+  h4 {
+    font-weight: 400;
+    color: var(--#{vars.$bcgov-prefix}-text-primary);
+  }
 }

@@ -9,10 +9,11 @@ import { HeaderPanelProfile } from './index';
 const mockSignOut = vi.fn();
 const mockUser: AuthUser = {
   username: 'jdoe',
+  idirUsername: 'JDOE',
   displayName: 'Jane Doe',
   email: 'jane@example.com',
-  roles: [],
-  privileges: [],
+  roles: ['CSP_ADMIN'],
+  privileges: ['ADMIN'],
 };
 
 const makeAuthValue = (user: AuthUser): AuthContextValue => ({
@@ -44,9 +45,15 @@ describe('HeaderPanelProfile', () => {
     expect(screen.getByText('jane@example.com')).toBeInTheDocument();
   });
 
-  it('calls signOut when Sign out is clicked', () => {
+  it('renders the role and IDIR', () => {
     render(<HeaderPanelProfile />);
-    fireEvent.click(screen.getByText('Sign out'));
+    expect(screen.getByText('Role: Admin')).toBeInTheDocument();
+    expect(screen.getByText('IDIR: JDOE')).toBeInTheDocument();
+  });
+
+  it('calls signOut when Log out is clicked', () => {
+    render(<HeaderPanelProfile />);
+    fireEvent.click(screen.getByText('Log out'));
     expect(mockSignOut).toHaveBeenCalled();
   });
 
