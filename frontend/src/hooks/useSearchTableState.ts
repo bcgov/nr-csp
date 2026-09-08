@@ -51,8 +51,9 @@ export function useSearchTableState<TFilters extends object>(
   const [sortParam, setSortParam] = usePersistentState<string | undefined>(namespace, 'sort', undefined);
   const [keyword, setKeyword] = usePersistentState(namespace, 'keyword', '');
 
-  // ResultsTable owns its sort direction and keyword input internally, and neither can be
-  // cleared through props — bumping this key remounts it, which resets both.
+  // ResultsTable owns its sort direction internally and it cannot be cleared through
+  // props — bumping this key remounts it, which resets it. Its keyword input re-seeds
+  // itself from `searchKeyword`, so that one is already covered by `setKeyword('')`.
   const [tableKey, setTableKey] = useState(0);
 
   // Returns the results table to its default, pre-search state. Without this, clearing the

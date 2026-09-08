@@ -46,7 +46,7 @@ export function validateFlatPriceConversionForm(values: FormValues): FormErrors 
   if (!values.maturity.trim()) errors.maturity = 'Maturity is required.';
 
   if (!values.flatPriceConversion.trim()) {
-    errors.flatPriceConversion = 'Flat price conversion is required.';
+    errors.flatPriceConversion = 'Relative price is required.';
   } else {
     const num = Number(values.flatPriceConversion);
     if (Number.isNaN(num) || !Number.isInteger(num) || num < 1 || num > 999) {

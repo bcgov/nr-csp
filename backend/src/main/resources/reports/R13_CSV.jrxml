@@ -3,8 +3,6 @@
 	<property name="ireport.zoom" value="2.1961500000000007"/>
 	<property name="ireport.x" value="0"/>
 	<property name="ireport.y" value="0"/>
-	<property name="ireport.jasperserver.reportUnit" value="/reports/CSP/R13"/>
-	<property name="ireport.jasperserver.url" value="http://d-yyj0132.vic.cgi.com:8080/jasperserver/services/repository"/>
 	<property name="com.jaspersoft.jrs.export.csv.paginated" value="false"/>
 	<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
 	<parameter name="USER_NAME" forPrompting="false" class="java.lang.String"/>

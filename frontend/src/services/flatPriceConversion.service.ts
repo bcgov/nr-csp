@@ -84,11 +84,11 @@ export const copyFlatPriceConversions = (req: CopyFlatPriceConversionRequest): P
 export const clearFlatPriceConversions = (modellingCode: string): Promise<void> =>
   apiClient.delete(`/flat-price-conversions/clear/${modellingCode}`).then(() => undefined);
 
-export const useSearchFlatPriceConversionsQuery = (params: SearchFlatPriceConversionParams) =>
+export const useSearchFlatPriceConversionsQuery = (params: SearchFlatPriceConversionParams, enabled = true) =>
   useQuery({
     queryKey: [...QUERY_KEY, params],
     queryFn: () => searchFlatPriceConversions(params),
-    enabled: !!params.modellingCode,
+    enabled: enabled && !!params.modellingCode,
   });
 
 export const useCreateFlatPriceConversionMutation = () => {

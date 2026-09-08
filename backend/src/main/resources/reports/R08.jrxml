@@ -4,10 +4,7 @@
 	<property name="ireport.x" value="41"/>
 	<property name="ireport.y" value="0"/>
 	<property name="ireport.callouts" value="##Wed Feb 05 13:03:00 AST 2014"/>
-	<property name="ireport.jasperserver.reportUnit" value="/JCRS/CSP/Reports/R08"/>
-	<property name="ireport.jasperserver.url" value="http://d-yyj0004.vic.cgi.com:8080/jasperserver/"/>
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="CSP_ISP_Adapter"/>
-	<property name="ireport.jasperserver.user" value="cspuser"/>
 	<property name="com.jaspersoft.studio.report.unit.description" value="R08 Invoice Audit Report - PDF friendly"/>
 	<property name="com.jaspersoft.studio.report.description" value="Main jrxml"/>
 	<parameter name="INVOICE_DATE_FROM" class="java.lang.String"/>

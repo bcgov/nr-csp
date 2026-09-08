@@ -140,6 +140,14 @@ describe('useSearchFlatPriceConversionsQuery', () => {
     expect(apiClient.get).not.toHaveBeenCalled();
   });
 
+  it('does not fetch while disabled', async () => {
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useSearchFlatPriceConversionsQuery({ modellingCode: 'P' }, false), { wrapper });
+
+    await waitFor(() => expect(result.current.fetchStatus).toBe('idle'));
+    expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
   it('fetches rows for the selected modelling code', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: [ROW] });
     const { wrapper } = createWrapper();

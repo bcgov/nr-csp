@@ -75,6 +75,87 @@ describe('ResultsTable', () => {
     expect(onSearchKeywordChange).toHaveBeenCalledWith('alp');
   });
 
+  it('clears the committed keyword when the bar is emptied without pressing Enter', async () => {
+    const onSearchKeywordChange = vi.fn();
+    render(
+      <ResultsTable rows={rows} columns={columns} searchKeyword="tree" onSearchKeywordChange={onSearchKeywordChange} />,
+    );
+    const box = screen.getByRole('searchbox');
+    await userEvent.clear(box);
+    // Emptying the bar must drop the filter even though Enter was never pressed —
+    // otherwise a later Search still filters by the stale keyword.
+    expect(onSearchKeywordChange).toHaveBeenCalledWith('');
+  });
+
+  it('does not commit when the bar is emptied but no keyword was applied', async () => {
+    const onSearchKeywordChange = vi.fn();
+    render(
+      <ResultsTable rows={rows} columns={columns} searchKeyword="" onSearchKeywordChange={onSearchKeywordChange} />,
+    );
+    // Typing then deleting with nothing applied must stay silent: consumers reset
+    // the page on commit, so an empty commit here would kick the user to page 1.
+    await userEvent.type(screen.getByRole('searchbox'), 'oa');
+    await userEvent.clear(screen.getByRole('searchbox'));
+    expect(onSearchKeywordChange).not.toHaveBeenCalled();
+  });
+
+  it('does not commit a partially typed keyword before Enter', async () => {
+    const onSearchKeywordChange = vi.fn();
+    render(
+      <ResultsTable rows={rows} columns={columns} searchKeyword="" onSearchKeywordChange={onSearchKeywordChange} />,
+    );
+    await userEvent.type(screen.getByRole('searchbox'), 'alp');
+    expect(onSearchKeywordChange).not.toHaveBeenCalled();
+  });
+
+  it('commits a typed keyword when focus leaves the bar, so Search applies what it shows', async () => {
+    const onSearchKeywordChange = vi.fn();
+    render(
+      <>
+        <ResultsTable rows={rows} columns={columns} searchKeyword="" onSearchKeywordChange={onSearchKeywordChange} />
+        <button type="button">Search</button>
+      </>,
+    );
+    await userEvent.type(screen.getByRole('searchbox'), 'oak');
+    expect(onSearchKeywordChange).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(onSearchKeywordChange).toHaveBeenCalledWith('oak');
+  });
+
+  it("keeps the draft uncommitted while focus moves to the bar's own clear button", async () => {
+    const onSearchKeywordChange = vi.fn();
+    render(
+      <ResultsTable rows={rows} columns={columns} searchKeyword="" onSearchKeywordChange={onSearchKeywordChange} />,
+    );
+    await userEvent.type(screen.getByRole('searchbox'), 'oak');
+    // Tab lands on the clear button, which is inside the bar — committing here
+    // would fire a query for a keyword that is about to be thrown away.
+    await userEvent.tab();
+    expect(onSearchKeywordChange).not.toHaveBeenCalled();
+  });
+
+  it('does not re-commit an unchanged keyword when focus leaves', async () => {
+    const onSearchKeywordChange = vi.fn();
+    render(
+      <>
+        <ResultsTable rows={rows} columns={columns} searchKeyword="oak" onSearchKeywordChange={onSearchKeywordChange} />
+        <button type="button">Search</button>
+      </>,
+    );
+    await userEvent.click(screen.getByRole('searchbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(onSearchKeywordChange).not.toHaveBeenCalled();
+  });
+
+  it('re-seeds the bar when the applied keyword is reset from outside', () => {
+    const { rerender } = render(
+      <ResultsTable rows={rows} columns={columns} searchKeyword="oak" onSearchKeywordChange={vi.fn()} />,
+    );
+    expect(screen.getByRole('searchbox')).toHaveValue('oak');
+    rerender(<ResultsTable rows={rows} columns={columns} searchKeyword="" onSearchKeywordChange={vi.fn()} />);
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+  });
+
   it('renders a provided footer row', () => {
     render(
       <ResultsTable

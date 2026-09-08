@@ -15,7 +15,6 @@ apt2-war.iml
 **build.xml**
 **ivy.xml**
 **/context.xml
-jasper-staging/
 
 # Polaris pipeline stuff to ginore
 playbooks/collections/
