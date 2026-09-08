@@ -25,6 +25,7 @@ public class R13Validator {
 
         validateShowOptions(r);
         validateFilterRequirement(r);
+        validateSubmissionNumber(r);
         validateDateOrdering(r);
         validateClientInfo(r.getSellerNumbers(), r.getSellerName());
         validateClientInfo(r.getBuyerNumbers(), r.getBuyerName());
@@ -55,6 +56,21 @@ public class R13Validator {
                              || !isBlank(r.getBuyerName());
         if (!hasDateRange && !hasSubmission && !hasClient) {
             addError("R13 requires at least one of: invoice date range, submission number/month-year/entry user, or seller/buyer client");
+        }
+    }
+
+    // ── Submission number (the UI's "Approval ID number") ─────────────────────
+
+    /**
+     * The submission number is compared against a numeric column, so a non-numeric value would
+     * otherwise blow up during the report fill with an unhelpful "report generation failed".
+     * Reported with the shared message key R07/R08 use, so it reaches the client as a resolved,
+     * user-facing message rather than a raw bean-validation string.
+     */
+    private void validateSubmissionNumber(R13ReportRequest r) {
+        String submissionNumber = r.getSubmissionNumber();
+        if (!isBlank(submissionNumber) && !submissionNumber.trim().matches("\\d+")) {
+            addError("report.submissionnumber.numeric.error");
         }
     }
 
