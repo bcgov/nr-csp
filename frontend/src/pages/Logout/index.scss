@@ -21,22 +21,43 @@ $header-height: 3rem;
   // against g100's true page ground, so g100 uses that rather than a layer.
   background-color: colors.$white;
 
-  // The illustration ships as two files: the artwork as drawn, and a dark
-  // variant. Two of its fills are near-white by design — the ground shadow and
-  // the ring around the check — so on g100 the original is the brightest thing
-  // on the page. They differ only in those two fills:
-  //   #eaf1fe -> #252b38 (ground shadow), #def1e4 -> #1b211c (check glow)
-  //
-  // Source is the design's own 484x516 bitmap with its white page background
-  // removed. It renders here at roughly 1.36x, so it is soft on hi-dpi screens;
-  // a higher-resolution export would drop straight in. Both files must stay the
-  // same pixel size — `aspect-ratio` tracks it.
+  // Each illustration ships as a pair: the artwork as drawn, and a dark variant.
+  // Their ground shadow is near-white by design (#eaf1fe), so on g100 the
+  // original would be the brightest thing on the page; the dark file retints
+  // just that (-> #252b38, plus #def1e4 -> #1b211c for the check glow on the
+  // signed-out one). Both are the design's own bitmaps with the white page
+  // background removed. Size and artwork come from the variant modifiers below.
   &__illustration {
     flex: 0 1 auto;
-    inline-size: 32rem;
+    inline-size: var(--logout-illustration-size, 32rem);
     max-inline-size: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+  }
+
+  // Deliberate sign-out. Source artwork is 373x292 and renders at roughly 1.36x,
+  // so it is soft on hi-dpi screens; a higher-resolution export drops straight in.
+  &--signed-out &__illustration {
     aspect-ratio: 373 / 292;
-    background: url('../../assets/img/logout-illustration.png') center / contain no-repeat;
+    background-image: url('../../assets/img/logout-illustration.png');
+  }
+
+  // Expired session. This artwork is 495x385, which is 1:1 at the size the
+  // design shows it, so it needs no upscaling.
+  &--expired {
+    --logout-illustration-size: 31rem;
+
+    .logout-page__content {
+      // Wider than the signed-out variant so "You've been signed" stays on one
+      // line and only "out" wraps, as the design has it.
+      max-inline-size: 43rem;
+    }
+  }
+
+  &--expired &__illustration {
+    aspect-ratio: 497 / 387;
+    background-image: url('../../assets/img/session-expired-illustration.png');
   }
 
   &__content {
@@ -60,7 +81,14 @@ $header-height: 3rem;
     font-weight: 400;
     line-height: 1.25;
     color: var(--cds-text-secondary);
-    margin-block-end: $spacing-08;
+    // Line breaks inside a paragraph come from the copy itself.
+    white-space: pre-line;
+    margin-block-end: $spacing-07;
+
+    // The gap before the button is larger than the gap between paragraphs.
+    &:last-of-type {
+      margin-block-end: $spacing-08;
+    }
   }
 
   // Carbon reserves 63px of end padding for the icon and sizes the button to
@@ -134,8 +162,14 @@ $header-height: 3rem;
   :root[data-carbon-theme='g100'] & {
     background-color: var(--cds-background);
 
-    .logout-page__illustration {
+    // `&` here is `.logout-page`, and the variant modifier sits on that same
+    // element, so these must be compounded rather than nested as descendants.
+    &.logout-page--signed-out .logout-page__illustration {
       background-image: url('../../assets/img/logout-illustration-dark.png');
+    }
+
+    &.logout-page--expired .logout-page__illustration {
+      background-image: url('../../assets/img/session-expired-illustration-dark.png');
     }
   }
 }

@@ -15,7 +15,7 @@ export const HeaderPanelProfile: FC = () => {
         <p className="header-panel-profile-name">{user?.displayName ?? user?.username}</p>
         <p className="header-panel-profile-email">{user?.email}</p>
       </div>
-      <Button kind="ghost" renderIcon={Logout} iconDescription="Sign out" onClick={signOut}>
+      <Button kind="ghost" renderIcon={Logout} iconDescription="Sign out" onClick={() => void signOut()}>
         Sign out
       </Button>
     </div>
