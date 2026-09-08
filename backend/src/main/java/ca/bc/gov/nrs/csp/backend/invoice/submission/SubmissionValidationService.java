@@ -64,8 +64,9 @@ public class SubmissionValidationService {
    * structural errors since business rules cannot run on an unparseable document.
    */
   public SubmissionValidationResult validateBusiness(byte[] xml) {
-    StructuralValidationService.ValidationOutcome structural =
-        structuralValidationService.validateAndParse(xml);
+    // Through parse(), not the structural service directly, so this entry point
+    // cannot drift from the one the controller uses — it canonicalises the tree.
+    StructuralValidationService.ValidationOutcome structural = parse(xml);
     if (!structural.result().valid() || structural.submission() == null) {
       return structural.result();
     }

@@ -432,13 +432,20 @@ export function UploadSubmissionPage() {
   };
 
   const setField = (key: keyof EditableFields, value: string) => {
+    setFields((prev) => ({ ...prev, [key]: value }));
+
     const next = { ...fields, [key]: value };
-    setFields(next);
+
+    if (revalidationKeyOf(businessEdits(next)) !== revalidationKeyOf(businessEdits(fields))) {
+      revalidateSeq.current += 1;
+    }
+
     // Re-run the client-side (required/pattern) check for the field being edited,
     // so its inline error appears or lifts as the user types — matching the report
-    // pages. Only this field's error is touched: the others keep whatever Submit
-    // last reported. Scoping it this way also means the effect above can treat a
-    // standing client error as "don't bother the server yet".
+    // pages. Only this field's error is read, so the other three values in `next`
+    // do not affect the outcome. The others keep whatever Submit last reported;
+    // scoping it this way also means the effect above can treat a standing client
+    // error as "don't bother the server yet".
     const { fieldErrors } = splitMessages(
       validateSubmissionMetadata(businessEdits(next)).messages,
       SUBMISSION_METADATA_KEY_TO_FIELD,

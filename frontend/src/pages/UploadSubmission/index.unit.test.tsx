@@ -406,6 +406,52 @@ describe('UploadSubmissionPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled(), { timeout: TIMEOUT });
   });
 
+  it('ignores a re-validation the user has already edited past', async () => {
+    // Edit, then revert while the request is still out. The answer that lands
+    // describes a value the form no longer holds, so it must be dropped: applying
+    // it would paint errors on a value the user has already put back.
+    const rejected = makeValidation({
+      valid: false,
+      code: 'REJECTED',
+      acceptedInvoices: [],
+      rejectedInvoices: ['INV-001'],
+      errors: [
+        msg(
+          'invoice.submitter.client.location.invalid.error',
+          'submission: Submitter client/location invalid.',
+          'ERROR',
+        ),
+      ],
+    });
+    let landStaleResponse: (result: SubmissionValidationResponse) => void = () => {};
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValueOnce(makeValidation()).mockImplementationOnce(
+      () =>
+        new Promise<SubmissionValidationResponse>((resolve) => {
+          landStaleResponse = resolve;
+        }),
+    );
+
+    await uploadAndSettle();
+    await screen.findByText('sub.xml was uploaded with no issues found.');
+
+    const clientInput = screen.getByLabelText('Submission Client Number');
+    fireEvent.change(clientInput, { target: { value: '99998888' } });
+    await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(2), { timeout: TIMEOUT });
+
+    // Back to the value the displayed verdict was produced from, before the
+    // in-flight request answers.
+    fireEvent.change(clientInput, { target: { value: '12345678' } });
+    landStaleResponse(rejected);
+    await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_SETTLE_MS));
+
+    expect(screen.queryByText('Submitter client/location invalid.')).not.toBeInTheDocument();
+    expect(await screen.findByText('sub.xml was uploaded with no issues found.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+    // Reverting matches the last validated values, so nothing is re-requested.
+    expect(mockValidate).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps Submit blocked when re-validation still rejects the submission', async () => {
     const rejected = makeValidation({
       valid: false,
