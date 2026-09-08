@@ -7,6 +7,7 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmissionType;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class IdentifierNormalizerTest {
 
@@ -119,9 +120,10 @@ class IdentifierNormalizerTest {
   @Test
   void ignores_a_tree_that_is_not_a_submission() {
     // The structural phase hands the tree back as Object and leaves it null on a
-    // parse failure; neither case is an error here.
-    normalizer.normalizeSubmission(null);
-    normalizer.normalizeSubmission("not a submission");
+    // parse failure, so both reach here; tolerating them is the whole behaviour
+    // under test, which is why the assertions are on the absence of a throw.
+    assertThatCode(() -> normalizer.normalizeSubmission(null)).doesNotThrowAnyException();
+    assertThatCode(() -> normalizer.normalizeSubmission("not a submission")).doesNotThrowAnyException();
   }
 
   private static CSPInvoiceType codedInvoice(String number, String type, String species) {
