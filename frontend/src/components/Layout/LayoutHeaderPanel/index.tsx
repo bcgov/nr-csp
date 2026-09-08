@@ -19,6 +19,7 @@ export const LayoutHeaderPanel: FC = () => {
         type="button"
         aria-label="Close profile panel"
         className="profile-panel-overlay"
+        tabIndex={-1}
         onClick={closeHeaderPanel}
       />
       <HeaderPanel aria-label="User Profile" className="profile-panel">

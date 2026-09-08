@@ -6,11 +6,13 @@
 
 // Sits below the panel but above app content and the side nav. Offset by the
 // 3rem header height so the header stays bright, matching the design.
+// z-index stays within the 8000 (Carbon ui-shell header/side-nav) layer, below
+// the 9000 modal / 9001 toast layer documented in Layout/index.scss.
 .profile-panel-overlay {
   position: fixed;
   inset-block: $spacing-09 0;
   inset-inline: 0;
-  z-index: 9000;
+  z-index: 8001;
   margin: 0;
   padding: 0;
   border: 0;
@@ -20,7 +22,7 @@
 
 .profile-panel {
   inline-size: 24rem !important;
-  z-index: 9001 !important;
+  z-index: 8002 !important;
   background-color: var(--#{vars.$bcgov-prefix}-layer-02);
   color: var(--#{vars.$bcgov-prefix}-text-primary);
   transition: width 0.11s cubic-bezier(0.2, 0, 1, 0.9);
