@@ -33,13 +33,19 @@ describe('LayoutHeaderPanel', () => {
 
   it('renders the profile panel with its title when open', () => {
     arrange();
-    expect(screen.getByRole('heading', { name: 'My Profile' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'My profile' })).toBeInTheDocument();
     expect(screen.getByTestId('header-panel-profile')).toBeInTheDocument();
   });
 
   it('closes the panel when the close button is clicked', () => {
     arrange();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(closeHeaderPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the panel when the background overlay is clicked', () => {
+    arrange();
+    fireEvent.click(screen.getByRole('button', { name: 'Close profile panel' }));
     expect(closeHeaderPanel).toHaveBeenCalledTimes(1);
   });
 });
