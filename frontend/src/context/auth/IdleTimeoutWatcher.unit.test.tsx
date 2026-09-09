@@ -38,7 +38,7 @@ describe('IdleTimeoutWatcher', () => {
     );
   });
 
-  it('calls signOut via onTimeout', () => {
+  it('signs out as a timeout, so the signed-out page explains why', () => {
     const signOut = vi.fn();
     mockUseAuth.mockReturnValue({ isAuthenticated: true, signOut });
 
@@ -48,6 +48,7 @@ describe('IdleTimeoutWatcher', () => {
     onTimeout();
 
     expect(signOut).toHaveBeenCalledTimes(1);
+    expect(signOut).toHaveBeenCalledWith('timeout');
   });
 
   it('disables idle tracking when not authenticated', () => {

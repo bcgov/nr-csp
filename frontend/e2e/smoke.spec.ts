@@ -12,6 +12,6 @@ test.describe('anonymous smoke', () => {
 
   test('renders the public signed-out page', async ({ page }) => {
     await page.goto('/logout');
-    await expect(page.getByRole('heading', { name: 'You have been signed out.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'You’ve successfully logged out' })).toBeVisible();
   });
 });

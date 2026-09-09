@@ -107,6 +107,10 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
+          # Drop Google's Chrome apt repo, which the runner image ships and
+          # `--with-deps` would fetch. Playwright's Chromium is bundled, so
+          # nothing here needs it and a broken index there fails the install.
+          sudo grep -rl 'dl\.google\.com' /etc/apt/sources.list.d/ 2>/dev/null | xargs -r sudo rm -f
           npx playwright install --with-deps
 
       - name: Run Tests

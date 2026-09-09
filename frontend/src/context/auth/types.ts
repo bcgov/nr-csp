@@ -1,4 +1,5 @@
 import type { Role } from './permissions';
+import type { SignOutReason } from './signOutReason';
 
 export interface AuthUser {
   username: string;
@@ -26,5 +27,6 @@ export interface AuthContextValue {
   isLoading: boolean;
   isSigningOut: boolean;
   signIn: () => Promise<void>;
-  signOut: () => Promise<void>;
+  /** `reason` drives the wording on the signed-out page; defaults to a deliberate sign-out. */
+  signOut: (reason?: SignOutReason) => Promise<void>;
 }
