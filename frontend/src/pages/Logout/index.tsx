@@ -66,9 +66,9 @@ export function LogoutPage() {
               {paragraph}
             </p>
           ))}
-          {/* Home is a protected route, so ProtectedRoute picks this up and
-              starts a fresh sign-in — unless a session is somehow still live,
-              in which case it just goes home. */}
+          {/* Home is the public welcome screen, which offers the sign-in
+              choice again — or redirects into the app if a session is somehow
+              still live. */}
           <Button
             kind="primary"
             size="lg"

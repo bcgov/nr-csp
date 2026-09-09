@@ -90,7 +90,7 @@ describe('LogoutPage', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
-  it('sends the user home, which re-triggers sign-in', async () => {
+  it('sends the user home, to the welcome screen and its sign-in choice', async () => {
     const user = userEvent.setup();
     arrange();
 
