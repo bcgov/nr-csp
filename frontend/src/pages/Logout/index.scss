@@ -21,30 +21,18 @@ $header-height: 3rem;
   // against g100's true page ground, so g100 uses that rather than a layer.
   background-color: colors.$white;
 
-  // Each illustration ships as a pair: the artwork as drawn, and a dark variant.
-  // Their ground shadow is near-white by design (#eaf1fe), so on g100 the
-  // original would be the brightest thing on the page; the dark file retints
-  // just that (-> #252b38, plus #def1e4 -> #1b211c for the check glow on the
-  // signed-out one). Both are the design's own bitmaps with the white page
-  // background removed. Size and artwork come from the variant modifiers below.
+  // Which artwork (and which of its light/dark pair) is chosen in the component,
+  // so it can stay a real `<img alt="">`. Only the width differs per variant:
+  // the signed-out artwork is 373x292 and renders at roughly 1.36x, so it is
+  // soft on hi-dpi screens and a higher-resolution export would drop straight
+  // in; the expired one is 1:1 at the size the design shows it.
   &__illustration {
     flex: 0 1 auto;
     inline-size: var(--logout-illustration-size, 32rem);
     max-inline-size: 100%;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
+    block-size: auto;
   }
 
-  // Deliberate sign-out. Source artwork is 373x292 and renders at roughly 1.36x,
-  // so it is soft on hi-dpi screens; a higher-resolution export drops straight in.
-  &--signed-out &__illustration {
-    aspect-ratio: 373 / 292;
-    background-image: url('../../assets/img/logout-illustration.png');
-  }
-
-  // Expired session. The file is 497x387 around 495x385 of artwork, which is
-  // 1:1 at the size the design shows it, so it needs no upscaling.
   &--expired {
     --logout-illustration-size: 31rem;
 
@@ -60,11 +48,6 @@ $header-height: 3rem;
         max-inline-size: 43rem;
       }
     }
-  }
-
-  &--expired &__illustration {
-    aspect-ratio: 497 / 387;
-    background-image: url('../../assets/img/session-expired-illustration.png');
   }
 
   &__content {
@@ -168,15 +151,5 @@ $header-height: 3rem;
 
   :root[data-carbon-theme='g100'] & {
     background-color: var(--cds-background);
-
-    // `&` here is `.logout-page`, and the variant modifier sits on that same
-    // element, so these must be compounded rather than nested as descendants.
-    &.logout-page--signed-out .logout-page__illustration {
-      background-image: url('../../assets/img/logout-illustration-dark.png');
-    }
-
-    &.logout-page--expired .logout-page__illustration {
-      background-image: url('../../assets/img/session-expired-illustration-dark.png');
-    }
   }
 }
