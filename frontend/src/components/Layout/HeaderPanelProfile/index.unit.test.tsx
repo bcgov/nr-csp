@@ -83,5 +83,8 @@ describe('HeaderPanelProfile', () => {
     arrange();
     fireEvent.click(screen.getByRole('button', { name: /log out/i }));
     expect(signOut).toHaveBeenCalledTimes(1);
+    // Deliberate, so no reason — and notably not the click event, which is what
+    // passing the handler directly would have forwarded as one.
+    expect(signOut).toHaveBeenCalledWith();
   });
 });

@@ -48,7 +48,9 @@ export const HeaderPanelProfile: FC = () => {
 
       <hr className="header-panel-profile-divider" />
 
-      <button type="button" className="header-panel-profile-logout" onClick={signOut}>
+      {/* Wrapped rather than passed directly: signOut takes an optional reason,
+          and `onClick={signOut}` would forward the click event as one. */}
+      <button type="button" className="header-panel-profile-logout" onClick={() => void signOut()}>
         <Logout />
         <span>Log out</span>
       </button>
