@@ -107,6 +107,16 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
+          # `--with-deps` runs apt-get update, and the runner image ships
+          # Google's Chrome repo, whose metadata is intermittently inconsistent
+          # ("Hash Sum mismatch" between its Release and Packages files). apt
+          # then exits 100 and the browser install fails before any test runs.
+          # We never use that repo: playwright.config.ts sets no
+          # `channel: 'chrome'`, so Chromium comes from Playwright's own CDN and
+          # apt only supplies shared libraries from Ubuntu's archives.
+          # Matched on the URL rather than a filename, since the image has used
+          # both google-chrome.list and .sources. No match is a no-op.
+          sudo grep -rl 'dl\.google\.com' /etc/apt/sources.list.d/ 2>/dev/null | xargs -r sudo rm -f
           npx playwright install --with-deps
 
       - name: Run Tests
