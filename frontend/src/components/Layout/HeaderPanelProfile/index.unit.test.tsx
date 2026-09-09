@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthUser } from '@/context/auth/types';
 import { useAuth } from '@/context/auth/useAuth';
 
 import { HeaderPanelProfile } from './index';
+
+import type { AuthUser } from '@/context/auth/types';
 
 vi.mock('@/context/auth/useAuth', () => ({ useAuth: vi.fn() }));
 

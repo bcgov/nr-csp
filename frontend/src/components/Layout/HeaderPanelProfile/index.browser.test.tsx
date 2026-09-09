@@ -2,9 +2,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { useAuth } from '@/context/auth/useAuth';
-import type { AuthContextValue, AuthUser } from '@/context/auth/types';
 
 import { HeaderPanelProfile } from './index';
+
+import type { AuthContextValue, AuthUser } from '@/context/auth/types';
 
 const mockSignOut = vi.fn();
 const mockUser: AuthUser = {

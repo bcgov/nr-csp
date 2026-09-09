@@ -3,6 +3,7 @@ import { type FC } from 'react';
 
 import AvatarImage from '@/components/Layout/AvatarImage';
 import { useAuth } from '@/context/auth/useAuth';
+
 import type { Role } from '@/context/auth/permissions';
 
 import './index.scss';
