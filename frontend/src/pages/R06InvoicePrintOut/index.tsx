@@ -67,16 +67,21 @@ export function R06InvoicePrintOutPage() {
   // Incrementing this forces all DateInputs to remount (clears flatpickr) on Clear all.
   const [dateKey, setDateKey] = useState(0);
 
+  // The typed name has to be re-synced on clear as well as on select. Clearing the
+  // ComboBox nulls `sellerClient`, which flips ClientAutocomplete's `key` and unmounts
+  // the old ComboBox before its own `onInputChange('')` effect can flush — so the
+  // typed name never hears about the clear and the "select a valid client" validation
+  // fires against a name the user already deleted.
   const handleSellerSelect = (client: ClientLocationResponse | null) => {
     setSellerClient(client);
     setSellerNumber(client?.clientNumber ?? '');
-    if (client) setSellerTypedName(client.clientName ?? '');
+    setSellerTypedName(client?.clientName ?? '');
   };
 
   const handleBuyerSelect = (client: ClientLocationResponse | null) => {
     setBuyerClient(client);
     setBuyerNumber(client?.clientNumber ?? '');
-    if (client) setBuyerTypedName(client.clientName ?? '');
+    setBuyerTypedName(client?.clientName ?? '');
   };
 
   const handleAddRange = () => {
