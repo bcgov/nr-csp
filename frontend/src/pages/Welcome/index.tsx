@@ -1,5 +1,6 @@
 import { Login } from '@carbon/icons-react';
 import { Button } from '@carbon/react';
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
 
 import bcGovLogo from '@/assets/img/bc-gov-logo.png';
@@ -11,6 +12,13 @@ import { useNotification } from '@/context/notification/useNotification';
 import { ROUTES } from '@/routes/routePaths';
 
 import './index.scss';
+
+/**
+ * How long to sit on the loading screen waiting for Amplify to finish the code
+ * exchange before treating the callback as failed. The happy path clears the
+ * params itself in well under a second.
+ */
+const OAUTH_CALLBACK_TIMEOUT_MS = 15_000;
 
 /**
  * The public front door at '/'. It sits outside the app shell — no header and
@@ -25,6 +33,7 @@ import './index.scss';
 export function WelcomePage() {
   const { isAuthenticated, isLoading, signIn } = useAuth();
   const { addNotification } = useNotification();
+  const [callbackTimedOut, setCallbackTimedOut] = useState(false);
 
   // Cognito redirects back to '/' after a successful sign-in (redirectSignIn),
   // so this component also renders mid-callback. Amplify reports
@@ -34,8 +43,36 @@ export function WelcomePage() {
   const params = new URLSearchParams(window.location.search);
   const isOauthCallback = params.has('code') && params.has('state');
 
-  if (isLoading || isOauthCallback) return <LoadingScreen />;
+  // Only Amplify's success path strips those params from the URL, so a failed
+  // exchange — a replayed or expired code, a token request that never
+  // answered — would otherwise leave this loading screen up for good, and
+  // still up after a reload. Give the exchange a bounded wait, then drop the
+  // params and offer the sign-in choice again.
+  useEffect(() => {
+    if (!isOauthCallback) return;
+    const timer = setTimeout(() => {
+      window.history.replaceState(null, '', window.location.pathname);
+      setCallbackTimedOut(true);
+    }, OAUTH_CALLBACK_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [isOauthCallback]);
+
+  if (isLoading || (isOauthCallback && !callbackTimedOut)) return <LoadingScreen />;
   if (isAuthenticated) return <Navigate to={ROUTES.SEARCH} replace />;
+
+  // signInWithRedirect can reject before it ever leaves the page — a session
+  // that turned out to be live (loadUser deliberately swallows a failed
+  // fetchAuthSession and leaves `user` null), a blocked redirect, a
+  // misconfigured idpName. Swallowing that would leave a button that visibly
+  // does nothing, however many times it is pressed.
+  const startIdirLogin = () =>
+    void signIn().catch(() =>
+      addNotification({
+        kind: 'error',
+        title: 'Could not start the IDIR login',
+        subtitle: 'Please try again, or reload the page if this keeps happening.',
+      }),
+    );
 
   return (
     <main id="main-content" className="welcome-page">
@@ -44,13 +81,7 @@ export function WelcomePage() {
         <h1 className="welcome-page__heading">Welcome to CSP</h1>
         <p className="welcome-page__subheading">Coast Selling Price System</p>
         <div className="welcome-page__actions">
-          <Button
-            kind="primary"
-            size="lg"
-            renderIcon={Login}
-            className="welcome-page__action"
-            onClick={() => void signIn()}
-          >
+          <Button kind="primary" size="lg" renderIcon={Login} className="welcome-page__action" onClick={startIdirLogin}>
             Log in with IDIR
           </Button>
           <Button
@@ -71,8 +102,11 @@ export function WelcomePage() {
         </div>
       </div>
       {/* Decorative: an empty alt keeps it out of the accessibility tree. It is
-          also the largest thing on the page, so it is worth fetching early. */}
-      <img className="welcome-page__photo" src={forestPhoto} alt="" fetchPriority="high" />
+          also the largest thing on the page, so it is worth fetching early.
+          The wrapper is load-bearing — see index.scss. */}
+      <div className="welcome-page__photo">
+        <img src={forestPhoto} alt="" fetchPriority="high" />
+      </div>
       <NotificationToast />
     </main>
   );

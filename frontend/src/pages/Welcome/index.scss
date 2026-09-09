@@ -24,14 +24,10 @@ $logo-border: math.div($logo-box-inline-size - $logo-mark-inline-size, 2);
 
 .welcome-page {
   display: flex;
-  // A definite height, not a minimum. The photo is a flex item with an
-  // intrinsic aspect ratio, and on a single-line flex container whose cross
-  // size is indefinite it is that ratio — not the container — that sizes the
-  // row, so the photo grew the page past the viewport and scrolled it. A
-  // definite cross size makes the photo stretch to the page instead. Content
-  // taller than the viewport still overflows visibly (and so still scrolls),
-  // which is what should happen on a window too short to hold the buttons.
-  block-size: 100vh;
+  // A minimum, so a window too short to hold the panel content grows and
+  // scrolls to it rather than pushing the buttons outside the page. The photo
+  // is kept from inflating this — see __photo.
+  min-block-size: 100vh;
   // Carbon's <Theme> wrapper paints g10's grey `background` behind the app; the
   // design calls for white here, as everywhere else in this app (see
   // styles/_overrides.scss). The page renders in g10 only — it is reached
@@ -112,16 +108,32 @@ $logo-border: math.div($logo-box-inline-size - $logo-mark-inline-size, 2);
     }
   }
 
+  // A frame rather than the image itself. An <img> in a flex row reports a
+  // hypothetical cross size from its intrinsic aspect ratio and its used
+  // width, and on a container whose own cross size is indefinite that is what
+  // sizes the row — so the photo grew the page past the viewport and scrolled
+  // it. Taking the image out of flow leaves the frame contributing nothing, so
+  // the row's height comes from the panel and the 100vh minimum, and the image
+  // fills whatever that turns out to be.
   &__photo {
+    position: relative;
     flex: 1 1 50%;
     min-inline-size: 0;
-    // The design's framing is baked into the asset, which is proportioned like
-    // the mockup's panel, so `cover` only crops on a viewport shaped
-    // differently — and a 16:9 one is: it is relatively wider, and a centred
-    // crop took the sky and the far ridge off the top. Anchor the top edge so
-    // what a wide viewport loses is foreground at the bottom instead.
-    object-fit: cover;
-    object-position: center top;
+    overflow: hidden;
+
+    img {
+      position: absolute;
+      inset: 0;
+      inline-size: 100%;
+      block-size: 100%;
+      // The design's framing is baked into the asset, which is proportioned
+      // like the mockup's panel, so `cover` only crops on a viewport shaped
+      // differently — and a 16:9 one is: it is relatively wider, and a centred
+      // crop took the sky and the far ridge off the top. Anchor the top edge so
+      // what a wide viewport loses is foreground at the bottom instead.
+      object-fit: cover;
+      object-position: center top;
+    }
   }
 
   // Too narrow for the panel's minimum to leave the photo a usable width: give
@@ -146,12 +158,6 @@ $logo-border: math.div($logo-box-inline-size - $logo-mark-inline-size, 2);
   // One column: the photo would be a sliver at this width, and the sign-in
   // choice is the only thing on the page that has to be reachable.
   @include breakpoint-down(md) {
-    // No photo to stretch here, so the content can set the height again — and
-    // should, since a narrow viewport is where it is most likely to need more
-    // than the viewport holds.
-    block-size: auto;
-    min-block-size: 100vh;
-
     &__panel {
       flex: 1 1 auto;
       padding: $spacing-07 $spacing-06;

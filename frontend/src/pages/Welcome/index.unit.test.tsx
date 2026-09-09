@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,7 +54,7 @@ describe('WelcomePage', () => {
 
     expect(screen.getAllByRole('img')).toHaveLength(1);
     expect(screen.getByAltText('Government of British Columbia')).toBeInTheDocument();
-    expect(container.querySelector('.welcome-page__photo')).toHaveAttribute('alt', '');
+    expect(container.querySelector('.welcome-page__photo img')).toHaveAttribute('alt', '');
   });
 
   it('starts the IDIR sign-in when the primary button is pressed', async () => {
@@ -64,6 +64,16 @@ describe('WelcomePage', () => {
     await user.click(screen.getByRole('button', { name: /log in with idir/i }));
 
     expect(signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a sign-in that fails before it leaves the page', async () => {
+    const user = userEvent.setup();
+    signIn.mockRejectedValueOnce(new Error('UserAlreadyAuthenticatedException'));
+    arrange();
+
+    await user.click(screen.getByRole('button', { name: /log in with idir/i }));
+
+    expect(await screen.findByText(/could not start the idir login/i)).toBeInTheDocument();
   });
 
   it('says Business BCeID is not wired up yet instead of starting a sign-in', async () => {
@@ -104,5 +114,29 @@ describe('WelcomePage', () => {
 
     expect(screen.getByText('Loading')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /log in with idir/i })).not.toBeInTheDocument();
+  });
+
+  // Only Amplify's success path clears the params, so without a bounded wait a
+  // failed exchange would leave the loading screen up for good — and still up
+  // after a reload.
+  it('falls back to the sign-in choice when the callback never completes', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('location', { search: '?code=abc&state=xyz', pathname: '/' });
+    const replaceState = vi.fn();
+    vi.stubGlobal('history', { replaceState });
+
+    try {
+      arrange();
+      expect(screen.getByText('Loading')).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(15_000);
+      });
+
+      expect(screen.getByRole('button', { name: /log in with idir/i })).toBeInTheDocument();
+      expect(replaceState).toHaveBeenCalledWith(null, '', '/');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

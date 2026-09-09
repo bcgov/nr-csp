@@ -14,6 +14,7 @@ import { LayoutSideNav } from '@/components/Layout/LayoutSideNav';
 import { ThemeToggle } from '@/components/Layout/ThemeToggle';
 import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
+import { ROUTES } from '@/routes/routePaths';
 
 import LayoutHeaderGlobalBar from './LayoutHeaderGlobalBar';
 
@@ -36,7 +37,12 @@ export const LayoutHeader: FC = () => {
           onClick={toggleSideNav}
         />
       )}
-      <HeaderName as={Link} to="/" prefix="">
+      {/* '/' is the public welcome screen, which lives outside this shell — so
+          for a signed-in user, linking there would unmount the whole shell just
+          to be redirected straight back into it, losing the side-nav state and
+          remounting the current page on the way. Point them at the app's own
+          home instead, and leave '/' for anyone without a session. */}
+      <HeaderName as={Link} to={isAuthenticated ? ROUTES.SEARCH : ROUTES.LANDING} prefix="">
         {APP_NAME}
       </HeaderName>
       <HeaderGlobalBar>

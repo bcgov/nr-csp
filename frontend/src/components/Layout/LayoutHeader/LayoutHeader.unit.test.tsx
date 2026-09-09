@@ -44,12 +44,20 @@ describe('LayoutHeader', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the app name as a link to the landing page', () => {
-    arrange();
+  const appNameLink = () => screen.getByRole('link', { name: /coast selling application \(csp\)/i });
 
-    const homeLink = screen.getByRole('link', { name: /coast selling application \(csp\)/i });
-    expect(homeLink).toBeInTheDocument();
-    expect(homeLink).toHaveAttribute('href', '/');
+  // '/' is the public welcome screen and sits outside this shell, so sending a
+  // signed-in user there would unmount and remount the shell around a redirect.
+  it('points the app name at the app home for a signed-in user', () => {
+    arrange({ isAuthenticated: true });
+
+    expect(appNameLink()).toHaveAttribute('href', '/search');
+  });
+
+  it('points the app name at the welcome screen for a visitor without a session', () => {
+    arrange({ isAuthenticated: false });
+
+    expect(appNameLink()).toHaveAttribute('href', '/');
   });
 
   it('shows the menu button and side nav when authenticated', () => {
