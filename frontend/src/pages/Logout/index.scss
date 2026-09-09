@@ -43,15 +43,22 @@ $header-height: 3rem;
     background-image: url('../../assets/img/logout-illustration.png');
   }
 
-  // Expired session. This artwork is 495x385, which is 1:1 at the size the
-  // design shows it, so it needs no upscaling.
+  // Expired session. The file is 497x387 around 495x385 of artwork, which is
+  // 1:1 at the size the design shows it, so it needs no upscaling.
   &--expired {
     --logout-illustration-size: 31rem;
 
-    .logout-page__content {
-      // Wider than the signed-out variant so "You've been signed" stays on one
-      // line and only "out" wraps, as the design has it.
-      max-inline-size: 43rem;
+    // Scoped to the two-column layout on purpose. A bare
+    // `.logout-page--expired .logout-page__content` rule outranks the
+    // single-class `breakpoint-down` overrides below — media queries add no
+    // specificity — so it would pin this variant at 43rem all the way down and
+    // squeeze the illustration while the signed-out variant narrowed correctly.
+    @include breakpoint-up(xlg) {
+      .logout-page__content {
+        // Wider than the signed-out variant so "You've been signed" stays on
+        // one line and only "out" wraps, as the design has it.
+        max-inline-size: 43rem;
+      }
     }
   }
 
