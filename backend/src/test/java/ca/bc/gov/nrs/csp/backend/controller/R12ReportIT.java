@@ -47,8 +47,7 @@ class R12ReportIT extends AbstractReportIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         String csv = asText(response);
-        assertThat(csv).contains("CED");
-        assertThat(csv).doesNotContain("HEM").doesNotContain("BAL").doesNotContain("FIR");
+        assertThat(csv).doesNotContain("HEM").doesNotContain("BAL").doesNotContain("FIR").contains("CED");
     }
 
     @Test
