@@ -30,6 +30,38 @@ class R12ReportIT extends AbstractReportIT {
         assertThat(csv).contains("HEM").contains("BAL");
     }
 
+    /**
+     * A report year has to narrow the date range, not replace it. Passing the year alone
+     * made CSP_SP_RPT_12 return the whole year and silently ignore the range the user asked
+     * for — here May's Cedar row is inside the range and January's and September's rows are
+     * not, so covering the whole year would show up as extra species in the CSV.
+     */
+    @Test
+    void narrowsToTheDateRangeWhenAReportYearIsAlsoGiven() {
+        ResponseEntity<byte[]> response = postReport("/api/R12", Map.of(
+                "reportFormat", "CSV",
+                "year", 2024,
+                "dateFrom", "20240501",
+                "dateTo", "20240531"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        String csv = asText(response);
+        assertThat(csv).contains("CED");
+        assertThat(csv).doesNotContain("HEM").doesNotContain("BAL").doesNotContain("FIR");
+    }
+
+    @Test
+    void returns404WhenYearAndDateRangeDoNotOverlap() {
+        ResponseEntity<byte[]> response = postReport("/api/R12", Map.of(
+                "reportFormat", "CSV",
+                "year", 2024,
+                "dateFrom", "20230101",
+                "dateTo", "20230131"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
     @Test
     void returns404WhenYearMatchesNoRows() {
         ResponseEntity<byte[]> response = postReport("/api/R12", Map.of(

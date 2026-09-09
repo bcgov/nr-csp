@@ -316,6 +316,16 @@ INSERT INTO the.csp_rpt12_data VALUES (
     'O', DATE '2024-01-20', '01', 'BAL', 'J', 80, 180.25, 40.00, 7210.00,
     'CLS-1202', 120102, 'O', 'Sort 01', 'Balsam', 'J Grade')
 /
+-- Later months of the same year, so an R12 request carrying both a report year and a
+-- date range can be shown to narrow to the range instead of covering the whole year.
+INSERT INTO the.csp_rpt12_data VALUES (
+    'S', DATE '2024-05-10', '02', 'CED', 'K', 60, 140.00, 60.00, 8400.00,
+    'CLS-1203', 120103, 'S', 'Sort 02', 'Cedar', 'K Grade')
+/
+INSERT INTO the.csp_rpt12_data VALUES (
+    'S', DATE '2024-09-12', '02', 'FIR', 'L', 40, 90.00, 70.00, 6300.00,
+    'CLS-1204', 120104, 'S', 'Sort 02', 'Fir', 'L Grade')
+/
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Stub report procedures. Parameter order matches the {call ...} in each
