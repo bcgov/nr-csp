@@ -109,6 +109,12 @@ public final class InvoiceRuleContext {
     return details == null ? null : details.getPrimarySortCode();
   }
 
+  /** FOB location from the invoice details (null if details/location absent). */
+  public String locationFOB() {
+    CSPInvoiceDetailsType details = invoice.getCSPInvoiceDetails();
+    return details == null ? null : details.getLocationFOB();
+  }
+
   /**
    * Record a blocking error against this invoice as a message key + its
    * {@code messages.properties} template args; the text is resolved at the HTTP

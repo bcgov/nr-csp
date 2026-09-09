@@ -13,16 +13,25 @@ export const LayoutHeaderPanel: FC = () => {
   if (!isHeaderPanelOpen) return null;
 
   return (
-    <HeaderPanel aria-label="User Profile" className="profile-panel">
-      <div className="right-title-section">
-        <h4>My Profile</h4>
-        <div className="right-title-buttons">
-          <IconButton kind="ghost" label="Close" onClick={closeHeaderPanel} align="bottom">
-            <Close />
-          </IconButton>
+    <>
+      {/* Scrim that dims the app behind the panel; clicking it closes the panel, as in the design. */}
+      <button
+        type="button"
+        aria-label="Close profile panel"
+        className="profile-panel-overlay"
+        onClick={closeHeaderPanel}
+      />
+      <HeaderPanel aria-label="User Profile" className="profile-panel">
+        <div className="right-title-section">
+          <h4>My profile</h4>
+          <div className="right-title-buttons">
+            <IconButton kind="ghost" label="Close" onClick={closeHeaderPanel} align="bottom">
+              <Close size={24} />
+            </IconButton>
+          </div>
         </div>
-      </div>
-      <HeaderPanelProfile />
-    </HeaderPanel>
+        <HeaderPanelProfile />
+      </HeaderPanel>
+    </>
   );
 };

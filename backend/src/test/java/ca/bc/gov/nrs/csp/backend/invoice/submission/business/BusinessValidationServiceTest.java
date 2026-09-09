@@ -1,5 +1,6 @@
 package ca.bc.gov.nrs.csp.backend.invoice.submission.business;
 
+import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.invoice.InvoiceCodeRules;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.invoice.InvoiceDateRules;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.line.LineItemRules;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.submission.SubmissionRules;
@@ -7,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.SubmissionRule
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.IdentifierNormalizer;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.referencedata.ReferenceDataService;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.SubmitterResolver;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceDetailsType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmissionType;
@@ -30,6 +32,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
 /**
@@ -191,6 +194,53 @@ class BusinessValidationServiceTest {
     assertThat(outcome.valid()).isTrue();
     assertThat(outcome.messages()).anyMatch(m -> m.severity() == Severity.WARNING
         && m.code().equals("submission.test.warning"));
+  }
+
+  @Test
+  void lowercase_codes_are_upper_cased_before_the_reference_lookups() {
+    // The reported repro: a file spelling valid codes in lower case must be
+    // accepted, not reported as unknown codes. Every stub below recognises only
+    // the canonical upper-case form, so an unnormalised value fails the lookup.
+    given(referenceData.clientLocationExists(any(), any())).willReturn(true);
+    given(referenceData.maturityValidOn(eq("O"), any())).willReturn(true);
+    given(referenceData.sortCodeValidOn(eq("G"), any())).willReturn(true);   // primary
+    given(referenceData.sortCodeValidOn(eq("A"), any())).willReturn(true);   // secondary
+    given(referenceData.speciesGradeCombinationExists("FI", "B")).willReturn(true);
+
+    CSPInvoiceType invoice = invoice("inv-1", TODAY.minusDays(1), "b");
+    invoice.setInvoiceType("sal");
+    CSPInvoiceDetailsType details = new CSPInvoiceDetailsType();
+    details.setMaturity("o");
+    details.setPrimarySortCode("g");
+    details.setLocationFOB("porv");
+    invoice.setCSPInvoiceDetails(details);
+    CSPLineItemType line = invoice.getCSPLineItem().get(0);
+    line.setSecondarySortCode("a");
+    line.setSpecies("fi");
+
+    BusinessValidationService service = new BusinessValidationService(
+        List.of(new SubmissionRules()),
+        List.of(new InvoiceDateRules(CLOCK), new InvoiceCodeRules()),
+        List.of(new LineItemRules()),
+        new SubmitterResolver(),
+        new IdentifierNormalizer(),
+        referenceData);
+
+    BusinessValidationOutcome outcome = service.validate(submissionWith(invoice));
+
+    assertThat(outcome.messages()).noneMatch(m -> m.severity() == Severity.ERROR);
+    assertThat(outcome.valid()).isTrue();
+    assertThat(outcome.acceptance().accepted()).containsExactly("INV-1");
+
+    // The tree itself now carries the canonical codes — this is the same tree the
+    // submit path persists, so what was validated is what gets saved.
+    assertThat(invoice.getInvoiceType()).isEqualTo("SAL");
+    assertThat(details.getMaturity()).isEqualTo("O");
+    assertThat(details.getPrimarySortCode()).isEqualTo("G");
+    assertThat(details.getLocationFOB()).isEqualTo("PORV");
+    assertThat(line.getSecondarySortCode()).isEqualTo("A");
+    assertThat(line.getSpecies()).isEqualTo("FI");
+    assertThat(line.getGrade()).isEqualTo("B");
   }
 
   // -------- fixture builders --------

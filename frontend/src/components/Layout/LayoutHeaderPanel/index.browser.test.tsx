@@ -19,13 +19,13 @@ describe('LayoutHeaderPanel', () => {
   it('renders nothing when the header panel is closed', () => {
     mockUseLayout.mockReturnValue({ isHeaderPanelOpen: false, closeHeaderPanel: vi.fn() });
     render(<LayoutHeaderPanel />);
-    expect(screen.queryByText('My Profile')).not.toBeInTheDocument();
+    expect(screen.queryByText('My profile')).not.toBeInTheDocument();
   });
 
   it('renders the profile panel when open', () => {
     mockUseLayout.mockReturnValue({ isHeaderPanelOpen: true, closeHeaderPanel: vi.fn() });
     render(<LayoutHeaderPanel />);
-    expect(screen.getByText('My Profile')).toBeInTheDocument();
+    expect(screen.getByText('My profile')).toBeInTheDocument();
     expect(screen.getByTestId('profile')).toBeInTheDocument();
   });
 

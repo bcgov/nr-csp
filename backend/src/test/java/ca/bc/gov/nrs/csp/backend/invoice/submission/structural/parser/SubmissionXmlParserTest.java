@@ -1,5 +1,8 @@
 package ca.bc.gov.nrs.csp.backend.invoice.submission.structural.parser;
 
+import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceType;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationError;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.SubmissionValidationProperties;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.schema.SchemaValidator;
@@ -53,6 +56,40 @@ class SubmissionXmlParserTest {
     assertThat(out.errors()).isEmpty();
     assertThat(out.submission()).isNotNull();
     assertThat(out.ok()).isTrue();
+  }
+
+  @Test
+  void trims_padded_values_so_they_are_measured_without_their_padding() throws IOException {
+    // Every value here is valid once trimmed, and several (grade, species,
+    // secondary sort code, the line-wrapped invoice number) would breach their
+    // maxLength facet if the padding counted. The facets are checked during the
+    // parse, so this has to hold at this level.
+    SubmissionXmlParser.ParseOutcome out = parser.parse(read("whitespace-padded.xml"));
+
+    assertThat(out.errors()).isEmpty();
+    assertThat(out.ok()).isTrue();
+
+    CSPSubmissionType submission = (CSPSubmissionType) out.submission();
+    CSPInvoiceType invoice = submission.getCSPInvoice().get(0);
+    assertThat(invoice.getInvoiceNumber()).isEqualTo("INV-TEST-001");
+    assertThat(invoice.getInvoiceType()).isEqualTo("SAL");
+    assertThat(invoice.getCSPInvoiceDetails().getMaturity()).isEqualTo("O");
+    assertThat(invoice.getCSPInvoiceDetails().getLocationFOB()).isEqualTo("TEST-FOB");
+
+    CSPLineItemType line = invoice.getCSPLineItem().get(0);
+    assertThat(line.getGrade()).isEqualTo("B");
+    assertThat(line.getSpecies()).isEqualTo("XX");
+    assertThat(line.getSecondarySortCode()).isEqualTo("S1");
+  }
+
+  @Test
+  void keeps_whitespace_inside_a_value() throws IOException {
+    // Only the ends are trimmed, so multi-line free text is not reflowed.
+    SubmissionXmlParser.ParseOutcome out = parser.parse(read("whitespace-padded.xml"));
+
+    CSPSubmissionType submission = (CSPSubmissionType) out.submission();
+    assertThat(submission.getCSPInvoice().get(0).getCSPInvoiceDetails().getSubmitterNotes())
+        .isEqualTo("first line\n        second line");
   }
 
   @Test
