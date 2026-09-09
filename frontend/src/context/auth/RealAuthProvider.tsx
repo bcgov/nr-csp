@@ -13,8 +13,10 @@ import {
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
 import { onSessionExpired } from './sessionExpiredSignal';
+import { setSignOutReason } from './signOutReason';
 
 import type { Role } from './permissions';
+import type { SignOutReason } from './signOutReason';
 import type { AuthContextValue, AuthUser } from './types';
 
 /**
@@ -94,8 +96,11 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
    * openIdirRealmLogoutPopup). If the chain config is incomplete, it falls
    * back to a plain Amplify `signOut()` (Cognito-only).
    */
-  async function performSignOut() {
+  async function performSignOut(reason: SignOutReason = 'user') {
     setIsSigningOut(true);
+    // Recorded before anything is cleared: the chain below discards the SPA, so
+    // this is the only thing that tells /logout why the user got there.
+    setSignOutReason(reason);
     clearPersistedTableState();
 
     const chainUrl = buildFederatedLogoutUrl(window.amplifyConfig);
@@ -128,7 +133,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     const unsubscribeSessionExpired = onSessionExpired(() => {
       if (handledSessionExpired) return;
       handledSessionExpired = true;
-      void performSignOut();
+      void performSignOut('timeout');
     });
     return () => {
       unsubscribeHub();

@@ -14,7 +14,7 @@ export function IdleTimeoutWatcher() {
   useIdleTimeout({
     enabled: isAuthenticated && !env.mockUser,
     timeoutMs: env.idleTimeoutMs,
-    onTimeout: () => void signOut(),
+    onTimeout: () => void signOut('timeout'),
   });
 
   return null;

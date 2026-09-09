@@ -14,7 +14,7 @@ describe('App', () => {
   it('renders the provider tree and serves the public logout route', async () => {
     render(<App />);
 
-    expect(await screen.findByRole('heading', { name: /you have been signed out/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sign in again/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /you’ve successfully logged out/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /back to home/i })).toBeInTheDocument();
   });
 });
