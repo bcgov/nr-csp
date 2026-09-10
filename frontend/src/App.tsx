@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Route, Routes } from 'react-router';
 
 import { LoadingScreen } from '@/components/core/LoadingScreen';
 import Layout from '@/components/Layout';
@@ -11,6 +11,7 @@ import { NotificationProvider } from '@/context/notification/NotificationProvide
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import { ThemeProvider } from '@/context/theme/ThemeProvider';
 import { LogoutPage } from '@/pages/Logout';
+import { WelcomePage } from '@/pages/Welcome';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { ROUTES } from '@/routes/routePaths';
 
@@ -74,12 +75,14 @@ export default function App() {
               <BrowserRouter>
                 <Suspense fallback={<LoadingScreen />}>
                   <Routes>
-                    {/* Logout — accessible without authentication */}
+                    {/* Welcome and logout — accessible without authentication, and
+                        rendered outside the app shell (they have no header or side
+                        nav of the shell's kind) */}
+                    <Route path={ROUTES.LANDING} element={<WelcomePage />} />
                     <Route path={ROUTES.LOGOUT} element={<LogoutPage />} />
 
                     {/* All other routes share the shell layout and require authentication */}
                     <Route element={<Layout />}>
-                      <Route path={ROUTES.LANDING} element={<Navigate to={ROUTES.SEARCH} replace />} />
                       <Route
                         path={ROUTES.SEARCH}
                         element={
