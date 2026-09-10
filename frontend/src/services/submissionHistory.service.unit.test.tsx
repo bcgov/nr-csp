@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -33,7 +33,13 @@ const createWrapper = () => {
 const createCachingWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { staleTime: THREE_HOURS, gcTime: THREE_HOURS, refetchOnMount: false, retry: false },
+      queries: {
+        staleTime: THREE_HOURS,
+        gcTime: THREE_HOURS,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        retry: false,
+      },
       mutations: { retry: false },
     },
   });
@@ -182,5 +188,25 @@ describe('submission-history queries under the app-wide aggressive cache', () =>
 
     await waitFor(() => expect(result.current.data).toEqual(fresh));
     expect(apiClient.get).toHaveBeenCalled();
+  });
+
+  it('refetches invoice comments when the window regains focus', async () => {
+    const stale = [{ invoiceNumber: 'INV-1', status: 'APP', comment: null }];
+    const fresh = [{ invoiceNumber: 'INV-1', status: 'APP', comment: 'Comment added by another approver' }];
+    vi.mocked(apiClient.get).mockResolvedValue({ data: stale });
+    const { wrapper } = createCachingWrapper();
+
+    const { result } = renderHook(() => useSubmissionInvoiceCommentsQuery(7, true), { wrapper });
+    await waitFor(() => expect(result.current.data).toEqual(stale));
+
+    // A comment saved in another tab/session while this one sat idle.
+    vi.mocked(apiClient.get).mockResolvedValue({ data: fresh });
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual(fresh));
+    focusManager.setFocused(undefined);
   });
 });

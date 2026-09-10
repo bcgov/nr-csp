@@ -192,7 +192,9 @@ export const deleteInvoiceLineItem = (invoiceId: number, lineId: number): Promis
 
 // Every invoice mutation can change what Submission History shows — reviewer
 // comment, invoice status, and the per-submission invoice/comment counts — so
-// those cached rows are dropped here rather than left until a page refresh.
+// those cached rows are marked stale here and refetched rather than left until
+// a page refresh. Nothing is evicted, so an inactive query still renders its
+// cached frame once before the refetch it does on mount lands.
 // Fire-and-forget: the mutation must not stay pending on the refetch.
 const invalidateSubmissionHistory = (qc: QueryClient): void => {
   void qc.invalidateQueries({ queryKey: SUBMISSION_HISTORY_QUERY_KEY });
