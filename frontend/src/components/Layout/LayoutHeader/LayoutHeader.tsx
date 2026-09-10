@@ -14,6 +14,7 @@ import { LayoutSideNav } from '@/components/Layout/LayoutSideNav';
 import { ThemeToggle } from '@/components/Layout/ThemeToggle';
 import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
+import { ROUTES } from '@/routes/routePaths';
 
 import LayoutHeaderGlobalBar from './LayoutHeaderGlobalBar';
 
@@ -36,7 +37,7 @@ export const LayoutHeader: FC = () => {
           onClick={toggleSideNav}
         />
       )}
-      <HeaderName as={Link} to="/" prefix="">
+      <HeaderName as={Link} to={isAuthenticated ? ROUTES.SEARCH : ROUTES.LANDING} prefix="">
         {APP_NAME}
       </HeaderName>
       <HeaderGlobalBar>
