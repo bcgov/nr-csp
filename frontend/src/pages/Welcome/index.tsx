@@ -1,6 +1,5 @@
 import { Login } from '@carbon/icons-react';
 import { Button } from '@carbon/react';
-import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
 
 import bcGovLogo from '@/assets/img/bc-gov-logo.png';
@@ -8,37 +7,23 @@ import forestPhoto from '@/assets/img/welcome-forest.webp';
 import { LoadingScreen } from '@/components/core/LoadingScreen';
 import { NotificationToast } from '@/components/Layout/NotificationToast';
 import { useAuth } from '@/context/auth/useAuth';
+import { useOauthCallbackPending } from '@/context/auth/useOauthCallbackPending';
 import { useNotification } from '@/context/notification/useNotification';
 import { ROUTES } from '@/routes/routePaths';
 
 import './index.scss';
 
-/**
- * How long to sit on the loading screen waiting for Amplify to finish the code
- * exchange before treating the callback as failed. The happy path clears the
- * params itself in well under a second.
- */
-const OAUTH_CALLBACK_TIMEOUT_MS = 15_000;
-
 export function WelcomePage() {
   const { isAuthenticated, isLoading, signIn } = useAuth();
   const { addNotification } = useNotification();
-  const [callbackTimedOut, setCallbackTimedOut] = useState(false);
+  const isCallbackPending = useOauthCallbackPending();
 
-  const params = new URLSearchParams(window.location.search);
-  const isOauthCallback = params.has('code') && params.has('state');
-
-  useEffect(() => {
-    if (!isOauthCallback) return;
-    const timer = setTimeout(() => {
-      window.history.replaceState(null, '', window.location.pathname);
-      setCallbackTimedOut(true);
-    }, OAUTH_CALLBACK_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [isOauthCallback]);
-
-  if (isLoading || (isOauthCallback && !callbackTimedOut)) return <LoadingScreen />;
+  // A live session settles it, whatever is on the URL: stale callback params
+  // survive a reload, a back-button and a second tab, and waiting on an
+  // exchange that has already happened would only stall someone who is
+  // signed in.
   if (isAuthenticated) return <Navigate to={ROUTES.SEARCH} replace />;
+  if (isLoading || isCallbackPending) return <LoadingScreen />;
 
   const startIdirLogin = () =>
     void signIn().catch(() =>

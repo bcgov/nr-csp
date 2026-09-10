@@ -116,6 +116,19 @@ describe('WelcomePage', () => {
     expect(screen.queryByRole('button', { name: /log in with idir/i })).not.toBeInTheDocument();
   });
 
+  // Stale params outlive the exchange that produced them — a reload, a back
+  // button, a second tab — and re-exchanging a consumed code fails, so nothing
+  // clears them. Waiting on that would stall someone who is already signed in.
+  it('sends an authenticated visitor on without waiting out stale callback params', () => {
+    vi.stubGlobal('location', { search: '?code=abc&state=xyz', pathname: '/' });
+    mockUseAuth.mockReturnValue({ isAuthenticated: true, isLoading: false, signIn });
+
+    arrange();
+
+    expect(screen.getByText('Search page')).toBeInTheDocument();
+    expect(screen.queryByText('Loading')).not.toBeInTheDocument();
+  });
+
   // Only Amplify's success path clears the params, so without a bounded wait a
   // failed exchange would leave the loading screen up for good — and still up
   // after a reload.
