@@ -191,6 +191,55 @@ class R12ServiceTest {
 
             assertThat(params).containsEntry("INVOICE_DATE_TO", "20200131");
         }
+
+        /**
+         * CSP_SP_RPT_12 ANDs year, month and the date range, so a report year has to narrow
+         * the range rather than replace it — passing the year alone made the report cover the
+         * whole year and silently ignore the range the user asked for.
+         */
+        @Test
+        void shouldPassBothYearAndDateRange_whenYearAccompaniesARange() {
+            R12ReportRequest r = baseRequest();
+            r.setYear(2015);
+            r.setDateFrom("20150401");
+            r.setDateTo("20150630");
+
+            Map<String, Object> params = buildParams(r);
+
+            assertThat(params)
+                    .containsEntry("YEAR", "2015")
+                    .containsEntry("INVOICE_DATE_FROM", "20150401")
+                    .containsEntry("INVOICE_DATE_TO", "20150630");
+        }
+
+        @Test
+        void shouldPassYearMonthAndDateRange_whenAllThreeProvided() {
+            R12ReportRequest r = baseRequest();
+            r.setYear(2015);
+            r.setMonth(5);
+            r.setDateFrom("20150401");
+            r.setDateTo("20150630");
+
+            Map<String, Object> params = buildParams(r);
+
+            assertThat(params)
+                    .containsEntry("YEAR", "2015")
+                    .containsEntry("MONTH", "05")
+                    .containsEntry("INVOICE_DATE_FROM", "20150401")
+                    .containsEntry("INVOICE_DATE_TO", "20150630");
+        }
+
+        @Test
+        void shouldOmitDateRange_whenYearProvidedWithoutDates() {
+            R12ReportRequest r = baseRequest();
+            r.setYear(2015);
+
+            Map<String, Object> params = buildParams(r);
+
+            assertThat(params)
+                    .containsEntry("YEAR", "2015")
+                    .doesNotContainKeys("INVOICE_DATE_FROM", "INVOICE_DATE_TO");
+        }
     }
 
     @Nested

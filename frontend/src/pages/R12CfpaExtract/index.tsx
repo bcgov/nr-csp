@@ -28,8 +28,10 @@ import './index.scss';
 
 const REPORT_YEAR_START = 2000;
 const currentYear = new Date().getFullYear();
+// Newest year first, matching the legacy CSP app — recent years are the common
+// case, so they should not need scrolling.
 const YEAR_ITEMS: SelectItem[] = Array.from({ length: currentYear - REPORT_YEAR_START + 1 }, (_, i) => {
-  const y = String(REPORT_YEAR_START + i);
+  const y = String(currentYear - i);
   return { id: y, label: y };
 });
 
