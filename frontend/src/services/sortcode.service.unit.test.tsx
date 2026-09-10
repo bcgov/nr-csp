@@ -4,6 +4,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiClient } from '@/config/api/request';
+import { THREE_HOURS } from '@/config/react-query/TimeUnits';
 import { useSortCodesLookupQuery } from '@/services/lookup.service';
 import {
   createSortCode,
@@ -154,7 +155,13 @@ describe('sort-code hooks', () => {
     // mask the bug. The fix must hold under these settings.
     const queryClient = new QueryClient({
       defaultOptions: {
-        queries: { retry: false, staleTime: Infinity, refetchOnMount: false },
+        queries: {
+          retry: false,
+          staleTime: THREE_HOURS,
+          gcTime: THREE_HOURS,
+          refetchOnMount: false,
+          refetchOnWindowFocus: false,
+        },
         mutations: { retry: false },
       },
     });
@@ -170,7 +177,7 @@ describe('sort-code hooks', () => {
     first.unmount();
 
     // 2. A code is added on the maintenance page.
-    vi.mocked(apiClient.post).mockResolvedValue({ data: SORT_CODE });
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { ...SORT_CODE, sortCode: 'B', description: 'Bravo' } });
     const mutation = renderHook(() => useCreateSortCodeMutation(), { wrapper });
     act(() => {
       mutation.result.current.mutate({
