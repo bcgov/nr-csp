@@ -142,7 +142,7 @@ public class InvoiceService {
     public InvoiceResponse create(CreateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
         List<LineItem> lines = mapper.toLineItems(request.lineItems(), null, request.invType());
-        InvoiceDetails details = ManualInvoiceTotals.withCalculatedTotals(mapper.toDetails(request, user), lines);
+        InvoiceDetails details = withChannelTotals(mapper.toDetails(request, user), lines, request.manual());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on create.");
@@ -212,9 +212,9 @@ public class InvoiceService {
         }
 
         List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, request.invType());
-        InvoiceDetails details = ManualInvoiceTotals.withCalculatedTotals(
+        InvoiceDetails details = withChannelTotals(
                 mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID()),
-                lines);
+                lines, request.manual());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on update.");
@@ -335,11 +335,12 @@ public class InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(id);
 
-        // Reset id/status on the cloned details and persist as a new DRAFT. The
-        // totals come from the lines being cloned, not from the source's stored
-        // totals, so a clone can't inherit a stale total.
-        InvoiceDetails cloned = ManualInvoiceTotals.withCalculatedTotals(
-                withId(existing.details(), null, ConstantsCode.INVENTRYSTATUS_DRAFT), existingLines);
+        // Reset id/status on the cloned details and persist as a new DRAFT. A
+        // manual invoice's totals come from the lines being cloned rather than
+        // from the source's stored totals, so a clone can't inherit a stale one.
+        InvoiceDetails cloned = withChannelTotals(
+                withId(existing.details(), null, ConstantsCode.INVENTRYSTATUS_DRAFT),
+                existingLines, existing.submissionNumber() == null);
 
         // Reuse the source invoice's submission — a submission can hold multiple
         // invoices — rather than creating a new one. Its status is left unchanged.
@@ -568,16 +569,21 @@ public class InvoiceService {
             log.info("Line-item change reverted invoice id={} to DRAFT submissionId={}", invoiceId, existing.submissionId());
         }
         List<LineItem> currentLines = lineItemRepo.findByInvoiceId(invoiceId);
-        // The line items just changed, so the stored header totals are stale —
-        // recompute and persist them before validating, otherwise the totals
-        // rules compare the new lines against the old totals and warn about a
-        // mismatch (e.g. "The Total Amount of 0 does not match...") that the
-        // screen gives the user no field to correct.
-        InvoiceDetails draftDetails = persistCalculatedTotals(
-                withId(existing.details(), invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT), currentLines, user);
         boolean manual = existing.submissionNumber() == null;
+        InvoiceDetails draftDetails = withId(existing.details(), invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
+        if (manual) {
+            draftDetails = persistCalculatedTotals(draftDetails, currentLines, user);
+        }
         ValidationResult result = newValidator().validate(draftDetails, currentLines, manual, ActionType.OTHER);
         return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), currentLines, result);
+    }
+
+    /**
+     * The totals to store for this channel: derived from {@code lines} for a
+     * manually-entered invoice, left exactly as submitted for an ESF one.
+     */
+    private static InvoiceDetails withChannelTotals(InvoiceDetails details, List<LineItem> lines, boolean manual) {
+        return manual ? ManualInvoiceTotals.withCalculatedTotals(details, lines) : details;
     }
 
     /**
