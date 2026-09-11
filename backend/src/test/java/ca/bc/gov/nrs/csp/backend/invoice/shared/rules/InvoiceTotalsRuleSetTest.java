@@ -286,6 +286,56 @@ class InvoiceTotalsRuleSetTest {
         .containsExactly(I24, I25, I29);
   }
 
+  // --- calculate(): the derived totals, also persisted by the manual channel ---
+
+  @Test
+  void calculate_sums_amount_volume_and_pieces() {
+    List<InvoiceTotals.Line> lines = List.of(
+        new InvoiceTotals.Line(new BigDecimal("5.0"), new BigDecimal("10.00"), 10),
+        new InvoiceTotals.Line(new BigDecimal("2.5"), new BigDecimal("4.00"), 7));
+
+    InvoiceTotalsRuleSet.Calculated c = InvoiceTotalsRuleSet.calculate("SAL", lines);
+
+    assertThat(c.amount()).isEqualByComparingTo("60.00");
+    assertThat(c.volume()).isEqualByComparingTo("7.5");
+    assertThat(c.pieces()).isEqualTo(17);
+  }
+
+  @Test
+  void calculate_keeps_an_ADJ_amount_negative() {
+    InvoiceTotalsRuleSet.Calculated c = InvoiceTotalsRuleSet.calculate("ADJ",
+        List.of(new InvoiceTotals.Line(new BigDecimal("-10"), new BigDecimal("-10"), -5)));
+
+    assertThat(c.amount()).isEqualByComparingTo("-100.00");
+    assertThat(c.volume()).isEqualByComparingTo("-10");
+    assertThat(c.pieces()).isEqualTo(-5);
+  }
+
+  @Test
+  void calculate_skips_lines_missing_a_volume_or_price() {
+    List<InvoiceTotals.Line> lines = List.of(
+        new InvoiceTotals.Line(new BigDecimal("5.0"), null, 3),           // no price: no amount
+        new InvoiceTotals.Line(null, new BigDecimal("10.00"), 4),         // no volume: neither
+        new InvoiceTotals.Line(new BigDecimal("1.0"), new BigDecimal("2.00"), 5));
+
+    InvoiceTotalsRuleSet.Calculated c = InvoiceTotalsRuleSet.calculate("SAL", lines);
+
+    assertThat(c.amount()).isEqualByComparingTo("2.00");
+    assertThat(c.volume()).isEqualByComparingTo("6.0");
+    assertThat(c.pieces()).isEqualTo(12);
+  }
+
+  @Test
+  void calculate_no_lines_is_zero() {
+    InvoiceTotalsRuleSet.Calculated empty = InvoiceTotalsRuleSet.calculate("SAL", List.of());
+
+    assertThat(empty.amount()).isEqualByComparingTo("0.00");
+    assertThat(empty.volume()).isEqualByComparingTo("0");
+    assertThat(empty.pieces()).isZero();
+    // A null line list is treated the same way.
+    assertThat(InvoiceTotalsRuleSet.calculate("SAL", null).amount()).isEqualByComparingTo("0.00");
+  }
+
   // --- helpers ---
 
   private static List<String> codes(InvoiceTotals t) {

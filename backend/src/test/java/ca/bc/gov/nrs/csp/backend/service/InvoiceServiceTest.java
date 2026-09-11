@@ -27,6 +27,7 @@ import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.invoice.manual.InvoiceValidator;
+import ca.bc.gov.nrs.csp.backend.invoice.manual.ManualInvoiceTotals;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -137,6 +138,14 @@ class InvoiceServiceTest {
 
     private InvoiceDetails draftDetails(Long id) {
         return details(id, "DFT", "5678", null, "Seller");
+    }
+
+    /**
+     * A draft whose stored totals are the zeros a brand-new invoice is created
+     * with — it has no line items yet at the moment it's saved.
+     */
+    private InvoiceDetails zeroTotalsDraft(Long id) {
+        return ManualInvoiceTotals.withCalculatedTotals(draftDetails(id), List.of());
     }
 
     private LoadedInvoice loaded(InvoiceDetails d, Long submissionId, Long buyerPid, Long sellerPid) {
@@ -264,6 +273,28 @@ class InvoiceServiceTest {
         verify(invoiceRepo, times(3)).replaceLogSources(eq(500L), any(), any(), eq(USER));
         verify(invoiceRepo, times(2)).replaceRelatedInvoices(eq(500L), any(), any(), any(), any(), eq(USER));
         verify(participantRepo, never()).insert(any(), any(), any(), any());
+    }
+
+    @Test
+    void create_savesTheTotalsCalculatedFromTheLineItems() {
+        // The request's totals are advisory — the invoice screen shows them as
+        // read-only sums of the line items — so what gets stored is calculated
+        // from the lines, not copied from the request.
+        CreateInvoiceRequest req = createRequest(true);
+        given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", "5678", null, "Seller"));
+        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of(line(null, null), line(null, null)));
+        given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
+        given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
+
+        service.create(req);
+
+        ArgumentCaptor<InvoiceDetails> captor = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(invoiceRepo).insertInvoice(captor.capture(), any(), any(), any(), any(), any());
+        // The details fixture claims $100.00 / 10 pieces / 5.0 m³; the two lines
+        // (10 pieces, 5.0 m³ @ $10.00 each) calculate to $100.00 / 20 / 10.0.
+        assertThat(captor.getValue().totalAmt()).isEqualByComparingTo("100.00");
+        assertThat(captor.getValue().totalPieces()).isEqualTo(20);
+        assertThat(captor.getValue().totalVol()).isEqualByComparingTo("10.0");
     }
 
     @Test
@@ -840,6 +871,59 @@ class InvoiceServiceTest {
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
         verify(submissionRepo).updateSubmissionStatus(10L, "LOB", USER);
+    }
+
+    @Test
+    void addLineItem_persistsTheTotalsCalculatedFromTheSavedLines() {
+        // An invoice is created before its line items exist, so it's stored with
+        // zero totals. Adding a line has to re-derive them, or the
+        // saved record keeps totals of 0 — which Submission History and the
+        // reports read, and which makes the totals-variance rules warn that
+        // "The Total Amount of 0 does not match with the calculated total
+        // amount" with no field on the screen to correct it.
+        LineItemRequest req = lineItemRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(zeroTotalsDraft(1L), 10L, null, null)));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
+        // Empty before the insert, one line after it.
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(), List.of(line(5L, null)));
+
+        service.addLineItem(1L, req);
+
+        verify(invoiceRepo).updateTotals(1L, 10, new BigDecimal("5.0"), new BigDecimal("50.00"), USER);
+        // ...and the re-validation that produces the response's warnings sees
+        // the new totals, not the stale zeros.
+        ArgumentCaptor<InvoiceDetails> captor = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(validator).validate(captor.capture(), any(), anyBoolean(), eq(ActionType.OTHER));
+        assertThat(captor.getValue().totalAmt()).isEqualByComparingTo("50.00");
+        assertThat(captor.getValue().totalPieces()).isEqualTo(10);
+        assertThat(captor.getValue().totalVol()).isEqualByComparingTo("5.0");
+    }
+
+    @Test
+    void deleteLineItem_persistsTheTotalsCalculatedFromWhatIsLeft() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of()); // last line deleted
+
+        service.deleteLineItem(1L, 5L);
+
+        verify(invoiceRepo).updateTotals(1L, 0, BigDecimal.ZERO, new BigDecimal("0.00"), USER);
+    }
+
+    @Test
+    void lineItemChange_totalsAlreadyMatch_skipsTheTotalsWrite() {
+        // No point bumping the row's revision count when the change didn't move
+        // the totals (e.g. an edit to a line's sort code).
+        LineItemRequest req = lineItemRequest();
+        InvoiceDetails inSync = ManualInvoiceTotals.withCalculatedTotals(draftDetails(1L), List.of(line(5L, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(inSync, 10L, null, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(5L, null)));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(5L, null));
+
+        service.updateLineItem(1L, 5L, req);
+
+        verify(invoiceRepo, never()).updateTotals(any(), any(), any(), any(), any());
     }
 
     // ===============================================================

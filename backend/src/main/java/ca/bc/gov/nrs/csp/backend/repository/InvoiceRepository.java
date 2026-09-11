@@ -8,6 +8,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -514,6 +515,33 @@ public class InvoiceRepository {
                 .addValue("totalAmt", details.totalAmt())
                 .addValue("reviewerNotes", details.reviewComments())
                 .addValue("submitterNotes", details.submitComments())
+                .addValue("userId", userId);
+        jdbc.update(sql, params);
+    }
+
+    /**
+     * Narrow update for the derived header totals — used after a line-item change
+     * so the stored totals keep agreeing with the invoice's line items. Unlike
+     * {@link #updateInvoice}, which rewrites the whole header, this touches only
+     * the three total columns (plus the audit columns).
+     */
+    public void updateTotals(Long id, Integer totalPieces, BigDecimal totalVol, BigDecimal totalAmt, String userId) {
+        String sql = """
+                UPDATE THE.coastal_log_sale SET
+                    client_total_invoice_pieces = :totalPieces,
+                    client_total_log_pieces = :totalPieces,
+                    client_total_invoice_volume = :totalVol,
+                    client_total_invoice_amt = :totalAmt,
+                    revision_count = revision_count + 1,
+                    update_userid = :userId,
+                    update_timestamp = SYSDATE
+                WHERE coastal_log_sale_id = :id
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("totalPieces", totalPieces == null ? 0 : totalPieces)
+                .addValue("totalVol", totalVol)
+                .addValue("totalAmt", totalAmt)
                 .addValue("userId", userId);
         jdbc.update(sql, params);
     }
