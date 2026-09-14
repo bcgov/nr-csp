@@ -191,10 +191,17 @@ export const deleteInvoiceLineItem = (invoiceId: number, lineId: number): Promis
 // ----------------------------------------------------------------------------
 
 // Every invoice mutation can change what Submission History shows — reviewer
-// comment, invoice status, and the per-submission invoice/comment counts — so
-// those cached rows are marked stale here and refetched rather than left until
-// a page refresh. Nothing is evicted, so an inactive query still renders its
-// cached frame once before the refetch it does on mount lands.
+// comment, invoice status, and the per-submission invoice/comment counts.
+//
+// This overlaps with the staleTime:0 / refetchOnMount overrides on the
+// submission-history queries themselves, deliberately: each half covers a case
+// the other misses.
+//   - Mounted view (a second tab, or the page kept alive behind a modal):
+//     nothing remounts, so only this invalidation refreshes it.
+//   - Unmounted view (the usual Invoice -> Submission History navigation): the
+//     mount refetch already covers it; invalidating is harmless.
+// Nothing is evicted, so an inactive query still renders one cached frame
+// before its refetch lands.
 // Fire-and-forget: the mutation must not stay pending on the refetch.
 const invalidateSubmissionHistory = (qc: QueryClient): void => {
   void qc.invalidateQueries({ queryKey: SUBMISSION_HISTORY_QUERY_KEY });
