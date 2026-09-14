@@ -1,3 +1,4 @@
+import { Summit, UserSearch } from '@carbon/pictograms-react';
 import {
   DataTable,
   DataTableSkeleton,
@@ -13,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from '@carbon/react';
-import { Summit, UserSearch } from '@carbon/pictograms-react';
 import React, { useState, useMemo, useEffect, type ReactElement, type ReactNode } from 'react';
 
 import './index.scss';
