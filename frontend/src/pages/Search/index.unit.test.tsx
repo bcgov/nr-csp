@@ -149,7 +149,7 @@ describe('SearchPage', () => {
 
   it('shows no-search-performed empty state before first search', () => {
     renderSearchPage();
-    expect(screen.getByText(/no search performed/i)).toBeInTheDocument();
+    expect(screen.getByText(/your search results will appear here/i)).toBeInTheDocument();
   });
 
   it('shows loading skeleton while search is in progress', () => {

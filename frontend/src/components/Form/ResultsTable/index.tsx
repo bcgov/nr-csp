@@ -46,7 +46,7 @@ export interface ResultsTableColumn<T> {
  * @property {T[]} rows - The data rows to display.
  * @property {ResultsTableColumn<T>[]} columns - Column definitions including optional per-column renderers.
  * @property {boolean} [isSortable] - Whether columns are sortable. Defaults to false.
- * @property {boolean} [hasSearched] - When true and `rows` is empty, renders the uniform "No results found" state. When false and `rows` is empty, renders the uniform "No search performed" state.
+ * @property {boolean} [hasSearched] - When true and `rows` is empty, renders the uniform "No results found" state. When false and `rows` is empty, renders the uniform "Your search results will appear here." state.
  * @property {boolean} [isLoading] - When true, renders an animated skeleton table in place of results.
  * @property {string} [searchKeyword] - Currently applied keyword filter. Seeds the search bar, and re-seeds it whenever this changes from outside (e.g. a page's "Clear filters").
  * @property {(keyword: string) => void} [onSearchKeywordChange] - Commits the keyword filter: called on Enter, on blur, and as soon as the bar is emptied (via its clear button or by deleting the text). Keystrokes otherwise stay local to the bar, so the committed keyword always matches what the bar displays. Omit to hide the bar.
@@ -97,7 +97,7 @@ interface ResultsTableProps<T extends { id: string }> {
   // Disable the zebra striping (defaults on).
   withZebraStyles?: boolean;
   // Override the built-in empty-state copy. Each falls back to the
-  // search-driven defaults ("No results found" / "No search performed").
+  // search-driven defaults ("No results found" / "Your search results will appear here.").
   emptyTitle?: string;
   emptyDescription?: string;
 }
