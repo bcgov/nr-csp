@@ -327,8 +327,6 @@ export function InboxPage() {
               setCurrentPage(page);
               setPageSize(newPageSize);
             }}
-            emptyTitle={hasSearched ? undefined : 'No search performed'}
-            emptyDescription={hasSearched ? undefined : 'Use the filters above and click Search to see results.'}
           />
         </Column>
       </Grid>
