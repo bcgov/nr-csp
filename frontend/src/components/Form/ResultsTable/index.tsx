@@ -306,10 +306,10 @@ const ResultsTable = <T extends { id: string }>({
   // Empty-state copy + pictogram. Consumers can override the copy via the
   // `emptyTitle` / `emptyDescription` props; otherwise it falls back to the
   // search-driven defaults.
-  const resolvedEmptyTitle = emptyTitle ?? (hasSearched ? 'No results found' : 'No search performed');
+  const resolvedEmptyTitle = emptyTitle ?? (hasSearched ? 'No results found' : 'Your search results will appear here.');
   const resolvedEmptyDescription =
     emptyDescription ??
-    (hasSearched ? 'Try adjusting your search criteria.' : 'Use the filters above and click Search to see results.');
+    (hasSearched ? 'Try adjusting your search criteria.' : 'Enter at least one criteria to start the search.');
   const Pictogram = hasSearched ? UserSearch : Summit;
 
   return (
