@@ -39,6 +39,7 @@ import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.invoice.manual.InvoiceValidator;
+import ca.bc.gov.nrs.csp.backend.invoice.manual.ManualInvoiceTotals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,7 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -139,8 +141,8 @@ public class InvoiceService {
     @Transactional
     public InvoiceResponse create(CreateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
-        InvoiceDetails details = mapper.toDetails(request, user);
-        List<LineItem> lines = mapper.toLineItems(request.lineItems(), null, details.invType());
+        List<LineItem> lines = mapper.toLineItems(request.lineItems(), null, request.invType());
+        InvoiceDetails details = withChannelTotals(mapper.toDetails(request, user), lines, request.manual());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on create.");
@@ -209,8 +211,10 @@ public class InvoiceService {
                     "Approved, rejected, or cancelled invoices cannot have their details edited.");
         }
 
-        InvoiceDetails details = mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID());
-        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, details.invType());
+        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, request.invType());
+        InvoiceDetails details = withChannelTotals(
+                mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID()),
+                lines, request.manual());
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on update.");
@@ -331,8 +335,12 @@ public class InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(id);
 
-        // Reset id/status on the cloned details and persist as a new DRAFT.
-        InvoiceDetails cloned = withId(existing.details(), null, ConstantsCode.INVENTRYSTATUS_DRAFT);
+        // Reset id/status on the cloned details and persist as a new DRAFT. A
+        // manual invoice's totals come from the lines being cloned rather than
+        // from the source's stored totals, so a clone can't inherit a stale one.
+        InvoiceDetails cloned = withChannelTotals(
+                withId(existing.details(), null, ConstantsCode.INVENTRYSTATUS_DRAFT),
+                existingLines, existing.submissionNumber() == null);
 
         // Reuse the source invoice's submission — a submission can hold multiple
         // invoices — rather than creating a new one. Its status is left unchanged.
@@ -545,10 +553,11 @@ public class InvoiceService {
 
     /**
      * Every line-item change reverts the invoice to DRAFT and its submission to
-     * LOBBY (a no-op when already there), then re-validates the now-persisted
-     * record with {@link ActionType#OTHER} — the same action the passive GET
-     * uses — so the response carries both warnings and any ERROR-type messages
-     * that still describe the saved record.
+     * LOBBY (a no-op when already there), re-derives the header totals from the
+     * now-persisted lines, then re-validates the record with
+     * {@link ActionType#OTHER} — the same action the passive GET uses — so the
+     * response carries both warnings and any ERROR-type messages that still
+     * describe the saved record.
      */
     private InvoiceResponse revertToDraftAndRespond(LoadedInvoice existing, String user) {
         Long invoiceId = existing.details().invID();
@@ -559,11 +568,54 @@ public class InvoiceService {
             }
             log.info("Line-item change reverted invoice id={} to DRAFT submissionId={}", invoiceId, existing.submissionId());
         }
-        InvoiceDetails draftDetails = withId(existing.details(), invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        boolean manual = existing.submissionNumber() == null;
         List<LineItem> currentLines = lineItemRepo.findByInvoiceId(invoiceId);
+        boolean manual = existing.submissionNumber() == null;
+        InvoiceDetails draftDetails = withId(existing.details(), invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
+        if (manual) {
+            draftDetails = persistCalculatedTotals(draftDetails, currentLines, user);
+        }
         ValidationResult result = newValidator().validate(draftDetails, currentLines, manual, ActionType.OTHER);
         return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), currentLines, result);
+    }
+
+    /**
+     * The totals to store for this channel: derived from {@code lines} for a
+     * manually-entered invoice, left exactly as submitted for an ESF one.
+     */
+    private static InvoiceDetails withChannelTotals(InvoiceDetails details, List<LineItem> lines, boolean manual) {
+        return manual ? ManualInvoiceTotals.withCalculatedTotals(details, lines) : details;
+    }
+
+    /**
+     * Write the totals calculated from {@code lines} onto the invoice header and
+     * return the details carrying them. A no-op write when they already agree, so
+     * a line-item change that doesn't move the totals doesn't bump the row's
+     * revision count.
+     */
+    private InvoiceDetails persistCalculatedTotals(InvoiceDetails details, List<LineItem> lines, String user) {
+        InvoiceDetails recalculated = ManualInvoiceTotals.withCalculatedTotals(details, lines);
+        if (sameTotals(details, recalculated)) {
+            return details;
+        }
+        invoiceRepo.updateTotals(details.invID(), recalculated.totalPieces(),
+                recalculated.totalVol(), recalculated.totalAmt(), user);
+        log.debug("Recalculated totals for invoice id={}: pieces={} volume={} amount={}",
+                details.invID(), recalculated.totalPieces(), recalculated.totalVol(), recalculated.totalAmt());
+        return recalculated;
+    }
+
+    /** Compares the three totals by value — {@code 0} and {@code 0.00} are the same total. */
+    private static boolean sameTotals(InvoiceDetails a, InvoiceDetails b) {
+        return Objects.equals(a.totalPieces(), b.totalPieces())
+                && sameAmount(a.totalVol(), b.totalVol())
+                && sameAmount(a.totalAmt(), b.totalAmt());
+    }
+
+    private static boolean sameAmount(BigDecimal a, BigDecimal b) {
+        if (a == null || b == null) {
+            return a == b;
+        }
+        return a.compareTo(b) == 0;
     }
 
     private LoadedInvoice loadInvoiceOrThrow(Long invoiceId) {
