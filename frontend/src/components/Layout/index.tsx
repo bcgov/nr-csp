@@ -3,10 +3,11 @@ import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 
 import { useAuth } from '@/context/auth/useAuth';
-import { useNotification } from '@/context/notification/useNotification';
 import { LayoutProvider } from '@/context/layout/LayoutProvider';
+import { useNotification } from '@/context/notification/useNotification';
 
 import { LayoutHeader } from './LayoutHeader/LayoutHeader';
+
 import './index.scss';
 import type { FC } from 'react';
 

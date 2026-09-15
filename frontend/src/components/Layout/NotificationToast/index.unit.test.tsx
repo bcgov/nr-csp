@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Notification } from '@/context/notification/NotificationContext';
 import { useNotification } from '@/context/notification/useNotification';
 
 import { AUTO_CLOSE_MS, NotificationToast } from './index';
+
+import type { Notification } from '@/context/notification/NotificationContext';
 
 vi.mock('@/context/notification/useNotification', () => ({ useNotification: vi.fn() }));
 
