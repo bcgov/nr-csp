@@ -90,16 +90,17 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
    * When the federated logout chain is configured, this drives a full-page
    * navigation through SiteMinder → Keycloak → Cognito → app so every upstream
    * session is terminated (not just Cognito). Local Amplify tokens are cleared
-   * first so the post-chain landing on /logout renders logged-out. A popup
-   * concurrently logs out loginproxy's `idir` broker realm — the one layer the
-   * chain can't reach; without it the next sign-in is a silent SSO login (see
+   * first so the post-chain landing renders logged-out. A popup concurrently
+   * logs out loginproxy's `idir` broker realm — the one layer the chain can't
+   * reach; without it the next sign-in is a silent SSO login (see
    * openIdirRealmLogoutPopup). If the chain config is incomplete, it falls
    * back to a plain Amplify `signOut()` (Cognito-only).
    */
   async function performSignOut(reason: SignOutReason = 'user') {
     setIsSigningOut(true);
     // Recorded before anything is cleared: the chain below discards the SPA, so
-    // this is the only thing that tells /logout why the user got there.
+    // this is the only thing that tells the welcome screen why the user got
+    // there.
     setSignOutReason(reason);
     clearPersistedTableState();
 
