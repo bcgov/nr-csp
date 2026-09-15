@@ -46,9 +46,11 @@
     font-weight: 700;
   }
 
-  // Prevent isSortable sorted-column highlight from tinting body cell text
-  .cds--data-table tbody tr td,
-  .cds--data-table tbody tr td * {
+  // Prevent isSortable sorted-column highlight from tinting body cell text.
+  // Scoped off the empty-state row: `td *` matched ResultsTable's pictogram
+  // and description, and the !important forced them to text-primary.
+  .cds--data-table tbody tr:not(.results-table__empty-row) td,
+  .cds--data-table tbody tr:not(.results-table__empty-row) td * {
     color: var(--cds-text-primary) !important;
   }
 
