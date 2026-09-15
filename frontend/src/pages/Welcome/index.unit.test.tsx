@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { NotificationToast } from '@/components/Layout/NotificationToast';
 import { setSignOutReason } from '@/context/auth/signOutReason';
 import * as useAuthModule from '@/context/auth/useAuth';
 import { NotificationProvider } from '@/context/notification/NotificationProvider';
@@ -17,18 +18,33 @@ vi.mock('@/components/core/LoadingScreen', () => ({
 const mockUseAuth = useAuthModule.useAuth as ReturnType<typeof vi.fn>;
 const signIn = vi.fn();
 
-/** Renders at '/' with a stand-in for the app's authenticated home. */
-const arrange = () =>
-  render(
-    <NotificationProvider>
-      <MemoryRouter initialEntries={['/']}>
-        <Routes>
-          <Route path="/" element={<WelcomePage />} />
-          <Route path="/search" element={<div>Search page</div>} />
-        </Routes>
-      </MemoryRouter>
-    </NotificationProvider>,
-  );
+/**
+ * Renders at '/' with a stand-in for the app's authenticated home. The stand-in
+ * carries a toast renderer because the real one does — /search lives inside
+ * Layout, which renders the notification stack — so a notice queued on the way
+ * past the redirect shows up here instead of vanishing into context with
+ * nothing to render it.
+ */
+const tree = () => (
+  <NotificationProvider>
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<WelcomePage />} />
+        <Route
+          path="/search"
+          element={
+            <>
+              <div>Search page</div>
+              <NotificationToast />
+            </>
+          }
+        />
+      </Routes>
+    </MemoryRouter>
+  </NotificationProvider>
+);
+
+const arrange = () => render(tree());
 
 describe('WelcomePage', () => {
   beforeEach(() => {
@@ -202,18 +218,43 @@ describe('WelcomePage', () => {
       expect(screen.getByText('Loading')).toBeInTheDocument();
 
       mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
-      rerender(
-        <NotificationProvider>
-          <MemoryRouter initialEntries={['/']}>
-            <Routes>
-              <Route path="/" element={<WelcomePage />} />
-              <Route path="/search" element={<div>Search page</div>} />
-            </Routes>
-          </MemoryRouter>
-        </NotificationProvider>,
-      );
+      rerender(tree());
 
       expect(await screen.findByText(/your session has expired/i)).toBeInTheDocument();
+    });
+
+    // Reachable via the Cognito-only fallback sign-out: it clears local tokens
+    // without ending the upstream session, so ProtectedRoute re-authenticates
+    // silently and returns here — signed in, with the flag still set. A
+    // persistent notice queued on the way past would render in the shell's
+    // toast stack and never auto-close, stranding an "expired" toast over a
+    // live session.
+    it('queues nothing for a visitor who turns out to be signed in', () => {
+      setSignOutReason('timeout');
+      mockUseAuth.mockReturnValue({ isAuthenticated: true, isLoading: false, signIn });
+
+      arrange();
+
+      expect(screen.getByText('Search page')).toBeInTheDocument();
+      expect(screen.queryByText(/your session has expired/i)).not.toBeInTheDocument();
+    });
+
+    // isAuthenticated is still false while the session check is in flight, so
+    // reading the reason before it settles would queue the notice anyway and
+    // only then discover the live session.
+    it('waits for the session check before reading the reason', async () => {
+      setSignOutReason('timeout');
+      mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: true, signIn });
+
+      const { rerender } = arrange();
+      expect(screen.getByText('Loading')).toBeInTheDocument();
+
+      // Settles as signed in — the notice must never have been queued.
+      mockUseAuth.mockReturnValue({ isAuthenticated: true, isLoading: false, signIn });
+      rerender(tree());
+
+      expect(await screen.findByText('Search page')).toBeInTheDocument();
+      expect(screen.queryByText(/your session has expired/i)).not.toBeInTheDocument();
     });
 
     // The sign-out fired *because* the user was idle, so the page loads while
