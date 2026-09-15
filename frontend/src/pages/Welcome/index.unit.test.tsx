@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { setSignOutReason } from '@/context/auth/signOutReason';
 import * as useAuthModule from '@/context/auth/useAuth';
 import { NotificationProvider } from '@/context/notification/NotificationProvider';
 
@@ -33,11 +34,13 @@ describe('WelcomePage', () => {
   beforeEach(() => {
     vi.stubGlobal('location', { search: '' });
     mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
+    sessionStorage.clear();
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    sessionStorage.clear();
   });
 
   it('offers both sign-in options to an anonymous visitor', () => {
@@ -151,5 +154,90 @@ describe('WelcomePage', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // A timed-out session and a deliberate sign-out land here identically — the
+  // logout chain's return URL is fixed — so the reason stashed before the chain
+  // ran is the only thing that can explain why the user is back on the welcome
+  // screen instead of the page they were working on.
+  describe('an expired session', () => {
+    it('says the session expired when the sign-out was a timeout', async () => {
+      setSignOutReason('timeout');
+
+      arrange();
+
+      expect(await screen.findByText(/your session has expired/i)).toBeInTheDocument();
+      expect(screen.getByText(/please log in again to continue/i)).toBeInTheDocument();
+    });
+
+    it('says nothing after a deliberate sign-out', async () => {
+      arrange();
+
+      await screen.findByRole('heading', { name: 'Welcome to CSP' });
+      expect(screen.queryByText(/your session has expired/i)).not.toBeInTheDocument();
+    });
+
+    // takeSignOutReason() clears the flag on read, so a reload or a second
+    // visit must not repeat a stale expiry notice.
+    it('does not repeat the notice on a later visit', async () => {
+      setSignOutReason('timeout');
+
+      const first = arrange();
+      expect(await screen.findByText(/your session has expired/i)).toBeInTheDocument();
+      first.unmount();
+
+      arrange();
+
+      await screen.findByRole('heading', { name: 'Welcome to CSP' });
+      expect(screen.queryByText(/your session has expired/i)).not.toBeInTheDocument();
+    });
+
+    // The reason is consumed on mount, before the session check has settled, so
+    // the notice has to survive the loading screen rather than be lost behind it.
+    it('still shows the notice when the session check is slower than the mount', async () => {
+      setSignOutReason('timeout');
+      mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: true, signIn });
+
+      const { rerender } = arrange();
+      expect(screen.getByText('Loading')).toBeInTheDocument();
+
+      mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
+      rerender(
+        <NotificationProvider>
+          <MemoryRouter initialEntries={['/']}>
+            <Routes>
+              <Route path="/" element={<WelcomePage />} />
+              <Route path="/search" element={<div>Search page</div>} />
+            </Routes>
+          </MemoryRouter>
+        </NotificationProvider>,
+      );
+
+      expect(await screen.findByText(/your session has expired/i)).toBeInTheDocument();
+    });
+
+    // The sign-out fired *because* the user was idle, so the page loads while
+    // they are away. An auto-closing notice would expire unseen, and the flag
+    // is already consumed, so a reload could not bring it back.
+    it('keeps the notice up instead of auto-closing it', async () => {
+      vi.useFakeTimers();
+      setSignOutReason('timeout');
+
+      try {
+        const { container } = arrange();
+        await vi.waitFor(() => expect(screen.getByText(/your session has expired/i)).toBeInTheDocument());
+        // The top-right stack, same as every other notice on this page.
+        expect(container.querySelector('.notification-toast-container')).toBeInTheDocument();
+
+        // Well past the 6s a non-persistent toast closes on.
+        await act(async () => {
+          vi.advanceTimersByTime(60_000);
+        });
+
+        expect(screen.getByText(/your session has expired/i)).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

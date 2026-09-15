@@ -1,11 +1,13 @@
 import { Login } from '@carbon/icons-react';
 import { Button } from '@carbon/react';
+import { useEffect } from 'react';
 import { Navigate } from 'react-router';
 
 import bcGovLogo from '@/assets/img/bc-gov-logo.png';
 import forestPhoto from '@/assets/img/welcome-forest.webp';
 import { LoadingScreen } from '@/components/core/LoadingScreen';
 import { NotificationToast } from '@/components/Layout/NotificationToast';
+import { takeSignOutReason } from '@/context/auth/signOutReason';
 import { useAuth } from '@/context/auth/useAuth';
 import { useOauthCallbackPending } from '@/context/auth/useOauthCallbackPending';
 import { useNotification } from '@/context/notification/useNotification';
@@ -17,6 +19,27 @@ export function WelcomePage() {
   const { isAuthenticated, isLoading, signIn } = useAuth();
   const { addNotification } = useNotification();
   const isCallbackPending = useOauthCallbackPending();
+
+  // An expired session lands here exactly as a deliberate sign-out does: the
+  // federated logout chain's return URL is fixed, so the reason stashed before
+  // the chain ran is the only thing that tells them apart (see signOutReason).
+  // Read once on mount — takeSignOutReason() clears the flag, so a reload won't
+  // repeat a stale notice, and StrictMode's second pass reads 'user' and adds
+  // nothing. The notice outlives the loading screen below, so it still shows
+  // when the session check hasn't settled yet.
+  useEffect(() => {
+    if (takeSignOutReason() !== 'timeout') return;
+    addNotification({
+      kind: 'info',
+      title: 'Your session has expired',
+      subtitle: 'Please log in again to continue.',
+      // The sign-out fired *because* the user was idle, so this page finishes
+      // loading while they are away. An auto-closing notice would expire
+      // unseen, and the flag is already consumed, so a reload could not bring
+      // it back — it waits for them instead.
+      persistent: true,
+    });
+  }, [addNotification]);
 
   // A live session settles it, whatever is on the URL: stale callback params
   // survive a reload, a back-button and a second tab, and waiting on an

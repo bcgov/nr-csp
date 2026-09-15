@@ -41,7 +41,7 @@ const Layout: FC = () => {
             kind={n.kind}
             title={n.title}
             subtitle={n.subtitle}
-            timeout={5000}
+            timeout={n.persistent ? 0 : 5000}
             onClose={() => removeNotification(n.id)}
           />
         ))}

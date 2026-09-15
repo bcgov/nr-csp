@@ -1,10 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Notification } from '@/context/notification/NotificationContext';
 import { useNotification } from '@/context/notification/useNotification';
 
-import { NotificationToast } from './index';
+import { AUTO_CLOSE_MS, NotificationToast } from './index';
 
 vi.mock('@/context/notification/useNotification', () => ({ useNotification: vi.fn() }));
 
@@ -52,5 +52,39 @@ describe('NotificationToast', () => {
 
     expect(removeNotification).toHaveBeenCalledTimes(1);
     expect(removeNotification).toHaveBeenCalledWith('abc');
+  });
+
+  describe('auto-close', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('closes an ordinary toast once its timeout elapses', () => {
+      arrange([{ id: '1', kind: 'success', title: 'Saved' }]);
+
+      act(() => {
+        vi.advanceTimersByTime(AUTO_CLOSE_MS + 100);
+      });
+
+      expect(removeNotification).toHaveBeenCalledWith('1');
+    });
+
+    // A persistent notice is for something the user may not be at the screen
+    // to catch — an idle-session timeout is the case it exists for, since the
+    // sign-out fires precisely because nobody is there.
+    it('leaves a persistent toast up indefinitely', () => {
+      arrange([{ id: '1', kind: 'info', title: 'Your session has expired', persistent: true }]);
+
+      act(() => {
+        vi.advanceTimersByTime(10 * 60_000);
+      });
+
+      expect(removeNotification).not.toHaveBeenCalled();
+      expect(screen.getByText('Your session has expired')).toBeInTheDocument();
+    });
   });
 });
