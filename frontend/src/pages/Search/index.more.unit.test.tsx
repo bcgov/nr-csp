@@ -267,7 +267,7 @@ describe('SearchPage interactions', () => {
     // The previous search's rows are gone — even though the mocked query still has them
     // cached — and the keyword bar is hidden again so its text cannot linger.
     expect(screen.queryByRole('link', { name: 'WFP521046' })).not.toBeInTheDocument();
-    expect(screen.getByText('No search performed')).toBeInTheDocument();
+    expect(screen.getByText('Your search results will appear here.')).toBeInTheDocument();
     expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
 
     // The table's own sort state reset too: the next sort starts ascending, not descending.
@@ -287,7 +287,7 @@ describe('SearchPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
 
     expect(screen.queryByText('Failed to load results. Please try again.')).not.toBeInTheDocument();
-    expect(screen.getByText('No search performed')).toBeInTheDocument();
+    expect(screen.getByText('Your search results will appear here.')).toBeInTheDocument();
   });
 
   it('applies the keyword filter and resets to page 1 on Enter', () => {

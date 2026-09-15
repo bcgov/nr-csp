@@ -262,6 +262,71 @@ describe('invoice mutation hooks', () => {
   });
 });
 
+// ── Submission History cache invalidation (CSP: reviewer comment staleness) ───
+
+describe('invoice mutations invalidate the submission-history cache', () => {
+  // Seed a cached submission-history entry of each shape the Submission History
+  // and View Submission screens use, then assert the mutation marked them stale
+  // so the reviewer comment is refetched instead of served from the 3h cache.
+  const seedSubmissionHistory = (queryClient: QueryClient) => {
+    const keys = [
+      ['submission-history', { page: 0, size: 10 }],
+      ['submission-history', 'detail', '42'],
+      ['submission-history', 'invoice-comments', 42],
+    ];
+    keys.forEach((key) => queryClient.setQueryData(key, []));
+    return keys;
+  };
+
+  const allInvalidated = (queryClient: QueryClient, keys: unknown[][]) =>
+    keys.every((key) => queryClient.getQueryState(key)?.isInvalidated === true);
+
+  it.each([
+    {
+      label: 'Update',
+      useHook: useUpdateInvoiceMutation,
+      arrange: () => vi.mocked(apiClient.put).mockResolvedValue({ data: INVOICE }),
+      variables: { id: 7, body: { ...CREATE_BODY, reviewComments: 'Needs a boom number' } },
+    },
+    {
+      label: 'ChangeStatus',
+      useHook: useChangeInvoiceStatusMutation,
+      arrange: () => vi.mocked(apiClient.patch).mockResolvedValue({ data: INVOICE }),
+      variables: { id: 7, body: { status: 'REJ', reviewComments: 'nope' } },
+    },
+    {
+      label: 'Submit',
+      useHook: useSubmitInvoiceMutation,
+      arrange: () => vi.mocked(apiClient.post).mockResolvedValue({ data: INVOICE }),
+      variables: 7,
+    },
+    {
+      label: 'Delete',
+      useHook: useDeleteInvoiceMutation,
+      arrange: () => vi.mocked(apiClient.delete).mockResolvedValue({}),
+      variables: 7,
+    },
+    {
+      label: 'AddLineItem',
+      useHook: useAddInvoiceLineItemMutation,
+      arrange: () => vi.mocked(apiClient.post).mockResolvedValue({ data: INVOICE }),
+      variables: { invoiceId: 7, body: { species: 'FI' } },
+    },
+  ])('use$label mutation invalidates the cached submission-history rows', async ({ useHook, arrange, variables }) => {
+    arrange();
+    const { queryClient, wrapper } = createWrapper();
+    const keys = seedSubmissionHistory(queryClient);
+
+    const { result } = renderHook(() => useHook(), { wrapper });
+    act(() => {
+      (result.current.mutate as (v: unknown) => void)(variables);
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(allInvalidated(queryClient, keys)).toBe(true));
+  });
+});
+
 // ── Error helpers ─────────────────────────────────────────────────────────────
 
 describe('error helpers', () => {

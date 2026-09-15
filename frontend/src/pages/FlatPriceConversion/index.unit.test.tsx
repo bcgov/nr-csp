@@ -125,7 +125,7 @@ describe('FlatPriceConversionPage', () => {
 
   it('starts with an empty table before any search', () => {
     renderPage();
-    expect(screen.getByText(/no search performed/i)).toBeInTheDocument();
+    expect(screen.getByText(/your search results will appear here/i)).toBeInTheDocument();
     expect(screen.queryByText('FD')).not.toBeInTheDocument();
   });
 
@@ -149,7 +149,7 @@ describe('FlatPriceConversionPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
 
-    expect(screen.getByText(/no search performed/i)).toBeInTheDocument();
+    expect(screen.getByText(/your search results will appear here/i)).toBeInTheDocument();
     expect(screen.queryByText('FD')).not.toBeInTheDocument();
   });
 

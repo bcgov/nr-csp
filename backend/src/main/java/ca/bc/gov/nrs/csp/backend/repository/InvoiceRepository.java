@@ -8,6 +8,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -446,12 +447,10 @@ public class InvoiceRepository {
                 .addValue("invNumber", details.invNumber())
                 .addValue("invoiceDate", details.invoiceDate() == null ? null : Date.valueOf(details.invoiceDate()))
                 .addValue("amvCalcDate", details.invoiceDate() == null ? null : Date.valueOf(details.invoiceDate()))
-                .addValue("totalPieces", details.totalPieces() == null ? 0 : details.totalPieces())
-                .addValue("totalVol", details.totalVol())
-                .addValue("totalAmt", details.totalAmt())
                 .addValue("reviewerNotes", details.reviewComments())
                 .addValue("submitterNotes", details.submitComments())
                 .addValue("userId", userId);
+        addTotalsParams(params, details.totalPieces(), details.totalVol(), details.totalAmt());
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(sql, params, keyHolder, new String[]{"COASTAL_LOG_SALE_ID"});
@@ -509,12 +508,52 @@ public class InvoiceRepository {
                 .addValue("sellerParticipantId", sellerParticipantId, Types.BIGINT)
                 .addValue("invNumber", details.invNumber())
                 .addValue("invoiceDate", details.invoiceDate() == null ? null : Date.valueOf(details.invoiceDate()))
-                .addValue("totalPieces", details.totalPieces() == null ? 0 : details.totalPieces())
-                .addValue("totalVol", details.totalVol())
-                .addValue("totalAmt", details.totalAmt())
                 .addValue("reviewerNotes", details.reviewComments())
                 .addValue("submitterNotes", details.submitComments())
                 .addValue("userId", userId);
+        addTotalsParams(params, details.totalPieces(), details.totalVol(), details.totalAmt());
+        jdbc.update(sql, params);
+    }
+
+    /**
+     * Binds the three invoice-total params shared by {@link #insertInvoice},
+     * {@link #updateInvoice} and {@link #updateTotals} — they always travel
+     * together, and the pieces default belongs in one place. Total pieces
+     * defaults to 0: the column is NOT NULL and pieces is the one optional
+     * total.
+     *
+     * <p>Note the param names still have to match the {@code :name} spellings in
+     * each statement's SQL by hand; this only keeps the binding side in step.
+     */
+    private static void addTotalsParams(MapSqlParameterSource params, Integer totalPieces,
+                                        BigDecimal totalVol, BigDecimal totalAmt) {
+        params.addValue("totalPieces", totalPieces == null ? 0 : totalPieces)
+                .addValue("totalVol", totalVol)
+                .addValue("totalAmt", totalAmt);
+    }
+
+    /**
+     * Narrow update for the derived header totals — used after a line-item change
+     * so the stored totals keep agreeing with the invoice's line items. Unlike
+     * {@link #updateInvoice}, which rewrites the whole header, this touches only
+     * the three total columns (plus the audit columns).
+     */
+    public void updateTotals(Long id, Integer totalPieces, BigDecimal totalVol, BigDecimal totalAmt, String userId) {
+        String sql = """
+                UPDATE THE.coastal_log_sale SET
+                    client_total_invoice_pieces = :totalPieces,
+                    client_total_log_pieces = :totalPieces,
+                    client_total_invoice_volume = :totalVol,
+                    client_total_invoice_amt = :totalAmt,
+                    revision_count = revision_count + 1,
+                    update_userid = :userId,
+                    update_timestamp = SYSDATE
+                WHERE coastal_log_sale_id = :id
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("userId", userId);
+        addTotalsParams(params, totalPieces, totalVol, totalAmt);
         jdbc.update(sql, params);
     }
 

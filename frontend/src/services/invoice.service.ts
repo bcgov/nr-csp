@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/config/api/request';
+import { SUBMISSION_HISTORY_QUERY_KEY } from '@/services/submissionHistory.service';
 import { parseContentDispositionFilename } from '@/utils/report';
 
 // ----------------------------------------------------------------------------
@@ -189,6 +190,23 @@ export const deleteInvoiceLineItem = (invoiceId: number, lineId: number): Promis
 // React Query hooks
 // ----------------------------------------------------------------------------
 
+// Every invoice mutation can change what Submission History shows — reviewer
+// comment, invoice status, and the per-submission invoice/comment counts.
+//
+// This overlaps with the staleTime:0 / refetchOnMount overrides on the
+// submission-history queries themselves, deliberately: each half covers a case
+// the other misses.
+//   - Mounted view (a second tab, or the page kept alive behind a modal):
+//     nothing remounts, so only this invalidation refreshes it.
+//   - Unmounted view (the usual Invoice -> Submission History navigation): the
+//     mount refetch already covers it; invalidating is harmless.
+// Nothing is evicted, so an inactive query still renders one cached frame
+// before its refetch lands.
+// Fire-and-forget: the mutation must not stay pending on the refetch.
+const invalidateSubmissionHistory = (qc: QueryClient): void => {
+  void qc.invalidateQueries({ queryKey: SUBMISSION_HISTORY_QUERY_KEY });
+};
+
 // Invoice status is live, multi-user data: concurrent SUBMITTER/APPROVER
 // sessions must not see each other's stale status. Override the global 3h
 // aggressive cache to always refetch on mount and window focus.
@@ -208,6 +226,7 @@ export const useCreateInvoiceMutation = () => {
     mutationFn: createInvoice,
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -218,6 +237,7 @@ export const useUpdateInvoiceMutation = () => {
     mutationFn: ({ id, body }: { id: number; body: UpdateInvoiceRequest }) => updateInvoice(id, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -228,6 +248,7 @@ export const useDeleteInvoiceMutation = () => {
     mutationFn: deleteInvoice,
     onSuccess: (_void, id) => {
       qc.removeQueries({ queryKey: [...QUERY_KEY, id] });
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -238,6 +259,7 @@ export const useSubmitInvoiceMutation = () => {
     mutationFn: submitInvoice,
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -248,6 +270,7 @@ export const useDuplicateInvoiceMutation = () => {
     mutationFn: duplicateInvoice,
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -258,6 +281,7 @@ export const useChangeInvoiceStatusMutation = () => {
     mutationFn: ({ id, body }: { id: number; body: ChangeStatusRequest }) => changeInvoiceStatus(id, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -269,6 +293,7 @@ export const useAddInvoiceLineItemMutation = () => {
       addInvoiceLineItem(invoiceId, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -280,6 +305,7 @@ export const useUpdateInvoiceLineItemMutation = () => {
       updateInvoiceLineItem(invoiceId, lineId, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
@@ -291,6 +317,7 @@ export const useDeleteInvoiceLineItemMutation = () => {
       deleteInvoiceLineItem(invoiceId, lineId),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
     },
   });
 };
