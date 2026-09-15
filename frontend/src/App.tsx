@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { LoadingScreen } from '@/components/core/LoadingScreen';
 import Layout from '@/components/Layout';
@@ -10,7 +10,6 @@ import { IdleTimeoutWatcher } from '@/context/auth/IdleTimeoutWatcher';
 import { NotificationProvider } from '@/context/notification/NotificationProvider';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import { ThemeProvider } from '@/context/theme/ThemeProvider';
-import { LogoutPage } from '@/pages/Logout';
 import { WelcomePage } from '@/pages/Welcome';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { ROUTES } from '@/routes/routePaths';
@@ -75,11 +74,21 @@ export default function App() {
               <BrowserRouter>
                 <Suspense fallback={<LoadingScreen />}>
                   <Routes>
-                    {/* Welcome and logout — accessible without authentication, and
-                        rendered outside the app shell (they have no header or side
-                        nav of the shell's kind) */}
+                    {/* The welcome screen — accessible without authentication, and
+                        rendered outside the app shell (it has no header or side nav
+                        of the shell's kind) */}
                     <Route path={ROUTES.LANDING} element={<WelcomePage />} />
-                    <Route path={ROUTES.LOGOUT} element={<LogoutPage />} />
+
+                    {/* Nothing renders at /logout, but the route has to exist: the
+                        federated logout chain's return URL is fixed at <app>/logout
+                        (`redirectSignOut` is matched verbatim against FAM's
+                        registered Cognito sign-out URLs), so this is where the
+                        browser lands after a sign-out. Bounce it to the welcome
+                        screen — `replace` keeps /logout out of the history, so Back
+                        doesn't return to a URL with nothing on it. An expired
+                        session says so there, via the reason stashed before the
+                        chain ran (see signOutReason). */}
+                    <Route path={ROUTES.LOGOUT} element={<Navigate to={ROUTES.LANDING} replace />} />
 
                     {/* All other routes share the shell layout and require authentication */}
                     <Route element={<Layout />}>

@@ -38,7 +38,7 @@ describe('IdleTimeoutWatcher', () => {
     );
   });
 
-  it('signs out as a timeout, so the signed-out page explains why', () => {
+  it('signs out as a timeout, so the welcome screen explains why', () => {
     const signOut = vi.fn();
     mockUseAuth.mockReturnValue({ isAuthenticated: true, signOut });
 
