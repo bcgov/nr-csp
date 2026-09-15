@@ -1,11 +1,12 @@
-import type { ReactNode } from 'react';
-
 import { clearPersistedTableState } from '@/hooks/usePersistentState';
 
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
+import { setSignOutReason } from './signOutReason';
+
 import type { Role } from './permissions';
 import type { AuthContextValue } from './types';
+import type { ReactNode } from 'react';
 
 export const MOCK_ROLE_KEY = 'csp.mockRole';
 
@@ -32,7 +33,8 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     isLoading: false,
     isSigningOut: false,
     signIn: async () => {},
-    signOut: async () => {
+    signOut: async (reason = 'user') => {
+      setSignOutReason(reason);
       clearPersistedTableState();
     },
   };

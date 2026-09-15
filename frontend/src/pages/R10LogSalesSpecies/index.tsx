@@ -70,14 +70,19 @@ export function R10LogSalesSpeciesPage() {
     ...(selectedInvoiceType && { invoiceTypeCode: selectedInvoiceType.code }),
   });
 
+  // The typed name has to be re-synced on clear as well as on select. Clearing the
+  // ComboBox nulls `sellerClient`, which flips ClientAutocomplete's `key` and unmounts
+  // the old ComboBox before its own `onInputChange('')` effect can flush — so the
+  // typed name never hears about the clear and the "select a valid client" validation
+  // fires against a name the user already deleted.
   const handleSellerSelect = (client: ClientLocationResponse | null) => {
     setSellerClient(client);
-    if (client) setSellerTypedName(client.clientName ?? '');
+    setSellerTypedName(client?.clientName ?? '');
   };
 
   const handleBuyerSelect = (client: ClientLocationResponse | null) => {
     setBuyerClient(client);
-    if (client) setBuyerTypedName(client.clientName ?? '');
+    setBuyerTypedName(client?.clientName ?? '');
   };
 
   const handleExport = (reportFormat: 'PDF' | 'CSV') => {

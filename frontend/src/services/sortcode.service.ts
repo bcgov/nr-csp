@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/config/api/request';
+import { SORT_CODE_LOOKUP_QUERY_KEY } from '@/services/lookup.service';
 import { parseContentDispositionFilename } from '@/utils/report';
 
 export interface SortCodeResponse {
@@ -52,11 +53,22 @@ export const deleteSortCode = (code: string): Promise<void> =>
 export const useListSortCodesQuery = (page: number, size: number, sort?: string) =>
   useQuery({ queryKey: [...QUERY_KEY, page, size, sort], queryFn: () => listSortCodes(page, size, sort) });
 
+// Refresh every cache a sort-code change affects: the maintenance list (active,
+// so invalidation refetches it) and the shared lookup that feeds the invoice and
+// report dropdowns. The lookup is *removed* rather than invalidated: the global
+// query config sets refetchOnMount:false with a long staleTime, so an inactive
+// invalidated query would not refetch when those pages next mount — evicting it
+// forces a fresh fetch (CSP-591).
+const refreshSortCodeCaches = (qc: QueryClient) => {
+  qc.invalidateQueries({ queryKey: QUERY_KEY });
+  qc.removeQueries({ queryKey: SORT_CODE_LOOKUP_QUERY_KEY });
+};
+
 export const useCreateSortCodeMutation = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createSortCode,
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => refreshSortCodeCaches(qc),
   });
 };
 
@@ -64,7 +76,7 @@ export const useUpdateSortCodeMutation = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ code, req }: { code: string; req: UpdateSortCodeRequest }) => updateSortCode(code, req),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => refreshSortCodeCaches(qc),
   });
 };
 
@@ -72,7 +84,7 @@ export const useDeleteSortCodeMutation = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: deleteSortCode,
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: () => refreshSortCodeCaches(qc),
   });
 };
 

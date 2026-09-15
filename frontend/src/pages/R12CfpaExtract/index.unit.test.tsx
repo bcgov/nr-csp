@@ -45,6 +45,22 @@ describe('R12CfpaExtractPage', () => {
     expect(screen.getByRole('combobox', { name: /report month/i })).toBeInTheDocument();
   });
 
+  it('lists report years newest first, from the current year back to 2000', () => {
+    render(<R12CfpaExtractPage />);
+    fireEvent.click(screen.getByRole('combobox', { name: /report year/i }));
+
+    // The first option is SingleSelect's "Select..." blank, so the years follow it.
+    const years = screen
+      .getAllByRole('option')
+      .map((option) => option.textContent)
+      .filter((label) => /^\d{4}$/.test(label ?? ''));
+    const currentYear = new Date().getFullYear();
+
+    expect(years[0]).toBe(String(currentYear));
+    expect(years[years.length - 1]).toBe('2000');
+    expect(years).toHaveLength(currentYear - 2000 + 1);
+  });
+
   it('renders date inputs', () => {
     render(<R12CfpaExtractPage />);
     expect(screen.getByLabelText(/start date/i)).toBeInTheDocument();

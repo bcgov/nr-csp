@@ -53,11 +53,15 @@ public interface CspSubmissionApi {
             @RequestParam(value = "file", required = false) MultipartFile file);
 
     @Operation(summary = "Business-rule validation",
-            description = "Accepts the same multipart file part named 'file'. Parses the submission "
+            description = "Accepts the same multipart file part named 'file', plus the user's editable "
+                    + "submission metadata (submissionClientNumber, submissionClientLocnCode, "
+                    + "monthComplete, sellerSubmission) as optional form fields. Parses the submission "
                     + "(structural validation runs first because the rules operate on the parsed "
-                    + "document), then applies the CSP business rules. Returns 200 with valid=true "
-                    + "when accepted (including any non-blocking warnings), or 422 with the rule "
-                    + "violations. If the XML fails to parse, the structural errors are returned "
+                    + "document), overlays any supplied metadata field onto the parsed tree, then "
+                    + "applies the CSP business rules — so the caller can re-validate after the user "
+                    + "corrects an editable field without re-uploading the file. Returns 200 with "
+                    + "valid=true when accepted (including any non-blocking warnings), or 422 with the "
+                    + "rule violations. If the XML fails to parse, the structural errors are returned "
                     + "(422), since business rules cannot run on an unparseable document.")
     @ApiResponse(responseCode = "200", description = "Submission passed business validation",
             content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class)))
@@ -67,7 +71,11 @@ public interface CspSubmissionApi {
             content = @Content(schema = @Schema(implementation = SubmissionValidationResponse.class)))
     @PostMapping(value = "/validate/business", consumes = "multipart/form-data")
     ResponseEntity<SubmissionValidationResponse> validateBusiness(
-            @RequestParam(value = "file", required = false) MultipartFile file);
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "submissionClientNumber", required = false) String submissionClientNumber,
+            @RequestParam(value = "submissionClientLocnCode", required = false) String submissionClientLocnCode,
+            @RequestParam(value = "monthComplete", required = false) String monthComplete,
+            @RequestParam(value = "sellerSubmission", required = false) String sellerSubmission);
 
     @Operation(summary = "Submit: business-validate and persist the submission",
             description = "Accepts the multipart file part named 'file' plus the user's editable "

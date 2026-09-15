@@ -1,28 +1,78 @@
 @use '@carbon/type';
 @use '@carbon/react/scss/spacing' as *;
 
-.header-panel-profile-container {
+.header-panel-profile {
   display: flex;
   flex-direction: column;
-  padding: $spacing-05 $spacing-06;
 
-  .header-panel-profile-content {
+  .header-panel-profile-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-07;
+    padding: $spacing-05 $spacing-06;
+  }
+
+  .header-panel-profile-details {
     display: flex;
     flex-direction: column;
-    gap: $spacing-03;
+    gap: $spacing-02;
+    min-width: 0;
 
+    // Carbon's HeaderPanel forces a grey (secondary) text colour on its
+    // contents, so every text element sets the primary colour explicitly to
+    // stay black, matching the design.
     .header-panel-profile-name {
-      @include type.type-style('heading-compact-01');
+      @include type.type-style('heading-03');
+      font-weight: 400; // regular per design (heading-03 is otherwise 600 in this app)
+      color: var(--cds-text-primary);
+      margin-bottom: $spacing-02;
     }
 
-    .header-panel-profile-email {
+    .header-panel-profile-meta {
       @include type.type-style('body-compact-01');
-      color: var(--cds-text-secondary);
+      color: var(--cds-text-primary);
+      overflow-wrap: anywhere;
     }
   }
 
-  .cds--btn {
-    margin-top: $spacing-05;
-    align-self: flex-start;
+  .header-panel-profile-divider {
+    block-size: 0;
+    margin: 0;
+    border: none;
+    border-block-start: 1px solid var(--cds-border-subtle-01);
+    // Subtle 2px shadow above the line, separating the actions from the identity.
+    box-shadow: 0 -2px 4px -1px rgba(0, 0, 0, 0.15);
+  }
+
+  // "Log out" presented as a full-width menu-item row (blue icon left, bold
+  // label), matching the app's action rows and the design.
+  .header-panel-profile-logout {
+    @include type.type-style('heading-compact-01');
+
+    display: flex;
+    align-items: center;
+    gap: $spacing-05;
+    inline-size: 100%;
+    padding: $spacing-05 $spacing-06;
+    border: 0;
+    background: transparent;
+    color: var(--cds-text-primary);
+    font-weight: 600; // bold "Log out" label, matching the design
+    cursor: pointer;
+    text-align: start;
+
+    svg {
+      fill: var(--cds-link-primary) !important;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background-color: var(--cds-layer-hover-02);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--cds-focus);
+      outline-offset: -2px;
+    }
   }
 }

@@ -48,6 +48,17 @@ class InvoiceLineRuleSetTest {
   }
 
   @Test
+  void grade_errors_when_blank() {
+    // The electronic path's schema accepts an empty <grade/> element, so blank has
+    // to count as missing — otherwise it falls through to the species/grade
+    // combination lookup and is reported as an unknown pair.
+    Optional<Finding> f = finding(line("SAL", "  ", 3, "10", "5"), L3);
+
+    assertThat(f).isPresent();
+    assertThat(f.get().severity()).isEqualTo(Severity.ERROR);
+  }
+
+  @Test
   void grade_passes_when_present() {
     assertThat(codes(line("SAL", "1", 3, "10", "5"))).doesNotContain(L3);
   }

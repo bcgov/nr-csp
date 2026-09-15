@@ -22,12 +22,8 @@
 
   .page-title-col {
     margin-bottom: $spacing-07;
-
-    // Compact page heading — the full-size heading-05 reads as oversized on
-    // this list page; heading-03 matches the design's subheading scale.
-    .title-container h1 {
-      @include type.type-style('heading-03');
-    }
+    // Title font intentionally left at PageTitle's default heading-05 (32px) so
+    // this screen's heading matches the other screens (CSP-560).
   }
 
   &__filter-row {

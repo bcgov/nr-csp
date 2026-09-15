@@ -51,7 +51,9 @@ public class R13ReportRequest {
     private List<String> grades = new ArrayList<>();
     private String submissionMonthYear;
     private List<String> submissionStatus = new ArrayList<>();
-    @Pattern(regexp = "^\\d+$", message = "submissionNumber must be numeric")
+    // Numeric-only, but enforced in R13Validator rather than here: a bean-validation
+    // failure is reported as a bare API error, while the validator's message reaches
+    // the UI as a structured validation error it can pin to the field.
     private String submissionNumber;
     private String entryUserId;
     private List<@Pattern(regexp = "Electronic|Manual", message = "must be 'Electronic' or 'Manual'") String> submissionTypes = new ArrayList<>();

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import * as r13Service from '@/services/r13.service';
+import { parseReportValidationError } from '@/services/reportValidation';
 import * as reportUtils from '@/utils/report';
 import * as r13Validation from '@/validations/reports/r13';
 import { ValidationResult, type ValidationMessage } from '@/validations/validationResult';
@@ -191,7 +192,7 @@ describe('R13AdHocReportingPage — validation', () => {
     expect(screen.getByText('End date or time frame is required.')).toBeInTheDocument();
   });
 
-  it('shows show-options error when fewer than 2 columns are selected', () => {
+  it('shows the show-options error as a notification banner when fewer than 2 columns are selected', () => {
     mockValidateR13.mockReturnValue(
       makeErrors({
         key: 'report.r13.showcolumns.minimum.error',
@@ -200,7 +201,50 @@ describe('R13AdHocReportingPage — validation', () => {
     );
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
-    expect(screen.getByText(/at least 2 columns/i)).toBeInTheDocument();
+    // The checkboxes it refers to are spread across the page, so this one belongs
+    // in the banner at the top rather than inline beside any single field.
+    expect(screen.getByText(/at least 2 columns/i).closest('.cds--inline-notification')).toBeInTheDocument();
+  });
+
+  it('pins a server-reported submission number error to the approval ID field', async () => {
+    // The field only accepts digits, so this can only reach the page from an
+    // API-side rejection — it still belongs beside the input, not in the banner.
+    (parseReportValidationError as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        messageKey: 'report.submissionnumber.numeric.error',
+        message: 'Submission number must be numeric.',
+        type: 'ERROR',
+      },
+    ]);
+    mockMutate.mockImplementation((_req: unknown, opts: { onError: (e: unknown) => void }) => {
+      opts.onError({ response: { status: 400 } });
+    });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+
+    const message = await screen.findByText('Submission number must be numeric.');
+    expect(message.closest('.cds--inline-notification')).not.toBeInTheDocument();
+  });
+
+  // ── Approval ID number input restriction ─────────────────────────────────
+
+  it.each([
+    ['TEST', ''],
+    ['%', ''],
+    ['12A34', '1234'],
+    ['1 2-3', '123'],
+  ])('strips non-digits typed into the approval ID number field (%s)', (typed, expected) => {
+    renderPage();
+    const input = document.querySelector('#approval-id-number') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: typed } });
+    expect(input).toHaveValue(expected);
+  });
+
+  it('caps the approval ID number at 10 digits', () => {
+    renderPage();
+    const input = document.querySelector('#approval-id-number') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '123456789012345' } });
+    expect(input).toHaveValue('1234567890');
   });
 
   it('does not call the mutation when validation fails', () => {
@@ -286,6 +330,64 @@ describe('R13AdHocReportingPage — export', () => {
         kind: 'error',
         title: 'Report generation failed.',
       }),
+    );
+  });
+
+  it('surfaces the API error message when the failure carries no structured validation errors', async () => {
+    mockMutate.mockImplementation((_req: unknown, opts: { onError: (e: unknown) => void }) => {
+      opts.onError({
+        response: { status: 400, data: { code: 'VALIDATION_ERROR', message: 'submissionNumber must be numeric' } },
+      });
+    });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+    await waitFor(() =>
+      expect(mockAddNotification).toHaveBeenCalledWith({
+        kind: 'error',
+        title: 'Report generation failed.',
+        subtitle: 'submissionNumber must be numeric',
+      }),
+    );
+  });
+
+  // ── Range filters ────────────────────────────────────────────────────────
+  // The value box of the four aggregated-column filters maps to the "values"
+  // request parameter, which the backend matches with a contains — that is what
+  // makes % behave as a wildcard. From / To keep their own range parameters.
+
+  it('sends the value box of a range row as its values parameter, wildcard intact', () => {
+    renderPage();
+    fireEvent.change(document.querySelector('#boom-number-value')!, { target: { value: 'BM%' } });
+    fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceBoomNumbers: ['BM%'] }),
+      expect.any(Object),
+    );
+    const [request] = mockMutate.mock.calls[0] as [Record<string, unknown>];
+    expect(request).not.toHaveProperty('invoiceBoomNumberFrom');
+    expect(request).not.toHaveProperty('invoiceBoomNumberTo');
+  });
+
+  it('sends the from/to boxes of a range row as range parameters', () => {
+    renderPage();
+    fireEvent.change(document.querySelector('#timber-mark-from')!, { target: { value: 'T1' } });
+    fireEvent.change(document.querySelector('#timber-mark-to')!, { target: { value: 'T9' } });
+    fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceTimberMarkFrom: 'T1', invoiceTimberMarkTo: 'T9' }),
+      expect.any(Object),
+    );
+    const [request] = mockMutate.mock.calls[0] as [Record<string, unknown>];
+    expect(request).not.toHaveProperty('invoiceTimberMarks');
+  });
+
+  it('still sends the invoice number value as a closed from/to range', () => {
+    renderPage();
+    fireEvent.change(document.querySelector('#invoice-number-value')!, { target: { value: 'INV-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceNumberFrom: 'INV-1', invoiceNumberTo: 'INV-1' }),
+      expect.any(Object),
     );
   });
 });

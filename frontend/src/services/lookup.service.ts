@@ -45,9 +45,14 @@ export const useMaturityCodesWithCantsQuery = () =>
         .map((item) => (item.description === 'Cants / Export' ? { ...item, description: 'Cants' } : item)),
   });
 
+// Exported so the sort-code maintenance mutations can evict this cache when a
+// code is added/updated/removed — otherwise the invoice/report dropdowns keep
+// serving stale codes until a full page refresh (CSP-591).
+export const SORT_CODE_LOOKUP_QUERY_KEY = ['lookup', 'sort-code'] as const;
+
 export const useSortCodesLookupQuery = () =>
   useQuery({
-    queryKey: ['lookup', 'sort-code'],
+    queryKey: SORT_CODE_LOOKUP_QUERY_KEY,
     queryFn: () => fetchLookup('/lookup/sort-code'),
   });
 

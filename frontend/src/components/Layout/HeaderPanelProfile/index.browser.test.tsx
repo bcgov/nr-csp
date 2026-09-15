@@ -2,17 +2,19 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { useAuth } from '@/context/auth/useAuth';
-import type { AuthContextValue, AuthUser } from '@/context/auth/types';
 
 import { HeaderPanelProfile } from './index';
+
+import type { AuthContextValue, AuthUser } from '@/context/auth/types';
 
 const mockSignOut = vi.fn();
 const mockUser: AuthUser = {
   username: 'jdoe',
+  idirUsername: 'JDOE',
   displayName: 'Jane Doe',
   email: 'jane@example.com',
-  roles: [],
-  privileges: [],
+  roles: ['CSP_ADMIN'],
+  privileges: ['ADMIN'],
 };
 
 const makeAuthValue = (user: AuthUser): AuthContextValue => ({
@@ -44,17 +46,24 @@ describe('HeaderPanelProfile', () => {
     expect(screen.getByText('jane@example.com')).toBeInTheDocument();
   });
 
-  it('calls signOut when Sign out is clicked', () => {
+  it('renders the role and IDIR', () => {
     render(<HeaderPanelProfile />);
-    fireEvent.click(screen.getByText('Sign out'));
+    expect(screen.getByText('Role: Admin')).toBeInTheDocument();
+    expect(screen.getByText('IDIR: JDOE')).toBeInTheDocument();
+  });
+
+  it('calls signOut when Log out is clicked', () => {
+    render(<HeaderPanelProfile />);
+    fireEvent.click(screen.getByText('Log out'));
     expect(mockSignOut).toHaveBeenCalled();
   });
 
-  it('falls back to username when displayName is absent', () => {
+  it('falls back to the email local part, never the raw username, when displayName is absent', () => {
     vi.mocked(useAuth).mockReturnValue(
-      makeAuthValue({ username: 'fallback-user', email: 'x@x.com', roles: [], privileges: [] }),
+      makeAuthValue({ username: 'dev-idir_abc@idir', email: 'jsmith@gov.bc.ca', roles: [], privileges: [] }),
     );
     render(<HeaderPanelProfile />);
-    expect(screen.getByText('fallback-user')).toBeInTheDocument();
+    expect(screen.getByText('jsmith')).toBeInTheDocument();
+    expect(screen.queryByText('dev-idir_abc@idir')).not.toBeInTheDocument();
   });
 });
