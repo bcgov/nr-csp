@@ -16,7 +16,7 @@ COPY src ./src
 RUN mvn package -DskipTests -q
 
 # Stage 2: Prepare the JRE and conditionally import the Zscaler cert
-FROM eclipse-temurin:21-jre-jammy AS jre-with-cert
+FROM eclipse-temurin:25-jre-jammy AS jre-with-cert
 WORKDIR /app
 
 # Imports every *.cer / *.pem / *.crt found in certs/ — silently skips missing or empty files.
@@ -35,7 +35,7 @@ RUN --mount=type=bind,source=certs,target=/certs \
     done
 
 # Stage 3: Final runtime image
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
 
 RUN apt-get update && \
