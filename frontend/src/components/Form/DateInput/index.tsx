@@ -67,6 +67,8 @@ const hasUnparseableString = (date: unknown, dateFormat: string): boolean =>
 
 const hasString = (date: unknown): boolean => asList(date).some((v) => typeof v === 'string');
 
+const INVALID_DATE_TEXT = 'Invalid date';
+
 interface FlatpickrInstance {
   setDate: (date: unknown, triggerChange?: boolean, format?: string) => void;
   __cspOrigSetDate?: FlatpickrInstance['setDate'];
@@ -251,6 +253,14 @@ const DateInput: FC<DateInputProps> = ({
   };
   const normalisedValue = value === undefined ? undefined : Array.isArray(value) ? value.map(toDate) : toDate(value);
 
+  // A value the field can't parse is an error, not an advisory: it is never
+  // submitted, so it has to read like something the user must fix (red border,
+  // error icon, `aria-invalid`) rather than a warning they can carry on past.
+  // An externally supplied message (form or server validation) still wins the
+  // text — it's the more specific of the two.
+  const showInvalid = invalid || inputInvalid;
+  const resolvedInvalidText = invalid && invalidText ? invalidText : inputInvalid ? INVALID_DATE_TEXT : invalidText;
+
   return (
     <div ref={containerRef}>
       <DatePicker
@@ -259,8 +269,7 @@ const DateInput: FC<DateInputProps> = ({
         className="date-input"
         style={{ width: '100%' }}
         value={normalisedValue}
-        invalid={invalid}
-        warn={!invalid && inputInvalid}
+        invalid={showInvalid}
         onChange={handleCalendarChange}
         disabled={disabled}
       >
@@ -271,8 +280,7 @@ const DateInput: FC<DateInputProps> = ({
           hideLabel={hideLabel}
           size={size}
           style={{ width: '100%', maxWidth: '100%' }}
-          invalidText={invalidText}
-          warnText="Invalid date"
+          invalidText={resolvedInvalidText}
           disabled={disabled}
         />
       </DatePicker>

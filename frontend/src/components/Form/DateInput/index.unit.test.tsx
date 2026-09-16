@@ -355,8 +355,46 @@ describe('DateInput incoming value normalisation', () => {
   });
 });
 
+describe('DateInput invalid presentation', () => {
+  // An unparseable value is never submitted, so it has to read as an error the
+  // user must fix — not a warning they can carry on past.
+  it('renders a parse failure as an error, not a warning', () => {
+    const { input, container } = setup();
+    typeValue(input, '2026-02-51');
+
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAttribute('data-invalid');
+    expect(container.querySelector('.cds--date-picker-input__wrapper--invalid')).not.toBeNull();
+    expect(container.querySelector('.cds--date-picker__icon--invalid')).not.toBeNull();
+    expect(container.querySelector('.cds--date-picker-input__wrapper--warn')).toBeNull();
+    expect(container.querySelector('.cds--date-picker__icon--warn')).toBeNull();
+  });
+
+  it('marks the field invalid when an incomplete value is committed', () => {
+    const { input, container } = setup();
+    typeValue(input, '2026-1');
+    expect(input).not.toHaveAttribute('aria-invalid');
+
+    pressEnter(input);
+
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(container.querySelector('.cds--date-picker-input__wrapper--warn')).toBeNull();
+  });
+
+  it('drops the error state once a valid date is typed', () => {
+    const { input, container } = setup();
+    typeValue(input, '2026-02-51');
+    typeValue(input, '2026-02-05');
+
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute('aria-invalid');
+    expect(container.querySelector('.cds--date-picker-input__wrapper--invalid')).toBeNull();
+  });
+});
+
 describe('DateInput external invalid state', () => {
-  it('shows the invalidText and suppresses the internal warning', () => {
+  it('shows the external invalidText in place of the internal message', () => {
     const { input } = setup({ invalid: true, invalidText: 'Date is required.' });
     typeValue(input, '2026-13-05');
     expect(screen.getByText('Date is required.')).toBeInTheDocument();

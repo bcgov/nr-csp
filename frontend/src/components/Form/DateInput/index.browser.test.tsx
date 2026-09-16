@@ -68,6 +68,9 @@ describe('DateInput', () => {
 
     expect(input.value).toBe('2026-02-51');
     expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    // Flagged as an error the user has to fix, not a warning.
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(document.querySelector('.cds--date-picker-input__wrapper--warn')).toBeNull();
     expect(committed(onChange)).toEqual([]);
     // Nothing rolled over into March on the way through, either.
     expect(allEmitted(onChange).some((d) => d.getMonth() === 2)).toBe(false);
