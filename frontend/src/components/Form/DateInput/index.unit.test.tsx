@@ -30,6 +30,12 @@ const typeValue = (input: HTMLInputElement, value: string) => {
   fireEvent.input(input, { target: { value } });
 };
 
+// Enter is the commit gesture Carbon's fixEventsPlugin and flatpickr both hook,
+// each of which hands the raw text to flatpickr's rolling parser.
+const pressEnter = (input: HTMLInputElement) => {
+  fireEvent.keyDown(input, { key: 'Enter', keyCode: 13, code: 'Enter' });
+};
+
 const lastArgs = (onChange: ReturnType<typeof vi.fn>): Date[] => onChange.mock.calls.at(-1)?.[0] as Date[];
 
 describe('DateInput rendering', () => {
@@ -157,6 +163,111 @@ describe('DateInput typed values (Y-m)', () => {
   });
 });
 
+describe('DateInput commit on Enter', () => {
+  // Flatpickr's parser rolls overflow forward, so before the guard "2026-02-51"
+  // was silently committed as 2026-03-23 with the warning cleared.
+  it('keeps an out-of-range day rejected instead of rolling it over', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-02-51');
+    pressEnter(input);
+    expect(input.value).toBe('2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+    expect(onChange.mock.calls.flatMap((c) => c[0] as Date[])).toEqual([]);
+  });
+
+  it('keeps an out-of-range month rejected instead of rolling it into the next year', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-13-05');
+    pressEnter(input);
+    expect(input.value).toBe('2026-13-05');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+
+  it('keeps a day that does not exist in the month rejected', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-02-30');
+    pressEnter(input);
+    expect(input.value).toBe('2026-02-30');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+
+  it('flags an incomplete value rather than inventing the missing parts', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-1');
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    pressEnter(input);
+    expect(input.value).toBe('2026-1');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+
+  it('flags text that is not a date at all', () => {
+    const { input, onChange } = setup();
+    typeValue(input, 'not a date');
+    pressEnter(input);
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+
+  it('commits a valid value', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-12-25');
+    pressEnter(input);
+    expect(input.value).toBe('2026-12-25');
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([new Date(2026, 11, 25)]);
+  });
+
+  it('flags an out-of-range month on Enter for the Y-m format', () => {
+    const { input, onChange } = setup({ dateFormat: 'Y-m' });
+    typeValue(input, '2026-13');
+    pressEnter(input);
+    expect(input.value).toBe('2026-13');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+
+  it('recovers once the value is corrected and re-committed', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-02-51');
+    pressEnter(input);
+    typeValue(input, '2026-02-05');
+    pressEnter(input);
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([new Date(2026, 1, 5)]);
+  });
+});
+
+describe('DateInput commit on blur', () => {
+  it('flags an incomplete value left in the field', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-1');
+    fireEvent.blur(input);
+    expect(input.value).toBe('2026-1');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+
+  it('leaves an invalid value rejected rather than rolling it over', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-02-51');
+    fireEvent.blur(input);
+    expect(input.value).toBe('2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+
+  it('does not warn when the field is left empty', () => {
+    const { input, onChange } = setup();
+    fireEvent.blur(input);
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    expect(lastArgs(onChange)).toEqual([]);
+  });
+});
+
 describe('DateInput flatpickr setDate guard', () => {
   it('blocks string setDate calls while the input is invalid but lets Dates through', () => {
     const { input } = setup();
@@ -183,6 +294,31 @@ describe('DateInput flatpickr setDate guard', () => {
     const fp = getFp(input);
     fp?.setDate('2026-11-05', false);
     expect(origSetDate).toHaveBeenCalledWith('2026-11-05', false, undefined);
+  });
+
+  it('blocks day-overflow text handed over as an array, the shape Carbon commits on Enter', () => {
+    const { input } = setup();
+    const origSetDate = installFakeFlatpickr(input);
+    typeValue(input, '2026-12-25');
+    const fp = getFp(input);
+    expect(fp?.__cspOrigSetDate).toBe(origSetDate);
+    origSetDate.mockClear();
+
+    fp?.setDate(['2026-02-51'], true, 'Y-m-d');
+    fp?.setDate('2026-02-51', true, 'Y-m-d');
+    fp?.setDate(['2026-1'], true, 'Y-m-d');
+    expect(origSetDate).not.toHaveBeenCalled();
+
+    fp?.setDate(['2026-02-05'], true, 'Y-m-d');
+    expect(origSetDate).toHaveBeenCalledWith(['2026-02-05'], true, 'Y-m-d');
+  });
+
+  it('is installed without waiting for a re-render', () => {
+    const { input } = setup();
+    const origSetDate = installFakeFlatpickr(input);
+    // A valid value causes no state change, so nothing re-renders the component.
+    typeValue(input, '2026-12-25');
+    expect(getFp(input)?.__cspOrigSetDate).toBe(origSetDate);
   });
 
   it('does not re-patch setDate on subsequent renders', () => {
