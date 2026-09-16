@@ -76,6 +76,19 @@ const valueToKey = (value: DateInputProps['value']): string => {
 
 const INVALID_DATE_TEXT = 'Invalid date';
 
+// Which message the field shows while it is in the error state. An externally
+// supplied message (form or server validation) wins — it is the more specific
+// of the two — and the field's own parse failure fills in otherwise.
+const resolveInvalidText = (
+  invalid: boolean | undefined,
+  invalidText: string | undefined,
+  parseFailed: boolean,
+): string | undefined => {
+  if (invalid && invalidText) return invalidText;
+  if (parseFailed) return INVALID_DATE_TEXT;
+  return invalidText;
+};
+
 interface FlatpickrInstance {
   setDate: (date: unknown, triggerChange?: boolean, format?: string) => void;
   close?: () => void;
@@ -288,10 +301,8 @@ const DateInput: FC<DateInputProps> = ({
   // A value the field can't parse is an error, not an advisory: it is never
   // submitted, so it has to read like something the user must fix (red border,
   // error icon, `aria-invalid`) rather than a warning they can carry on past.
-  // An externally supplied message (form or server validation) still wins the
-  // text — it's the more specific of the two.
   const showInvalid = invalid || inputInvalid;
-  const resolvedInvalidText = invalid && invalidText ? invalidText : inputInvalid ? INVALID_DATE_TEXT : invalidText;
+  const resolvedInvalidText = resolveInvalidText(invalid, invalidText, inputInvalid);
 
   return (
     <div ref={containerRef}>
