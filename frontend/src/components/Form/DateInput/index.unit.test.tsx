@@ -264,7 +264,33 @@ describe('DateInput commit on blur', () => {
     const { input, onChange } = setup();
     fireEvent.blur(input);
     expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
-    expect(lastArgs(onChange)).toEqual([]);
+    // Blur is not an edit: pages read any onChange as one (clearing the field's
+    // validation error, unlinking R11's time frame), so visiting a field and
+    // leaving must report nothing at all.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not re-report a value that has not changed', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-12-25');
+    expect(onChange).toHaveBeenCalledTimes(1);
+
+    fireEvent.blur(input);
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(lastArgs(onChange)).toEqual([new Date(2026, 11, 25)]);
+  });
+
+  it('does not report anything when an invalid value is blurred twice', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-02-51');
+    const callsAfterTyping = onChange.mock.calls.length;
+
+    fireEvent.blur(input);
+    fireEvent.blur(input);
+
+    expect(onChange).toHaveBeenCalledTimes(callsAfterTyping);
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
   });
 });
 
@@ -352,6 +378,67 @@ describe('DateInput incoming value normalisation', () => {
   it('renders with an array value', () => {
     const { input } = setup({ value: ['2026-03-15', new Date(2026, 2, 16)] });
     expect(input).toBeInTheDocument();
+  });
+});
+
+describe('DateInput value pushed in by the parent', () => {
+  // R11/R12/R07/R08/R10/R13 auto-fill the end date from the time frame. That
+  // value replaces the text the user typed, so an error raised against the old
+  // text must not be left sitting over the date now on display.
+  it('clears a parse failure when a valid value arrives', () => {
+    const { input, rerender } = setup({ value: new Date(2026, 0, 1) });
+    typeValue(input, '2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+
+    rerender(<DateInput id="date-input" labelText="Scale date" value={new Date(2026, 0, 31)} />);
+
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
+  // A controlled consumer nulls its state in response to the `[]` emitted for an
+  // invalid entry. Carbon's DatePicker reacts to the now-empty `value` by
+  // clearing flatpickr, which empties the field — so the invalid text does not
+  // survive here the way it does in an uncontrolled field. Either way nothing is
+  // committed, which is the guarantee that matters; this pins the behaviour down.
+  it('ends up with an empty field, not a rolled-over date, when the parent clears the value', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <DateInput id="date-input" labelText="Scale date" value={new Date(2026, 0, 1)} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText('Scale date') as HTMLInputElement;
+    typeValue(input, '2026-02-51');
+
+    rerender(<DateInput id="date-input" labelText="Scale date" value={undefined} onChange={onChange} />);
+    pressEnter(input);
+
+    expect(input.value).toBe('');
+    expect(lastArgs(onChange)).toEqual([]);
+    expect(onChange.mock.calls.flatMap((c) => c[0] as Date[]).some((d) => d.getMonth() === 2)).toBe(false);
+  });
+});
+
+describe('DateInput surrounding whitespace', () => {
+  it('accepts a pasted value with a trailing space', () => {
+    const { input, onChange } = setup();
+    typeValue(input, '2026-02-05 ');
+    expect(lastArgs(onChange)).toEqual([new Date(2026, 1, 5)]);
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+  });
+
+  it('does not flag a whitespace-only field on commit', () => {
+    const { input } = setup();
+    typeValue(input, '   ');
+    pressEnter(input);
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+  });
+
+  it('still rejects a padded invalid date', () => {
+    const { input } = setup();
+    typeValue(input, ' 2026-02-51 ');
+    pressEnter(input);
+    expect(input.value).toBe(' 2026-02-51 ');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
   });
 });
 

@@ -38,7 +38,10 @@ const buildLocalDate = (year: number, month: number, day: number): ParseResult =
 // Parse a raw input string. Accepts the field's native display format AND the
 // shapes a browser is likely to autofill (ISO `yyyy-mm-dd`, `yyyy/mm/dd`, and
 // `yyyy-mm` for the year/month variant) so autofilled values aren't discarded.
-const parseDateInput = (val: string, dateFormat: string): ParseResult => {
+// Surrounding whitespace is trimmed, the way Flatpickr's own parser does, so a
+// date pasted out of a spreadsheet or an email isn't rejected over a stray space.
+const parseDateInput = (rawVal: string, dateFormat: string): ParseResult => {
+  const val = rawVal.trim();
   if (dateFormat === 'Y-m') {
     // Native `yyyy-mm` and autofilled `yyyy/mm`.
     const m = /^(\d{4})[/-](\d{1,2})$/.exec(val);
@@ -63,14 +66,25 @@ const asList = (date: unknown): unknown[] => (Array.isArray(date) ? date : [date
 // parser accepts as a real calendar date are allowed to reach it. Empty strings
 // are left alone — they legitimately mean "clear the field".
 const hasUnparseableString = (date: unknown, dateFormat: string): boolean =>
-  asList(date).some((v) => typeof v === 'string' && v !== '' && !(parseDateInput(v, dateFormat) instanceof Date));
+  asList(date).some(
+    (v) => typeof v === 'string' && v.trim() !== '' && !(parseDateInput(v, dateFormat) instanceof Date),
+  );
 
 const hasString = (date: unknown): boolean => asList(date).some((v) => typeof v === 'string');
+
+// A primitive stand-in for the `value` prop, so an effect can watch it without
+// re-firing on every render just because the parent built a fresh Date object.
+const valueToKey = (value: DateInputProps['value']): string => {
+  if (value === undefined) return '';
+  const one = (v: string | Date): string => (v instanceof Date ? String(v.getTime()) : v);
+  return Array.isArray(value) ? value.map(one).filter(Boolean).join(',') : one(value);
+};
 
 const INVALID_DATE_TEXT = 'Invalid date';
 
 interface FlatpickrInstance {
   setDate: (date: unknown, triggerChange?: boolean, format?: string) => void;
+  close?: () => void;
   __cspOrigSetDate?: FlatpickrInstance['setDate'];
 }
 
@@ -102,6 +116,20 @@ const DateInput: FC<DateInputProps> = ({
 
   const resolvedPlaceholder = placeholder ?? (dateFormat === 'Y-m' ? 'yyyy-mm' : 'yyyy-mm-dd');
 
+  // A value pushed in by the parent (e.g. R11's end date auto-filled from the
+  // time frame) replaces whatever the user typed, so a parse failure raised
+  // against the old text no longer describes the field and has to be dropped —
+  // otherwise the field sits there red over a date it is displaying correctly.
+  // Only a non-empty value clears it: an empty one is usually this component's
+  // own `[]` echoing back through a controlled consumer, and clearing on that
+  // would wipe the error just raised.
+  const valueKey = valueToKey(value);
+  useEffect(() => {
+    if (!valueKey) return;
+    inputInvalidRef.current = false;
+    setInputInvalid(false);
+  }, [valueKey]);
+
   // Flatpickr is created by Carbon's DatePicker one commit AFTER this component
   // first mounts (its init effect waits on internal `hasInput` state), so the
   // instance isn't there to patch during our own mount effect. Rather than rely
@@ -124,12 +152,8 @@ const DateInput: FC<DateInputProps> = ({
     };
   }, []);
 
-  // `isCommit` marks the paths where the user has declared the value finished
-  // (Enter, blur). While typing, a value we can't parse is treated as
-  // mid-typing and passes without a warning; on commit the same value is a
-  // real error, so it has to be flagged rather than silently ignored.
   const validateValue = useCallback(
-    (val: string, isCommit = false) => {
+    (val: string) => {
       if (!val) {
         inputInvalidRef.current = false;
         setInputInvalid(false);
@@ -139,7 +163,7 @@ const DateInput: FC<DateInputProps> = ({
 
       const parsed = parseDateInput(val, dateFormat);
 
-      if (parsed === 'invalid' || (isCommit && parsed === null)) {
+      if (parsed === 'invalid') {
         inputInvalidRef.current = true;
         setInputInvalid(true);
         onChangeRef.current?.([]);
@@ -191,13 +215,21 @@ const DateInput: FC<DateInputProps> = ({
       flushSync(() => validateValue((e.target as HTMLInputElement).value));
     };
 
-    // Re-validate in commit mode once the user declares the value finished, so
-    // an unparseable entry ends up flagged instead of quietly doing nothing.
-    // Unlike the input path this doesn't need `flushSync`: the invalid flag the
-    // setDate guard reads is a ref, set synchronously inside `validateValue`,
-    // and blur can arrive while React is unmounting — where flushSync warns.
+    // Enter and blur are where the user declares the value finished. A value the
+    // input handler let pass as merely mid-typing ("2026-1", "abc") is a real
+    // error at that point, so flag it.
+    //
+    // This is display only — it deliberately never calls `onChange`. The parent
+    // already holds `[]` for anything unparseable (the input handler emits that
+    // as the user types, for both 'invalid' and incomplete values), and pages
+    // read an `onChange` as a manual edit: R11 unlinks Time frame from the end
+    // date on one, and several clear the field's validation error. Blurring a
+    // field is not an edit, so it must not emit.
     const commit = () => {
-      validateValue(el.value, true);
+      if (!el.value.trim()) return;
+      if (parseDateInput(el.value, dateFormat) instanceof Date) return;
+      inputInvalidRef.current = true;
+      setInputInvalid(true);
     };
 
     const keyDownHandler = (e: Event) => {
@@ -205,7 +237,7 @@ const DateInput: FC<DateInputProps> = ({
       if ((e as KeyboardEvent).key !== 'Enter') return;
       const val = el.value;
       // Nothing typed: leave Enter alone so Flatpickr can close the calendar.
-      if (!val) return;
+      if (!val.trim()) return;
       // A value we accept is Flatpickr's to commit — it keeps the calendar
       // selection in step with the field.
       if (parseDateInput(val, dateFormat) instanceof Date) return;
@@ -216,6 +248,12 @@ const DateInput: FC<DateInputProps> = ({
       // Flatpickr initialises — a commit after ours — so stopping the event
       // here runs before either of them sees it.
       e.stopImmediatePropagation();
+      // Stopping the event also stops Flatpickr's own Enter handler, the only
+      // caller of `close()`. Carbon's separate `keypress` listener still strips
+      // the calendar's `open` class, so without this the calendar would be
+      // hidden while Flatpickr still thinks it is open — and `open()` bails out
+      // on an already-open calendar, leaving it unable to reopen.
+      getFlatpickr(el)?.close?.();
       commit();
     };
 

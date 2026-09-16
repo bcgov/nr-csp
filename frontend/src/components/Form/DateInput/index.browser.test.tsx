@@ -115,6 +115,26 @@ describe('DateInput', () => {
     expect(input.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  // Swallowing the Enter event also swallows flatpickr's only call to close(),
+  // while Carbon's keypress listener still hides the calendar — leaving it
+  // unable to reopen unless the two are kept in step.
+  it('leaves the calendar closed and reopenable after a rejected Enter', async () => {
+    const { input } = setup();
+    const fp = (input as unknown as { _flatpickr: { isOpen: boolean } })._flatpickr;
+
+    await userEvent.click(input);
+    expect(fp.isOpen).toBe(true);
+
+    await userEvent.type(input, '2026-02-51');
+    await userEvent.keyboard('{Enter}');
+    expect(fp.isOpen).toBe(false);
+    expect(document.querySelector('.flatpickr-calendar.open')).toBeNull();
+
+    await userEvent.click(input);
+    expect(fp.isOpen).toBe(true);
+    expect(document.querySelector('.flatpickr-calendar.open')).not.toBeNull();
+  });
+
   it('flags an invalid date left in the field when focus moves away', async () => {
     const { input, onChange } = setup();
     await userEvent.type(input, '2026-02-51');

@@ -211,5 +211,21 @@ describe('R11AverageMarketValuesPage interactions', () => {
       expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-20');
       expect(screen.getByRole('combobox', { name: /time frame/i })).toHaveTextContent('Select...');
     });
+
+    // Only a real edit unlinks the time frame. Visiting the field and leaving is
+    // not an edit, so DateInput must not report a change on blur alone.
+    it('keeps the time frame when the auto-filled end date is visited but not edited', () => {
+      render(<R11AverageMarketValuesPage />);
+      setDate(/start date/i, '2026-03-15');
+      fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+      fireEvent.click(screen.getByText('01'));
+
+      const endDate = screen.getByLabelText(/end date/i);
+      fireEvent.focus(endDate);
+      fireEvent.blur(endDate);
+
+      expect(endDate).toHaveValue('2026-03-31');
+      expect(screen.getByRole('combobox', { name: /time frame/i })).toHaveTextContent('01');
+    });
   });
 });
