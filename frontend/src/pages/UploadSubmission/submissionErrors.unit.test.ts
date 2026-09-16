@@ -88,6 +88,39 @@ describe('mapSubmissionIssues', () => {
     expect(result.hasErrors).toBe(false);
   });
 
+  it('marks each missing-required message on the field it names', () => {
+    // A missing code is now reported as that field being required, so the marker
+    // lands on the empty cell instead of on the other half of a code pair.
+    const result = mapSubmissionIssues([
+      msg('invoice.species.required.error', 'invoice #1 (INV-1), line 1: Species code is required. Line 1'),
+      msg('invoice.grade.invalid.required.error', 'invoice #1 (INV-1), line 2: Grade code is required. Line 2'),
+      msg(
+        'invoice.secondry.sortcode.required.error',
+        'invoice #1 (INV-1), line 3: Secondary Sort code is required. Line 3',
+      ),
+      msg('invoice.maturity.required.error', 'invoice #1 (INV-1): Maturity code is required.'),
+    ]);
+
+    expect(Object.keys(result.lineItems['1:1'].fields)).toEqual(['species']);
+    expect(Object.keys(result.lineItems['1:2'].fields)).toEqual(['grade']);
+    expect(Object.keys(result.lineItems['1:3'].fields)).toEqual(['secondarySortCode']);
+    expect(Object.keys(result.invoices[1].fields)).toEqual(['maturity']);
+  });
+
+  it('marks a rejected invoice number on the Invoice # field', () => {
+    const result = mapSubmissionIssues([
+      msg(
+        'invoice.number.pattern.error',
+        'invoice #1 (INV 1): Invoice number may only contain uppercase letters, digits and hyphens.',
+      ),
+      msg('invoice.number.required.error', 'invoice #2: Invoice number is required.'),
+    ]);
+
+    expect(Object.keys(result.invoices[1].fields)).toEqual(['invoiceNumber']);
+    expect(Object.keys(result.invoices[2].fields)).toEqual(['invoiceNumber']);
+    expect(result.hasErrors).toBe(true);
+  });
+
   it('attaches an unmapped line-level key at the row level', () => {
     const result = mapSubmissionIssues([msg('invoice.unknown.line.error', 'invoice #2 (INV-1), line 3: mystery.')]);
     expect(result.lineItems['2:3']).toEqual({ fields: {}, row: [{ message: 'mystery.', type: 'ERROR' }] });
@@ -140,11 +173,16 @@ describe('mapSubmissionIssues', () => {
     ]);
   });
 
-  it('maps a submission-level single-field key to that metadata field (SUBMISSION_KEY_TO_FIELD)', () => {
+  it('attributes the month-completed warning to its invoice, not the Month Complete field', () => {
+    // The rule is invoice-scoped (it keys off the invoice date and the submitting
+    // party), so the message arrives with an invoice locator and belongs to that
+    // row — the submission's Month Complete flag is a persisted value, not a
+    // validated one.
     const result = mapSubmissionIssues([
-      msg('invoice.month.completed.warning', 'submission: Month not complete.', 'WARNING'),
+      msg('invoice.month.completed.warning', 'invoice #1 (INV-1): Month not complete.', 'WARNING'),
     ]);
-    expect(result.submissionFields).toEqual({ monthComplete: [{ message: 'Month not complete.', type: 'WARNING' }] });
+    expect(result.invoices[1].row).toEqual([{ message: 'Month not complete.', type: 'WARNING' }]);
+    expect(result.submissionFields).toEqual({});
     expect(result.formIssues).toEqual([]);
   });
 

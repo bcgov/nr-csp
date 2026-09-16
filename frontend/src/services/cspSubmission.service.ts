@@ -93,20 +93,38 @@ const buildFormData = (file: File): FormData => {
 };
 
 /**
- * The submission metadata the user can edit before submitting. Sent alongside the
- * file so the backend overrides the parsed values before validating and saving.
- * Email/telephone originate in the ESF envelope but are editable on the form and
- * are persisted on the submission, so they are sent too; a blank value lets the
- * backend fall back to the parsed envelope value.
+ * The editable submission metadata the business rules actually depend on. Sent
+ * alongside the file so the backend overlays it on the parsed document before
+ * validating — which is what lets the form re-validate an edited field without
+ * re-uploading. A blank value leaves the parsed value in place.
  */
-export interface SubmissionEdits {
+export interface SubmissionMetadataEdits {
   submissionClientNumber: string;
   submissionClientLocnCode: string;
   monthComplete: string;
   sellerSubmission: string;
+}
+
+/**
+ * The submission metadata the user can edit before submitting. Sent alongside the
+ * file so the backend overrides the parsed values before validating and saving.
+ * Email/telephone originate in the ESF envelope but are editable on the form and
+ * are persisted on the submission, so they are sent too; a blank value lets the
+ * backend fall back to the parsed envelope value. No business rule reads them, so
+ * they are not part of {@link SubmissionMetadataEdits}.
+ */
+export interface SubmissionEdits extends SubmissionMetadataEdits {
   email: string;
   telephone: string;
 }
+
+/** Appends the business-relevant metadata edits as multipart form fields. */
+const appendMetadataEdits = (form: FormData, edits: SubmissionMetadataEdits): void => {
+  form.append('submissionClientNumber', edits.submissionClientNumber);
+  form.append('submissionClientLocnCode', edits.submissionClientLocnCode);
+  form.append('monthComplete', edits.monthComplete);
+  form.append('sellerSubmission', edits.sellerSubmission);
+};
 
 /**
  * Parse (and structurally validate) an uploaded XML file. On a structural
@@ -121,11 +139,19 @@ export const parseSubmission = (file: File): Promise<SubmissionParseResponse> =>
  * Run business-rule validation on an uploaded XML file. Returns 200 when fully
  * accepted and 422 when rejected; both bodies are a
  * {@link SubmissionValidationResponse}.
+ *
+ * `edits` overlays the user's editable metadata on the parsed document before the
+ * rules run, so the form can re-validate after a field is corrected. Omit it to
+ * validate the file exactly as uploaded (the first run, straight after parse).
  */
-export const validateSubmissionBusiness = (file: File): Promise<SubmissionValidationResponse> =>
-  apiClient
-    .post<SubmissionValidationResponse>('/submissions/validate/business', buildFormData(file))
-    .then(({ data }) => data);
+export const validateSubmissionBusiness = (
+  file: File,
+  edits?: SubmissionMetadataEdits,
+): Promise<SubmissionValidationResponse> => {
+  const form = buildFormData(file);
+  if (edits) appendMetadataEdits(form, edits);
+  return apiClient.post<SubmissionValidationResponse>('/submissions/validate/business', form).then(({ data }) => data);
+};
 
 /**
  * Business-validate and persist an uploaded submission. Returns 200 with the new
@@ -134,10 +160,7 @@ export const validateSubmissionBusiness = (file: File): Promise<SubmissionValida
  */
 export const submitSubmission = (file: File, edits: SubmissionEdits): Promise<SubmissionSubmitResponse> => {
   const form = buildFormData(file);
-  form.append('submissionClientNumber', edits.submissionClientNumber);
-  form.append('submissionClientLocnCode', edits.submissionClientLocnCode);
-  form.append('monthComplete', edits.monthComplete);
-  form.append('sellerSubmission', edits.sellerSubmission);
+  appendMetadataEdits(form, edits);
   form.append('email', edits.email);
   form.append('telephone', edits.telephone);
   return apiClient.post<SubmissionSubmitResponse>('/submissions/submit', form).then(({ data }) => data);

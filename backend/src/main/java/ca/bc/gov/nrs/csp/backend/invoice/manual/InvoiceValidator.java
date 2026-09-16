@@ -443,13 +443,9 @@ public class InvoiceValidator {
     }
 
     private boolean checkTotals(InvoiceDetails details, List<LineItem> lines) {
-        List<InvoiceTotals.Line> coreLines = new ArrayList<>();
-        for (LineItem line : lines) {
-            coreLines.add(new InvoiceTotals.Line(line.volume(), line.price(),
-                    line.numOfPieces() == null ? 0 : line.numOfPieces()));
-        }
         InvoiceTotals totals = new InvoiceTotals(details.invType(),
-                details.totalAmt(), details.totalVol(), details.totalPieces(), coreLines);
+                details.totalAmt(), details.totalVol(), details.totalPieces(),
+                ManualInvoiceTotals.toTotalsLines(lines));
 
         boolean ok = true;
         for (Finding f : InvoiceTotalsRuleSet.validate(totals)) {

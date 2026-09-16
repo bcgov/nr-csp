@@ -794,6 +794,38 @@ class InvoiceRepositoryTest {
     }
 
     // ---------------------------------------------------------------
+    // updateTotals
+    // ---------------------------------------------------------------
+
+    @Test
+    void updateTotals_bindsTheThreeTotalsAndTouchesNoOtherColumn() {
+        repo.updateTotals(10L, 50, new BigDecimal("12.5"), new BigDecimal("1250.75"), "user123");
+
+        assertThat(captureUpdateSql())
+                .contains("client_total_invoice_pieces = :totalPieces")
+                .contains("client_total_log_pieces = :totalPieces")
+                .contains("client_total_invoice_volume = :totalVol")
+                .contains("client_total_invoice_amt = :totalAmt")
+                .contains("revision_count = revision_count + 1")
+                .contains("WHERE coastal_log_sale_id = :id")
+                .doesNotContain("log_sale_entry_status_code");
+
+        MapSqlParameterSource params = captureUpdateParams();
+        assertThat(params.getValue("id")).isEqualTo(10L);
+        assertThat(params.getValue("totalPieces")).isEqualTo(50);
+        assertThat(params.getValue("totalVol")).isEqualTo(new BigDecimal("12.5"));
+        assertThat(params.getValue("totalAmt")).isEqualTo(new BigDecimal("1250.75"));
+        assertThat(params.getValue("userId")).isEqualTo("user123");
+    }
+
+    @Test
+    void updateTotals_nullPieces_defaultsToZero() {
+        repo.updateTotals(10L, null, BigDecimal.ZERO, new BigDecimal("0.00"), "user123");
+
+        assertThat(captureUpdateParams().getValue("totalPieces")).isEqualTo(0);
+    }
+
+    // ---------------------------------------------------------------
     // updateStatus / updateReviewerNotes
     // ---------------------------------------------------------------
 

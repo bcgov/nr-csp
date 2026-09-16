@@ -3,10 +3,11 @@ import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 
 import { useAuth } from '@/context/auth/useAuth';
-import { useNotification } from '@/context/notification/useNotification';
 import { LayoutProvider } from '@/context/layout/LayoutProvider';
+import { useNotification } from '@/context/notification/useNotification';
 
 import { LayoutHeader } from './LayoutHeader/LayoutHeader';
+
 import './index.scss';
 import type { FC } from 'react';
 
@@ -41,7 +42,7 @@ const Layout: FC = () => {
             kind={n.kind}
             title={n.title}
             subtitle={n.subtitle}
-            timeout={5000}
+            timeout={n.persistent ? 0 : 5000}
             onClose={() => removeNotification(n.id)}
           />
         ))}

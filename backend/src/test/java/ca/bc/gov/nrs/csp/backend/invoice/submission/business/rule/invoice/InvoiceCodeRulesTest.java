@@ -71,24 +71,75 @@ class InvoiceCodeRulesTest {
   }
 
   @Test
-  void maturity_errors_on_blank_without_hitting_the_db() throws Exception {
+  void maturity_reports_a_blank_as_missing_not_as_an_unknown_code() throws Exception {
+    // An empty <maturity/> element passes the schema, so a blank reaches here. It
+    // must name the missing field instead of blaming a code that was never given.
     ValidationCollector collector = new ValidationCollector();
 
     rules.maturityValid(context(collector, "", null));
 
     assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.maturity.required.error");
+    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
     verifyNoInteractions(referenceData);
   }
 
   @Test
-  void maturity_errors_on_null_without_hitting_the_db() throws Exception {
+  void maturity_reports_null_as_missing_without_hitting_the_db() throws Exception {
     ValidationCollector collector = new ValidationCollector();
 
     rules.maturityValid(context(collector, null, null));
 
     assertThat(collector.entries()).hasSize(1);
-    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.maturity.invalid.error");
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.maturity.required.error");
     verifyNoInteractions(referenceData);
+  }
+
+  @Test
+  void locationFob_errors_when_blank() throws Exception {
+    // The schema requires the element but lets it be empty, and no reference
+    // lookup ever reads the value — so without this check a blank FOB submitted
+    // clean.
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.locationFobProvided(context(collector, "O", null, ""));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.fob.required.error");
+    assertThat(collector.entries().get(0).error().severity()).isEqualTo(Severity.ERROR);
+    verifyNoInteractions(referenceData);
+  }
+
+  @Test
+  void locationFob_errors_when_absent() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.locationFobProvided(context(collector, "O", null, null));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.fob.required.error");
+  }
+
+  @Test
+  void locationFob_passes_when_supplied() throws Exception {
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.locationFobProvided(context(collector, "O", null, "VANCOUVER"));
+
+    assertThat(collector.entries()).isEmpty();
+  }
+
+  @Test
+  void validate_blocks_a_blank_fob_on_an_otherwise_clean_invoice() throws Exception {
+    // The reported case end to end: every other code is valid, so the blank FOB
+    // is the only thing standing between the invoice and a clean pass.
+    given(referenceData.maturityValidOn("O", INVOICE_DATE)).willReturn(true);
+    ValidationCollector collector = new ValidationCollector();
+
+    rules.validate(context(collector, "O", null, " "));
+
+    assertThat(collector.entries()).hasSize(1);
+    assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.fob.required.error");
   }
 
   @Test
@@ -125,9 +176,16 @@ class InvoiceCodeRulesTest {
 
   private InvoiceRuleContext context(ValidationCollector collector, String maturity, String primarySortCode)
       throws Exception {
+    return context(collector, maturity, primarySortCode, "TEST-FOB");
+  }
+
+  private InvoiceRuleContext context(
+      ValidationCollector collector, String maturity, String primarySortCode, String locationFob)
+      throws Exception {
     CSPInvoiceDetailsType details = new CSPInvoiceDetailsType();
     details.setMaturity(maturity);
     details.setPrimarySortCode(primarySortCode);
+    details.setLocationFOB(locationFob);
 
     CSPInvoiceType invoice = new CSPInvoiceType();
     invoice.setInvoiceNumber("INV-1");

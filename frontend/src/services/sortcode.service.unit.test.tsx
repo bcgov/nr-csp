@@ -4,6 +4,8 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiClient } from '@/config/api/request';
+import { THREE_HOURS } from '@/config/react-query/TimeUnits';
+import { useSortCodesLookupQuery } from '@/services/lookup.service';
 import {
   createSortCode,
   deleteSortCode,
@@ -128,18 +130,74 @@ describe('sort-code hooks', () => {
       arrange: () => vi.mocked(apiClient.delete).mockResolvedValue({}),
       variables: 'A',
     },
-  ])('use$label mutation invalidates the sort-code list on success', async ({ useHook, arrange, variables }) => {
-    arrange();
-    const { queryClient, wrapper } = createWrapper();
-    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+  ])(
+    'use$label mutation invalidates the sort-code list and evicts the shared lookup on success',
+    async ({ useHook, arrange, variables }) => {
+      arrange();
+      const { queryClient, wrapper } = createWrapper();
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const removeSpy = vi.spyOn(queryClient, 'removeQueries');
 
-    const { result } = renderHook(() => useHook(), { wrapper });
-    act(() => {
-      result.current.mutate(variables as never);
+      const { result } = renderHook(() => useHook(), { wrapper });
+      act(() => {
+        result.current.mutate(variables as never);
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['sort-codes'] });
+      expect(removeSpy).toHaveBeenCalledWith({ queryKey: ['lookup', 'sort-code'] });
+    },
+  );
+
+  it('makes the shared sort-code lookup refetch on its next mount after a mutation (CSP-591)', async () => {
+    // Mirror the app's real query config: with the default staleTime:0 /
+    // refetchOnMount:true the lookup would refetch on every mount anyway and
+    // mask the bug. The fix must hold under these settings.
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          staleTime: THREE_HOURS,
+          gcTime: THREE_HOURS,
+          refetchOnMount: false,
+          refetchOnWindowFocus: false,
+        },
+        mutations: { retry: false },
+      },
     });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['sort-codes'] });
+    // 1. An invoice-style consumer loads the lookup once, then leaves the page
+    //    (the query goes inactive but stays cached).
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: [{ code: 'A', description: 'Alpha' }] });
+    const first = renderHook(() => useSortCodesLookupQuery(), { wrapper });
+    await waitFor(() => expect(first.result.current.data).toHaveLength(1));
+    first.unmount();
+
+    // 2. A code is added on the maintenance page.
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { ...SORT_CODE, sortCode: 'B', description: 'Bravo' } });
+    const mutation = renderHook(() => useCreateSortCodeMutation(), { wrapper });
+    act(() => {
+      mutation.result.current.mutate({
+        sortCode: 'B',
+        description: 'Bravo',
+        effectiveDate: '2026-01-01',
+        expiryDate: '9999-12-31',
+      });
+    });
+    await waitFor(() => expect(mutation.result.current.isSuccess).toBe(true));
+
+    // 3. Re-opening the consumer must fetch fresh codes, not serve the stale cache.
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: [
+        { code: 'A', description: 'Alpha' },
+        { code: 'B', description: 'Bravo' },
+      ],
+    });
+    const second = renderHook(() => useSortCodesLookupQuery(), { wrapper });
+    await waitFor(() => expect(second.result.current.data).toHaveLength(2));
   });
 
   it('useExportSortCodesMutation resolves with the export result', async () => {

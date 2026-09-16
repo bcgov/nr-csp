@@ -30,9 +30,9 @@ describe('ResultsTable', () => {
     expect(screen.getByText('Q:5')).toBeInTheDocument();
   });
 
-  it('renders the default "no search performed" empty state', () => {
+  it('renders the default pre-search empty state', () => {
     render(<ResultsTable rows={[]} columns={columns} />);
-    expect(screen.getByText('No search performed')).toBeInTheDocument();
+    expect(screen.getByText('Your search results will appear here.')).toBeInTheDocument();
   });
 
   it('renders the "no results found" empty state after a search', () => {
@@ -49,7 +49,7 @@ describe('ResultsTable', () => {
   it('renders a loading skeleton instead of rows when loading', () => {
     const { container } = render(<ResultsTable rows={[]} columns={columns} isLoading />);
     expect(container.querySelector('.cds--skeleton')).not.toBeNull();
-    expect(screen.queryByText('No search performed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Your search results will appear here.')).not.toBeInTheDocument();
   });
 
   it('renders expanded content when a row is expanded', async () => {

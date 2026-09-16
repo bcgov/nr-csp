@@ -39,9 +39,14 @@ public final class InvoiceLineRuleSet {
     return out;
   }
 
-  /** Grade is required (non-null) (ERROR). */
+  /**
+   * Grade is required (ERROR). Blank counts as missing, not just null: the
+   * electronic path's schema accepts an empty {@code <grade/>} element (the type
+   * only caps the length), and a blank grade must be reported as the missing
+   * field rather than falling through to the species/grade combination lookup.
+   */
   private static void gradeRequired(InvoiceLine line, List<Finding> out) {
-    if (line.grade() == null) {
+    if (isBlank(line.grade())) {
       out.add(new Finding("invoice.grade.invalid.required.error", Severity.ERROR,
           labelArgs(line)));
     }
@@ -116,6 +121,10 @@ public final class InvoiceLineRuleSet {
 
   private static boolean isAdjustment(InvoiceLine line) {
     return ConstantsCode.INVTYPE_ADJUST.equals(line.invoiceType());
+  }
+
+  private static boolean isBlank(String s) {
+    return s == null || s.isBlank();
   }
 
   /** Every line template renders the channel-formatted line label as {@code {0}}. */

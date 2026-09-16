@@ -1,8 +1,12 @@
 package ca.bc.gov.nrs.csp.backend.controller;
 
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
+import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.service.R13Service;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
+import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
+import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
+import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -18,6 +22,8 @@ import org.springframework.context.support.StaticMessageSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -95,12 +101,21 @@ class R13ControllerTest {
         }
 
         @Test
-        void shouldReturn400_whenSubmissionNumberNotNumeric() throws Exception {
+        void shouldReturn400WithStructuredErrors_whenBusinessValidationFails() throws Exception {
+            // A non-numeric submission number (the UI's "Approval ID number") is rejected by
+            // R13Validator, and must reach the client as a structured validation error so the
+            // page can pin the message to the offending field.
+            ValidationResult result = new ValidationResult(List.of(
+                    new ValidationMessage("report.submissionnumber.numeric.error", null, MessageType.ERROR)));
+            given(r13Service.generateReport(any()))
+                    .willThrow(new ValidationException("report.submissionnumber.numeric.error", result));
+
             mockMvc.perform(post("/api/R13")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"reportFormat\":\"PDF\",\"reportName\":\"Test\",\"submissionNumber\":\"SUB-001\"}"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+                    .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.errors[0].messageKey").value("report.submissionnumber.numeric.error"));
         }
 
         @Test

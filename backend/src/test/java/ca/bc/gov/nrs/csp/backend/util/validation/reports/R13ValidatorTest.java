@@ -102,6 +102,48 @@ class R13ValidatorTest {
         assertThat(result.errors()).noneMatch(m -> m.messageKey().contains("requires at least one of"));
     }
 
+    // ── Submission number ("Approval ID number") ──────────────────────────────
+
+    @Test
+    void validate_nonNumericSubmissionNumber_addsError() {
+        R13ReportRequest r = validRequest();
+        r.setSubmissionNumber("TEST");
+
+        ValidationResult result = validator.validate(r);
+
+        assertHasError(result, "report.submissionnumber.numeric.error");
+    }
+
+    @Test
+    void validate_wildcardSubmissionNumber_addsError() {
+        R13ReportRequest r = validRequest();
+        r.setSubmissionNumber("%");
+
+        ValidationResult result = validator.validate(r);
+
+        assertHasError(result, "report.submissionnumber.numeric.error");
+    }
+
+    @Test
+    void validate_numericSubmissionNumber_noError() {
+        R13ReportRequest r = validRequest();
+        r.setSubmissionNumber(" 12345 ");
+
+        ValidationResult result = validator.validate(r);
+
+        assertThat(result.errors()).noneMatch(m -> m.messageKey().equals("report.submissionnumber.numeric.error"));
+    }
+
+    @Test
+    void validate_blankSubmissionNumber_noError() {
+        R13ReportRequest r = validRequest();
+        r.setSubmissionNumber("   ");
+
+        ValidationResult result = validator.validate(r);
+
+        assertThat(result.errors()).noneMatch(m -> m.messageKey().equals("report.submissionnumber.numeric.error"));
+    }
+
     // ── Date ordering ─────────────────────────────────────────────────────────
 
     @Test

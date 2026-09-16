@@ -25,14 +25,56 @@ public final class InvoiceTotalsRuleSet {
 
   public static List<Finding> validate(InvoiceTotals t) {
     List<Finding> out = new ArrayList<>();
+    Calculated calculated = calculate(t.invoiceType(), t.lines());
     totalAmountNotNegative(t, out);
-    totalAmountWithinVariance(t, out);
+    totalAmountWithinVariance(t, calculated, out);
     totalVolumeNotNegative(t, out);
-    totalVolumeWithinVariance(t, out);
+    totalVolumeWithinVariance(t, calculated, out);
     totalPiecesNotNegative(t, out);
-    totalPiecesMatchesCalculated(t, out);
+    totalPiecesMatchesCalculated(t, calculated, out);
     return out;
   }
+
+  // ---- calculations (Σ over line items) ----
+
+  /**
+   * The totals derived from the line items — what the submitted totals get
+   * compared against below.
+   *
+   * <p>Public because the manual (CRUD) channel also has to <em>persist</em>
+   * these: its header totals are derived from the line items rather than typed
+   * in, so every write recomputes them. Both uses go through {@link #calculate}
+   * so the stored totals and the variance rules can never disagree.
+   */
+  public record Calculated(BigDecimal amount, BigDecimal volume, int pieces) {}
+
+  /**
+   * Σ over the line items: amount = Σ(volume × price) with each product HALF_UP
+   * to 2dp (ADJ keeps neg×neg negative — see {@link LineAmount}), volume = Σ
+   * volume, pieces = Σ pieces. Lines missing a volume or price contribute
+   * nothing to the amount; a line missing a volume contributes nothing to the
+   * volume either.
+   */
+  public static Calculated calculate(String invoiceType, List<InvoiceTotals.Line> lines) {
+    BigDecimal amount = BigDecimal.ZERO;
+    BigDecimal volume = BigDecimal.ZERO;
+    int pieces = 0;
+    if (lines != null) {
+      for (InvoiceTotals.Line line : lines) {
+        BigDecimal lineAmount = LineAmount.compute(line.volume(), line.price(), invoiceType);
+        if (lineAmount != null) {
+          amount = amount.add(lineAmount);
+        }
+        if (line.volume() != null) {
+          volume = volume.add(line.volume());
+        }
+        pieces += line.pieces();
+      }
+    }
+    return new Calculated(amount.setScale(2, RoundingMode.HALF_UP), volume, pieces);
+  }
+
+  // ---- rules ----
 
   /** Total amount cannot be negative (except ADJ) (ERROR). */
   private static void totalAmountNotNegative(InvoiceTotals t, List<Finding> out) {
@@ -46,10 +88,9 @@ public final class InvoiceTotalsRuleSet {
   }
 
   /** Submitted total amount within ±$5.00 of calculated (WARNING). Applies to all types. */
-  private static void totalAmountWithinVariance(InvoiceTotals t, List<Finding> out) {
+  private static void totalAmountWithinVariance(InvoiceTotals t, Calculated calculated, List<Finding> out) {
     BigDecimal submitted = t.submittedAmount();
-    BigDecimal calculated = calculatedTotalAmount(t);
-    if (!withinVariance(submitted, calculated, ConstantsCode.TOTALAMOUNT_MAXPERMITTEDVARIANCE)) {
+    if (!withinVariance(submitted, calculated.amount(), ConstantsCode.TOTALAMOUNT_MAXPERMITTEDVARIANCE)) {
       out.add(new Finding("invoice.totalamount.dismatch.warning", Severity.WARNING,
           new Object[] {submitted}));
     }
@@ -67,10 +108,9 @@ public final class InvoiceTotalsRuleSet {
   }
 
   /** Submitted total volume within ±5.00 of calculated (WARNING). */
-  private static void totalVolumeWithinVariance(InvoiceTotals t, List<Finding> out) {
+  private static void totalVolumeWithinVariance(InvoiceTotals t, Calculated calculated, List<Finding> out) {
     BigDecimal submitted = t.submittedVolume();
-    BigDecimal calculated = calculatedTotalVolume(t);
-    if (!withinVariance(submitted, calculated, ConstantsCode.TOTALVOLUME_MAXPERMITTEDVARIANCE)) {
+    if (!withinVariance(submitted, calculated.volume(), ConstantsCode.TOTALVOLUME_MAXPERMITTEDVARIANCE)) {
       out.add(new Finding("invoice.totalvolume.dismatch.warning", Severity.WARNING,
           new Object[] {submitted}));
     }
@@ -92,58 +132,13 @@ public final class InvoiceTotalsRuleSet {
    * variance constant is 0, so the window collapses to an exact match; an absent
    * submitted total defaults to 0 (pieces is the one optional total).
    */
-  private static void totalPiecesMatchesCalculated(InvoiceTotals t, List<Finding> out) {
+  private static void totalPiecesMatchesCalculated(InvoiceTotals t, Calculated calculated, List<Finding> out) {
     Integer submitted = t.submittedPieces();
     int submittedPieces = submitted == null ? 0 : submitted;
-    int calculated = calculatedTotalPieces(t);
-    if (!withinVariance(submittedPieces, calculated, ConstantsCode.TOTALPIECES_MAXPERMITTEDVARIANCE)) {
+    if (!withinVariance(submittedPieces, calculated.pieces(), ConstantsCode.TOTALPIECES_MAXPERMITTEDVARIANCE)) {
       out.add(new Finding("invoice.totalpieces.dismatch.warning", Severity.WARNING,
           new Object[] {submittedPieces}));
     }
-  }
-
-  // ---- calculations (Σ over line items) ----
-
-  /** Σ(volume × price), each product HALF_UP to 2dp; ADJ keeps neg×neg negative. */
-  private static BigDecimal calculatedTotalAmount(InvoiceTotals t) {
-    boolean adjustment = isAdjustment(t);
-    BigDecimal total = BigDecimal.ZERO;
-    for (InvoiceTotals.Line line : t.lines()) {
-      BigDecimal amount = lineAmount(line.volume(), line.price(), adjustment);
-      if (amount != null) {
-        total = total.add(amount);
-      }
-    }
-    return total.setScale(2, RoundingMode.HALF_UP);
-  }
-
-  /**
-   * One line's contribution to the total amount, or null if volume or price is absent.
-   * Delegates to {@link LineAmount} so the screen, the exports and this variance
-   * calculation can never disagree about an ADJ line's sign.
-   */
-  private static BigDecimal lineAmount(BigDecimal volume, BigDecimal price, boolean adjustment) {
-    return LineAmount.compute(volume, price, adjustment ? ConstantsCode.INVTYPE_ADJUST : null);
-  }
-
-  /** Calculated total volume = Σ volume over the line items; lines missing a volume contribute nothing. */
-  private static BigDecimal calculatedTotalVolume(InvoiceTotals t) {
-    BigDecimal total = BigDecimal.ZERO;
-    for (InvoiceTotals.Line line : t.lines()) {
-      if (line.volume() != null) {
-        total = total.add(line.volume());
-      }
-    }
-    return total;
-  }
-
-  /** Calculated total pieces = Σ pieces over the line items. */
-  private static int calculatedTotalPieces(InvoiceTotals t) {
-    int total = 0;
-    for (InvoiceTotals.Line line : t.lines()) {
-      total += line.pieces();
-    }
-    return total;
   }
 
   // ---- helpers ----
