@@ -59,12 +59,6 @@ const parseDateInput = (rawVal: string, dateFormat: string): ParseResult => {
 // (`setDate([input.value], true, format)`), so both shapes have to be inspected.
 const asList = (date: unknown): unknown[] => (Array.isArray(date) ? date : [date]);
 
-// True when the payload carries a string Flatpickr's own parser would silently
-// reinterpret instead of reject: it rolls overflow forward ("2026-02-51" becomes
-// 2026-03-23, "2026-13-05" becomes 2027-01-05) and invents the missing parts of
-// an incomplete value ("2026-1" becomes 2026-01-01). Only strings our own strict
-// parser accepts as a real calendar date are allowed to reach it. Empty strings
-// are left alone — they legitimately mean "clear the field".
 const hasUnparseableString = (date: unknown, dateFormat: string): boolean =>
   asList(date).some(
     (v) => typeof v === 'string' && v.trim() !== '' && !(parseDateInput(v, dateFormat) instanceof Date),

@@ -15,9 +15,6 @@ const lastDate = (onChange: ReturnType<typeof vi.fn>): Date | undefined => {
   return call?.[0][0];
 };
 
-// What the field ended up handing the form. Typing character by character emits
-// intermediate dates ("2026-02-5" is a valid date on the way to "2026-02-51"),
-// so only the final call says whether anything was committed.
 const committed = (onChange: ReturnType<typeof vi.fn>): Date[] => (onChange.mock.calls.at(-1)?.[0] ?? []) as Date[];
 
 const allEmitted = (onChange: ReturnType<typeof vi.fn>): Date[] =>
@@ -56,9 +53,6 @@ describe('DateInput', () => {
     expect(input.value).toContain('2026');
   });
 
-  // Regression: pressing Enter used to hand the raw text to flatpickr's parser,
-  // which rolled the overflow forward — "2026-02-51" was silently accepted as
-  // 2026-03-23 and the inline warning disappeared.
   it('does not roll an out-of-range day over when Enter is pressed', async () => {
     const { input, onChange } = setup();
     await userEvent.type(input, '2026-02-51');
