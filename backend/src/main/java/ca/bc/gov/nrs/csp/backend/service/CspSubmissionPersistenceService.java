@@ -87,7 +87,13 @@ public class CspSubmissionPersistenceService {
     }
 
     // The submission number is allocated by the INSERT's sequence, so it has to be
-    // read back; it's what the UI links by once the upload lands.
+    // read back; it's what the UI links by once the upload lands. Deliberately a
+    // second statement rather than a second column on the INSERT's
+    // GeneratedKeyHolder: that would change the generated-keys contract of the
+    // insert shared with the manual-entry path, which never writes submission_id
+    // at all, and nothing in this repo can exercise that against Oracle today —
+    // test-bootstrap.sql has no csp_submission table or sequences. One
+    // primary-key lookup per upload is the cheaper risk.
     Long submissionNumber = submissionRepo.findSubmissionNumber(submissionId).orElse(null);
 
     log.info("Persisted uploaded submission id={} number={} with {} invoice(s)",

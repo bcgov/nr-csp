@@ -133,7 +133,7 @@ class CspSubmissionRepositoryTest {
     @SuppressWarnings("unchecked")
     void findSubmissionNumber_found_returnsNumberAndBindsId() throws SQLException {
         ResultSet rs = mock(ResultSet.class);
-        given(rs.getObject("submission_id", Long.class)).willReturn(9001L);
+        given(rs.getLong("submission_id")).willReturn(9001L);
         stubQueryMapsRow(rs);
 
         assertThat(repo.findSubmissionNumber(42L)).contains(9001L);
@@ -150,7 +150,8 @@ class CspSubmissionRepositoryTest {
     void findSubmissionNumber_manualSubmission_returnsEmpty() throws SQLException {
         // Manual entry never allocates a submission number, so the column is null.
         ResultSet rs = mock(ResultSet.class);
-        given(rs.getObject("submission_id", Long.class)).willReturn(null);
+        given(rs.getLong("submission_id")).willReturn(0L);
+        given(rs.wasNull()).willReturn(true);
         stubQueryMapsRow(rs);
 
         assertThat(repo.findSubmissionNumber(42L)).isEmpty();

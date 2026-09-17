@@ -54,7 +54,8 @@ public class CspSubmissionRepository {
         if (cspSubmissionId == null) return Optional.empty();
         String sql = "SELECT submission_id FROM THE.csp_submission WHERE csp_submission_id = :id";
         MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
-        List<Long> rows = jdbc.query(sql, params, (rs, rowNum) -> rs.getObject("submission_id", Long.class));
+        List<Long> rows = jdbc.query(sql, params,
+                (rs, rowNum) -> RepositoryUtils.getLongNullable(rs, "submission_id"));
         return rows.isEmpty() ? Optional.empty() : Optional.ofNullable(rows.get(0));
     }
 

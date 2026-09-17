@@ -795,6 +795,21 @@ describe('UploadSubmissionPage', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001'));
   });
 
+  it('still leaves the form when a saved submission comes back without a submission number', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(makeValidation());
+    // The record is already persisted, so staying put would offer Submit again
+    // and duplicate it; with no number to open, the list is the fallback.
+    mockSubmit.mockResolvedValue(makeSubmit({ valid: true, submissionId: 42, submissionNumber: null }));
+
+    await uploadAndSettle();
+    await screen.findByText('sub.xml was uploaded with no issues found.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/submission-history'));
+  });
+
   it('submit rejected (resolved valid:false) surfaces issues without navigating', async () => {
     mockParse.mockResolvedValue(makeParse());
     mockValidate.mockResolvedValue(makeValidation());
