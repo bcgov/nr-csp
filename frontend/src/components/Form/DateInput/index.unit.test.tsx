@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
 import DateInput from './index';
@@ -381,6 +382,33 @@ describe('DateInput incoming value normalisation', () => {
   });
 });
 
+// Mirrors what the report pages, Search, Inbox and the invoice form do: hold the
+// date in page state and hand it straight back to the field. `asIsoString` covers
+// Search/Inbox, which keep it as `yyyy-mm-dd` rather than a Date.
+const Controlled = ({ onChange, asIsoString }: { onChange?: (dates: Date[]) => void; asIsoString?: boolean }) => {
+  const [held, setHeld] = useState<Date | string | null>(null);
+  const toHeld = (d: Date | undefined) => {
+    if (!d) return null;
+    if (!asIsoString) return d;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  return (
+    <>
+      <button onClick={() => setHeld(toHeld(new Date(2026, 4, 20)))}>push</button>
+      <button onClick={() => setHeld(null)}>clear</button>
+      <DateInput
+        id="date-input"
+        labelText="Scale date"
+        value={held ?? undefined}
+        onChange={(dates) => {
+          setHeld(toHeld(dates[0]));
+          onChange?.(dates);
+        }}
+      />
+    </>
+  );
+};
+
 describe('DateInput value pushed in by the parent', () => {
   // R11/R12/R07/R08/R10/R13 auto-fill the end date from the time frame. That
   // value replaces the text the user typed, so an error raised against the old
@@ -396,25 +424,85 @@ describe('DateInput value pushed in by the parent', () => {
     expect(input).not.toHaveAttribute('aria-invalid');
   });
 
-  // A controlled consumer nulls its state in response to the `[]` emitted for an
-  // invalid entry. Carbon's DatePicker reacts to the now-empty `value` by
-  // clearing flatpickr, which empties the field — so the invalid text does not
-  // survive here the way it does in an uncontrolled field. Either way nothing is
-  // committed, which is the guarantee that matters; this pins the behaviour down.
-  it('ends up with an empty field, not a rolled-over date, when the parent clears the value', () => {
-    const onChange = vi.fn();
-    const { rerender } = render(
-      <DateInput id="date-input" labelText="Scale date" value={new Date(2026, 0, 1)} onChange={onChange} />,
-    );
+  // The page feeding a value straight back is how an invalid entry used to
+  // vanish: Carbon hands that value to Flatpickr, which rewrites the input's
+  // text and blanks it when the value is empty. The field withholds its own
+  // echo, so the text belongs to whoever is typing it.
+  it('keeps what the user typed when an entry turns invalid mid-typing', () => {
+    render(<Controlled />);
     const input = screen.getByLabelText('Scale date') as HTMLInputElement;
-    typeValue(input, '2026-02-51');
 
-    rerender(<DateInput id="date-input" labelText="Scale date" value={undefined} onChange={onChange} />);
+    // "2020-02-3" is itself a complete, valid date, so the page stores it and
+    // hands it back — which used to reformat the entry under the caret.
+    typeValue(input, '2020-02-3');
+    expect(input.value).toBe('2020-02-3');
+
+    typeValue(input, '2020-02-33');
+    expect(input.value).toBe('2020-02-33');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('keeps what the user typed when the page holds the date as an ISO string', () => {
+    render(<Controlled asIsoString />);
+    const input = screen.getByLabelText('Scale date') as HTMLInputElement;
+
+    typeValue(input, '2020-02-3');
+    expect(input.value).toBe('2020-02-3');
+    typeValue(input, '2020-02-33');
+    expect(input.value).toBe('2020-02-33');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+  });
+
+  it('commits nothing while the entry is invalid', () => {
+    const onChange = vi.fn();
+    render(<Controlled onChange={onChange} />);
+    const input = screen.getByLabelText('Scale date') as HTMLInputElement;
+
+    typeValue(input, '2020-02-3');
+    typeValue(input, '2020-02-33');
     pressEnter(input);
 
-    expect(input.value).toBe('');
     expect(lastArgs(onChange)).toEqual([]);
     expect(onChange.mock.calls.flatMap((c) => c[0] as Date[]).some((d) => d.getMonth() === 2)).toBe(false);
+  });
+
+  it('applies a value the page originates over a rejected entry', () => {
+    render(<Controlled />);
+    const input = screen.getByLabelText('Scale date') as HTMLInputElement;
+    typeValue(input, '2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+
+    // What R11's end-date auto-fill does when the time frame changes.
+    fireEvent.click(screen.getByRole('button', { name: 'push' }));
+
+    expect(input.value).toBe('2026-05-20');
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+  });
+
+  // The invoice form resets every field when the URL's invoice id changes. The
+  // date the user typed was never handed to Carbon (it was this field's own
+  // echo), so Carbon has nothing to clear and the text has to go another way.
+  it('empties the field when the page clears a date the user typed', () => {
+    render(<Controlled />);
+    const input = screen.getByLabelText('Scale date') as HTMLInputElement;
+    typeValue(input, '2026-02-05');
+    expect(input.value).toBe('2026-02-05');
+
+    fireEvent.click(screen.getByRole('button', { name: 'clear' }));
+
+    expect(input.value).toBe('');
+  });
+
+  it('still empties the field when the page clears a value it set itself', () => {
+    render(<Controlled />);
+    const input = screen.getByLabelText('Scale date') as HTMLInputElement;
+    fireEvent.click(screen.getByRole('button', { name: 'push' }));
+    expect(input.value).toBe('2026-05-20');
+
+    fireEvent.click(screen.getByRole('button', { name: 'clear' }));
+
+    expect(input.value).toBe('');
   });
 });
 

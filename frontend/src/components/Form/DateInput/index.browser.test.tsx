@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
 import DateInput from './index';
@@ -19,6 +20,19 @@ const committed = (onChange: ReturnType<typeof vi.fn>): Date[] => (onChange.mock
 
 const allEmitted = (onChange: ReturnType<typeof vi.fn>): Date[] =>
   onChange.mock.calls.flatMap((c) => (c[0] ?? []) as Date[]);
+
+// Mirrors a page that holds the date in state and hands it straight back.
+const Controlled = () => {
+  const [held, setHeld] = useState<Date | null>(null);
+  return (
+    <DateInput
+      id="c"
+      labelText="Controlled date"
+      value={held ?? undefined}
+      onChange={(dates) => setHeld(dates[0] ?? null)}
+    />
+  );
+};
 
 describe('DateInput', () => {
   it('renders the label and default placeholder', () => {
@@ -127,6 +141,36 @@ describe('DateInput', () => {
     await userEvent.click(input);
     expect(fp.isOpen).toBe(true);
     expect(document.querySelector('.flatpickr-calendar.open')).not.toBeNull();
+  });
+
+  // Reported in review: typing 2020-02-33 into a field whose page feeds the
+  // value back wiped the whole entry on the last keystroke instead of showing
+  // the error, while pasting the same text showed it. Typing passes through
+  // "2020-02-3" — a valid date — which the page handed back, and Carbon applied
+  // it to the input; the keystroke that invalidated it then blanked the field.
+  it('keeps every keystroke visible when the page feeds the value back', async () => {
+    render(<Controlled />);
+    const input = screen.getByLabelText('Controlled date') as HTMLInputElement;
+
+    await userEvent.type(input, '2020-02-3');
+    expect(input.value).toBe('2020-02-3');
+
+    await userEvent.type(input, '3');
+    expect(input.value).toBe('2020-02-33');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('types a valid date through without reformatting it under the caret', async () => {
+    render(<Controlled />);
+    const input = screen.getByLabelText('Controlled date') as HTMLInputElement;
+
+    await userEvent.type(input, '2020-02-5');
+    expect(input.value).toBe('2020-02-5');
+
+    await userEvent.type(input, '{Backspace}05');
+    expect(input.value).toBe('2020-02-05');
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
   });
 
   it('flags an invalid date left in the field when focus moves away', async () => {

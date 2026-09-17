@@ -66,13 +66,35 @@ const hasUnparseableString = (date: unknown, dateFormat: string): boolean =>
 
 const hasString = (date: unknown): boolean => asList(date).some((v) => typeof v === 'string');
 
-// A primitive stand-in for the `value` prop, so an effect can watch it without
-// re-firing on every render just because the parent built a fresh Date object.
-const valueToKey = (value: DateInputProps['value']): string => {
-  if (value === undefined) return '';
-  const one = (v: string | Date): string => (v instanceof Date ? String(v.getTime()) : v);
-  return Array.isArray(value) ? value.map(one).filter(Boolean).join(',') : one(value);
+// Normalise the incoming `value` to something Flatpickr can always parse.
+const toDate = (v: string | Date): Date | string => {
+  if (v instanceof Date) return v;
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (iso.test(v)) {
+    const [y, m, d] = v.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return v;
 };
+
+type NormalisedValue = Date | string | Array<Date | string> | undefined;
+
+const normaliseValue = (value: DateInputProps['value']): NormalisedValue =>
+  value === undefined ? undefined : Array.isArray(value) ? value.map(toDate) : toDate(value);
+
+// A primitive stand-in for a normalised value, so it can be compared against
+// what this field last reported and watched by an effect without re-firing on
+// every render just because the parent built a fresh Date object. Pages hold
+// the date in whichever shape suits them — R11 keeps a Date, Search and Inbox
+// keep an ISO string — and `toDate` has already reconciled the two by here.
+const timeKey = (v: Date | string): string => (v instanceof Date ? String(v.getTime()) : v);
+
+const keyOf = (v: NormalisedValue): string => {
+  if (v === undefined) return '';
+  return Array.isArray(v) ? v.map(timeKey).filter(Boolean).join(',') : timeKey(v);
+};
+
+const keyOfReport = (dates: Date[]): string => dates.map((d) => String(d.getTime())).join(',');
 
 const INVALID_DATE_TEXT = 'Invalid date';
 
@@ -123,19 +145,70 @@ const DateInput: FC<DateInputProps> = ({
 
   const resolvedPlaceholder = placeholder ?? (dateFormat === 'Y-m' ? 'yyyy-mm' : 'yyyy-mm-dd');
 
-  // A value pushed in by the parent (e.g. R11's end date auto-filled from the
-  // time frame) replaces whatever the user typed, so a parse failure raised
-  // against the old text no longer describes the field and has to be dropped —
-  // otherwise the field sits there red over a date it is displaying correctly.
-  // Only a non-empty value clears it: an empty one is usually this component's
-  // own `[]` echoing back through a controlled consumer, and clearing on that
-  // would wipe the error just raised.
-  const valueKey = valueToKey(value);
+  const normalisedValue = normaliseValue(value);
+  const incomingKey = keyOf(normalisedValue);
+
+  // Everything this field reports goes through here, so the value a controlled
+  // page feeds back can be recognised as this field's own words returning.
+  // `null` means it has said nothing yet, which is not the same as having
+  // reported "no date" — otherwise a page clearing a value it set itself would
+  // look like an echo and be ignored.
+  const [lastReportedKey, setLastReportedKey] = useState<string | null>(null);
+  const report = useCallback((dates: Date[]) => {
+    setLastReportedKey(keyOfReport(dates));
+    onChangeRef.current?.(dates);
+  }, []);
+
+  // Carbon hands whatever `value` it is given straight to Flatpickr, which
+  // rewrites the input's text — and blanks it outright when that value is empty
+  // while Flatpickr holds a selection. Applied to the value a controlled page
+  // feeds back after this field reports a change, that reformats the entry
+  // under the caret mid-typing ("2020-02-3" becomes "2020-02-03") and then wipes
+  // the lot on the keystroke that makes it invalid, so a rejected date vanishes
+  // instead of showing its error. While the user is typing, though, the page has
+  // nothing new to say — it is repeating what this field told it a keystroke
+  // ago. So an echo of this field's own last report is withheld and Carbon keeps
+  // the value it already had; anything the page actually originates (R11's end
+  // date auto-filled from the time frame, a restored filter) still goes through.
+  // `seen` is the page's own last word, tracked separately from the value handed
+  // over, because withholding an echo deliberately leaves the two out of step.
+  const [picker, setPicker] = useState(() => ({ value: normalisedValue, seen: incomingKey, clears: 0 }));
+  if (incomingKey !== picker.seen) {
+    const isEcho = incomingKey === lastReportedKey;
+    setPicker((prev) => ({
+      value: isEcho ? prev.value : normalisedValue,
+      seen: incomingKey,
+      clears: !isEcho && !incomingKey ? prev.clears + 1 : prev.clears,
+    }));
+    // Applied, so whatever this field last said about the date is superseded.
+    if (!isEcho) setLastReportedKey(null);
+  }
+  const pickerValue = picker.value;
+
+  // Carbon empties the input only when the value it is holding changes to
+  // empty, and withholding an echo can mean it never held the date at all — so
+  // a page clearing the field outright (the invoice form resets every field
+  // when the URL's invoice id changes) would leave the text sitting there,
+  // showing a date the page no longer has. Empty it here instead. This only
+  // runs for a clear the page originated: one of this field's own is withheld
+  // above, and with it the error state that would otherwise be left stranded.
   useEffect(() => {
-    if (!valueKey) return;
+    if (!picker.clears) return;
+    const el = containerRef.current?.querySelector('input');
+    if (el?.value) el.value = '';
+  }, [picker.clears]);
+
+  // A value the page originates replaces whatever the user typed, so a parse
+  // failure raised against the old text no longer describes the field and has to
+  // be dropped — otherwise the field sits there red over a date it is displaying
+  // correctly. Only a non-empty value clears it: an empty one is usually this
+  // component's own `[]` coming back, and clearing on that would wipe the error
+  // just raised.
+  useEffect(() => {
+    if (!incomingKey) return;
     inputInvalidRef.current = false;
     setInputInvalid(false);
-  }, [valueKey]);
+  }, [incomingKey]);
 
   // Flatpickr is created by Carbon's DatePicker one commit AFTER this component
   // first mounts (its init effect waits on internal `hasInput` state), so the
@@ -164,7 +237,7 @@ const DateInput: FC<DateInputProps> = ({
       if (!val) {
         inputInvalidRef.current = false;
         setInputInvalid(false);
-        onChangeRef.current?.([]);
+        report([]);
         return;
       }
 
@@ -173,7 +246,7 @@ const DateInput: FC<DateInputProps> = ({
       if (parsed === 'invalid') {
         inputInvalidRef.current = true;
         setInputInvalid(true);
-        onChangeRef.current?.([]);
+        report([]);
         return;
       }
 
@@ -182,11 +255,11 @@ const DateInput: FC<DateInputProps> = ({
 
       if (!parsed) {
         // Unrecognised / incomplete (e.g. mid-typing) — clear without warning.
-        onChangeRef.current?.([]);
+        report([]);
         return;
       }
 
-      onChangeRef.current?.([parsed]);
+      report([parsed]);
 
       // If the value arrived in a non-native shape (e.g. browser autofill gave
       // a slash-separated date), redisplay it in the field's own dash format.
@@ -202,7 +275,7 @@ const DateInput: FC<DateInputProps> = ({
         fp?.setDate(parsed, false);
       }
     },
-    [dateFormat],
+    [dateFormat, report],
   );
 
   useEffect(() => {
@@ -283,20 +356,8 @@ const DateInput: FC<DateInputProps> = ({
   const handleCalendarChange = (dates: Date[]) => {
     inputInvalidRef.current = false;
     setInputInvalid(false);
-    onChangeRef.current?.(dates);
+    report(dates);
   };
-
-  // Normalise the incoming `value` to something Flatpickr can always parse.
-  const toDate = (v: string | Date): Date | string => {
-    if (v instanceof Date) return v;
-    const iso = /^\d{4}-\d{2}-\d{2}$/;
-    if (iso.test(v)) {
-      const [y, m, d] = v.split('-').map(Number);
-      return new Date(y, m - 1, d);
-    }
-    return v;
-  };
-  const normalisedValue = value === undefined ? undefined : Array.isArray(value) ? value.map(toDate) : toDate(value);
 
   // A value the field can't parse is an error, not an advisory: it is never
   // submitted, so it has to read like something the user must fix (red border,
@@ -311,7 +372,7 @@ const DateInput: FC<DateInputProps> = ({
         dateFormat={dateFormat}
         className="date-input"
         style={{ width: '100%' }}
-        value={normalisedValue}
+        value={pickerValue}
         invalid={showInvalid}
         onChange={handleCalendarChange}
         disabled={disabled}
