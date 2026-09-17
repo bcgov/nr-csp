@@ -147,9 +147,10 @@ export const useSubmissionHistoryListQuery = (params: SubmissionHistoryListParam
 
 export const useSubmissionDetailQuery = (submissionId: string | undefined) =>
   useQuery({
-    queryKey: ['submission-history', 'detail', submissionId],
+    queryKey: [...SUBMISSION_HISTORY_QUERY_KEY, 'detail', submissionId],
     queryFn: () => getSubmissionDetail(submissionId as string),
     enabled: !!submissionId,
+    ...LIVE_DATA_OPTIONS,
   });
 
 // `enabled` gates the request to expanded rows so collapsed rows never fetch.

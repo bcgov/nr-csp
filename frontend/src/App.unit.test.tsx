@@ -7,9 +7,26 @@ import App from './App';
 // then report an anonymous visitor — MockAuthProvider is always signed in, and
 // the welcome screen sends an authenticated visitor straight into the app.
 vi.mock('@/env', () => ({ env: { mockUser: true } }));
-vi.mock('@/context/auth/useAuth', () => ({
-  useAuth: () => ({ isAuthenticated: false, isLoading: false, isSigningOut: false, signIn: vi.fn() }),
-}));
+
+const { mockUseAuth } = vi.hoisted(() => ({ mockUseAuth: vi.fn() }));
+vi.mock('@/context/auth/useAuth', () => ({ useAuth: () => mockUseAuth() }));
+
+const ANONYMOUS = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  isSigningOut: false,
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+};
+
+// Protected routes only render for a signed-in visitor, and the shell reads
+// `user` for the profile panel and permission checks.
+const SIGNED_IN = {
+  ...ANONYMOUS,
+  isAuthenticated: true,
+  user: { username: 'jsmith', email: 'j.smith@gov.bc.ca', roles: ['CSP_ADMIN'], privileges: ['ADMIN'] },
+};
 
 const useSubmissionDetailQuery = vi.fn();
 vi.mock('@/services/submissionHistory.service', () => ({
@@ -17,6 +34,10 @@ vi.mock('@/services/submissionHistory.service', () => ({
 }));
 
 describe('App', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue(ANONYMOUS);
+  });
+
   it('renders the provider tree and serves the public welcome route', async () => {
     window.history.pushState({}, '', '/');
 
@@ -41,6 +62,7 @@ describe('App', () => {
   // Guards the wiring between the route's param name and the page's useParams:
   // a mismatch leaves the id undefined and the detail page silently empty.
   it('passes the submission history url segment through to the detail lookup', async () => {
+    mockUseAuth.mockReturnValue(SIGNED_IN);
     useSubmissionDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
     window.history.pushState({}, '', '/submission-history/9001');
 
