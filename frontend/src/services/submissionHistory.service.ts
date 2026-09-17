@@ -122,10 +122,27 @@ export const getSubmissionInvoiceComments = (
     .get<SubmissionInvoiceCommentResponse[]>(`/submission-history/${cspSubmissionId}/invoices`)
     .then(({ data }) => data);
 
+/**
+ * Root key shared by every submission-history query (list, detail, invoice
+ * comments). Invoice mutations invalidate this prefix so reviewer comments and
+ * statuses edited on the Invoice screen are not served from a stale cache here.
+ */
+export const SUBMISSION_HISTORY_QUERY_KEY = ['submission-history'] as const;
+
+// Submission history reads invoice data (reviewer comments, invoice status)
+// that is edited on the Invoice screen and by other users, so the global 3h
+// aggressive cache is overridden to always refetch on mount and window focus.
+const LIVE_DATA_OPTIONS = {
+  staleTime: 0,
+  refetchOnMount: true,
+  refetchOnWindowFocus: true,
+} as const;
+
 export const useSubmissionHistoryListQuery = (params: SubmissionHistoryListParams) =>
   useQuery({
-    queryKey: ['submission-history', params],
+    queryKey: [...SUBMISSION_HISTORY_QUERY_KEY, params],
     queryFn: () => listSubmissionHistory(params),
+    ...LIVE_DATA_OPTIONS,
   });
 
 export const useSubmissionDetailQuery = (submissionId: string | undefined) =>
@@ -138,7 +155,8 @@ export const useSubmissionDetailQuery = (submissionId: string | undefined) =>
 // `enabled` gates the request to expanded rows so collapsed rows never fetch.
 export const useSubmissionInvoiceCommentsQuery = (id: number | null, enabled: boolean) =>
   useQuery({
-    queryKey: ['submission-history', 'invoice-comments', id],
+    queryKey: [...SUBMISSION_HISTORY_QUERY_KEY, 'invoice-comments', id],
     queryFn: () => getSubmissionInvoiceComments(id as number),
     enabled: enabled && id != null,
+    ...LIVE_DATA_OPTIONS,
   });

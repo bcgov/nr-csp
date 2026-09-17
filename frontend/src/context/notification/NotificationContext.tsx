@@ -7,6 +7,12 @@ export interface Notification {
   kind: NotificationKind;
   title: string;
   subtitle?: string;
+  /**
+   * Keeps the toast up until the user closes it, instead of auto-closing.
+   * For notices the user may not be at the screen to catch — an idle-session
+   * timeout being the case this exists for.
+   */
+  persistent?: boolean;
 }
 
 export interface NotificationContextValue {

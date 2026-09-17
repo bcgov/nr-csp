@@ -238,7 +238,7 @@ describe('InboxPage interactions', () => {
     // The previous search's rows are gone — even though the mocked query still has them
     // cached — and the keyword bar is hidden again so its text cannot linger.
     expect(screen.queryByText('SUB-555')).not.toBeInTheDocument();
-    expect(screen.getByText('Your search results will appear here!')).toBeInTheDocument();
+    expect(screen.getByText('Your search results will appear here.')).toBeInTheDocument();
     expect(screen.queryByRole('searchbox', { name: /search by keyword/i })).not.toBeInTheDocument();
 
     // The table's own sort state reset too: the next sort starts ascending, not descending.
@@ -263,7 +263,7 @@ describe('InboxPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
 
     expect(screen.queryByText('Bad request.')).not.toBeInTheDocument();
-    expect(screen.getByText('Your search results will appear here!')).toBeInTheDocument();
+    expect(screen.getByText('Your search results will appear here.')).toBeInTheDocument();
   });
 
   it('shows the most specific backend validation message on error', () => {

@@ -65,10 +65,14 @@
     }
   }
 
+  // Carbon pictograms render with `fill: currentColor`, so `color` drives the
+  // artwork. Deliberately a literal rather than a Carbon token: this blue is
+  // the same in both g10 and g100 so the empty state matches the design.
   &__empty-pictogram {
-    width: 5rem;
-    height: 5rem;
-    margin-bottom: $spacing-05;
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: $spacing-02;
+    color: #0073e6;
   }
 
   &__empty-title {

@@ -346,7 +346,16 @@ export default function EditableLineItemsTable({
   return (
     <div className="editable-line-items-table">
       <h4 className="editable-line-items-table__heading">Details</h4>
-      <ResultsTable rows={rows} columns={columns} size="sm" withZebraStyles={false} />
+      {/* This table has no search UI, so it must not fall back to ResultsTable's
+          search-flavoured default empty copy. */}
+      <ResultsTable
+        rows={rows}
+        columns={columns}
+        size="sm"
+        withZebraStyles={false}
+        emptyTitle="No line items"
+        emptyDescription="This group does not have any line items yet."
+      />
     </div>
   );
 }

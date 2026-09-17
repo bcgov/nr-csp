@@ -27,6 +27,6 @@ export interface AuthContextValue {
   isLoading: boolean;
   isSigningOut: boolean;
   signIn: () => Promise<void>;
-  /** `reason` drives the wording on the signed-out page; defaults to a deliberate sign-out. */
+  /** A `'timeout'` reason makes the welcome screen say the session expired; defaults to a deliberate sign-out. */
   signOut: (reason?: SignOutReason) => Promise<void>;
 }
