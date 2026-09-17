@@ -8,7 +8,6 @@ import type React from 'react';
 
 type FlatpickrLike = {
   setDate: (date: unknown, triggerChange?: boolean, format?: string) => void;
-  config?: { parseDate?: (date: string, format?: string) => Date | undefined };
   __cspOrigSetDate?: (date: unknown, triggerChange?: boolean, format?: string) => void;
 };
 
@@ -354,18 +353,6 @@ describe('DateInput flatpickr setDate guard', () => {
     expect(origSetDate).toHaveBeenCalledWith(['2026-02-05'], true, 'Y-m-d');
   });
 
-  // The hook Flatpickr consults itself, covering parses that happen before the
-  // guard can exist — `defaultDate` is resolved while Flatpickr is constructed.
-  it('hands Flatpickr a parser that refuses a rolled-over date', () => {
-    const { input } = setup();
-    const parse = getFp(input)?.config?.parseDate;
-    expect(parse).toBeTypeOf('function');
-    expect(parse?.('2026-02-51', 'Y-m-d')).toBeUndefined();
-    expect(parse?.('2026-13-05', 'Y-m-d')).toBeUndefined();
-    expect(parse?.('2026-1', 'Y-m-d')).toBeUndefined();
-    expect(parse?.('2026-02-05', 'Y-m-d')).toEqual(new Date(2026, 1, 5));
-  });
-
   it('installs the guard on every render, not only once something is typed', () => {
     const { input, rerender } = setup();
     const origSetDate = installFakeFlatpickr(input);
@@ -397,6 +384,24 @@ describe('DateInput flatpickr setDate guard', () => {
 });
 
 describe('DateInput incoming value normalisation', () => {
+  // Flatpickr resolves `defaultDate` as it is constructed, before anything here
+  // can vet it, so a string the field cannot read must never be handed over —
+  // Flatpickr's own parser would roll it forward into a date nobody asked for.
+  it('shows nothing rather than a rolled-over date for a value it cannot read', () => {
+    const { input } = setup({ value: '2026-02-51' });
+    expect(input.value).toBe('');
+  });
+
+  it('accepts a slash-separated value', () => {
+    const { input } = setup({ value: '2026/03/15' });
+    expect(input.value).toBe('2026-03-15');
+  });
+
+  it('shows an ISO value in the field', () => {
+    const { input } = setup({ value: '2026-03-15' });
+    expect(input.value).toBe('2026-03-15');
+  });
+
   it('renders with an ISO string value', () => {
     const { input } = setup({ value: '2026-03-15' });
     expect(input).toBeInTheDocument();

@@ -73,32 +73,35 @@ const entryState = (text: string, dateFormat: string): EntryState => {
   return parseDateInput(text, dateFormat) instanceof Date ? 'valid' : 'rejected';
 };
 
-// Normalise the incoming `value` to something Flatpickr can always parse.
-const toDate = (v: string | Date): Date | string => {
+// Resolve one incoming value into the Date Flatpickr should be given for it.
+// Pages hold the date in whichever shape suits them — R11 keeps a Date, Search
+// and Inbox keep an ISO string — and this is where the two are reconciled, so
+// that no raw text is ever handed over. That matters beyond tidiness: Flatpickr
+// resolves `defaultDate` while it is being constructed, a commit before the
+// guard below can vet anything, and its own parser would roll "2026-02-51"
+// forward into a date nobody asked for. A string this field cannot read becomes
+// no date at all, which is the honest answer to a value it cannot represent.
+const toPickerDate = (v: string | Date, dateFormat: string): Date | undefined => {
   if (v instanceof Date) return v;
-  const iso = /^\d{4}-\d{2}-\d{2}$/;
-  if (iso.test(v)) {
-    const [y, m, d] = v.split('-').map(Number);
-    return new Date(y, m - 1, d);
-  }
-  return v;
+  const parsed = parseDateInput(v, dateFormat);
+  return parsed instanceof Date ? parsed : undefined;
 };
 
-type NormalisedValue = Date | string | Array<Date | string> | undefined;
+type PickerValue = Date | Date[] | undefined;
 
-const normaliseValue = (value: DateInputProps['value']): NormalisedValue =>
-  value === undefined ? undefined : Array.isArray(value) ? value.map(toDate) : toDate(value);
+const normaliseValue = (value: DateInputProps['value'], dateFormat: string): PickerValue => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return toPickerDate(value, dateFormat);
+  return value.map((v) => toPickerDate(v, dateFormat)).filter((d): d is Date => d !== undefined);
+};
 
 // A primitive stand-in for a normalised value, so it can be compared against
 // what this field last reported and watched by an effect without re-firing on
-// every render just because the parent built a fresh Date object. Pages hold
-// the date in whichever shape suits them — R11 keeps a Date, Search and Inbox
-// keep an ISO string — and `toDate` has already reconciled the two by here.
-const timeKey = (v: Date | string): string => (v instanceof Date ? String(v.getTime()) : v);
-
-const keyOf = (v: NormalisedValue): string => {
+// every render just because the parent built a fresh Date object.
+const keyOf = (v: PickerValue): string => {
   if (v === undefined) return '';
-  return Array.isArray(v) ? v.map(timeKey).filter(Boolean).join(',') : timeKey(v);
+  if (Array.isArray(v)) return v.map((d) => String(d.getTime())).join(',');
+  return String(v.getTime());
 };
 
 const keyOfReport = (dates: Date[]): string => dates.map((d) => String(d.getTime())).join(',');
@@ -117,21 +120,6 @@ const resolveInvalidText = (
   if (parseFailed) return INVALID_DATE_TEXT;
   return invalidText;
 };
-
-// Flatpickr's supported parsing hook, which Carbon forwards straight to it.
-// Everything below is a second line of defence for the entry paths a user
-// actually takes; this is the first, and the only one covering parses that
-// happen before any of it is in place — Flatpickr resolves `defaultDate` while
-// it is being constructed, a commit before this component can reach in. On its
-// own it is not enough: Flatpickr answers a rejected parse by clearing the
-// field, discarding the entry and the error with it, which is why the entry
-// paths are still headed off before they get here.
-const strictParseDate =
-  (dateFormat: string) =>
-  (date: string, format?: string): Date | undefined => {
-    const parsed = parseDateInput(date, format || dateFormat);
-    return parsed instanceof Date ? parsed : undefined;
-  };
 
 interface FlatpickrInstance {
   setDate: (date: unknown, triggerChange?: boolean, format?: string) => void;
@@ -166,7 +154,7 @@ const DateInput: FC<DateInputProps> = ({
 
   const resolvedPlaceholder = placeholder ?? (dateFormat === 'Y-m' ? 'yyyy-mm' : 'yyyy-mm-dd');
 
-  const normalisedValue = normaliseValue(value);
+  const normalisedValue = normaliseValue(value, dateFormat);
   const incomingKey = keyOf(normalisedValue);
 
   // Everything this field reports goes through here, so the value a controlled
@@ -299,7 +287,7 @@ const DateInput: FC<DateInputProps> = ({
   // no-op once and then installs it — on every render, like the handlers do, so
   // nothing has to have been typed first for a setDate arriving from elsewhere
   // to be judged. Anything earlier still than that is Flatpickr parsing its own
-  // `defaultDate`, which `strictParseDate` covers.
+  // `defaultDate`, which `toPickerDate` has already made safe.
   useEffect(() => {
     ensureSetDateGuard();
   });
@@ -391,7 +379,6 @@ const DateInput: FC<DateInputProps> = ({
         className="date-input"
         style={{ width: '100%' }}
         value={pickerValue}
-        parseDate={strictParseDate(dateFormat)}
         invalid={showInvalid}
         onChange={handleCalendarChange}
         disabled={disabled}
