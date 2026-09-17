@@ -129,6 +129,12 @@ class SubmissionHistoryRepositoryTest {
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).submissionId()).isEqualTo("9001");
         assertThat(page.getTotalElements()).isEqualTo(25);
+
+        // The mapper reads a column the SELECT has to actually ask for.
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).query(sqlCaptor.capture(), any(SqlParameterSource.class),
+                this.<SubmissionHistoryRowResponse>rowMapper());
+        assertThat(sqlCaptor.getValue()).contains("sub.submission_id");
     }
 
     @Test
@@ -182,7 +188,10 @@ class SubmissionHistoryRepositoryTest {
         ArgumentCaptor<String> headerSql = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<SqlParameterSource> headerParams = ArgumentCaptor.forClass(SqlParameterSource.class);
         verify(jdbc).queryForObject(headerSql.capture(), headerParams.capture(), this.<Object>rowMapper());
-        assertThat(headerSql.getValue()).contains("sub.submission_id = :submissionId");
+        assertThat(headerSql.getValue())
+                .contains("sub.submission_id = :submissionId")
+                // submission_id is not a primary key; a duplicate must not blow up as a 500.
+                .contains("FETCH FIRST 1 ROW ONLY");
         assertThat(headerParams.getValue().getValue("submissionId")).isEqualTo(9001L);
 
         // Invoices + line items: bound to the csp_submission_id the header resolved.

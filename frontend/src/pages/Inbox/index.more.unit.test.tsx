@@ -7,6 +7,12 @@ import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 
 // ── Service mocks ─────────────────────────────────────────────────────────────
 
+const mockNavigate = vi.fn();
+vi.mock('react-router', async (orig) => ({
+  ...(await orig<typeof import('react-router')>()),
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock('@/services/inbox.service', () => ({
   useInboxSearchQuery: vi.fn(),
 }));
@@ -130,7 +136,12 @@ describe('InboxPage interactions', () => {
     } as never);
     renderInboxPage();
 
-    expect(screen.getByRole('link', { name: 'SUB-555' })).toHaveAttribute('href', '/submission-history/SUB-555');
+    const link = screen.getByRole('link', { name: 'SUB-555' });
+    expect(link).toHaveAttribute('href', '/submission-history/SUB-555');
+    // Routed in-app rather than reloading the SPA on the href.
+    fireEvent.click(link);
+    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/SUB-555');
+
     // The manual row has no submission id, so there is nothing to link to.
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });

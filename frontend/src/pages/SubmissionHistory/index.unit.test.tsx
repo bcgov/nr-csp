@@ -8,6 +8,12 @@ import { useSubmissionHistoryListQuery, useSubmissionInvoiceCommentsQuery } from
 
 // ── Service mocks ─────────────────────────────────────────────────────────────
 
+const mockNavigate = vi.fn();
+vi.mock('react-router', async (orig) => ({
+  ...(await orig<typeof import('react-router')>()),
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock('@/services/submissionHistory.service', () => ({
   useSubmissionHistoryListQuery: vi.fn(),
   useSubmissionInvoiceCommentsQuery: vi.fn(),
@@ -107,6 +113,18 @@ describe('SubmissionHistoryPage', () => {
     expect(screen.getByRole('link', { name: /12 invoices/i })).toHaveAttribute('href', '/submission-history/9001');
     // commentedInvoiceCount badge
     expect(screen.getByTitle(/2 invoice\(s\) with comments/i)).toBeInTheDocument();
+  });
+
+  it('navigates in-app by submission number from both the link and the view button', () => {
+    setListData([sampleRow]);
+    renderPage();
+
+    fireEvent.click(screen.getByRole('link', { name: /12 invoices/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001');
+
+    mockNavigate.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /view submission/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001');
   });
 
   it('does not link a manual submission, which has no submission number', () => {
