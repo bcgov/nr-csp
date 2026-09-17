@@ -210,16 +210,17 @@ const ResultsTable = <T extends { id: string }>({
   // pages. Only acts when pagination is controlled and data has finished loading;
   // it notifies the parent (which owns `page`) to snap back to the last real page.
   //
-  // An empty result set clamps to page 1 rather than being skipped: Carbon renders
-  // a single page in that state, so leaving `page` at 2 gives the control a live
-  // "Next page" button that walks the parent's page number upward (and persists it)
-  // over a table that stays empty. Only a `totalItems` the parent never supplied is
-  // exempt — there is no total to clamp against then.
+  // Deliberately skipped when there is no total: `totalItems` of 0 also covers an
+  // in-flight fetch and a failed one (both leave the consumer's `data` undefined, and
+  // every consumer collapses that to 0), where rewriting the parent's page would throw
+  // away the user's position on a transient error. `paginationPage` below is what keeps
+  // the control itself coherent in those states.
   useEffect(() => {
     if (!onPaginationChange || isLoading) return;
     if (page === undefined || !pageSize) return;
-    if (totalItems === undefined) return;
-    const lastPage = Math.max(1, Math.ceil(totalItems / pageSize));
+    const total = totalItems ?? 0;
+    if (total <= 0) return;
+    const lastPage = Math.max(1, Math.ceil(total / pageSize));
     if (page > lastPage) {
       onPaginationChange({ page: lastPage, pageSize });
     }
@@ -237,12 +238,21 @@ const ResultsTable = <T extends { id: string }>({
     onSortChange?.(newKey, newDir);
   };
 
+  // Carbon disables its forward button only when `page === totalPages`, so a page past
+  // the end renders that button live and each click walks the parent's page further out
+  // of range. That happens whenever `page > 1` and `totalItems` is 0 — an empty result
+  // set, but equally an in-flight or failed fetch — and on a restored page whose data has
+  // since shrunk. Showing the control the clamped position keeps it honest without
+  // touching the parent's page, which the effect above owns and only moves on real data.
+  const lastRenderablePage = pageSize ? Math.max(1, Math.ceil((totalItems ?? 0) / pageSize)) : 1;
+  const paginationPage = Math.min(page ?? 1, lastRenderablePage);
+
   const paginationBar = onPaginationChange ? (
     <Pagination
       totalItems={totalItems ?? 0}
       pageSize={pageSize ?? 20}
       pageSizes={pageSizes ?? [20, 40, 60, 80, 100]}
-      page={page ?? 1}
+      page={paginationPage}
       onChange={onPaginationChange}
       itemsPerPageText={paginationItemsPerPageText}
       itemRangeText={paginationItemRangeText}

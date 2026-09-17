@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -52,7 +52,7 @@ describe('ResultsTable - page clamping', () => {
     expect(onPaginationChange).not.toHaveBeenCalled();
   });
 
-  it('clamps to page 1 — never page 0 — when totalItems is 0', async () => {
+  it('does not rewrite the page when totalItems is 0', async () => {
     const onPaginationChange = vi.fn();
     render(
       <ResultsTable
@@ -67,30 +67,54 @@ describe('ResultsTable - page clamping', () => {
       />,
     );
 
-    // Carbon renders a single page for an empty result set, so an out-of-range `page`
-    // left alone would hand the control a live "Next page" button walking the parent's
-    // page number upward over a permanently empty table.
-    await waitFor(() => {
-      expect(onPaginationChange).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
-    });
+    // A total of 0 is also what an in-flight or failed fetch looks like here, so the
+    // parent's page is left alone; the control is kept coherent by clamping what it
+    // displays instead (see the forward-button tests below).
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onPaginationChange).not.toHaveBeenCalled();
   });
 
-  it('leaves an already-valid page 1 alone when totalItems is 0', async () => {
+  it('disables the forward button for a page past the end of an empty result set', () => {
     const onPaginationChange = vi.fn();
-    render(
+    const { container } = render(
       <ResultsTable
         rows={[]}
         columns={columns}
         hasSearched
-        page={1}
-        pageSize={10}
+        page={3}
+        pageSize={20}
         totalItems={0}
         isLoading={false}
         onPaginationChange={onPaginationChange}
       />,
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const next = container.querySelector('.cds--pagination__button--forward') as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    fireEvent.click(next);
+    expect(onPaginationChange).not.toHaveBeenCalled();
+  });
+
+  it('disables the forward button while a fetch is in flight with no total yet', () => {
+    const onPaginationChange = vi.fn();
+    const { container } = render(
+      <ResultsTable
+        rows={[]}
+        columns={columns}
+        hasSearched
+        isLoading
+        page={3}
+        pageSize={20}
+        totalItems={0}
+        onPaginationChange={onPaginationChange}
+      />,
+    );
+
+    // Without the display clamp this read "Page of 1 page" with a live Next, and one
+    // click sent the parent to page 4 — a page it had never shown.
+    const next = container.querySelector('.cds--pagination__button--forward') as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    fireEvent.click(next);
     expect(onPaginationChange).not.toHaveBeenCalled();
   });
 
