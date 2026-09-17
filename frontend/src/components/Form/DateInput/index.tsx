@@ -64,7 +64,14 @@ const hasUnparseableString = (date: unknown, dateFormat: string): boolean =>
     (v) => typeof v === 'string' && v.trim() !== '' && !(parseDateInput(v, dateFormat) instanceof Date),
   );
 
-const hasString = (date: unknown): boolean => asList(date).some((v) => typeof v === 'string');
+// What the field is currently holding, as the Enter and blur paths both need to
+// know it: nothing to judge yet, something committable, or something to reject.
+type EntryState = 'empty' | 'valid' | 'rejected';
+
+const entryState = (text: string, dateFormat: string): EntryState => {
+  if (!text.trim()) return 'empty';
+  return parseDateInput(text, dateFormat) instanceof Date ? 'valid' : 'rejected';
+};
 
 // Normalise the incoming `value` to something Flatpickr can always parse.
 const toDate = (v: string | Date): Date | string => {
@@ -111,6 +118,21 @@ const resolveInvalidText = (
   return invalidText;
 };
 
+// Flatpickr's supported parsing hook, which Carbon forwards straight to it.
+// Everything below is a second line of defence for the entry paths a user
+// actually takes; this is the first, and the only one covering parses that
+// happen before any of it is in place — Flatpickr resolves `defaultDate` while
+// it is being constructed, a commit before this component can reach in. On its
+// own it is not enough: Flatpickr answers a rejected parse by clearing the
+// field, discarding the entry and the error with it, which is why the entry
+// paths are still headed off before they get here.
+const strictParseDate =
+  (dateFormat: string) =>
+  (date: string, format?: string): Date | undefined => {
+    const parsed = parseDateInput(date, format || dateFormat);
+    return parsed instanceof Date ? parsed : undefined;
+  };
+
 interface FlatpickrInstance {
   setDate: (date: unknown, triggerChange?: boolean, format?: string) => void;
   close?: () => void;
@@ -134,7 +156,6 @@ const DateInput: FC<DateInputProps> = ({
   disabled,
 }: DateInputProps): React.ReactElement => {
   const [inputInvalid, setInputInvalid] = useState(false);
-  const inputInvalidRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -180,8 +201,17 @@ const DateInput: FC<DateInputProps> = ({
       seen: incomingKey,
       clears: !isEcho && !incomingKey ? prev.clears + 1 : prev.clears,
     }));
-    // Applied, so whatever this field last said about the date is superseded.
-    if (!isEcho) setLastReportedKey(null);
+    if (!isEcho) {
+      // Applied, so whatever this field last said about the date is superseded.
+      setLastReportedKey(null);
+      // The value replaces whatever the user typed, so a parse failure raised
+      // against that old text no longer describes the field — otherwise it sits
+      // there red over a date it is displaying correctly. Only a value with a
+      // date in it clears the error: a clear leaves the field empty, with
+      // nothing to be wrong about, and this runs before Carbon hands the value
+      // to Flatpickr, so the guard below never sees a stale error state.
+      if (incomingKey) setInputInvalid(false);
+    }
   }
   const pickerValue = picker.value;
 
@@ -198,23 +228,11 @@ const DateInput: FC<DateInputProps> = ({
     if (el?.value) el.value = '';
   }, [picker.clears]);
 
-  // A value the page originates replaces whatever the user typed, so a parse
-  // failure raised against the old text no longer describes the field and has to
-  // be dropped — otherwise the field sits there red over a date it is displaying
-  // correctly. Only a non-empty value clears it: an empty one is usually this
-  // component's own `[]` coming back, and clearing on that would wipe the error
-  // just raised.
-  useEffect(() => {
-    if (!incomingKey) return;
-    inputInvalidRef.current = false;
-    setInputInvalid(false);
-  }, [incomingKey]);
-
   // Flatpickr is created by Carbon's DatePicker one commit AFTER this component
   // first mounts (its init effect waits on internal `hasInput` state), so the
-  // instance isn't there to patch during our own mount effect. Rather than rely
-  // on a later re-render happening to install it, every handler calls this
-  // first — by the time any of them run, Flatpickr exists.
+  // instance isn't there to patch during our own mount effect. Installing is
+  // therefore attempted from both directions — every render below, and every
+  // handler before it does anything — and is a no-op once it has taken.
   const ensureSetDateGuard = useCallback(() => {
     const fp = getFlatpickr(containerRef.current?.querySelector('input'));
     if (!fp || fp.__cspOrigSetDate) return;
@@ -222,12 +240,14 @@ const DateInput: FC<DateInputProps> = ({
     const originalSetDate = fp.setDate;
     fp.__cspOrigSetDate = originalSetDate;
     fp.setDate = function (date: unknown, triggerChange?: boolean, format?: string) {
-      // Two reasons to refuse a payload: it carries raw text Flatpickr would
-      // roll over into a different date, or the field is already flagged
-      // invalid and this call would overwrite what the user typed. Dates (the
-      // calendar's own picks and our reformat round-trip) always pass.
+      // Refuse raw text Flatpickr would roll over into a different date, and
+      // nothing else: a string this field's own parser accepts says the same
+      // thing Flatpickr would, and Dates (the calendar's picks, the reformat
+      // round-trip, a value from the page) carry no text to misread. Judging
+      // the payload rather than the field's error state matters — a page
+      // pushing a new value arrives while that state still describes the text
+      // it is replacing, and refusing it would drop the value on the floor.
       if (hasUnparseableString(date, dateFormatRef.current)) return;
-      if (inputInvalidRef.current && hasString(date)) return;
       originalSetDate.call(fp, date, triggerChange, format);
     };
   }, []);
@@ -235,7 +255,6 @@ const DateInput: FC<DateInputProps> = ({
   const validateValue = useCallback(
     (val: string) => {
       if (!val) {
-        inputInvalidRef.current = false;
         setInputInvalid(false);
         report([]);
         return;
@@ -244,13 +263,11 @@ const DateInput: FC<DateInputProps> = ({
       const parsed = parseDateInput(val, dateFormat);
 
       if (parsed === 'invalid') {
-        inputInvalidRef.current = true;
         setInputInvalid(true);
         report([]);
         return;
       }
 
-      inputInvalidRef.current = false;
       setInputInvalid(false);
 
       if (!parsed) {
@@ -278,15 +295,21 @@ const DateInput: FC<DateInputProps> = ({
     [dateFormat, report],
   );
 
+  // Flatpickr exists from the commit after this component's first, so this is a
+  // no-op once and then installs it — on every render, like the handlers do, so
+  // nothing has to have been typed first for a setDate arriving from elsewhere
+  // to be judged. Anything earlier still than that is Flatpickr parsing its own
+  // `defaultDate`, which `strictParseDate` covers.
+  useEffect(() => {
+    ensureSetDateGuard();
+  });
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const el = container.querySelector('input') as HTMLInputElement | null;
     if (!el) return;
     dateFormatRef.current = dateFormat;
-    // Best effort at mount (Flatpickr may not exist yet) and a catch-up on
-    // later renders, e.g. when a `value` prop arrives before the user has
-    // touched the field.
     ensureSetDateGuard();
 
     const captureHandler = (e: Event) => {
@@ -306,21 +329,17 @@ const DateInput: FC<DateInputProps> = ({
     // date on one, and several clear the field's validation error. Blurring a
     // field is not an edit, so it must not emit.
     const commit = () => {
-      if (!el.value.trim()) return;
-      if (parseDateInput(el.value, dateFormat) instanceof Date) return;
-      inputInvalidRef.current = true;
+      if (entryState(el.value, dateFormat) !== 'rejected') return;
       setInputInvalid(true);
     };
 
     const keyDownHandler = (e: Event) => {
       ensureSetDateGuard();
       if ((e as KeyboardEvent).key !== 'Enter') return;
-      const val = el.value;
-      // Nothing typed: leave Enter alone so Flatpickr can close the calendar.
-      if (!val.trim()) return;
-      // A value we accept is Flatpickr's to commit — it keeps the calendar
-      // selection in step with the field.
-      if (parseDateInput(val, dateFormat) instanceof Date) return;
+      // Nothing to reject: an empty field leaves Enter alone so Flatpickr can
+      // close the calendar, and a value this field accepts is Flatpickr's to
+      // commit — that keeps the calendar selection in step with the text.
+      if (entryState(el.value, dateFormat) !== 'rejected') return;
       // Anything else must not reach Flatpickr. Both Carbon's fixEventsPlugin
       // (`setDate([input.value], true, format)`) and Flatpickr's own Enter
       // handler feed the raw text to a parser that rolls overflow forward, so
@@ -354,7 +373,6 @@ const DateInput: FC<DateInputProps> = ({
   }, [validateValue, dateFormat, ensureSetDateGuard]);
 
   const handleCalendarChange = (dates: Date[]) => {
-    inputInvalidRef.current = false;
     setInputInvalid(false);
     report(dates);
   };
@@ -373,6 +391,7 @@ const DateInput: FC<DateInputProps> = ({
         className="date-input"
         style={{ width: '100%' }}
         value={pickerValue}
+        parseDate={strictParseDate(dateFormat)}
         invalid={showInvalid}
         onChange={handleCalendarChange}
         disabled={disabled}

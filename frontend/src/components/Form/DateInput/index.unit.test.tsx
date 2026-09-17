@@ -8,6 +8,7 @@ import type React from 'react';
 
 type FlatpickrLike = {
   setDate: (date: unknown, triggerChange?: boolean, format?: string) => void;
+  config?: { parseDate?: (date: string, format?: string) => Date | undefined };
   __cspOrigSetDate?: (date: unknown, triggerChange?: boolean, format?: string) => void;
 };
 
@@ -296,21 +297,34 @@ describe('DateInput commit on blur', () => {
 });
 
 describe('DateInput flatpickr setDate guard', () => {
-  it('blocks string setDate calls while the input is invalid but lets Dates through', () => {
+  it('refuses text it cannot parse but lets Dates through', () => {
     const { input } = setup();
     const origSetDate = installFakeFlatpickr(input);
 
-    // An invalid value re-renders (warn state), which installs the guard.
     typeValue(input, '2026-13-05');
     const fp = getFp(input);
     expect(fp?.__cspOrigSetDate).toBe(origSetDate);
 
-    fp?.setDate('2026-01-01');
+    fp?.setDate('2026-02-51');
     expect(origSetDate).not.toHaveBeenCalled();
 
     const date = new Date(2026, 0, 1);
     fp?.setDate(date, false);
     expect(origSetDate).toHaveBeenCalledWith(date, false, undefined);
+  });
+
+  // The guard judges the payload, not the field's error state. A page pushing a
+  // new value arrives while that state still describes the text being replaced,
+  // so weighing the two together would drop the value on the floor.
+  it('lets a date the page pushes through while the field is showing an error', () => {
+    const { input } = setup();
+    const origSetDate = installFakeFlatpickr(input);
+    typeValue(input, '2026-13-05');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+
+    getFp(input)?.setDate('2026-01-01', false);
+
+    expect(origSetDate).toHaveBeenCalledWith('2026-01-01', false, undefined);
   });
 
   it('allows string setDate calls once the input becomes valid again', () => {
@@ -338,6 +352,28 @@ describe('DateInput flatpickr setDate guard', () => {
 
     fp?.setDate(['2026-02-05'], true, 'Y-m-d');
     expect(origSetDate).toHaveBeenCalledWith(['2026-02-05'], true, 'Y-m-d');
+  });
+
+  // The hook Flatpickr consults itself, covering parses that happen before the
+  // guard can exist — `defaultDate` is resolved while Flatpickr is constructed.
+  it('hands Flatpickr a parser that refuses a rolled-over date', () => {
+    const { input } = setup();
+    const parse = getFp(input)?.config?.parseDate;
+    expect(parse).toBeTypeOf('function');
+    expect(parse?.('2026-02-51', 'Y-m-d')).toBeUndefined();
+    expect(parse?.('2026-13-05', 'Y-m-d')).toBeUndefined();
+    expect(parse?.('2026-1', 'Y-m-d')).toBeUndefined();
+    expect(parse?.('2026-02-05', 'Y-m-d')).toEqual(new Date(2026, 1, 5));
+  });
+
+  it('installs the guard on every render, not only once something is typed', () => {
+    const { input, rerender } = setup();
+    const origSetDate = installFakeFlatpickr(input);
+
+    // No interaction at all — a re-render alone has to be enough.
+    rerender(<DateInput id="date-input" labelText="Scale date" />);
+
+    expect(getFp(input)?.__cspOrigSetDate).toBe(origSetDate);
   });
 
   it('is installed without waiting for a re-render', () => {
