@@ -237,6 +237,44 @@ describe('R06InvoicePrintOutPage', () => {
     });
   });
 
+  // Regression for the invalid-date rollover: "2026-02-51" was flagged while
+  // typing, but pressing Enter handed the raw text to flatpickr, which rolled it
+  // forward to 2026-03-23 and committed that instead.
+  describe('invalid date entry', () => {
+    const enterDate = (label: RegExp, value: string) => {
+      const input = screen.getByLabelText(label) as HTMLInputElement;
+      fireEvent.input(input, { target: { value } });
+      fireEvent.keyDown(input, { key: 'Enter', keyCode: 13, code: 'Enter' });
+      return input;
+    };
+
+    it('does not send a rolled-over date when an invalid start date is confirmed', () => {
+      const mutate = vi.fn();
+      mockUseR06ReportMutation.mockReturnValue({ mutate, isPending: false });
+      renderPage();
+      fillInvoiceRange();
+      const input = enterDate(/start date/i, '2026-02-51');
+
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+
+      expect(input.value).toBe('2026-02-51');
+      expect(mutate).toHaveBeenCalledTimes(1);
+      expect(mutate.mock.calls[0][0]).not.toHaveProperty('dateFrom');
+    });
+
+    it('blocks generation when an invalid start date is confirmed and dates are required', () => {
+      const mutate = vi.fn();
+      mockUseR06ReportMutation.mockReturnValue({ mutate, isPending: false });
+      renderPage();
+      enterDate(/start date/i, '2026-02-51');
+
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+
+      expect(mutate).not.toHaveBeenCalled();
+      expect(screen.getAllByText(/required when no invoice numbers are provided/i).length).toBeGreaterThan(0);
+    });
+  });
+
   describe('scroll on validation failure', () => {
     afterEach(() => {
       vi.restoreAllMocks();
