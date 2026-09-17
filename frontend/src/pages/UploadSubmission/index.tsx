@@ -239,8 +239,8 @@ export function UploadSubmissionPage() {
         email: fields.email,
         telephone: fields.telephone,
       });
-      if (result.valid && result.submissionId != null) {
-        navigate(`${ROUTES.SUBMISSION_HISTORY}/${result.submissionId}`);
+      if (result.valid && result.submissionNumber != null) {
+        navigate(`${ROUTES.SUBMISSION_HISTORY}/${result.submissionNumber}`);
         return;
       }
       // Rejected at submit time — surface the issues instead of saving.

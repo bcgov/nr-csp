@@ -45,6 +45,19 @@ public class CspSubmissionRepository {
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
+    /**
+     * The business submission number allocated to a submission, or empty when it has
+     * none (manual entry never allocates one). This is the id the Inbox and Submission
+     * History screens show and the detail page is keyed on.
+     */
+    public Optional<Long> findSubmissionNumber(Long cspSubmissionId) {
+        if (cspSubmissionId == null) return Optional.empty();
+        String sql = "SELECT submission_id FROM THE.csp_submission WHERE csp_submission_id = :id";
+        MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
+        List<Long> rows = jdbc.query(sql, params, (rs, rowNum) -> rs.getObject("submission_id", Long.class));
+        return rows.isEmpty() ? Optional.empty() : Optional.ofNullable(rows.get(0));
+    }
+
     public boolean existsBySubmissionNumber(Long submissionNumber) {
         if (submissionNumber == null) return false;
         String sql = "SELECT COUNT(*) FROM THE.csp_submission WHERE submission_id = :num";

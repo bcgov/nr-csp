@@ -30,7 +30,8 @@ import java.util.Optional;
  * <ul>
  *   <li>{@link #search} — the paged list (one row per submission).</li>
  *   <li>{@link #findDetail} — a submission header plus its invoices and the
- *       flattened list of all their line items.</li>
+ *       flattened list of all their line items, looked up by the electronic
+ *       {@code submission_id}.</li>
  * </ul>
  *
  * <p>Submitter name comes from {@code V_CLIENT_PUBLIC} and {@code submitted_by}
@@ -45,6 +46,7 @@ import java.util.Optional;
 public class SubmissionHistoryRepository {
 
     // Result-set column aliases reused across the SELECTs, sort whitelist and row mappers.
+    private static final String COL_SUBMISSION_ID = "submission_id";
     private static final String COL_ENTRY_TIMESTAMP = "entry_timestamp";
     private static final String COL_SUBMITTED_BY = "submitted_by";
     private static final String COL_CLIENT_NAME = "client_name";
@@ -55,6 +57,7 @@ public class SubmissionHistoryRepository {
     // (submitter name + email), client location (email + phone).
     private static final String LIST_QUERY = """
             SELECT sub.csp_submission_id                                                       AS csp_submission_id,
+                   sub.submission_id                                                           AS submission_id,
                    sub.entry_timestamp                                                         AS entry_timestamp,
                    COALESCE(es.submitted_by, sub.entry_userid)                                 AS submitted_by,
                    sub.client_number                                                           AS client_number,
@@ -120,7 +123,8 @@ public class SubmissionHistoryRepository {
                     ON sub.client_number = fc.client_number
             LEFT JOIN THE.electronic_submission es
                     ON sub.submission_id = es.submission_id
-            WHERE  sub.csp_submission_id = :id
+            WHERE  sub.submission_id = :submissionId
+            FETCH FIRST 1 ROW ONLY
             """;
 
     // One row per invoice in the submission. The plain columns back the table
@@ -273,6 +277,7 @@ public class SubmissionHistoryRepository {
         List<SubmissionHistoryRowResponse> content = jdbc.query(dataSql, params, (rs, rowNum) -> // NOSONAR S2077 - ORDER BY is whitelist-only, not injectable
                 new SubmissionHistoryRowResponse(
                         RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
+                        rs.getString(COL_SUBMISSION_ID),
                         RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),
                         rs.getString(COL_SUBMITTED_BY),
                         rs.getString("client_number"),
@@ -286,13 +291,21 @@ public class SubmissionHistoryRepository {
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
 
-    /** Loads a submission header plus its invoices and line items. */
-    public Optional<SubmissionDetailResponse> findDetail(Long cspSubmissionId) {
-        MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
+    /**
+     * Loads a submission header plus its invoices and line items.
+     *
+     * <p>Keyed on the electronic {@code submission_id} — the number the Inbox and
+     * Submission History screens show and link by — not the internal
+     * {@code csp_submission_id}. Manual submissions have no {@code submission_id}
+     * and so have no detail page. The child queries still key on
+     * {@code csp_submission_id}, resolved from the header row.</p>
+     */
+    public Optional<SubmissionDetailResponse> findDetail(Long submissionId) {
+        MapSqlParameterSource headerParams = new MapSqlParameterSource("submissionId", submissionId);
 
         SubmissionDetailHeader header;
         try {
-            header = jdbc.queryForObject(DETAIL_QUERY, params, (rs, rowNum) -> new SubmissionDetailHeader(
+            header = jdbc.queryForObject(DETAIL_QUERY, headerParams, (rs, rowNum) -> new SubmissionDetailHeader(
                     RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
                     rs.getString("submission_id"),
                     RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),
@@ -310,6 +323,9 @@ public class SubmissionHistoryRepository {
         } catch (EmptyResultDataAccessException ex) {
             return Optional.empty();
         }
+
+        // Invoices and line items hang off the internal id, which the header just resolved.
+        MapSqlParameterSource params = new MapSqlParameterSource("id", header.cspSubmissionId());
 
         List<SubmissionInvoiceResponse> invoices = jdbc.query(DETAIL_INVOICES_QUERY, params, (rs, rowNum) ->
                 new SubmissionInvoiceResponse(

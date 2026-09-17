@@ -128,6 +128,7 @@ const makeSubmit = (over: Partial<SubmissionSubmitResponse> = {}): SubmissionSub
   code: 'ACCEPTED',
   message: 'saved',
   submissionId: 42,
+  submissionNumber: 9001,
   acceptedInvoices: ['INV-001'],
   rejectedInvoices: [],
   errors: [],
@@ -776,7 +777,7 @@ describe('UploadSubmissionPage', () => {
   it('submit success navigates to submission history', async () => {
     mockParse.mockResolvedValue(makeParse());
     mockValidate.mockResolvedValue(makeValidation());
-    mockSubmit.mockResolvedValue(makeSubmit({ valid: true, submissionId: 42 }));
+    mockSubmit.mockResolvedValue(makeSubmit({ valid: true, submissionId: 42, submissionNumber: 9001 }));
 
     await uploadAndSettle();
     await screen.findByText('sub.xml was uploaded with no issues found.');
@@ -790,7 +791,8 @@ describe('UploadSubmissionPage', () => {
       expect.any(File),
       expect.objectContaining({ email: 'seller@example.com', telephone: '5551234567' }),
     );
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/submission-history/42'));
+    // Navigates by the submission number, not the internal csp submission id (42).
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001'));
   });
 
   it('submit rejected (resolved valid:false) surfaces issues without navigating', async () => {
@@ -801,6 +803,7 @@ describe('UploadSubmissionPage', () => {
         valid: false,
         code: 'PARTIALLY_ACCEPTED',
         submissionId: null,
+        submissionNumber: null,
         acceptedInvoices: ['INV-001'],
         rejectedInvoices: ['INV-002'],
         errors: [msg('some.generic.error', 'submission: Rejected at submit.', 'ERROR')],
@@ -826,6 +829,7 @@ describe('UploadSubmissionPage', () => {
           valid: false,
           code: 'REJECTED',
           submissionId: null,
+          submissionNumber: null,
           acceptedInvoices: [],
           rejectedInvoices: ['INV-001'],
           errors: [msg('some.generic.error', 'submission: Thrown submit failure.', 'ERROR')],

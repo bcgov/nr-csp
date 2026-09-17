@@ -7,6 +7,7 @@ import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -28,6 +29,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -115,6 +118,8 @@ class SubmissionHistoryRepositoryTest {
     @Test
     void search_mapsRowsAndReturnsPagedResults() throws Exception {
         ResultSet rs = mock(ResultSet.class);
+        // The row carries the submission number the UI links the detail page by.
+        when(rs.getString("submission_id")).thenReturn("9001");
         when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<SubmissionHistoryRowResponse>rowMapper()))
                 .thenAnswer(inv -> List.of(rowMapperOf(inv).mapRow(rs, 0)));
         when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(25L);
@@ -122,6 +127,7 @@ class SubmissionHistoryRepositoryTest {
         Page<SubmissionHistoryRowResponse> page = repository.search(PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent().get(0).submissionId()).isEqualTo("9001");
         assertThat(page.getTotalElements()).isEqualTo(25);
     }
 
@@ -157,6 +163,33 @@ class SubmissionHistoryRepositoryTest {
         assertThat(result.get().invoices()).hasSize(1);
         assertThat(result.get().lineItems()).hasSize(1);
         assertThat(result.get().invoices().get(0).sellerClient()).isEqualTo("126920/00");
+    }
+
+    @Test
+    void findDetail_keysHeaderOnSubmissionNumber_andChildrenOnResolvedCspId() throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        // The header row is what resolves the internal id the child queries hang off.
+        lenient().when(rs.getLong("csp_submission_id")).thenReturn(200456L);
+
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), this.<Object>rowMapper()))
+                .thenAnswer(inv -> rowMapperOf(inv).mapRow(rs, 0));
+        when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<Object>rowMapper()))
+                .thenAnswer(inv -> List.of(rowMapperOf(inv).mapRow(rs, 0)));
+
+        repository.findDetail(9001L);
+
+        // Header: looked up by the business submission number, not the internal id.
+        ArgumentCaptor<String> headerSql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<SqlParameterSource> headerParams = ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc).queryForObject(headerSql.capture(), headerParams.capture(), this.<Object>rowMapper());
+        assertThat(headerSql.getValue()).contains("sub.submission_id = :submissionId");
+        assertThat(headerParams.getValue().getValue("submissionId")).isEqualTo(9001L);
+
+        // Invoices + line items: bound to the csp_submission_id the header resolved.
+        ArgumentCaptor<SqlParameterSource> childParams = ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc, times(2)).query(anyString(), childParams.capture(), this.<Object>rowMapper());
+        assertThat(childParams.getAllValues())
+                .allSatisfy(params -> assertThat(params.getValue("id")).isEqualTo(200456L));
     }
 
     @Test

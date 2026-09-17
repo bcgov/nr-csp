@@ -3,9 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/config/api/request';
 import { type PageResponse } from '@/services/search.service';
 
-/** One row of the submission history list. */
+/**
+ * One row of the submission history list. `cspSubmissionId` is the internal id
+ * the invoice-comments sub-resource is keyed on; `submissionId` is the business
+ * submission number the detail page is keyed on, and is null for manual
+ * submissions (which have no detail page).
+ */
 export interface SubmissionHistoryRowResponse {
   cspSubmissionId: number | null;
+  submissionId: string | null;
   submissionDate: string;
   submittedBy: string | null;
   clientNumber: string | null;
@@ -104,11 +110,17 @@ export const listSubmissionHistory = (
     .then(({ data }) => data);
 };
 
-export const getSubmissionDetail = (id: string | number): Promise<SubmissionDetailResponse> =>
-  apiClient.get<SubmissionDetailResponse>(`/submission-history/${id}`).then(({ data }) => data);
+/** Keyed on the business submission number, not the internal csp submission id. */
+export const getSubmissionDetail = (submissionId: string | number): Promise<SubmissionDetailResponse> =>
+  apiClient.get<SubmissionDetailResponse>(`/submission-history/${submissionId}`).then(({ data }) => data);
 
-export const getSubmissionInvoiceComments = (id: string | number): Promise<SubmissionInvoiceCommentResponse[]> =>
-  apiClient.get<SubmissionInvoiceCommentResponse[]>(`/submission-history/${id}/invoices`).then(({ data }) => data);
+/** Keyed on the internal csp submission id, so it also serves manual submissions. */
+export const getSubmissionInvoiceComments = (
+  cspSubmissionId: string | number,
+): Promise<SubmissionInvoiceCommentResponse[]> =>
+  apiClient
+    .get<SubmissionInvoiceCommentResponse[]>(`/submission-history/${cspSubmissionId}/invoices`)
+    .then(({ data }) => data);
 
 export const useSubmissionHistoryListQuery = (params: SubmissionHistoryListParams) =>
   useQuery({
@@ -116,11 +128,11 @@ export const useSubmissionHistoryListQuery = (params: SubmissionHistoryListParam
     queryFn: () => listSubmissionHistory(params),
   });
 
-export const useSubmissionDetailQuery = (id: string | undefined) =>
+export const useSubmissionDetailQuery = (submissionId: string | undefined) =>
   useQuery({
-    queryKey: ['submission-history', 'detail', id],
-    queryFn: () => getSubmissionDetail(id as string),
-    enabled: !!id,
+    queryKey: ['submission-history', 'detail', submissionId],
+    queryFn: () => getSubmissionDetail(submissionId as string),
+    enabled: !!submissionId,
   });
 
 // `enabled` gates the request to expanded rows so collapsed rows never fetch.

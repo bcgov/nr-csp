@@ -120,6 +120,21 @@ describe('InboxPage interactions', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('links an electronic submission id to its detail page, and leaves a manual row unlinked', () => {
+    seedSearched();
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow, sparseRow], totalElements: 2 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    expect(screen.getByRole('link', { name: 'SUB-555' })).toHaveAttribute('href', '/submission-history/SUB-555');
+    // The manual row has no submission id, so there is nothing to link to.
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
   it('applies the filter inputs to the query when Search is clicked', () => {
     renderInboxPage();
     fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: ' INV-9 ' } });

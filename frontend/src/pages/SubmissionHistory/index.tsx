@@ -20,6 +20,9 @@ import './index.scss';
 type SubmissionRow = {
   id: string;
   cspSubmissionId: number | null;
+  // The detail page is keyed on the submission number; manual submissions have
+  // none, so their rows expand for comments but don't link out.
+  submissionId: string | null;
   submissionDate: string;
   submittedBy: string;
   clientName: string;
@@ -37,6 +40,7 @@ function toSubmissionRow(r: SubmissionHistoryRowResponse, index: number): Submis
   return {
     id: r.cspSubmissionId?.toString() ?? `row-${index}`,
     cspSubmissionId: r.cspSubmissionId,
+    submissionId: r.submissionId,
     submissionDate: formatShortDate(r.submissionDate),
     submittedBy: r.submittedBy ?? '—',
     clientName: formatClientName(r.clientName, r.clientNumber),
@@ -89,14 +93,14 @@ export function SubmissionHistoryPage() {
         const invoiceLabel = `${row.invoiceCount} ${row.invoiceCount === 1 ? 'invoice' : 'invoices'}`;
         return (
           <span className="submission-history-page__invoices-cell">
-            {row.cspSubmissionId == null ? (
+            {row.submissionId == null ? (
               invoiceLabel
             ) : (
               <Link
-                href={`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`}
+                href={`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`}
                 onClick={(e) => {
                   e.preventDefault();
-                  navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`);
+                  navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
                 }}
               >
                 {invoiceLabel}
@@ -122,14 +126,14 @@ export function SubmissionHistoryPage() {
       headerAlign: 'center',
       cellAlign: 'center',
       renderCell: (row) =>
-        row.cspSubmissionId == null ? null : (
+        row.submissionId == null ? null : (
           <IconButton
             className="submission-history-page__view-btn"
             kind="ghost"
             size="sm"
             label="View submission"
             align="left"
-            onClick={() => navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`)}
+            onClick={() => navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`)}
           >
             <View />
           </IconButton>

@@ -60,10 +60,11 @@ public class CspSubmissionPersistenceService {
    * they live in the ESF envelope and are resolved by the caller (edited form
    * value, falling back to the envelope value) — so they are passed in separately.
    *
-   * @return the new {@code csp_submission_id}.
+   * @return the new submission's internal id and the business submission number
+   *     allocated to it.
    */
   @Transactional
-  public Long persist(CSPSubmissionType submission, String submitterEmail, String submitterPhone) {
+  public PersistedSubmission persist(CSPSubmissionType submission, String submitterEmail, String submitterPhone) {
     CSPSubmitterType submitter = submission.getCSPSubmitter();
     String user = SecurityContextUtils.requireUsername();
     List<CSPInvoiceType> invoices = submission.getCSPInvoice();
@@ -85,9 +86,21 @@ public class CspSubmissionPersistenceService {
       persistInvoice(toDetails(invoice, party, user), toLineItems(invoice), submissionId, user);
     }
 
-    log.info("Persisted uploaded submission id={} with {} invoice(s)", submissionId, invoices.size());
-    return submissionId;
+    // The submission number is allocated by the INSERT's sequence, so it has to be
+    // read back; it's what the UI links by once the upload lands.
+    Long submissionNumber = submissionRepo.findSubmissionNumber(submissionId).orElse(null);
+
+    log.info("Persisted uploaded submission id={} number={} with {} invoice(s)",
+        submissionId, submissionNumber, invoices.size());
+    return new PersistedSubmission(submissionId, submissionNumber);
   }
+
+  /**
+   * The two ids a saved submission carries: {@code cspSubmissionId} is the internal
+   * primary key that invoices hang off, {@code submissionNumber} the business number
+   * the UI shows and the submission detail page is keyed on.
+   */
+  public record PersistedSubmission(Long cspSubmissionId, Long submissionNumber) {}
 
   /** Inserts one invoice (+ line items, log sources, related invoices) under the submission. */
   private void persistInvoice(InvoiceDetails details, List<LineItem> lines, Long submissionId, String user) {

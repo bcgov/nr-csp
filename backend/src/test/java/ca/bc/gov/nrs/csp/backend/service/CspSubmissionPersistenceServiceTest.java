@@ -35,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,9 +84,13 @@ class CspSubmissionPersistenceServiceTest {
         .willReturn(555L);
     given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(900L);
 
-    Long submissionId = service.persist(submission, "seller@example.com", "2505551234");
+    given(submissionRepo.findSubmissionNumber(555L)).willReturn(Optional.of(9001L));
 
-    assertThat(submissionId).isEqualTo(555L);
+    CspSubmissionPersistenceService.PersistedSubmission saved =
+        service.persist(submission, "seller@example.com", "2505551234");
+
+    assertThat(saved.cspSubmissionId()).isEqualTo(555L);
+    assertThat(saved.submissionNumber()).isEqualTo(9001L);
 
     // One submission, keyed on the submission-level submitter, month-complete + count from the XML,
     // with the submitter contact details threaded through to the insert.
