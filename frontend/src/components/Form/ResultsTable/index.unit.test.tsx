@@ -52,7 +52,7 @@ describe('ResultsTable - page clamping', () => {
     expect(onPaginationChange).not.toHaveBeenCalled();
   });
 
-  it('does not clamp to page 0 when totalItems is 0', async () => {
+  it('clamps to page 1 — never page 0 — when totalItems is 0', async () => {
     const onPaginationChange = vi.fn();
     render(
       <ResultsTable
@@ -60,6 +60,29 @@ describe('ResultsTable - page clamping', () => {
         columns={columns}
         hasSearched
         page={5}
+        pageSize={10}
+        totalItems={0}
+        isLoading={false}
+        onPaginationChange={onPaginationChange}
+      />,
+    );
+
+    // Carbon renders a single page for an empty result set, so an out-of-range `page`
+    // left alone would hand the control a live "Next page" button walking the parent's
+    // page number upward over a permanently empty table.
+    await waitFor(() => {
+      expect(onPaginationChange).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
+    });
+  });
+
+  it('leaves an already-valid page 1 alone when totalItems is 0', async () => {
+    const onPaginationChange = vi.fn();
+    render(
+      <ResultsTable
+        rows={[]}
+        columns={columns}
+        hasSearched
+        page={1}
         pageSize={10}
         totalItems={0}
         isLoading={false}

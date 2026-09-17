@@ -56,6 +56,8 @@ type ModalState =
 
 type FlatPriceConversionTableRow = Omit<FlatPriceConversionResponse, 'id'> & { id: string; numericId: number };
 
+const DEFAULT_PAGE_SIZE = 100;
+
 function FlatPriceConversionFormFields({
   form,
   mode,
@@ -186,7 +188,7 @@ export function FlatPriceConversionPage() {
   const [filterSortCode, setFilterSortCode] = usePersistentState<string | null>(NS, 'filterSortCode', null);
   const [hasSearched, setHasSearched] = usePersistentState(NS, 'hasSearched', false);
   const [page, setPage] = usePersistentState(NS, 'page', 1);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 20);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', DEFAULT_PAGE_SIZE);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
   // ResultsTable owns its sort direction internally; bumping this key remounts it so
   // "Clear filters" also returns the column sorting to its default.
@@ -293,6 +295,7 @@ export function FlatPriceConversionPage() {
     setFilterSortCode(null);
     setHasSearched(false);
     setPage(1);
+    setPageSize(DEFAULT_PAGE_SIZE);
     setSearchParams({ modellingCode });
     setTableKey((k) => k + 1);
   };
@@ -379,14 +382,14 @@ export function FlatPriceConversionPage() {
         totalItems={rows.length}
         paginationItemsPerPageText="Results per page:"
         paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} results`}
-        onPaginationChange={
-          rows.length > 0
-            ? ({ page: newPage, pageSize: newPageSize }) => {
-                setPage(newPage);
-                setPageSize(newPageSize);
-              }
-            : undefined
-        }
+        // Passed unconditionally so the pagination control renders even with an empty
+        // result set, matching Invoice search, Inbox and Submission history: ResultsTable
+        // renders its Pagination only when this prop is present, so gating it on
+        // `rows.length` took the whole bar away whenever the table had nothing in it.
+        onPaginationChange={({ page: newPage, pageSize: newPageSize }) => {
+          setPage(newPage);
+          setPageSize(newPageSize);
+        }}
       />
     );
   };

@@ -209,12 +209,17 @@ const ResultsTable = <T extends { id: string }>({
   // the table would render an empty page even though valid rows exist on earlier
   // pages. Only acts when pagination is controlled and data has finished loading;
   // it notifies the parent (which owns `page`) to snap back to the last real page.
+  //
+  // An empty result set clamps to page 1 rather than being skipped: Carbon renders
+  // a single page in that state, so leaving `page` at 2 gives the control a live
+  // "Next page" button that walks the parent's page number upward (and persists it)
+  // over a table that stays empty. Only a `totalItems` the parent never supplied is
+  // exempt — there is no total to clamp against then.
   useEffect(() => {
     if (!onPaginationChange || isLoading) return;
     if (page === undefined || !pageSize) return;
-    const total = totalItems ?? 0;
-    if (total <= 0) return; // no data (or unknown) — leave the empty-state alone
-    const lastPage = Math.max(1, Math.ceil(total / pageSize));
+    if (totalItems === undefined) return;
+    const lastPage = Math.max(1, Math.ceil(totalItems / pageSize));
     if (page > lastPage) {
       onPaginationChange({ page: lastPage, pageSize });
     }
