@@ -139,4 +139,45 @@ describe('R11AverageMarketValuesPage', () => {
       }),
     );
   });
+
+  describe('Clear all', () => {
+    it('renders a Clear all button', () => {
+      render(<R11AverageMarketValuesPage />);
+      expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+    });
+
+    it('resets the Blended checkbox and clears validation errors', async () => {
+      mockValidate.mockReturnValueOnce(
+        new ValidationResult([
+          { messageKey: 'report.startdate.required.error', message: 'Start date is required.', type: 'ERROR' },
+        ]),
+      );
+      render(<R11AverageMarketValuesPage />);
+      fireEvent.click(screen.getByRole('checkbox', { name: /blended/i }));
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(await screen.findByText('Start date is required.')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+      expect(screen.getByRole('checkbox', { name: /blended/i })).not.toBeChecked();
+      expect(screen.queryByText('Start date is required.')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scroll on validation failure', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('scrolls to the top when client-side validation fails', () => {
+      const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+      mockValidate.mockReturnValue(
+        new ValidationResult([
+          { messageKey: 'report.startdate.required.error', message: 'Start date is required.', type: 'ERROR' },
+        ]),
+      );
+      render(<R11AverageMarketValuesPage />);
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+    });
+  });
 });

@@ -2,6 +2,7 @@ import { clearPersistedTableState } from '@/hooks/usePersistentState';
 
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
+import { setSignOutReason } from './signOutReason';
 
 import type { Role } from './permissions';
 import type { AuthContextValue, IdpProvider } from './types';
@@ -43,7 +44,8 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     isLoading: false,
     isSigningOut: false,
     signIn: async () => {},
-    signOut: async () => {
+    signOut: async (reason = 'user') => {
+      setSignOutReason(reason);
       clearPersistedTableState();
     },
   };

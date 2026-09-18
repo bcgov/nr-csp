@@ -109,9 +109,10 @@ describe('R10LogSalesSpeciesPage interactions', () => {
   it('sends the filled report range and invoice criteria in the request', () => {
     renderPage();
     setDate(/start date/i, '2024-01-10');
-    setDate(/end date/i, '2024-02-20');
     fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
     fireEvent.click(screen.getByText('03'));
+    // End date auto-fills from start date + time frame — leave it as-is here
+    // (manually editing it afterward would reset time frame back to Select...).
     fireEvent.click(screen.getByRole('combobox', { name: /invoice type/i }));
     fireEvent.click(screen.getByText('Logging'));
 
@@ -121,7 +122,7 @@ describe('R10LogSalesSpeciesPage interactions', () => {
       expect.objectContaining({
         reportFormat: 'CSV',
         dateFrom: '20240110',
-        dateTo: '20240220',
+        dateTo: '20240331',
         timeFrame: '03',
         invoiceTypeCode: 'LOG',
       }),
@@ -149,7 +150,7 @@ describe('R10LogSalesSpeciesPage interactions', () => {
     );
   });
 
-  it('keeps the typed name but drops the number when the selection is cleared', () => {
+  it('drops both the typed name and the number when the selection is cleared', () => {
     renderPage();
     fireEvent.change(screen.getByLabelText('typed-seller-client'), { target: { value: 'acme typed' } });
     fireEvent.click(screen.getByText('clear-seller-client'));
@@ -157,11 +158,22 @@ describe('R10LogSalesSpeciesPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
 
     expect(mockValidate).toHaveBeenCalledWith(
-      expect.objectContaining({ sellerName: 'acme typed', sellerNumber: '', buyerNumber: '' }),
+      expect.objectContaining({ sellerName: '', sellerNumber: '', buyerName: '', buyerNumber: '' }),
     );
     const request = mutate.mock.calls[0][0];
     expect(request.sellerClientNumber).toBeUndefined();
     expect(request.buyerClientNumber).toBeUndefined();
+  });
+
+  // A name left behind by a cleared field made validateR10 see a name with no number
+  // and reject the report with "select a valid seller client from the suggestion list".
+  it('clears the typed name left over from a selection that is then cleared', () => {
+    renderPage();
+    fireEvent.click(screen.getByText('select-seller-client'));
+    fireEvent.click(screen.getByText('clear-seller-client'));
+    fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+
+    expect(mockValidate).toHaveBeenCalledWith(expect.objectContaining({ sellerName: '', sellerNumber: '' }));
   });
 
   it('downloads the blob when report generation succeeds', async () => {
@@ -249,5 +261,27 @@ describe('R10LogSalesSpeciesPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /export csv/i }));
 
     expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ maturityCodes: 'O' }), expect.anything());
+  });
+
+  describe('end date auto-fill', () => {
+    it('auto-fills end date once start date and time frame are both set', () => {
+      renderPage();
+      setDate(/start date/i, '2026-03-15');
+      fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+      fireEvent.click(screen.getByText('01'));
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+    });
+
+    it('keeps a manually-entered end date until start date or time frame change again, and resets time frame to Select...', () => {
+      renderPage();
+      setDate(/start date/i, '2026-03-15');
+      fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+      fireEvent.click(screen.getByText('01'));
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+
+      setDate(/end date/i, '2026-03-20');
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-20');
+      expect(screen.getByRole('combobox', { name: /time frame/i })).toHaveTextContent('Select...');
+    });
   });
 });

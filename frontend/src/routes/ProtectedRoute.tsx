@@ -1,8 +1,9 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router';
 
 import { LoadingScreen } from '@/components/core/LoadingScreen';
 import { useAuth } from '@/context/auth/useAuth';
+import { useOauthCallbackPending } from '@/context/auth/useOauthCallbackPending';
 
 import { ROUTES } from './routePaths';
 
@@ -13,19 +14,28 @@ interface Props {
 }
 
 export function ProtectedRoute({ children, bceidAllowed }: Props) {
-  const { user, isAuthenticated, isLoading, isSigningOut } = useAuth();
+  const { user, isAuthenticated, isLoading, isSigningOut, signIn } = useAuth();
+  const isCallbackPending = useOauthCallbackPending();
+  const loginAttempted = useRef(false);
 
-  if (isLoading || isSigningOut) return <LoadingScreen />;
+  useEffect(() => {
+    // Don't trigger a login redirect during an OAuth callback — Amplify is
+    // still processing the code/state params and will fire a Hub signedIn
+    // event, which a second sign-in started here would abandon. The wait is
+    // bounded, so an exchange that never completes falls through to a fresh
+    // sign-in rather than leaving this stuck on the loading screen.
+    if (isCallbackPending) return;
 
-  if (!isAuthenticated) {
-    // Don't redirect to /login during an OAuth callback — Amplify is still
-    // processing the code/state params and will fire a Hub signedIn event.
-    // Redirecting here would strip code/state from the URL before it can.
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('code') && params.has('state')) return <LoadingScreen />;
+    if (!isLoading && !isAuthenticated && !isSigningOut && !loginAttempted.current) {
+      loginAttempted.current = true;
+      // Deep-linking straight into a protected route (rather than starting at
+      // the welcome screen) defaults to IDIR — BCeID sign-in is only offered
+      // from the welcome screen's explicit button.
+      void signIn('IDIR');
+    }
+  }, [isCallbackPending, isLoading, isAuthenticated, isSigningOut, signIn]);
 
-    return <Navigate to={ROUTES.LOGIN} replace />;
-  }
+  if (isLoading || isSigningOut || !isAuthenticated) return <LoadingScreen />;
 
   if (user?.idpProvider === 'BCEID' && !bceidAllowed) {
     return <Navigate to={ROUTES.UPLOAD_SUBMISSION} replace />;

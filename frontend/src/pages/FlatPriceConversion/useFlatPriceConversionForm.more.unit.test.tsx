@@ -103,7 +103,7 @@ describe('useFlatPriceConversionForm', () => {
       result.current.handleSubmit();
     });
     expect(result.current.errors.species).toBe('Species is required.');
-    expect(result.current.errors.flatPriceConversion).toBe('Flat price conversion is required.');
+    expect(result.current.errors.flatPriceConversion).toBe('Relative price is required.');
     expect(result.current.errors.effectiveDate).toBe('Effective date is required.');
     expect(mutate).not.toHaveBeenCalled();
   });

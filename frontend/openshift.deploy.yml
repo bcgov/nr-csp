@@ -22,11 +22,11 @@ parameters:
   - name: IMAGE_TAG
     description: Container image tag (PR number, 'test', or 'prod')
     value: latest
-  # IMAGE_TAG is constant for a PR (its number), so a repeat push rebuilds the
-  # image under the same tag and `oc apply` sees an unchanged Deployment — no
-  # pods restart and the stale image keeps serving despite imagePullPolicy:
-  # Always. Stamping the commit on the pod template changes the spec on every
-  # push, forcing a fresh rollout (and image pull).
+  # PR deploys pass the immutable head SHA as IMAGE_TAG, so every push changes
+  # the pod spec and forces a rollout. Test/prod deploys (merge.yml) still use
+  # the mutable PR-number tag, where `oc apply` would otherwise see an
+  # unchanged Deployment and keep serving the stale image despite
+  # imagePullPolicy: Always — there the commit stamp below forces the rollout.
   - name: COMMIT_SHA
     description: Git commit stamped on the pod template to force a rollout per push
     value: ""

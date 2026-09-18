@@ -147,4 +147,43 @@ describe('R10LogSalesSpeciesPage', () => {
       }),
     );
   });
+
+  describe('Clear all', () => {
+    it('renders a Clear all button', () => {
+      renderPage();
+      expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+    });
+
+    it('clears validation errors', async () => {
+      mockValidate.mockReturnValueOnce(
+        new ValidationResult([
+          { messageKey: 'report.startdate.required.error', message: 'Start date is required.', type: 'ERROR' },
+        ]),
+      );
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(await screen.findByText('Start date is required.')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+      expect(screen.queryByText('Start date is required.')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scroll on validation failure', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('scrolls to the top when client-side validation fails', () => {
+      const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+      mockValidate.mockReturnValue(
+        new ValidationResult([
+          { messageKey: 'report.startdate.required.error', message: 'Start date is required.', type: 'ERROR' },
+        ]),
+      );
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+    });
+  });
 });

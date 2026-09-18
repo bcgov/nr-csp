@@ -1,10 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiClient } from '@/config/api/request';
+import { THREE_HOURS } from '@/config/react-query/TimeUnits';
 import {
+  SUBMISSION_HISTORY_QUERY_KEY,
   getSubmissionDetail,
   getSubmissionInvoiceComments,
   listSubmissionHistory,
@@ -24,6 +26,27 @@ const createWrapper = () => {
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
+};
+
+// Mirrors the app's aggressive global cache (config/react-query/config.ts): a
+// wrapper that would serve cached data forever unless a hook opts out.
+const createCachingWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: THREE_HOURS,
+        gcTime: THREE_HOURS,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        retry: false,
+      },
+      mutations: { retry: false },
+    },
+  });
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  return { queryClient, wrapper };
 };
 
 const PAGE = { content: [], totalElements: 0, totalPages: 0, size: 20, number: 0 };
@@ -124,5 +147,66 @@ describe('useSubmissionInvoiceCommentsQuery', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(apiClient.get).toHaveBeenCalledWith('/submission-history/7/invoices');
     expect(result.current.data).toEqual(comments);
+  });
+});
+
+// ── Freshness (CSP: reviewer comment added on the Invoice screen) ─────────────
+
+describe('submission-history queries under the app-wide aggressive cache', () => {
+  it('exposes the root key every submission-history query is nested under', () => {
+    expect(SUBMISSION_HISTORY_QUERY_KEY).toEqual(['submission-history']);
+  });
+
+  it.each([
+    {
+      label: 'invoice comments',
+      seedKey: [...SUBMISSION_HISTORY_QUERY_KEY, 'invoice-comments', 7],
+      stale: [{ invoiceNumber: 'INV-1', status: 'APP', comment: null }],
+      fresh: [{ invoiceNumber: 'INV-1', status: 'APP', comment: 'Reviewer comment' }],
+      useHook: () => useSubmissionInvoiceCommentsQuery(7, true),
+    },
+    {
+      label: 'submission detail',
+      seedKey: [...SUBMISSION_HISTORY_QUERY_KEY, 'detail', '7'],
+      stale: { cspSubmissionId: 7, invoices: [{ staffComment: null }] },
+      fresh: { cspSubmissionId: 7, invoices: [{ staffComment: 'Reviewer comment' }] },
+      useHook: () => useSubmissionDetailQuery('7'),
+    },
+    {
+      label: 'history list',
+      seedKey: [...SUBMISSION_HISTORY_QUERY_KEY, { page: 0, size: 20 }],
+      stale: { ...PAGE, content: [{ cspSubmissionId: 7, commentedInvoiceCount: 0 }] },
+      fresh: { ...PAGE, content: [{ cspSubmissionId: 7, commentedInvoiceCount: 1 }] },
+      useHook: () => useSubmissionHistoryListQuery({ page: 0, size: 20 }),
+    },
+  ])('refetches the $label on mount instead of serving the cached copy', async ({ seedKey, stale, fresh, useHook }) => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: fresh });
+    const { queryClient, wrapper } = createCachingWrapper();
+    queryClient.setQueryData(seedKey, stale);
+
+    const { result } = renderHook(() => useHook(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toEqual(fresh));
+    expect(apiClient.get).toHaveBeenCalled();
+  });
+
+  it('refetches invoice comments when the window regains focus', async () => {
+    const stale = [{ invoiceNumber: 'INV-1', status: 'APP', comment: null }];
+    const fresh = [{ invoiceNumber: 'INV-1', status: 'APP', comment: 'Comment added by another approver' }];
+    vi.mocked(apiClient.get).mockResolvedValue({ data: stale });
+    const { wrapper } = createCachingWrapper();
+
+    const { result } = renderHook(() => useSubmissionInvoiceCommentsQuery(7, true), { wrapper });
+    await waitFor(() => expect(result.current.data).toEqual(stale));
+
+    // A comment saved in another tab/session while this one sat idle.
+    vi.mocked(apiClient.get).mockResolvedValue({ data: fresh });
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual(fresh));
+    focusManager.setFocused(undefined);
   });
 });

@@ -1,3 +1,4 @@
+import { Summit, UserSearch } from '@carbon/pictograms-react';
 import {
   DataTable,
   DataTableSkeleton,
@@ -13,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from '@carbon/react';
-import { Summit, UserSearch } from '@carbon/pictograms-react';
 import React, { useState, useMemo, useEffect, type ReactElement, type ReactNode } from 'react';
 
 import './index.scss';
@@ -46,10 +46,10 @@ export interface ResultsTableColumn<T> {
  * @property {T[]} rows - The data rows to display.
  * @property {ResultsTableColumn<T>[]} columns - Column definitions including optional per-column renderers.
  * @property {boolean} [isSortable] - Whether columns are sortable. Defaults to false.
- * @property {boolean} [hasSearched] - When true and `rows` is empty, renders the uniform "No results found" state. When false and `rows` is empty, renders the uniform "No search performed" state.
+ * @property {boolean} [hasSearched] - When true and `rows` is empty, renders the uniform "No results found" state. When false and `rows` is empty, renders the uniform "Your search results will appear here." state.
  * @property {boolean} [isLoading] - When true, renders an animated skeleton table in place of results.
- * @property {string} [searchKeyword] - Current keyword filter value shown in the search bar above the table.
- * @property {(keyword: string) => void} [onSearchKeywordChange] - Called on every keystroke in the keyword search bar. Omit to hide the bar.
+ * @property {string} [searchKeyword] - Currently applied keyword filter. Seeds the search bar, and re-seeds it whenever this changes from outside (e.g. a page's "Clear filters").
+ * @property {(keyword: string) => void} [onSearchKeywordChange] - Commits the keyword filter: called on Enter, on blur, and as soon as the bar is emptied (via its clear button or by deleting the text). Keystrokes otherwise stay local to the bar, so the committed keyword always matches what the bar displays. Omit to hide the bar.
  * @property {number} [page] - Current page number. When provided alongside `pageSize` (and `serverSide` is false), sorting spans the
  *   full `rows` dataset — rows are sorted externally then paginated so ascending/descending order is
  *   consistent across all pages.
@@ -97,7 +97,7 @@ interface ResultsTableProps<T extends { id: string }> {
   // Disable the zebra striping (defaults on).
   withZebraStyles?: boolean;
   // Override the built-in empty-state copy. Each falls back to the
-  // search-driven defaults ("No results found" / "No search performed").
+  // search-driven defaults ("No results found" / "Your search results will appear here.").
   emptyTitle?: string;
   emptyDescription?: string;
 }
@@ -146,7 +146,26 @@ const ResultsTable = <T extends { id: string }>({
   const headers = columns.map((col) => ({ key: col.key, header: col.header }));
   const sortableKeys = new Set(columns.filter((col) => col.sortable !== false).map((col) => col.key));
 
-  const [inputValue, setInputValue] = useState(searchKeyword ?? '');
+  // Draft text in the keyword bar. It is committed to `onSearchKeywordChange`
+  // on Enter, on clear, on emptying, and on blur — not on every keystroke.
+  const appliedKeyword = searchKeyword ?? '';
+  const [inputValue, setInputValue] = useState(appliedKeyword);
+
+  // Re-seed the draft whenever the committed keyword changes from outside the bar
+  // (a page's "Clear filters" resetting it, or restored session state), so the bar
+  // can never display a keyword that is no longer being applied.
+  //
+  // This is React's documented way to adjust state when a prop changes, not an
+  // oversight: it sets only this component's own state and is guarded by a
+  // condition, so React re-runs the render immediately and never commits the stale
+  // pass. Moving it into an effect costs a second render pass and trips the
+  // `react-hooks/set-state-in-effect` rule this repo enables. `index.unit.test.tsx`
+  // pins the behaviour under StrictMode.
+  const [lastAppliedKeyword, setLastAppliedKeyword] = useState(appliedKeyword);
+  if (lastAppliedKeyword !== appliedKeyword) {
+    setLastAppliedKeyword(appliedKeyword);
+    setInputValue(appliedKeyword);
+  }
 
   // Sort state drives both the column-header icons and (when client-side) row ordering.
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -227,21 +246,44 @@ const ResultsTable = <T extends { id: string }>({
   ) : null;
 
   const keywordBar = onSearchKeywordChange ? (
-    <Search
-      id="results-table-keyword-search"
-      labelText="Search by keyword"
-      placeholder="Search by keyword"
-      value={inputValue}
-      onChange={(e) => setInputValue(e.target.value)}
-      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') onSearchKeywordChange(inputValue);
+    // The blur handler sits on the wrapper so it fires only when focus leaves
+    // the bar entirely. Moving between the input and its own clear button stays
+    // inside, which keeps a doomed draft from being committed on the way to a
+    // clear that is about to commit '' anyway.
+    <div
+      onBlur={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget)) return;
+        // Leaving the bar commits what it shows, so clicking Search applies the
+        // visible keyword rather than the last one that happened to be Entered.
+        if (inputValue !== appliedKeyword) onSearchKeywordChange(inputValue);
       }}
-      onClear={() => {
-        setInputValue('');
-        onSearchKeywordChange('');
-      }}
-      size="md"
-    />
+    >
+      <Search
+        id="results-table-keyword-search"
+        labelText="Search by keyword"
+        placeholder="Search by keyword"
+        value={inputValue}
+        onChange={(e) => {
+          const value = e.target.value;
+          setInputValue(value);
+          // Emptying the bar by deleting the text is the same intent as clicking
+          // its clear button, so commit it straight away rather than leaving the
+          // previous keyword applied behind an empty-looking bar. Only when a
+          // keyword was actually applied, though — consumers reset the page on
+          // commit, so an unconditional one would kick a user off page 4 for
+          // typing and deleting a word they never searched for.
+          if (value === '' && appliedKeyword !== '') onSearchKeywordChange('');
+        }}
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') onSearchKeywordChange(inputValue);
+        }}
+        onClear={() => {
+          setInputValue('');
+          onSearchKeywordChange('');
+        }}
+        size="md"
+      />
+    </div>
   ) : null;
 
   if (isLoading) {
@@ -264,10 +306,10 @@ const ResultsTable = <T extends { id: string }>({
   // Empty-state copy + pictogram. Consumers can override the copy via the
   // `emptyTitle` / `emptyDescription` props; otherwise it falls back to the
   // search-driven defaults.
-  const resolvedEmptyTitle = emptyTitle ?? (hasSearched ? 'No results found' : 'No search performed');
+  const resolvedEmptyTitle = emptyTitle ?? (hasSearched ? 'No results found' : 'Your search results will appear here.');
   const resolvedEmptyDescription =
     emptyDescription ??
-    (hasSearched ? 'Try adjusting your search criteria.' : 'Use the filters above and click Search to see results.');
+    (hasSearched ? 'Try adjusting your search criteria.' : 'Enter at least one criteria to start the search.');
   const Pictogram = hasSearched ? UserSearch : Summit;
 
   return (

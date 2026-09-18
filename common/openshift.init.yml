@@ -87,7 +87,9 @@ parameters:
   # registered sign-out URLs (FAM repo: lza-infrastructure/terraform/server/
   # oidc_clients_csp.tf), so this plain <app>/logout URL must be registered
   # there verbatim or Cognito bounces the user to /login with "Required
-  # parameters missing". The frontend builds the full federated logout chain
+  # parameters missing". That registration is why the value stays /logout even
+  # though the app renders nothing there and redirects straight to the welcome
+  # screen. The frontend builds the full federated logout chain
   # (SiteMinder → Keycloak → Cognito → this URL) at runtime from the
   # LOGOUT_* parameters below — see frontend/src/utils/logoutChain.ts.
   - name: COGNITO_REDIRECT_SIGN_OUT

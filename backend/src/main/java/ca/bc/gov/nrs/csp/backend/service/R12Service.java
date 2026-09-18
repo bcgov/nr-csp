@@ -84,15 +84,16 @@ public class R12Service {
 
     private Map<String, Object> buildParams(R12ReportRequest r) {
         Map<String, Object> p = new HashMap<>();
+        // Year/month and the date range are independent filters that CSP_SP_RPT_12 ANDs together
         if (r.getYear() != null) {
             p.put("YEAR", String.valueOf(r.getYear()));
             if (r.getMonth() != null) p.put("MONTH", String.format("%02d", r.getMonth()));
-        } else {
-            String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
-            if (r.getDateFrom() != null) p.put("INVOICE_DATE_FROM", firstDayOfMonth(r.getDateFrom()));
-            if (effectiveDateTo != null) p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
-            if (r.getTimeFrame() != null) p.put("TIME_FRAME", r.getTimeFrame());
         }
+
+        String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
+        if (r.getDateFrom() != null) p.put("INVOICE_DATE_FROM", firstDayOfMonth(r.getDateFrom()));
+        if (effectiveDateTo != null) p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
+        if (r.getTimeFrame() != null) p.put("TIME_FRAME", r.getTimeFrame());
         if (r.getLogSaleTypeCode() != null) p.put("LOG_SALE_TYPE_CODE", r.getLogSaleTypeCode());
         // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.
         String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());

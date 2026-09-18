@@ -45,6 +45,22 @@ describe('R12CfpaExtractPage', () => {
     expect(screen.getByRole('combobox', { name: /report month/i })).toBeInTheDocument();
   });
 
+  it('lists report years newest first, from the current year back to 2000', () => {
+    render(<R12CfpaExtractPage />);
+    fireEvent.click(screen.getByRole('combobox', { name: /report year/i }));
+
+    // The first option is SingleSelect's "Select..." blank, so the years follow it.
+    const years = screen
+      .getAllByRole('option')
+      .map((option) => option.textContent)
+      .filter((label) => /^\d{4}$/.test(label ?? ''));
+    const currentYear = new Date().getFullYear();
+
+    expect(years[0]).toBe(String(currentYear));
+    expect(years[years.length - 1]).toBe('2000');
+    expect(years).toHaveLength(currentYear - 2000 + 1);
+  });
+
   it('renders date inputs', () => {
     render(<R12CfpaExtractPage />);
     expect(screen.getByLabelText(/start date/i)).toBeInTheDocument();
@@ -134,5 +150,52 @@ describe('R12CfpaExtractPage', () => {
         title: 'Report generation failed.',
       }),
     );
+  });
+
+  describe('Clear all', () => {
+    it('renders a Clear all button', () => {
+      render(<R12CfpaExtractPage />);
+      expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+    });
+
+    it('clears validation errors', async () => {
+      mockValidate.mockReturnValueOnce(
+        new ValidationResult([
+          {
+            messageKey: 'report.r12.startdate.required.error',
+            message: 'Start date is required when no report year is provided.',
+            type: 'ERROR',
+          },
+        ]),
+      );
+      render(<R12CfpaExtractPage />);
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(await screen.findByText('Start date is required when no report year is provided.')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+      expect(screen.queryByText('Start date is required when no report year is provided.')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scroll on validation failure', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('scrolls to the top when client-side validation fails', () => {
+      const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+      mockValidate.mockReturnValue(
+        new ValidationResult([
+          {
+            messageKey: 'report.r12.startdate.required.error',
+            message: 'Start date is required when no report year is provided.',
+            type: 'ERROR',
+          },
+        ]),
+      );
+      render(<R12CfpaExtractPage />);
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+    });
   });
 });

@@ -3,7 +3,7 @@ import { ToastNotification } from '@carbon/react';
 import { useNotification } from '@/context/notification/useNotification';
 import './index.scss';
 
-const AUTO_CLOSE_MS = 6000;
+export const AUTO_CLOSE_MS = 6000;
 
 export function NotificationToast() {
   const { notifications, removeNotification } = useNotification();
@@ -18,7 +18,7 @@ export function NotificationToast() {
           kind={n.kind}
           title={n.title}
           subtitle={n.subtitle}
-          timeout={AUTO_CLOSE_MS}
+          timeout={n.persistent ? 0 : AUTO_CLOSE_MS}
           onClose={() => removeNotification(n.id)}
         />
       ))}

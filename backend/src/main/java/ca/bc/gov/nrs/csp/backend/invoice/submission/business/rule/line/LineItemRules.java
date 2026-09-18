@@ -19,6 +19,17 @@ import org.springframework.stereotype.Component;
 @Component
 public class LineItemRules implements LineItemRule {
 
+  /**
+   * The channel's line reference, substituted into the trailing slot the shared
+   * templates carry. Empty for this channel: every message it emits is prefixed
+   * with a locator that already names the line ("invoice #1 (INV-001), line 1: "),
+   * so filling the slot as well would read "… cannot be found in CSP. Line 1".
+   * The manual channel, which has no locator of its own, fills the same slot with
+   * its line-item id ("Line #7") — see {@code InvoiceLine.lineLabel}. The
+   * resulting empty tail is trimmed where the messages are resolved.
+   */
+  private static final String NO_LINE_LABEL = "";
+
   @Override
   public void validate(LineItemRuleContext ctx) {
     secondarySortCodeValid(ctx); // L1
@@ -34,27 +45,44 @@ public class LineItemRules implements LineItemRule {
   }
 
   /**
-   * Secondary sort code must be a recognised code active on the invoice
-   * date. Template: code, date, line label.
+   * Secondary sort code is required, and must be a recognised code active on the
+   * invoice date. A missing value is reported as such rather than as an
+   * unrecognised code — the schema lets the element be present but empty, so a
+   * blank here means "not supplied", not "wrong". Template: code, date, line label.
    */
   void secondarySortCodeValid(LineItemRuleContext ctx) {
     String sortCode = ctx.line().getSecondarySortCode();
-    if (isBlank(sortCode) || !ctx.referenceData().sortCodeValidOn(sortCode, ctx.invoiceDate())) {
+    if (isBlank(sortCode)) {
+      ctx.error("invoice.secondry.sortcode.required.error", new Object[] {NO_LINE_LABEL});
+      return;
+    }
+    if (!ctx.referenceData().sortCodeValidOn(sortCode, ctx.invoiceDate())) {
       ctx.error("invoice.secondry.sortcode.invalid.error",
-          new Object[] {sortCode, ctx.invoiceDate(), lineLabel(ctx)});
+          new Object[] {sortCode, ctx.invoiceDate(), NO_LINE_LABEL});
     }
   }
 
   /**
-   * The species + grade combination must exist in CSP_SPECIES_GRADE_XREF.
-   * Template: species, grade, line label.
+   * Species is required and, together with grade, must exist in
+   * CSP_SPECIES_GRADE_XREF. Template: species, grade, line label.
+   *
+   * <p>Either code being blank is reported as that field being required — species
+   * here, grade by {@link InvoiceLineRuleSet} — and the combination lookup is
+   * skipped. Running it on a blank would only be able to report the pair as
+   * unknown, which is what hid the missing field in the first place.
    */
   void speciesGradeCombinationValid(LineItemRuleContext ctx) {
     String species = ctx.line().getSpecies();
     String grade = ctx.line().getGrade();
+    if (isBlank(species)) {
+      ctx.error("invoice.species.required.error", new Object[] {NO_LINE_LABEL});
+    }
+    if (isBlank(species) || isBlank(grade)) {
+      return;
+    }
     if (!ctx.referenceData().speciesGradeCombinationExists(species, grade)) {
       ctx.error("invoice.species.grade.combination.error",
-          new Object[] {species, grade, lineLabel(ctx)});
+          new Object[] {species, grade, NO_LINE_LABEL});
     }
   }
 
@@ -62,16 +90,11 @@ public class LineItemRules implements LineItemRule {
     CSPLineItemType line = ctx.line();
     return new InvoiceLine(
         ctx.invoiceType(),
-        lineLabel(ctx),
+        NO_LINE_LABEL,
         line.getGrade(),
         line.getNumberOfPieces(),
         line.getVolume(),
         line.getPrice());
-  }
-
-  /** Channel-formatted line reference the templates render as {@code {0}} (or the last arg). */
-  private static String lineLabel(LineItemRuleContext ctx) {
-    return "Line " + ctx.lineNumber();
   }
 
   private static boolean isBlank(String s) {

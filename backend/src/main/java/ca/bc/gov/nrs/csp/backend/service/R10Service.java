@@ -94,7 +94,7 @@ public class R10Service {
         // The stored proc / jrxml parameter is SELLER_CLIENT_LOCN_CODE / BUYER_CLIENT_LOCN_CODE
         // (confirmed against both the JR7-converted and the original JR6 report designs) — the
         // short names previously used here were a pre-existing mismatch that silently dropped
-        // these filters (JasperReports/JasperServer both fall back to a param's null default
+        // these filters (JasperReports falls back to a param's null default
         // when the supplied map key doesn't match a declared parameter name).
         if (r.getSellerLocnCode() != null)     p.put("SELLER_CLIENT_LOCN_CODE", r.getSellerLocnCode());
         if (r.getBuyerClientNumber() != null)  p.put("BUYER_CLIENT_NUMBER", r.getBuyerClientNumber());

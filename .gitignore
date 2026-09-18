@@ -16,7 +16,6 @@ apt2-war.iml
 **build.xml**
 **ivy.xml**
 **/context.xml
-jasper-staging/
 
 # Polaris pipeline stuff to ginore
 playbooks/collections/
@@ -47,6 +46,10 @@ playbooks/collections/
 !README.md
 **.log
 **.iml
+
+# Playwright e2e artifacts
+/frontend/playwright-report/
+/frontend/test-results/
 
 # Superpowers skill artifacts
 .superpowers/

@@ -70,7 +70,7 @@ public class BusinessValidationService {
     List<CSPInvoiceType> invoices = submission.getCSPInvoice();
     for (int i = 0; i < invoices.size(); i++) {
       CSPInvoiceType invoice = invoices.get(i);
-      identifierNormalizer.normalizeInvoiceIdentifiers(invoice);
+      identifierNormalizer.normalizeInvoice(invoice);
       SubmitterInfo submitter = submitterResolver.resolve(submission, invoice);
 
       InvoiceRuleContext invoiceCtx =

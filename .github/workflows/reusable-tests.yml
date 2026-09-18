@@ -16,6 +16,29 @@ env:
 permissions: {}
 
 jobs:
+  # Oracle Testcontainers ITs (backend *IT.java) — self-contained against a
+  # throwaway database, no deployed environment needed; runs here alongside
+  # the deployed-environment suites so all non-unit tests share one workflow.
+  # Unit tests already run in analysis.yml, so surefire is bypassed by
+  # invoking the failsafe goals directly.
+  backend-integration-tests:
+    name: Backend Integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Java 21 (Temurin) + Maven cache
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Maven failsafe (Oracle Testcontainers ITs)
+        working-directory: backend
+        run: mvn -B test-compile failsafe:integration-test failsafe:verify
+
   integration-tests:
     name: Integration
     runs-on: ubuntu-24.04
@@ -84,6 +107,10 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
+          # Drop Google's Chrome apt repo, which the runner image ships and
+          # `--with-deps` would fetch. Playwright's Chromium is bundled, so
+          # nothing here needs it and a broken index there fails the install.
+          sudo grep -rl 'dl\.google\.com' /etc/apt/sources.list.d/ 2>/dev/null | xargs -r sudo rm -f
           npx playwright install --with-deps
 
       - name: Run Tests

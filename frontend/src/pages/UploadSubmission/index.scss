@@ -21,12 +21,8 @@
 
   .page-title-col {
     margin-bottom: $spacing-05;
-
-    // Compact page heading — the full-size heading reads as oversized here.
-    .title-container h1 {
-      @include type.type-style('heading-03');
-      font-size: 1rem; // 16px per design
-    }
+    // Title font intentionally left at PageTitle's default heading-05 (32px) so
+    // this screen's heading matches the other screens (CSP-560).
   }
 
   &__section {

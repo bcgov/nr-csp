@@ -7,14 +7,18 @@
   background-color: #c7d4e7;
   color: #072251;
   font-size: 1.4rem;
-}
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  flex-shrink: 0;
 
-.small {
-  width: 1.5rem;
-  height: 1.5rem;
-}
+  &.small {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
 
-.large {
-  width: 4rem;
-  height: 4rem;
+  &.large {
+    width: 4rem;
+    height: 4rem;
+  }
 }

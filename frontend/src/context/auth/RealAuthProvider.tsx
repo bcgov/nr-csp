@@ -13,8 +13,10 @@ import {
 import { AuthContext } from './AuthContext';
 import { ROLES } from './permissions';
 import { onSessionExpired } from './sessionExpiredSignal';
+import { setSignOutReason } from './signOutReason';
 
 import type { Role } from './permissions';
+import type { SignOutReason } from './signOutReason';
 import type { AuthContextValue, AuthUser, IdpProvider } from './types';
 
 /**
@@ -101,17 +103,20 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
    * When the federated logout chain is configured, this drives a full-page
    * navigation through SiteMinder → Keycloak → Cognito → app so every upstream
    * session is terminated (not just Cognito). Local Amplify tokens are cleared
-   * first so the post-chain landing on /logout renders logged-out. For IDIR
-   * sessions, a popup concurrently logs out loginproxy's `idir` broker realm —
-   * the one layer the chain can't reach; without it the next sign-in is a
-   * silent SSO login (see openIdirRealmLogoutPopup). BCeID sessions never
-   * authenticated against that realm, so the popup is skipped for them. If
-   * the chain config is incomplete, it falls back to a plain Amplify
-   * `signOut()` (Cognito-only).
+   * first so the post-chain landing renders logged-out. For IDIR sessions, a
+   * popup concurrently logs out loginproxy's `idir` broker realm — the one
+   * layer the chain can't reach; without it the next sign-in is a silent SSO
+   * login (see openIdirRealmLogoutPopup). BCeID sessions never authenticated
+   * against that realm, so the popup is skipped for them. If the chain config
+   * is incomplete, it falls back to a plain Amplify `signOut()` (Cognito-only).
    */
-  async function performSignOut() {
+  async function performSignOut(reason: SignOutReason = 'user') {
     const idpProvider = user?.idpProvider;
     setIsSigningOut(true);
+    // Recorded before anything is cleared: the chain below discards the SPA, so
+    // this is the only thing that tells the welcome screen why the user got
+    // there.
+    setSignOutReason(reason);
     clearPersistedTableState();
 
     const chainUrl = buildFederatedLogoutUrl(window.amplifyConfig);
@@ -144,7 +149,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     const unsubscribeSessionExpired = onSessionExpired(() => {
       if (handledSessionExpired) return;
       handledSessionExpired = true;
-      void performSignOut();
+      void performSignOut('timeout');
     });
     return () => {
       unsubscribeHub();

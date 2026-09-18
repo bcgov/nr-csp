@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -24,8 +24,8 @@
         <jwks-rsa.version>0.24.1</jwks-rsa.version>
         <ojdbc.version>23.26.3.0.0</ojdbc.version>
         <jasperreports.version>7.0.8</jasperreports.version>
-        <testcontainers.version>1.21.4</testcontainers.version>
-        <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
+        <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
         <sonar.coverage.exclusions>
             **/*Test.java,
             **/*IT.java
@@ -105,7 +105,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.1.0</version>
+            <version>3.1.1</version>
         </dependency>
 
         <!-- Database -->
@@ -194,6 +194,10 @@
             <artifactId>jasperreports-jdt</artifactId>
             <version>${jasperreports.version}</version>
         </dependency>
+        <!-- Hold at 1.x: openpdf 3.x relocates com.lowagie.text to org.openpdf.text, but
+             jasperreports-pdf still compiles against com.lowagie. A direct 3.x version here wins
+             dependency mediation over Jasper's own openpdf, breaking PDF export at runtime.
+             See the matching hold in renovate.json. -->
         <dependency>
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
@@ -203,7 +207,7 @@
         <dependency>
             <groupId>com.ibm.icu</groupId>
             <artifactId>icu4j</artifactId>
-            <version>77.1</version>
+            <version>78.3</version>
         </dependency>
 
         <!-- DOM4J: JRXML column modification for R13 local report -->
@@ -246,6 +250,19 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- TestRestTemplate (split out of starter-test into its own module in Boot 4) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-resttestclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- RestTemplateBuilder: optional dep of resttestclient, required at runtime by
+             its TestRestTemplate auto-configuration -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
@@ -253,12 +270,12 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-free</artifactId>
+            <artifactId>testcontainers-oracle-free</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

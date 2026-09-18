@@ -80,7 +80,7 @@ public class CspSubmissionPersistenceService {
         user);
 
     for (CSPInvoiceType invoice : invoices) {
-      identifierNormalizer.normalizeInvoiceIdentifiers(invoice);
+      identifierNormalizer.normalizeInvoice(invoice);
       SubmitterInfo party = submitterResolver.resolve(submission, invoice);
       persistInvoice(toDetails(invoice, party, user), toLineItems(invoice), submissionId, user);
     }

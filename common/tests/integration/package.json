@@ -1,0 +1,10 @@
+{
+  "name": "csp-integration-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API smoke tests run against a deployed CSP environment (reusable-tests.yml)",
+  "type": "module",
+  "scripts": {
+    "test": "node src/main.js"
+  }
+}

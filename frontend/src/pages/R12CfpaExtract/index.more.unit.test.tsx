@@ -75,9 +75,10 @@ describe('R12CfpaExtractPage interactions', () => {
     fireEvent.click(screen.getByRole('combobox', { name: /report month/i }));
     fireEvent.click(screen.getByText('02 - February'));
     setDate(/start date/i, '2024-01-10');
-    setDate(/end date/i, '2024-02-20');
     fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
     fireEvent.click(screen.getByText('03'));
+    // End date auto-fills from start date + time frame — leave it as-is here
+    // (manually editing it afterward would reset time frame back to Select...).
     fireEvent.click(screen.getByText('select-all-maturity'));
 
     fireEvent.click(screen.getByRole('button', { name: /export csv/i }));
@@ -89,7 +90,7 @@ describe('R12CfpaExtractPage interactions', () => {
         year: 2024,
         month: 2,
         dateFrom: '20240110',
-        dateTo: '20240220',
+        dateTo: '20240331',
         timeFrame: '03',
         logSaleTypeCode: 'C',
       }),
@@ -195,5 +196,27 @@ describe('R12CfpaExtractPage interactions', () => {
     fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
     fireEvent.click(screen.getByText('05'));
     expect(screen.queryByText('Time frame must be numeric.')).not.toBeInTheDocument();
+  });
+
+  describe('end date auto-fill', () => {
+    it('auto-fills end date once start date and time frame are both set', () => {
+      render(<R12CfpaExtractPage />);
+      setDate(/start date/i, '2026-03-15');
+      fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+      fireEvent.click(screen.getByText('01'));
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+    });
+
+    it('keeps a manually-entered end date until start date or time frame change again, and resets time frame to Select...', () => {
+      render(<R12CfpaExtractPage />);
+      setDate(/start date/i, '2026-03-15');
+      fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+      fireEvent.click(screen.getByText('01'));
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+
+      setDate(/end date/i, '2026-03-20');
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-20');
+      expect(screen.getByRole('combobox', { name: /time frame/i })).toHaveTextContent('Select...');
+    });
   });
 });

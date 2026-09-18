@@ -33,8 +33,8 @@ A starting point for NR application teams. Spring Boot 4 backend, React 19 front
 ## Prerequisites
 
 - Docker Compose or Podman Compose
-- VPN (Cisco Secure Client) — required to reach the DB and Jasper server
-- `hosts` file entries for the DB and Jasper server — ask your team for the values
+- VPN (Cisco Secure Client) — required to reach the DB
+- `hosts` file entries for the DB — ask your team for the values
 
 ## Running locally with Docker Compose
 
@@ -51,17 +51,11 @@ Open `.env` and fill in the required values:
 | `SPRING_DATASOURCE_URL` | Oracle JDBC URL (TCPS descriptor form — see `.env.example`) |
 | `SPRING_DATASOURCE_USERNAME` | Oracle username |
 | `SPRING_DATASOURCE_PASSWORD` | Oracle password |
-| `JASPER_SERVER_LOGIN_URL` | Jasper server login URL (ask the team) |
-| `JASPER_SERVER_FETCH_URL` | Jasper server fetch URL |
-| `JASPER_SERVER_PUT_URL` | Jasper server put URL |
-| `JASPER_SERVER_REPORT_URI_BASE` | Jasper report URI base path |
-| `JASPER_SERVER_USERNAME` | Jasper server username |
-| `JASPER_SERVER_PASSWORD` | Jasper server password |
 | `AUTH_MOCK_ENABLED` | Set to `true` for local development — enables backend mock auth (see [Authentication](#authentication)) |
 
 > Use single quotes if a value contains special characters: `PASSWORD='p@ss!'`
 
-`.env.example` defaults to `SPRING_PROFILES_ACTIVE=prod`, which mirrors OpenShift: all of the variables above are **required** (the Jasper URLs have no defaults). If you don't have DB or Jasper credentials yet, set `SPRING_PROFILES_ACTIVE=local` instead — the `local` profile boots with empty fallbacks for Jasper/Cognito, mock auth enabled, and DEBUG logging, so the app starts without any integrations configured.
+`.env.example` defaults to `SPRING_PROFILES_ACTIVE=prod`, which mirrors OpenShift: all of the variables above are **required**. If you don't have DB credentials yet, set `SPRING_PROFILES_ACTIVE=local` instead — the `local` profile boots with empty fallbacks for Cognito, mock auth enabled, and DEBUG logging, so the app starts without any integrations configured.
 
 **2. Connect VPN, then start**
 
@@ -147,9 +141,9 @@ window.amplifyConfig = {
 };
 ```
 
-> **BCeID login.** The `/login` page offers both "Log in with IDIR" and "Log in with BCeID" buttons, which redirect via the `idpName` / `idpNameBceid` Cognito custom identity providers respectively. BCeID users authenticate as external clients and are restricted, both in the UI (hidden nav, redirected routes) and at the API (`SecurityConfig`, `hasAuthority("IDP_IDIR")`), to only the Upload Submission and Submission History pages. `idpNameBceid` must match a Cognito custom IdP that FAM has registered for BCeID (`oidc_clients_csp.tf`) — coordinate with FAM to get this value per environment.
+> **BCeID login.** The welcome screen (`/`) offers both "Log in with IDIR" and "Log in with BCeID" buttons, which redirect via the `idpName` / `idpNameBceid` Cognito custom identity providers respectively. BCeID users authenticate as external clients and are restricted, both in the UI (hidden nav, redirected routes) and at the API (`SecurityConfig`, `hasAuthority("IDP_IDIR")`), to only the Upload Submission and Submission History pages. `idpNameBceid` must match a Cognito custom IdP that FAM has registered for BCeID (`oidc_clients_csp.tf`) — coordinate with FAM to get this value per environment.
 
-> **How sign-out works.** Signing out drives a federated logout chain — SiteMinder → Keycloak → Cognito → back to the app's `/logout` page — built at runtime from the `logout*` values above (see `frontend/src/utils/logoutChain.ts`; same pattern as FAM's own console). This clears all three upstream sessions, not just Cognito's. Two registration constraints, both owned by FAM (`oidc_clients_csp.tf` in [nr-forests-access-management](https://github.com/bcgov/nr-forests-access-management)): `redirectSignOut` must be registered verbatim as a Cognito sign-out URL, and the Cognito domain must be on the shared Keycloak client's post-logout allow-list. If the `logout*` values are missing, the app falls back to a Cognito-only Amplify sign-out. Test/prod use `test.loginproxy`/`loginproxy` and (prod) `logon7` hosts — see the `LOGOUT_*` GitHub variables. Sign-out also briefly opens a small popup against loginproxy's `idir` broker realm: that realm holds a fourth session the chain cannot reach (its logout endpoint rejects redirect chaining and its pages are not frameable), and without clearing it the next sign-in silently logs the user back in without prompting for credentials.
+> **How sign-out works.** Signing out drives a federated logout chain — SiteMinder → Keycloak → Cognito → back to the app at `/logout`, which immediately redirects to the welcome screen — built at runtime from the `logout*` values above (see `frontend/src/utils/logoutChain.ts`; same pattern as FAM's own console). This clears all three upstream sessions, not just Cognito's. Two registration constraints, both owned by FAM (`oidc_clients_csp.tf` in [nr-forests-access-management](https://github.com/bcgov/nr-forests-access-management)): `redirectSignOut` must be registered verbatim as a Cognito sign-out URL, and the Cognito domain must be on the shared Keycloak client's post-logout allow-list. If the `logout*` values are missing, the app falls back to a Cognito-only Amplify sign-out. Test/prod use `test.loginproxy`/`loginproxy` and (prod) `logon7` hosts — see the `LOGOUT_*` GitHub variables. Sign-out also briefly opens a small popup against loginproxy's `idir` broker realm: that realm holds a fourth session the chain cannot reach (its logout endpoint rejects redirect chaining and its pages are not frameable), and without clearing it the next sign-in silently logs the user back in without prompting for credentials.
 
 > In OpenShift, Cognito config is injected at runtime via a ConfigMap — the `amplify-config.js` placeholder file in the image is overwritten by a volume mount. No rebuild is required when Cognito values change.
 
@@ -210,12 +204,6 @@ The following secrets and variables must be configured on the repository for the
 | `JWT_JWKS_URI` | Cognito JWKS endpoint URL |
 | `JWT_ISSUER` | JWT issuer claim |
 | `JWT_AUDIENCE` | JWT audience claim |
-| `JASPER_SERVER_LOGIN_URL` | Jasper server login URL |
-| `JASPER_SERVER_FETCH_URL` | Jasper server fetch URL |
-| `JASPER_SERVER_PUT_URL` | Jasper server put URL |
-| `JASPER_SERVER_REPORT_URI_BASE` | Jasper report URI base path |
-| `JASPER_SERVER_USERNAME` | Jasper server username |
-| `JASPER_SERVER_PASSWORD` | Jasper server password |
 | `OC_NAMESPACE` | OpenShift namespace to deploy into |
 | `OC_TOKEN` | OpenShift service account token (repo-level fallback) |
 | `SONAR_TOKEN_BACKEND` | SonarCloud token for backend analysis |

@@ -146,4 +146,58 @@ describe('R08InvoiceAuditPage', () => {
       }),
     );
   });
+
+  describe('end date auto-fill', () => {
+    it('auto-fills end date once start date and time frame are both set', () => {
+      renderPage();
+      fireEvent.input(screen.getByLabelText(/start date/i), { target: { value: '2026-03-15' } });
+      fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+      fireEvent.click(screen.getByText('01'));
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+    });
+
+    it('keeps a manually-entered end date until start date or time frame change again, and resets time frame to Select...', () => {
+      renderPage();
+      fireEvent.input(screen.getByLabelText(/start date/i), { target: { value: '2026-03-15' } });
+      fireEvent.click(screen.getByRole('combobox', { name: /time frame/i }));
+      fireEvent.click(screen.getByText('01'));
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-31');
+
+      fireEvent.input(screen.getByLabelText(/end date/i), { target: { value: '2026-03-20' } });
+      expect(screen.getByLabelText(/end date/i)).toHaveValue('2026-03-20');
+      expect(screen.getByRole('combobox', { name: /time frame/i })).toHaveTextContent('Select...');
+    });
+  });
+
+  describe('Clear all', () => {
+    it('renders a Clear all button', () => {
+      renderPage();
+      expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+    });
+
+    it('clears the submission number field and validation errors', () => {
+      renderPage();
+      const input = screen.getByLabelText(/submission number/i);
+      fireEvent.change(input, { target: { value: 'abc' } });
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(screen.getByText(/submission number must be numeric/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+      expect(input).toHaveValue('');
+      expect(screen.queryByText(/submission number must be numeric/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scroll on validation failure', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('scrolls to the top when client-side validation fails', () => {
+      const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: /generate pdf/i }));
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+    });
+  });
 });

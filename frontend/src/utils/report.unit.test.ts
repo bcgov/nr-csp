@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
+  calculateEndDateFromTimeFrame,
   downloadBlob,
   formatDate,
   formatYearMonth,
@@ -134,5 +135,22 @@ describe('select-item helpers', () => {
     expect(TIME_FRAME_ITEMS).toHaveLength(12);
     expect(TIME_FRAME_ITEMS[0]).toEqual({ id: '01', label: '01' });
     expect(TIME_FRAME_ITEMS[11]).toEqual({ id: '12', label: '12' });
+  });
+});
+
+describe('calculateEndDateFromTimeFrame', () => {
+  it('resolves timeFrame 01 to the last day of the start month', () => {
+    const result = calculateEndDateFromTimeFrame(new Date(2026, 2, 15), '01');
+    expect(result).toEqual(new Date(2026, 2, 31));
+  });
+
+  it('resolves a multi-month timeFrame to the last day of the target month', () => {
+    const result = calculateEndDateFromTimeFrame(new Date(2026, 2, 15), '03');
+    expect(result).toEqual(new Date(2026, 4, 31));
+  });
+
+  it('rolls over into the next year when the time frame spans year-end', () => {
+    const result = calculateEndDateFromTimeFrame(new Date(2026, 10, 5), '03');
+    expect(result).toEqual(new Date(2027, 0, 31));
   });
 });

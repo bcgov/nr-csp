@@ -1,4 +1,5 @@
 import type { Role } from './permissions';
+import type { SignOutReason } from './signOutReason';
 
 /** Which identity provider the user authenticated through. */
 export type IdpProvider = 'IDIR' | 'BCEID';
@@ -36,5 +37,6 @@ export interface AuthContextValue {
   isLoading: boolean;
   isSigningOut: boolean;
   signIn: (provider: IdpProvider) => Promise<void>;
-  signOut: () => Promise<void>;
+  /** A `'timeout'` reason makes the welcome screen say the session expired; defaults to a deliberate sign-out. */
+  signOut: (reason?: SignOutReason) => Promise<void>;
 }
