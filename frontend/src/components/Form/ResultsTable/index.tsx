@@ -246,10 +246,9 @@ const ResultsTable = <T extends { id: string }>({
       // `autoAlign`, so their default top-centered tooltips bleed past the
       // viewport edge (the rightmost "Next page" button caused a horizontal
       // scrollbar — CSP-625). The nav buttons always sit at the right end of
-      // the bar, so point the tooltips inward: "Next page" opens left, and
-      // "Previous page" opens up (it isn't near the edge).
+      // the bar, so point the rightmost tooltip inward. "Previous page" keeps
+      // Carbon's default top alignment — it isn't near the edge.
       forwardTextTooltipPosition="left"
-      backwardTextTooltipPosition="top"
     />
   ) : null;
 
