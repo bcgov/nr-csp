@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
 export const MOCK_ROLE_KEY = 'csp.mockRole';
 export const MOCK_IDP_KEY = 'csp.mockIdp';
 
-const IDP_PROVIDERS: readonly IdpProvider[] = ['IDIR', 'BCEID'];
+const IDP_PROVIDERS: readonly IdpProvider[] = ['IDIR', 'BCEIDBUSINESS'];
 
 // Dev-only mock provider; these helpers live alongside the component by design.
 // eslint-disable-next-line react-refresh/only-export-components

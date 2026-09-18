@@ -243,7 +243,7 @@ class JwtServiceTest {
     void extractAuthorities_addsIdpBceidAuthority_whenIdpNameClaimIsBceidBusiness() {
         String jwt = tokenWithIdpName("bceidbusiness");
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
-        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEID")));
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEIDBUSINESS")));
         assertFalse(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
     }
 
@@ -251,6 +251,6 @@ class JwtServiceTest {
     void extractAuthorities_matchesBceidClaim_caseInsensitively() {
         String jwt = tokenWithIdpName("BCEIDBUSINESS");
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
-        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEID")));
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEIDBUSINESS")));
     }
 }

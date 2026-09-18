@@ -12,7 +12,7 @@ vi.mock('@/context/layout/useLayout', () => ({ useLayout: vi.fn() }));
 vi.mock('@/context/auth/useAuth', () => ({ useAuth: vi.fn() }));
 
 describe('LayoutSideNav', () => {
-  const arrange = (initialPath = '/', idpProvider: 'IDIR' | 'BCEID' = 'IDIR') => {
+  const arrange = (initialPath = '/', idpProvider: 'IDIR' | 'BCEIDBUSINESS' = 'IDIR') => {
     vi.mocked(useLayout).mockReturnValue({ isSideNavExpanded: true, toggleSideNav: vi.fn() } as unknown as ReturnType<
       typeof useLayout
     >);
@@ -56,7 +56,7 @@ describe('LayoutSideNav', () => {
   });
 
   it('shows only the Submissions group and its two pages for a BCeID user', () => {
-    arrange('/', 'BCEID');
+    arrange('/', 'BCEIDBUSINESS');
 
     expect(screen.getByText('Submissions')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Upload Submission' })).toHaveAttribute('href', ROUTES.UPLOAD_SUBMISSION);

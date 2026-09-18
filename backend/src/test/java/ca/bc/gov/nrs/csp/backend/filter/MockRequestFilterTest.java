@@ -92,12 +92,12 @@ class MockRequestFilterTest {
 
     @Test
     void mockIdp_bceid_addsBceidAuthority() throws Exception {
-        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "ADMIN", "BCEID");
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "ADMIN", "BCEIDBUSINESS");
 
         filter.doFilter(request, response, filterChain);
 
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        assertTrue(auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEID")));
+        assertTrue(auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEIDBUSINESS")));
         assertFalse(auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
     }
 }

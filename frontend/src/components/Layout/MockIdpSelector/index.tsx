@@ -5,7 +5,7 @@ import { MOCK_IDP_KEY, getStoredIdp } from '@/context/auth/MockAuthProvider';
 
 import './index.scss';
 
-const IDP_OPTIONS = ['IDIR', 'BCEID'] as const;
+const IDP_OPTIONS = ['IDIR', 'BCEIDBUSINESS'] as const;
 
 /** Dev-only: lets a developer flip the mock user between IDIR and BCeID to exercise BCeID's page restrictions locally. */
 export function MockIdpSelector() {

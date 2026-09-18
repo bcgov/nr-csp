@@ -21,7 +21,7 @@ vi.mock('@/routes/navigation', () => ({
   ],
 }));
 
-const renderAt = (path: string, idpProvider: 'IDIR' | 'BCEID' = 'IDIR') => {
+const renderAt = (path: string, idpProvider: 'IDIR' | 'BCEIDBUSINESS' = 'IDIR') => {
   vi.mocked(useAuth).mockReturnValue({ user: { idpProvider } } as unknown as ReturnType<typeof useAuth>);
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -51,7 +51,7 @@ describe('LayoutSideNav', () => {
   });
 
   it('hides items without bceidAllowed for a BCeID user', () => {
-    renderAt('/', 'BCEID');
+    renderAt('/', 'BCEIDBUSINESS');
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
     expect(screen.queryByText('Reports')).not.toBeInTheDocument();
     expect(screen.getByText('Upload Submission')).toBeInTheDocument();

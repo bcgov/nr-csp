@@ -115,21 +115,21 @@ class SecurityConfigTest {
     // ── BCeID IdP-based restriction ───────────────────────────────────────────
 
     @Test
-    @WithMockUser(authorities = "IDP_BCEID")
+    @WithMockUser(authorities = "IDP_BCEIDBUSINESS")
     void bceidUser_isForbidden_onGeneralApiEndpoint() throws Exception {
         mockMvc.perform(get("/api/some-endpoint"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(authorities = "IDP_BCEID")
+    @WithMockUser(authorities = "IDP_BCEIDBUSINESS")
     void bceidUser_canReach_submissionsEndpoint() throws Exception {
         mockMvc.perform(get("/api/submissions/test"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = "IDP_BCEID")
+    @WithMockUser(authorities = "IDP_BCEIDBUSINESS")
     void bceidUser_canReach_submissionHistoryEndpoint() throws Exception {
         mockMvc.perform(get("/api/submission-history/test"))
                 .andExpect(status().isOk());

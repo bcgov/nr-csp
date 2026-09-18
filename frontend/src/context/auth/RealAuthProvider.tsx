@@ -31,13 +31,13 @@ function groupMatchesRole(group: string, role: string): boolean {
 /**
  * Derives the identity provider from the `custom:idp_name` id-token claim.
  * FAM's raw claim value for BCeID is expected to be "BCEIDBUSINESS" (matching
- * the convention already in use in the nr-scs sibling app) — any value
- * starting with "BCEID" collapses to the internal 'BCEID' provider; anything
- * else (including an absent claim) defaults to 'IDIR'.
+ * the convention already in use in the nr-scs/nr-waste-plus sibling apps) —
+ * any value starting with "BCEID" collapses to 'BCEIDBUSINESS'; anything else
+ * (including an absent claim) defaults to 'IDIR'.
  */
 function extractIdpProvider(payload: Record<string, unknown>): IdpProvider {
   const raw = payload['custom:idp_name'];
-  return typeof raw === 'string' && raw.trim().toUpperCase().startsWith('BCEID') ? 'BCEID' : 'IDIR';
+  return typeof raw === 'string' && raw.trim().toUpperCase().startsWith('BCEID') ? 'BCEIDBUSINESS' : 'IDIR';
 }
 
 /**
@@ -125,7 +125,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
       // Must be called synchronously within the click's user activation or
       // popup blockers will eat it. ProtectedRoute renders a LoadingScreen
       // while isSigningOut, covering the grace period.
-      const popup = idpProvider === 'BCEID' ? null : openIdirRealmLogoutPopup(window.amplifyConfig);
+      const popup = idpProvider === 'BCEIDBUSINESS' ? null : openIdirRealmLogoutPopup(window.amplifyConfig);
       if (popup) {
         await new Promise((resolve) => setTimeout(resolve, IDIR_REALM_LOGOUT_GRACE_MS));
         popup.close();
@@ -163,9 +163,12 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     isSigningOut,
     signIn: (provider: IdpProvider) => {
+      // BCeID's IdP name is derived from appEnv (matching the nr-scs/nr-waste-plus
+      // convention) rather than read from a separately-configured value — one
+      // fewer per-environment config entry FAM can get wrong or leave stale.
       const idpName =
-        provider === 'BCEID'
-          ? (window.amplifyConfig?.idpNameBceid ?? 'DEV-BCEID')
+        provider === 'BCEIDBUSINESS'
+          ? `${(window.amplifyConfig?.appEnv ?? 'dev').toUpperCase()}-BCEIDBUSINESS`
           : (window.amplifyConfig?.idpName ?? 'DEV-IDIR');
       return signInWithRedirect({ provider: { custom: idpName } });
     },

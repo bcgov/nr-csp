@@ -83,17 +83,18 @@ public class JwtService {
     }
 
     /**
-     * Derives the identity provider ("IDIR" or "BCEID") from the `custom:idp_name`
-     * id-token claim. FAM's raw claim value for BCeID is expected to be
-     * "bceidbusiness" (matching the convention already in use in the nr-scs
-     * sibling app) — any value starting with "bceid" (case-insensitive)
-     * collapses to "BCEID"; anything else, including an absent claim, defaults
-     * to "IDIR". Used to grant/deny access at the {@code /api/**} boundary in
-     * SecurityConfig — BCeID users are restricted to a small subset of endpoints.
+     * Derives the identity provider ("IDIR" or "BCEIDBUSINESS") from the
+     * `custom:idp_name` id-token claim. FAM's raw claim value for BCeID is
+     * expected to be "bceidbusiness" (matching the convention used in the
+     * nr-scs/nr-waste-plus sibling apps) — any value starting with "bceid"
+     * (case-insensitive) collapses to "BCEIDBUSINESS"; anything else, including
+     * an absent claim, defaults to "IDIR". Used to grant/deny access at the
+     * {@code /api/**} boundary in SecurityConfig — BCeID users are restricted
+     * to a small subset of endpoints.
      */
     private String extractIdpProvider(Claims claims) {
         String idpName = claims.get("custom:idp_name", String.class);
-        return (idpName != null && idpName.trim().toUpperCase().startsWith("BCEID")) ? "BCEID" : "IDIR";
+        return (idpName != null && idpName.trim().toUpperCase().startsWith("BCEID")) ? "BCEIDBUSINESS" : "IDIR";
     }
 
     /**

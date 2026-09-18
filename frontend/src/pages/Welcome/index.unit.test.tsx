@@ -101,7 +101,7 @@ describe('WelcomePage', () => {
 
     await user.click(screen.getByRole('button', { name: /log in with business bceid/i }));
 
-    expect(signIn).toHaveBeenCalledWith('BCEID');
+    expect(signIn).toHaveBeenCalledWith('BCEIDBUSINESS');
   });
 
   it('reports a BCeID sign-in that fails before it leaves the page', async () => {

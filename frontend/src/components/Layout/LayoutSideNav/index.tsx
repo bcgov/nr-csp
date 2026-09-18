@@ -48,7 +48,7 @@ export const LayoutSideNav: FC = () => {
   const { isSideNavExpanded } = useLayout();
   const location = useLocation();
   const { user } = useAuth();
-  const visibleItems = filterForIdp(NAVIGATION_ITEMS as NavItem[], user?.idpProvider === 'BCEID');
+  const visibleItems = filterForIdp(NAVIGATION_ITEMS as NavItem[], user?.idpProvider === 'BCEIDBUSINESS');
 
   const renderNavLink = (item: NavLink) => (
     <SideNavLink

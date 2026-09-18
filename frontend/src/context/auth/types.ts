@@ -2,7 +2,7 @@ import type { Role } from './permissions';
 import type { SignOutReason } from './signOutReason';
 
 /** Which identity provider the user authenticated through. */
-export type IdpProvider = 'IDIR' | 'BCEID';
+export type IdpProvider = 'IDIR' | 'BCEIDBUSINESS';
 
 export interface AuthUser {
   username: string;

@@ -127,13 +127,13 @@ describe('RealAuthProvider', () => {
     expect(getCtx()?.user?.idpProvider).toBe('IDIR');
   });
 
-  it('sets idpProvider to BCEID when the custom:idp_name claim starts with bceid', async () => {
+  it('sets idpProvider to BCEIDBUSINESS when the custom:idp_name claim starts with bceid', async () => {
     mockFetchAuthSession.mockResolvedValue(
       sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'bceidbusiness' }),
     );
 
     const { getCtx } = await renderAndSettle();
-    expect(getCtx()?.user?.idpProvider).toBe('BCEID');
+    expect(getCtx()?.user?.idpProvider).toBe('BCEIDBUSINESS');
   });
 
   it('matches the custom:idp_name claim case-insensitively', async () => {
@@ -142,7 +142,7 @@ describe('RealAuthProvider', () => {
     );
 
     const { getCtx } = await renderAndSettle();
-    expect(getCtx()?.user?.idpProvider).toBe('BCEID');
+    expect(getCtx()?.user?.idpProvider).toBe('BCEIDBUSINESS');
   });
 
   it('matches plain group names case-insensitively', async () => {
@@ -344,7 +344,6 @@ describe('RealAuthProvider', () => {
     window.amplifyConfig = {
       appEnv: 'test',
       idpName: 'TEST-IDIR',
-      idpNameBceid: 'TEST-BCEID',
       region: 'ca-central-1',
       userPoolId: 'pool',
       userPoolClientId: 'client',
@@ -360,11 +359,10 @@ describe('RealAuthProvider', () => {
     expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'TEST-IDIR' } });
   });
 
-  it('signIn(BCEID) redirects with the idpNameBceid from window.amplifyConfig', async () => {
+  it('signIn(BCEIDBUSINESS) derives the idp name from window.amplifyConfig.appEnv', async () => {
     window.amplifyConfig = {
       appEnv: 'test',
       idpName: 'TEST-IDIR',
-      idpNameBceid: 'TEST-BCEID',
       region: 'ca-central-1',
       userPoolId: 'pool',
       userPoolClientId: 'client',
@@ -375,9 +373,11 @@ describe('RealAuthProvider', () => {
     mockFetchAuthSession.mockResolvedValue(emptySession());
 
     const { getCtx } = await renderAndSettle();
-    await getCtx()?.signIn('BCEID');
+    await getCtx()?.signIn('BCEIDBUSINESS');
 
-    expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'TEST-BCEID' } });
+    // Derived from appEnv (matching the nr-scs/nr-waste-plus convention), not a
+    // separately-configured value — TEST-BCEIDBUSINESS, not TEST-IDIR's sibling.
+    expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'TEST-BCEIDBUSINESS' } });
   });
 
   it('signIn(IDIR) falls back to DEV-IDIR when window.amplifyConfig is not set', async () => {
@@ -390,14 +390,15 @@ describe('RealAuthProvider', () => {
     expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'DEV-IDIR' } });
   });
 
-  it('signIn(BCEID) falls back to DEV-BCEID when window.amplifyConfig is not set', async () => {
+  it('signIn(BCEIDBUSINESS) derives DEV-BCEIDBUSINESS when window.amplifyConfig is not set', async () => {
     window.amplifyConfig = undefined;
     mockFetchAuthSession.mockResolvedValue(emptySession());
 
     const { getCtx } = await renderAndSettle();
-    await getCtx()?.signIn('BCEID');
+    await getCtx()?.signIn('BCEIDBUSINESS');
 
-    expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'DEV-BCEID' } });
+    // env.appEnv falls back to 'dev' when amplifyConfig is unset.
+    expect(mockSignInWithRedirect).toHaveBeenCalledWith({ provider: { custom: 'DEV-BCEIDBUSINESS' } });
   });
 
   it('signOut flips isSigningOut, calls Amplify signOut, and clears the user', async () => {
@@ -546,7 +547,7 @@ describe('RealAuthProvider', () => {
       );
 
       const { getCtx } = await renderAndSettle();
-      expect(getCtx()?.user?.idpProvider).toBe('BCEID');
+      expect(getCtx()?.user?.idpProvider).toBe('BCEIDBUSINESS');
 
       await act(async () => {
         await getCtx()?.signOut();

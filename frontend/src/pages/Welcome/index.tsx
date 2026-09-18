@@ -72,7 +72,7 @@ export function WelcomePage() {
     );
 
   const startBceidLogin = () =>
-    void signIn('BCEID').catch(() =>
+    void signIn('BCEIDBUSINESS').catch(() =>
       addNotification({
         kind: 'error',
         title: 'Could not start the BCeID login',

@@ -37,7 +37,7 @@ export function ProtectedRoute({ children, bceidAllowed }: Props) {
 
   if (isLoading || isSigningOut || !isAuthenticated) return <LoadingScreen />;
 
-  if (user?.idpProvider === 'BCEID' && !bceidAllowed) {
+  if (user?.idpProvider === 'BCEIDBUSINESS' && !bceidAllowed) {
     return <Navigate to={ROUTES.UPLOAD_SUBMISSION} replace />;
   }
 

@@ -100,7 +100,7 @@ describe('ProtectedRoute — auth states', () => {
 
   it('redirects a BCeID user to Upload Submission when the route is not bceidAllowed', () => {
     mockUseAuth.mockReturnValue({
-      user: { idpProvider: 'BCEID' },
+      user: { idpProvider: 'BCEIDBUSINESS' },
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,
@@ -115,7 +115,7 @@ describe('ProtectedRoute — auth states', () => {
 
   it('renders children for a BCeID user when the route is bceidAllowed', () => {
     mockUseAuth.mockReturnValue({
-      user: { idpProvider: 'BCEID' },
+      user: { idpProvider: 'BCEIDBUSINESS' },
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,

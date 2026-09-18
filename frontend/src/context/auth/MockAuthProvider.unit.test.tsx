@@ -46,14 +46,14 @@ describe('MockAuthProvider – idp from localStorage', () => {
     expect(result.current.user?.idpProvider).toBe('IDIR');
   });
 
-  it('uses BCEID when localStorage has BCEID', () => {
-    localStorage.setItem(MOCK_IDP_KEY, 'BCEID');
+  it('uses BCEIDBUSINESS when localStorage has BCEIDBUSINESS', () => {
+    localStorage.setItem(MOCK_IDP_KEY, 'BCEIDBUSINESS');
     const { result } = renderHook(() => useAuth(), { wrapper });
-    expect(result.current.user?.idpProvider).toBe('BCEID');
+    expect(result.current.user?.idpProvider).toBe('BCEIDBUSINESS');
   });
 
   it('falls back to IDIR when localStorage has an invalid value', () => {
-    localStorage.setItem(MOCK_IDP_KEY, 'BCEIDBUSINESS');
+    localStorage.setItem(MOCK_IDP_KEY, 'BCEIDBASIC');
     const { result } = renderHook(() => useAuth(), { wrapper });
     expect(result.current.user?.idpProvider).toBe('IDIR');
   });
