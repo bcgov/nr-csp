@@ -99,5 +99,18 @@ describe('App', () => {
 
       expect(await screen.findByText('Search Page')).toBeInTheDocument();
     });
+
+    // A bceidAllowed route can't assume an anonymous deep-linker is IDIR the
+    // way ProtectedRoute's default does for every other route.
+    it('sends an anonymous deep-link to a bceidAllowed route to the welcome screen instead of forcing IDIR sign-in', async () => {
+      const signIn = vi.fn();
+      mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: false, signIn });
+      window.history.pushState({}, '', '/upload-submission');
+
+      render(<App />);
+
+      expect(await screen.findByRole('heading', { name: 'Welcome to CSP' })).toBeInTheDocument();
+      expect(signIn).not.toHaveBeenCalled();
+    });
   });
 });

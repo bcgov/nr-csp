@@ -84,17 +84,19 @@ public class JwtService {
 
     /**
      * Derives the identity provider ("IDIR" or "BCEIDBUSINESS") from the
-     * `custom:idp_name` id-token claim. FAM's raw claim value for BCeID is
-     * expected to be "bceidbusiness" (matching the convention used in the
-     * nr-scs/nr-waste-plus sibling apps) — any value starting with "bceid"
-     * (case-insensitive) collapses to "BCEIDBUSINESS"; anything else, including
-     * an absent claim, defaults to "IDIR". Used to grant/deny access at the
-     * {@code /api/**} boundary in SecurityConfig — BCeID users are restricted
-     * to a small subset of endpoints.
+     * `custom:idp_name` id-token claim. Fails closed by design: "IDIR" is only
+     * granted on an explicit, exact (case-insensitive) match; a missing,
+     * unrecognized, or renamed claim collapses to "BCEIDBUSINESS", the
+     * restricted path — not "IDIR", the trusted one. This matters because
+     * SecurityConfig gates the rest of {@code /api/**} on
+     * {@code hasAuthority("IDP_IDIR")}: defaulting the other way would mean a
+     * missing claim (e.g. FAM's BCeID Cognito app client not being granted
+     * read access to it — an easy per-app-client setting to miss) silently
+     * grants full access instead of restricting it.
      */
     private String extractIdpProvider(Claims claims) {
         String idpName = claims.get("custom:idp_name", String.class);
-        return (idpName != null && idpName.trim().toUpperCase().startsWith("BCEID")) ? "BCEIDBUSINESS" : "IDIR";
+        return (idpName != null && idpName.trim().equalsIgnoreCase("idir")) ? "IDIR" : "BCEIDBUSINESS";
     }
 
     /**

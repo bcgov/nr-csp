@@ -108,19 +108,39 @@ describe('RealAuthProvider', () => {
     expect(user?.email).toBe('jane.doe@gov.bc.ca');
     expect(user?.roles).toEqual(['CSP_ADMIN', 'NRS_CSP_VIEW']);
     expect(user?.privileges).toEqual(['ADMIN', 'VIEW']);
-    expect(user?.idpProvider).toBe('IDIR');
+    // Fails closed: this session has no custom:idp_name claim, so it must NOT
+    // be trusted as IDIR.
+    expect(user?.idpProvider).toBe('BCEIDBUSINESS');
   });
 
-  it('defaults idpProvider to IDIR when the custom:idp_name claim is absent', async () => {
+  it('fails closed to BCEIDBUSINESS when the custom:idp_name claim is absent', async () => {
     mockFetchAuthSession.mockResolvedValue(sessionWith({ 'cognito:username': 'u', email: 'u@x' }));
 
     const { getCtx } = await renderAndSettle();
-    expect(getCtx()?.user?.idpProvider).toBe('IDIR');
+    expect(getCtx()?.user?.idpProvider).toBe('BCEIDBUSINESS');
+  });
+
+  it('fails closed to BCEIDBUSINESS when the custom:idp_name claim is unrecognized', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'some_other_provider' }),
+    );
+
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.user?.idpProvider).toBe('BCEIDBUSINESS');
   });
 
   it('sets idpProvider to IDIR when the custom:idp_name claim is idir', async () => {
     mockFetchAuthSession.mockResolvedValue(
       sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'idir' }),
+    );
+
+    const { getCtx } = await renderAndSettle();
+    expect(getCtx()?.user?.idpProvider).toBe('IDIR');
+  });
+
+  it('matches the custom:idp_name IDIR claim case-insensitively', async () => {
+    mockFetchAuthSession.mockResolvedValue(
+      sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'IDIR' }),
     );
 
     const { getCtx } = await renderAndSettle();
@@ -136,7 +156,7 @@ describe('RealAuthProvider', () => {
     expect(getCtx()?.user?.idpProvider).toBe('BCEIDBUSINESS');
   });
 
-  it('matches the custom:idp_name claim case-insensitively', async () => {
+  it('matches the custom:idp_name BCeID claim case-insensitively', async () => {
     mockFetchAuthSession.mockResolvedValue(
       sessionWith({ 'cognito:username': 'u', email: 'u@x', 'custom:idp_name': 'BCEIDBUSINESS' }),
     );
@@ -501,7 +521,12 @@ describe('RealAuthProvider', () => {
       const openSpy = vi.spyOn(window, 'open').mockReturnValue(popup);
       window.amplifyConfig = chainConfig;
       mockFetchAuthSession.mockResolvedValue(
-        sessionWith({ 'cognito:username': 'u', 'cognito:groups': ['CSP_ADMIN'], email: 'u@x' }),
+        sessionWith({
+          'cognito:username': 'u',
+          'cognito:groups': ['CSP_ADMIN'],
+          email: 'u@x',
+          'custom:idp_name': 'idir',
+        }),
       );
 
       const { getCtx } = await renderAndSettle();

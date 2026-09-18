@@ -84,4 +84,29 @@ describe('ProtectedRoute — OAuth callback guard', () => {
     expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
     expect(signIn).not.toHaveBeenCalled();
   });
+
+  it('shows loading rather than redirecting to the welcome screen mid-callback on a bceidAllowed route', () => {
+    vi.stubGlobal('location', { search: '?code=abc&state=xyz' });
+
+    const signIn = vi.fn();
+    mockUseAuth.mockReturnValue({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isSigningOut: false,
+      signIn,
+    });
+
+    render(
+      <MemoryRouter>
+        <ProtectedRoute bceidAllowed>
+          <div>Private Content</div>
+        </ProtectedRoute>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('loading')).toBeInTheDocument();
+    expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
+    expect(signIn).not.toHaveBeenCalled();
+  });
 });

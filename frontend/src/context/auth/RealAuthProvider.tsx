@@ -30,14 +30,16 @@ function groupMatchesRole(group: string, role: string): boolean {
 
 /**
  * Derives the identity provider from the `custom:idp_name` id-token claim.
- * FAM's raw claim value for BCeID is expected to be "BCEIDBUSINESS" (matching
- * the convention already in use in the nr-scs/nr-waste-plus sibling apps) —
- * any value starting with "BCEID" collapses to 'BCEIDBUSINESS'; anything else
- * (including an absent claim) defaults to 'IDIR'.
+ * Fails closed by design: 'IDIR' is only granted on an explicit, exact
+ * (case-insensitive) match; a missing, unrecognized, or renamed claim
+ * collapses to 'BCEIDBUSINESS', the restricted path — not 'IDIR', the trusted
+ * one. Mirrors the identical fail-closed default in the backend's
+ * JwtService#extractIdpProvider, so the UI and API restrict together instead
+ * of one silently trusting a claim the other doesn't.
  */
 function extractIdpProvider(payload: Record<string, unknown>): IdpProvider {
   const raw = payload['custom:idp_name'];
-  return typeof raw === 'string' && raw.trim().toUpperCase().startsWith('BCEID') ? 'BCEIDBUSINESS' : 'IDIR';
+  return typeof raw === 'string' && raw.trim().toUpperCase() === 'IDIR' ? 'IDIR' : 'BCEIDBUSINESS';
 }
 
 /**
@@ -107,8 +109,13 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
    * popup concurrently logs out loginproxy's `idir` broker realm — the one
    * layer the chain can't reach; without it the next sign-in is a silent SSO
    * login (see openIdirRealmLogoutPopup). BCeID sessions never authenticated
-   * against that realm, so the popup is skipped for them. If the chain config
-   * is incomplete, it falls back to a plain Amplify `signOut()` (Cognito-only).
+   * against that realm, so the popup is skipped for them — investigated
+   * whether an analogous BCeID broker-realm session exists (checked this
+   * repo's history and both sibling apps, nr-scs and nr-waste-plus); found no
+   * evidence one does, and neither sibling implements any popup-based logout
+   * at all. If FAM ever confirms a BCeID-side realm with the same quirk, this
+   * is where to add the equivalent popup. If the chain config is incomplete,
+   * it falls back to a plain Amplify `signOut()` (Cognito-only).
    */
   async function performSignOut(reason: SignOutReason = 'user') {
     const idpProvider = user?.idpProvider;

@@ -24,18 +24,24 @@ export function ProtectedRoute({ children, bceidAllowed }: Props) {
     // event, which a second sign-in started here would abandon. The wait is
     // bounded, so an exchange that never completes falls through to a fresh
     // sign-in rather than leaving this stuck on the loading screen.
-    if (isCallbackPending) return;
+    //
+    // A bceidAllowed route can't assume the deep-linker is IDIR the way every
+    // other route safely can (they're IDIR-only anyway) — the render below
+    // sends an anonymous visitor to the welcome screen to choose instead.
+    if (isCallbackPending || bceidAllowed) return;
 
     if (!isLoading && !isAuthenticated && !isSigningOut && !loginAttempted.current) {
       loginAttempted.current = true;
-      // Deep-linking straight into a protected route (rather than starting at
-      // the welcome screen) defaults to IDIR — BCeID sign-in is only offered
-      // from the welcome screen's explicit button.
       void signIn('IDIR');
     }
-  }, [isCallbackPending, isLoading, isAuthenticated, isSigningOut, signIn]);
+  }, [isCallbackPending, isLoading, isAuthenticated, isSigningOut, signIn, bceidAllowed]);
 
-  if (isLoading || isSigningOut || !isAuthenticated) return <LoadingScreen />;
+  if (isLoading || isSigningOut) return <LoadingScreen />;
+
+  if (!isAuthenticated) {
+    if (bceidAllowed && !isCallbackPending) return <Navigate to={ROUTES.LANDING} replace />;
+    return <LoadingScreen />;
+  }
 
   if (user?.idpProvider === 'BCEIDBUSINESS' && !bceidAllowed) {
     return <Navigate to={ROUTES.UPLOAD_SUBMISSION} replace />;

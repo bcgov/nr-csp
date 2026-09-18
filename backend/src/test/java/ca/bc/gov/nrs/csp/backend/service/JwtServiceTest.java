@@ -179,8 +179,9 @@ class JwtServiceTest {
 
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
 
-        // 3 role authorities + the default IDP_IDIR authority (see the IDP authority
-        // extraction tests below — no custom:idp_name claim on this token).
+        // 3 role authorities + the default (fail-closed) IDP_BCEIDBUSINESS authority
+        // (see the IDP authority extraction tests below — no custom:idp_name claim
+        // on this token).
         assertEquals(4, authorities.size());
         assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("VIEW")));
         assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("APPROVE")));
@@ -209,10 +210,12 @@ class JwtServiceTest {
 
     @Test
     void extractAuthorities_containsOnlyIdpAuthority_whenGroupsClaimAbsent() {
+        // Fails closed: no custom:idp_name claim on this token either, so the
+        // sole authority must be the restricted BCEIDBUSINESS, not IDIR.
         String jwt = token("sub", null, null, null);
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
         assertEquals(1, authorities.size());
-        assertEquals("IDP_IDIR", authorities.get(0).getAuthority());
+        assertEquals("IDP_BCEIDBUSINESS", authorities.get(0).getAuthority());
     }
 
     @Test
@@ -220,21 +223,39 @@ class JwtServiceTest {
         String jwt = tokenWithGroups("sub", List.of("SOME_OTHER_GROUP", "VIEWER"));
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
         assertEquals(1, authorities.size());
-        assertEquals("IDP_IDIR", authorities.get(0).getAuthority());
+        assertEquals("IDP_BCEIDBUSINESS", authorities.get(0).getAuthority());
     }
 
     // ── IDP authority extraction ──────────────────────────────────────────────
 
     @Test
-    void extractAuthorities_addsIdpIdirAuthority_whenIdpNameClaimAbsent() {
+    void extractAuthorities_addsIdpBceidAuthority_whenIdpNameClaimAbsent() {
+        // Fails closed: a missing claim must NOT grant the trusted IDP_IDIR authority.
         String jwt = tokenWithIdpName(null);
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
-        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEIDBUSINESS")));
+        assertFalse(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
+    }
+
+    @Test
+    void extractAuthorities_addsIdpBceidAuthority_whenIdpNameClaimIsUnrecognized() {
+        // Fails closed: an unrecognized/renamed claim value must NOT grant IDP_IDIR either.
+        String jwt = tokenWithIdpName("some_other_provider");
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEIDBUSINESS")));
+        assertFalse(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
     }
 
     @Test
     void extractAuthorities_addsIdpIdirAuthority_whenIdpNameClaimIsIdir() {
         String jwt = tokenWithIdpName("idir");
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
+    }
+
+    @Test
+    void extractAuthorities_matchesIdirClaim_caseInsensitively() {
+        String jwt = tokenWithIdpName("IDIR");
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
         assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_IDIR")));
     }

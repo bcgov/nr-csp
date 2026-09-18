@@ -16,7 +16,7 @@ import { ROUTES } from '@/routes/routePaths';
 import './index.scss';
 
 export function WelcomePage() {
-  const { isAuthenticated, isLoading, signIn } = useAuth();
+  const { isAuthenticated, isLoading, signIn, user } = useAuth();
   const { addNotification } = useNotification();
   const isCallbackPending = useOauthCallbackPending();
 
@@ -58,8 +58,11 @@ export function WelcomePage() {
   // A live session settles it, whatever is on the URL: stale callback params
   // survive a reload, a back-button and a second tab, and waiting on an
   // exchange that has already happened would only stall someone who is
-  // signed in.
-  if (isAuthenticated) return <Navigate to={ROUTES.SEARCH} replace />;
+  // signed in. BCeID can't reach Search — send them straight to Upload
+  // Submission instead of bouncing off it via ProtectedRoute.
+  if (isAuthenticated) {
+    return <Navigate to={user?.idpProvider === 'BCEIDBUSINESS' ? ROUTES.UPLOAD_SUBMISSION : ROUTES.SEARCH} replace />;
+  }
   if (isLoading || isCallbackPending) return <LoadingScreen />;
 
   const startIdirLogin = () =>

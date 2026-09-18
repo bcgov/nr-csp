@@ -28,8 +28,15 @@ vi.mock('./LayoutHeaderGlobalBar', () => ({
 describe('LayoutHeader', () => {
   const toggleSideNav = vi.fn();
 
-  const arrange = ({ isAuthenticated = true, isSideNavExpanded = false } = {}) => {
-    vi.mocked(useAuth).mockReturnValue({ isAuthenticated } as unknown as ReturnType<typeof useAuth>);
+  const arrange = ({
+    isAuthenticated = true,
+    isSideNavExpanded = false,
+    idpProvider,
+  }: { isAuthenticated?: boolean; isSideNavExpanded?: boolean; idpProvider?: 'IDIR' | 'BCEIDBUSINESS' } = {}) => {
+    vi.mocked(useAuth).mockReturnValue({
+      isAuthenticated,
+      user: idpProvider ? { idpProvider } : undefined,
+    } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useLayout).mockReturnValue({ isSideNavExpanded, toggleSideNav } as unknown as ReturnType<
       typeof useLayout
     >);
@@ -58,6 +65,14 @@ describe('LayoutHeader', () => {
     arrange({ isAuthenticated: false });
 
     expect(appNameLink()).toHaveAttribute('href', '/');
+  });
+
+  // Search isn't reachable for BCeID — linking there would just bounce back out
+  // to Upload Submission via ProtectedRoute.
+  it('points the app name at Upload Submission for a signed-in BCeID user', () => {
+    arrange({ isAuthenticated: true, idpProvider: 'BCEIDBUSINESS' });
+
+    expect(appNameLink()).toHaveAttribute('href', '/upload-submission');
   });
 
   it('shows the menu button and side nav when authenticated', () => {

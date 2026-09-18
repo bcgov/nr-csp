@@ -24,7 +24,15 @@ const APP_NAME = 'Coast Selling Application (CSP)';
 
 export const LayoutHeader: FC = () => {
   const { isSideNavExpanded, toggleSideNav } = useLayout();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  // BCeID users can't reach Search — sending them there via the brand link would
+  // just bounce straight back out to Upload Submission through ProtectedRoute.
+  const homeRoute = !isAuthenticated
+    ? ROUTES.LANDING
+    : user?.idpProvider === 'BCEIDBUSINESS'
+      ? ROUTES.UPLOAD_SUBMISSION
+      : ROUTES.SEARCH;
 
   return (
     <Header aria-label={APP_NAME} className="bc-header">
@@ -37,7 +45,7 @@ export const LayoutHeader: FC = () => {
           onClick={toggleSideNav}
         />
       )}
-      <HeaderName as={Link} to={isAuthenticated ? ROUTES.SEARCH : ROUTES.LANDING} prefix="">
+      <HeaderName as={Link} to={homeRoute} prefix="">
         {APP_NAME}
       </HeaderName>
       <HeaderGlobalBar>

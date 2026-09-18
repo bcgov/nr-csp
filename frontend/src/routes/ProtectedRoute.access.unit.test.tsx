@@ -21,6 +21,7 @@ function renderRoute({ bceidAllowed }: { bceidAllowed?: boolean } = {}) {
   return render(
     <MemoryRouter initialEntries={['/private']}>
       <Routes>
+        <Route path={ROUTES.LANDING} element={<div>Welcome Page</div>} />
         <Route path={ROUTES.UPLOAD_SUBMISSION} element={<div>Upload Submission Page</div>} />
         <Route
           path="/private"
@@ -81,6 +82,17 @@ describe('ProtectedRoute — auth states', () => {
     expect(screen.getByTestId('loading')).toBeInTheDocument();
     expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
     expect(signIn).toHaveBeenCalledWith('IDIR');
+  });
+
+  it('redirects to the welcome screen without signing in when unauthenticated on a bceidAllowed route', () => {
+    const signIn = vi.fn();
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: false, signIn });
+
+    renderRoute({ bceidAllowed: true });
+
+    expect(screen.getByText('Welcome Page')).toBeInTheDocument();
+    expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
+    expect(signIn).not.toHaveBeenCalled();
   });
 
   it('renders children when authenticated as IDIR', () => {

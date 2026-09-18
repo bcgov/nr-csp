@@ -39,6 +39,7 @@ const tree = () => (
             </>
           }
         />
+        <Route path="/upload-submission" element={<div>Upload Submission page</div>} />
       </Routes>
     </MemoryRouter>
   </NotificationProvider>
@@ -121,6 +122,22 @@ describe('WelcomePage', () => {
 
     expect(screen.getByText('Search page')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Welcome to CSP' })).not.toBeInTheDocument();
+  });
+
+  // Search isn't reachable for BCeID — sending them there would just bounce
+  // back out to Upload Submission via ProtectedRoute.
+  it('sends an already-authenticated BCeID visitor to Upload Submission, not Search', () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      signIn,
+      user: { idpProvider: 'BCEIDBUSINESS' },
+    });
+
+    arrange();
+
+    expect(screen.getByText('Upload Submission page')).toBeInTheDocument();
+    expect(screen.queryByText('Search page')).not.toBeInTheDocument();
   });
 
   it('waits rather than showing the sign-in choice while the session is still loading', () => {
