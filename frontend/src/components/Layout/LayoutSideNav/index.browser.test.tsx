@@ -18,6 +18,13 @@ vi.mock('@/routes/navigation', () => ({
     { name: 'Dashboard', path: '/' },
     { name: 'Reports', children: [{ name: 'R06 Printout', path: '/r06' }] },
     { name: 'Submissions', children: [{ name: 'Upload Submission', path: '/upload-submission', bceidAllowed: true }] },
+    {
+      name: 'Mixed',
+      children: [
+        { name: 'Mixed Allowed', path: '/mixed-allowed', bceidAllowed: true },
+        { name: 'Mixed Restricted', path: '/mixed-restricted' },
+      ],
+    },
   ],
 }));
 
@@ -55,5 +62,12 @@ describe('LayoutSideNav', () => {
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
     expect(screen.queryByText('Reports')).not.toBeInTheDocument();
     expect(screen.getByText('Upload Submission')).toBeInTheDocument();
+  });
+
+  it('keeps a group visible and shows only its allowed child when the group is mixed', () => {
+    renderAt('/', 'BCEIDBUSINESS');
+    expect(screen.getByText('Mixed')).toBeInTheDocument();
+    expect(screen.getByText('Mixed Allowed')).toBeInTheDocument();
+    expect(screen.queryByText('Mixed Restricted')).not.toBeInTheDocument();
   });
 });
