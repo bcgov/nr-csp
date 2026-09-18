@@ -94,7 +94,13 @@ public class SubmissionHistoryRepository {
             SELECT sub.csp_submission_id                                                       AS csp_submission_id,
                    sub.submission_id                                                           AS submission_id,
                    sub.entry_timestamp                                                         AS entry_timestamp,
-                   COALESCE(es.submitted_by, sub.entry_userid)                                 AS submitted_by,
+                   -- Read as a scalar subquery, not a join: electronic_submission is not
+                   -- guaranteed one row per submission number, and a join that fans out
+                   -- would make which submitter name shows up arbitrary.
+                   COALESCE((SELECT es.submitted_by
+                               FROM THE.electronic_submission es
+                              WHERE es.submission_id = sub.submission_id
+                                AND ROWNUM = 1), sub.entry_userid)                             AS submitted_by,
                    subStatus.description                                                       AS submission_status,
                    sub.client_number                                                           AS client_number,
                    fc.client_name                                                              AS client_name,
@@ -121,9 +127,13 @@ public class SubmissionHistoryRepository {
                     ON sub.csp_submission_status_code = subStatus.csp_submission_status_code
             LEFT JOIN THE.V_CLIENT_PUBLIC fc
                     ON sub.client_number = fc.client_number
-            LEFT JOIN THE.electronic_submission es
-                    ON sub.submission_id = es.submission_id
             WHERE  sub.submission_id = :submissionId
+            -- submission_id is not a primary key, so a duplicate has to resolve the
+            -- same way every time: newest submission wins. Without the ORDER BY the
+            -- FETCH would hand back whichever row Oracle happened to produce, and the
+            -- invoices below — keyed on the csp_submission_id this row carries — would
+            -- belong to that other submission.
+            ORDER BY sub.csp_submission_id DESC
             FETCH FIRST 1 ROW ONLY
             """;
 

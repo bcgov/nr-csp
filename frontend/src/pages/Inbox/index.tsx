@@ -15,6 +15,7 @@ import { ROUTES } from '@/routes/routePaths';
 import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { formatDisplayDate, formatIsoDate } from '@/utils/format';
+import { isModifiedClick } from '@/utils/link';
 
 import './index.scss';
 
@@ -134,6 +135,9 @@ export function InboxPage() {
           <Link
             href={`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`}
             onClick={(e) => {
+              // Let the browser own Cmd/Ctrl+Click and friends, so a row can be
+              // opened in a background tab.
+              if (isModifiedClick(e)) return;
               e.preventDefault();
               navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
             }}

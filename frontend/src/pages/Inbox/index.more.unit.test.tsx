@@ -146,6 +146,24 @@ describe('InboxPage interactions', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
+  it('leaves a cmd/ctrl-click to the browser so the row opens in a new tab', () => {
+    seedSearched();
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow], totalElements: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    const link = screen.getByRole('link', { name: 'SUB-555' });
+    const opened = fireEvent.click(link, { metaKey: true });
+
+    // Not routed in-app, and the default action is left intact for the browser.
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(opened).toBe(true);
+  });
+
   it('applies the filter inputs to the query when Search is clicked', () => {
     renderInboxPage();
     fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: ' INV-9 ' } });

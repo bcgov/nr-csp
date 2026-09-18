@@ -7,6 +7,7 @@ import PageTitle from '@/components/core/PageTitle';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import { ROUTES } from '@/routes/routePaths';
 import { formatShortDate } from '@/utils/format';
+import { isModifiedClick } from '@/utils/link';
 import { usePersistentState, setSerializer } from '@/hooks/usePersistentState';
 import {
   type SubmissionHistoryListParams,
@@ -99,6 +100,9 @@ export function SubmissionHistoryPage() {
               <Link
                 href={`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`}
                 onClick={(e) => {
+                  // Let the browser own Cmd/Ctrl+Click and friends, so a row can
+                  // be opened in a background tab.
+                  if (isModifiedClick(e)) return;
                   e.preventDefault();
                   navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
                 }}

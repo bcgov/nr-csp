@@ -127,6 +127,16 @@ describe('SubmissionHistoryPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001');
   });
 
+  it('leaves a cmd/ctrl-click to the browser so the row opens in a new tab', () => {
+    setListData([sampleRow]);
+    renderPage();
+
+    const opened = fireEvent.click(screen.getByRole('link', { name: /12 invoices/i }), { ctrlKey: true });
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(opened).toBe(true);
+  });
+
   it('does not link a manual submission, which has no submission number', () => {
     setListData([{ ...sampleRow, submissionId: null }]);
     renderPage();

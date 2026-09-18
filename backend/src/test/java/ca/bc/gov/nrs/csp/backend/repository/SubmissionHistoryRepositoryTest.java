@@ -190,8 +190,14 @@ class SubmissionHistoryRepositoryTest {
         verify(jdbc).queryForObject(headerSql.capture(), headerParams.capture(), this.<Object>rowMapper());
         assertThat(headerSql.getValue())
                 .contains("sub.submission_id = :submissionId")
-                // submission_id is not a primary key; a duplicate must not blow up as a 500.
-                .contains("FETCH FIRST 1 ROW ONLY");
+                // submission_id is not a primary key; a duplicate must not blow up as a
+                // 500, and must resolve to the same row every time rather than whichever
+                // one Oracle happens to return.
+                .contains("FETCH FIRST 1 ROW ONLY")
+                .containsSubsequence("ORDER BY sub.csp_submission_id DESC", "FETCH FIRST 1 ROW ONLY")
+                // submitted_by is read as a scalar subquery: a join on submission_id can
+                // fan out, and every fanned row ties on the ORDER BY above.
+                .doesNotContain("JOIN THE.electronic_submission");
         assertThat(headerParams.getValue().getValue("submissionId")).isEqualTo(9001L);
 
         // Invoices + line items: bound to the csp_submission_id the header resolved.
