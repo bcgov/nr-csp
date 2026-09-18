@@ -134,6 +134,47 @@ describe('FlatPriceConversionPage', () => {
     expect(service.useSearchFlatPriceConversionsQuery).toHaveBeenCalledWith(expect.anything(), false);
   });
 
+  it('renders the pagination control before any search has been run', () => {
+    renderPage();
+    expect(screen.getByText(/your search results will appear here/i)).toBeInTheDocument();
+    // The pagination control belongs to the empty table too, the same as Invoice search,
+    // Inbox and Submission history — an empty result set must not drop it.
+    expect(screen.getByLabelText(/page of \d+ page/i)).toBeInTheDocument();
+    expect(screen.getByText(/results per page:/i)).toBeInTheDocument();
+  });
+
+  it('defaults to 100 results per page, matching Invoice search and Inbox', () => {
+    renderPage();
+    const perPageSelect = screen.getByLabelText(/results per page:/i) as HTMLSelectElement;
+    expect(perPageSelect.value).toBe('100');
+  });
+
+  it('returns the page size to the 100-row default when filters are cleared', () => {
+    renderPage();
+    const perPageSelect = screen.getByLabelText(/results per page:/i) as HTMLSelectElement;
+    fireEvent.change(perPageSelect, { target: { value: '20' } });
+    expect(perPageSelect.value).toBe('20');
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+    expect((screen.getByLabelText(/results per page:/i) as HTMLSelectElement).value).toBe('100');
+  });
+
+  it('keeps the pagination control when a search returns no results', () => {
+    vi.mocked(service.useSearchFlatPriceConversionsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as any);
+
+    renderPage();
+    clickSearch();
+
+    expect(screen.getByText(/no results found/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/page of \d+ page/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 – 0 of 0 results/i)).toBeInTheDocument();
+  });
+
   it('renders data rows from the query', () => {
     renderPage();
     clickSearch();
@@ -263,6 +304,8 @@ describe('FlatPriceConversionPage', () => {
     window.sessionStorage.setItem(`${NS}.hasSearched`, 'true');
     window.sessionStorage.setItem(`${NS}.filterSpecies`, JSON.stringify('FD'));
     window.sessionStorage.setItem(`${NS}.page`, '2');
+    // 25 rows only spans two pages at 20 per page — the page-size default is 100.
+    window.sessionStorage.setItem(`${NS}.pageSize`, '20');
     window.sessionStorage.setItem(`${NS}.searchParams`, JSON.stringify({ modellingCode: 'P', species: 'FD' }));
 
     vi.mocked(lookup.useSpeciesLookupQuery).mockReturnValue({

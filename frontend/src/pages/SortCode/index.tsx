@@ -42,6 +42,8 @@ type ModalState =
 
 type SortCodeRow = SortCodeResponse & { id: string };
 
+const DEFAULT_PAGE_SIZE = 100;
+
 function SortCodeFormFields({ form, mode }: { form: ReturnType<typeof useSortCodeForm>; mode: 'add' | 'edit' }) {
   const { values, errors, set, setValue, apiErrorMessage } = form;
   return (
@@ -105,7 +107,7 @@ function SortCodeFormFields({ form, mode }: { form: ReturnType<typeof useSortCod
 export function SortCodePage() {
   const NS = 'csp.table.sortCode.v1';
   const [page, setPage] = usePersistentState(NS, 'page', 1);
-  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 20);
+  const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', DEFAULT_PAGE_SIZE);
   const [sortParam, setSortParam] = usePersistentState<string | undefined>(NS, 'sort', undefined);
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
 
@@ -243,14 +245,14 @@ export function SortCodePage() {
           totalItems={data?.totalElements ?? 0}
           paginationItemsPerPageText="Results per page:"
           paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} results`}
-          onPaginationChange={
-            (data?.totalElements ?? 0) > 0
-              ? ({ page: newPage, pageSize: newPageSize }) => {
-                  setPage(newPage);
-                  setPageSize(newPageSize);
-                }
-              : undefined
-          }
+          // Passed unconditionally so the control survives an empty table and the
+          // in-flight query that precedes every load — `data` is undefined then, so
+          // gating on `totalElements` took the bar away and shifted the layout once
+          // the rows arrived. Matches Flat price conversion, Invoice search and Inbox.
+          onPaginationChange={({ page: newPage, pageSize: newPageSize }) => {
+            setPage(newPage);
+            setPageSize(newPageSize);
+          }}
         />
         {!isLoading && rows.length === 0 && <p className="table-maintenance-page__empty-state">No sort codes found.</p>}
       </>

@@ -38,7 +38,7 @@ const SAMPLE_ROWS = [
 
 const renderPage = () => {
   const qc = new QueryClient();
-  render(
+  return render(
     <QueryClientProvider client={qc}>
       <NotificationContext.Provider
         value={{ notifications: [], addNotification: vi.fn(), removeNotification: vi.fn() }}
@@ -151,6 +151,40 @@ describe('SortCodePage', () => {
     expect(screen.getByRole('heading', { name: /delete sort code/i })).toBeInTheDocument();
   });
 
+  it('keeps the pagination control while the query is in flight', () => {
+    // `data` is undefined during the initial load, so the old `totalElements > 0` gate
+    // dropped the bar under the skeleton and shifted the layout once the rows arrived.
+    vi.mocked(service.useListSortCodesQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+    } as any);
+
+    const { container } = renderPage();
+    expect(container.querySelector('.cds--pagination')).not.toBeNull();
+  });
+
+  it('keeps the pagination control when the table is empty', () => {
+    vi.mocked(service.useListSortCodesQuery).mockReturnValue({
+      data: { content: [], totalElements: 0 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as any);
+
+    renderPage();
+
+    expect(screen.getByText(/no sort codes found/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/results per page:/i)).toBeInTheDocument();
+  });
+
+  it('defaults to 100 results per page, matching the other tables', () => {
+    renderPage();
+    const perPageSelect = screen.getByLabelText(/results per page:/i) as HTMLSelectElement;
+    expect(perPageSelect.value).toBe('100');
+  });
+
   it('restores page and page size from sessionStorage on mount', async () => {
     window.sessionStorage.setItem('csp.table.sortCode.v1.page', '3');
     window.sessionStorage.setItem('csp.table.sortCode.v1.pageSize', '40');
@@ -168,13 +202,16 @@ describe('SortCodePage', () => {
   });
 
   it('clamps an out-of-range restored page back to the last valid page even when the current page has no rows', async () => {
-    // The persisted page (5) is out of range for a 30-item, 20-per-page result set (last page = 2;
-    // pageSize left at its default of 20 — one of ResultsTable's default `pageSizes` options — so the
-    // Carbon Pagination control itself isn't confused by an unlisted page size). The server returns an
-    // empty `content` for that out-of-range page while `totalElements` still reflects the real total —
-    // this is the scenario where the pagination control must still render so the ResultsTable clamp
-    // effect can fire and snap the page back.
+    // The persisted page (5) is out of range for a 30-item, 20-per-page result set (last page = 2).
+    // pageSize is persisted explicitly: at the 100-row default a 30-item set is a single page, which
+    // would clamp to 1 and make this a weaker assertion than the last-valid-page snap it is testing.
+    // 20 is one of ResultsTable's default `pageSizes` options, so the Carbon Pagination control
+    // itself isn't confused by an unlisted page size. The server returns an empty `content` for that
+    // out-of-range page while `totalElements` still reflects the real total — this is the scenario
+    // where the pagination control must still render so the ResultsTable clamp effect can fire and
+    // snap the page back.
     window.sessionStorage.setItem('csp.table.sortCode.v1.page', '5');
+    window.sessionStorage.setItem('csp.table.sortCode.v1.pageSize', '20');
     vi.mocked(service.useListSortCodesQuery).mockReturnValue({
       data: { content: [], totalElements: 30 },
       isLoading: false,
@@ -184,7 +221,7 @@ describe('SortCodePage', () => {
 
     renderPage();
 
-    // With the old `rows.length > 0` gate, onPaginationChange would be undefined and no
+    // With the old `totalElements > 0` gate, onPaginationChange would be undefined and no
     // pagination control (and thus no clamp) would ever render — this findBy would time out.
     await screen.findByLabelText(/page of \d+ pages/i);
 
