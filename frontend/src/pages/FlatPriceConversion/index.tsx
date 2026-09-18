@@ -6,6 +6,7 @@ import {
   DatePicker,
   DatePickerInput,
   Grid,
+  IconButton,
   InlineNotification,
   MenuButton,
   MenuItem,
@@ -325,24 +326,28 @@ export function FlatPriceConversionPage() {
         return (
           <div className="flat-price-conversion-page__row-actions">
             {canEdit && (
-              <Button
+              <IconButton
                 kind="ghost"
-                hasIconOnly
-                renderIcon={Edit}
-                iconDescription="Edit"
                 size="sm"
+                label="Edit"
+                align="top"
+                autoAlign
                 onClick={() => setModal({ kind: 'edit', row: response })}
-              />
+              >
+                <Edit />
+              </IconButton>
             )}
             {canDelete && (
-              <Button
+              <IconButton
                 kind="ghost"
-                hasIconOnly
-                renderIcon={TrashCan}
-                iconDescription="Delete"
                 size="sm"
+                label="Delete"
+                align="top"
+                autoAlign
                 onClick={() => setModal({ kind: 'delete', row: response })}
-              />
+              >
+                <TrashCan />
+              </IconButton>
             )}
           </div>
         );

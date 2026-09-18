@@ -6,6 +6,7 @@ import {
   DatePicker,
   DatePickerInput,
   Grid,
+  IconButton,
   InlineNotification,
   MenuButton,
   MenuItem,
@@ -185,24 +186,28 @@ export function SortCodePage() {
       renderCell: (row) => (
         <div className="table-maintenance-page__row-actions">
           {canEditOrDelete && (
-            <Button
+            <IconButton
               kind="ghost"
-              hasIconOnly
-              renderIcon={Edit}
-              iconDescription="Edit"
               size="sm"
+              label="Edit"
+              align="top"
+              autoAlign
               onClick={() => setModal({ kind: 'edit', row })}
-            />
+            >
+              <Edit />
+            </IconButton>
           )}
           {canEditOrDelete && (
-            <Button
+            <IconButton
               kind="ghost"
-              hasIconOnly
-              renderIcon={TrashCan}
-              iconDescription="Delete"
               size="sm"
+              label="Delete"
+              align="top"
+              autoAlign
               onClick={() => setModal({ kind: 'delete', row })}
-            />
+            >
+              <TrashCan />
+            </IconButton>
           )}
         </div>
       ),
