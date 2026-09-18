@@ -46,7 +46,7 @@ class SubmissionHistoryServiceTest {
     @Test
     void search_delegatesToRepository_andReturnsPage() {
         SubmissionHistoryRowResponse row = new SubmissionHistoryRowResponse(
-                200456L, LocalDate.of(2024, Month.JANUARY, 31), "IDIR\\jdoe",
+                200456L, "9001", LocalDate.of(2024, Month.JANUARY, 31), "IDIR\\jdoe",
                 "00014963", "ACME LOGGING LTD", "Approved", 3, 1);
         given(repository.search(PAGE)).willReturn(new PageImpl<>(List.of(row), PAGE, 1));
 

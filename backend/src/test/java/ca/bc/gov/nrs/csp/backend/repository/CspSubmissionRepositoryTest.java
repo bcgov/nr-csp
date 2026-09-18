@@ -120,6 +120,53 @@ class CspSubmissionRepositoryTest {
     }
 
     // ---------------------------------------------------------------
+    // findSubmissionNumber
+    // ---------------------------------------------------------------
+
+    @Test
+    void findSubmissionNumber_nullId_returnsEmptyWithoutQuerying() {
+        assertThat(repo.findSubmissionNumber(null)).isEmpty();
+        verifyNoInteractions(jdbc);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void findSubmissionNumber_found_returnsNumberAndBindsId() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        given(rs.getLong("submission_id")).willReturn(9001L);
+        stubQueryMapsRow(rs);
+
+        assertThat(repo.findSubmissionNumber(42L)).contains(9001L);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).query(sqlCaptor.capture(), paramsCaptor.capture(), any(RowMapper.class));
+        assertThat(sqlCaptor.getValue()).contains("SELECT submission_id FROM THE.csp_submission");
+        assertThat(paramsCaptor.getValue().getValue("id")).isEqualTo(42L);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void findSubmissionNumber_manualSubmission_returnsEmpty() throws SQLException {
+        // Manual entry never allocates a submission number, so the column is null.
+        ResultSet rs = mock(ResultSet.class);
+        given(rs.getLong("submission_id")).willReturn(0L);
+        given(rs.wasNull()).willReturn(true);
+        stubQueryMapsRow(rs);
+
+        assertThat(repo.findSubmissionNumber(42L)).isEmpty();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void findSubmissionNumber_noRows_returnsEmpty() {
+        given(jdbc.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .willReturn(List.of());
+
+        assertThat(repo.findSubmissionNumber(42L)).isEmpty();
+    }
+
+    // ---------------------------------------------------------------
     // existsBySubmissionNumber
     // ---------------------------------------------------------------
 

@@ -8,6 +8,12 @@ import { useSubmissionHistoryListQuery, useSubmissionInvoiceCommentsQuery } from
 
 // ── Service mocks ─────────────────────────────────────────────────────────────
 
+const mockNavigate = vi.fn();
+vi.mock('react-router', async (orig) => ({
+  ...(await orig<typeof import('react-router')>()),
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock('@/services/submissionHistory.service', () => ({
   useSubmissionHistoryListQuery: vi.fn(),
   useSubmissionInvoiceCommentsQuery: vi.fn(),
@@ -20,6 +26,7 @@ import { SubmissionHistoryPage } from './index';
 
 const sampleRow = {
   cspSubmissionId: 1234,
+  submissionId: '9001',
   submissionDate: '2025-08-09',
   submittedBy: 'John Smith',
   clientNumber: '00001234',
@@ -102,9 +109,40 @@ describe('SubmissionHistoryPage', () => {
   it('renders the invoice count link and comment badge', () => {
     setListData([sampleRow]);
     renderPage();
-    expect(screen.getByRole('link', { name: /12 invoices/i })).toBeInTheDocument();
+    // The link targets the submission number, not the internal csp submission id.
+    expect(screen.getByRole('link', { name: /12 invoices/i })).toHaveAttribute('href', '/submission-history/9001');
     // commentedInvoiceCount badge
     expect(screen.getByTitle(/2 invoice\(s\) with comments/i)).toBeInTheDocument();
+  });
+
+  it('navigates in-app by submission number from both the link and the view button', () => {
+    setListData([sampleRow]);
+    renderPage();
+
+    fireEvent.click(screen.getByRole('link', { name: /12 invoices/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001');
+
+    mockNavigate.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /view submission/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001');
+  });
+
+  it('leaves a cmd/ctrl-click to the browser so the row opens in a new tab', () => {
+    setListData([sampleRow]);
+    renderPage();
+
+    const opened = fireEvent.click(screen.getByRole('link', { name: /12 invoices/i }), { ctrlKey: true });
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(opened).toBe(true);
+  });
+
+  it('does not link a manual submission, which has no submission number', () => {
+    setListData([{ ...sampleRow, submissionId: null }]);
+    renderPage();
+    expect(screen.queryByRole('link', { name: /12 invoices/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/12 invoices/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /view submission/i })).not.toBeInTheDocument();
   });
 
   it('loads invoice comments into the expanded sub-table when a row is expanded', () => {

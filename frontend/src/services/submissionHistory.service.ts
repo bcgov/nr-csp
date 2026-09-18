@@ -3,9 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/config/api/request';
 import { type PageResponse } from '@/services/search.service';
 
-/** One row of the submission history list. */
+/**
+ * One row of the submission history list. `cspSubmissionId` is the internal id
+ * the invoice-comments sub-resource is keyed on; `submissionId` is the business
+ * submission number the detail page is keyed on, and is null for manual
+ * submissions (which have no detail page).
+ */
 export interface SubmissionHistoryRowResponse {
   cspSubmissionId: number | null;
+  submissionId: string | null;
   submissionDate: string;
   submittedBy: string | null;
   clientNumber: string | null;
@@ -104,11 +110,17 @@ export const listSubmissionHistory = (
     .then(({ data }) => data);
 };
 
-export const getSubmissionDetail = (id: string | number): Promise<SubmissionDetailResponse> =>
-  apiClient.get<SubmissionDetailResponse>(`/submission-history/${id}`).then(({ data }) => data);
+/** Keyed on the business submission number, not the internal csp submission id. */
+export const getSubmissionDetail = (submissionId: string | number): Promise<SubmissionDetailResponse> =>
+  apiClient.get<SubmissionDetailResponse>(`/submission-history/${submissionId}`).then(({ data }) => data);
 
-export const getSubmissionInvoiceComments = (id: string | number): Promise<SubmissionInvoiceCommentResponse[]> =>
-  apiClient.get<SubmissionInvoiceCommentResponse[]>(`/submission-history/${id}/invoices`).then(({ data }) => data);
+/** Keyed on the internal csp submission id, so it also serves manual submissions. */
+export const getSubmissionInvoiceComments = (
+  cspSubmissionId: string | number,
+): Promise<SubmissionInvoiceCommentResponse[]> =>
+  apiClient
+    .get<SubmissionInvoiceCommentResponse[]>(`/submission-history/${cspSubmissionId}/invoices`)
+    .then(({ data }) => data);
 
 /**
  * Root key shared by every submission-history query (list, detail, invoice
@@ -133,11 +145,11 @@ export const useSubmissionHistoryListQuery = (params: SubmissionHistoryListParam
     ...LIVE_DATA_OPTIONS,
   });
 
-export const useSubmissionDetailQuery = (id: string | undefined) =>
+export const useSubmissionDetailQuery = (submissionId: string | undefined) =>
   useQuery({
-    queryKey: [...SUBMISSION_HISTORY_QUERY_KEY, 'detail', id],
-    queryFn: () => getSubmissionDetail(id as string),
-    enabled: !!id,
+    queryKey: [...SUBMISSION_HISTORY_QUERY_KEY, 'detail', submissionId],
+    queryFn: () => getSubmissionDetail(submissionId as string),
+    enabled: !!submissionId,
     ...LIVE_DATA_OPTIONS,
   });
 

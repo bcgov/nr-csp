@@ -109,7 +109,7 @@ export default function App() {
                         }
                       />
                       <Route
-                        path={`${ROUTES.SUBMISSION_HISTORY}/:id`}
+                        path={`${ROUTES.SUBMISSION_HISTORY}/:submissionId`}
                         element={
                           <ProtectedRoute>
                             <ViewSubmissionPage />

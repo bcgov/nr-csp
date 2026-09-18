@@ -196,7 +196,7 @@ public class CspSubmissionController implements CspSubmissionApi {
                     .toList();
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
                     new SubmissionSubmitResponse(false, CODE_VALIDATION_ERROR,
-                            "Submission failed structural validation", null,
+                            "Submission failed structural validation", null, null,
                             List.of(), List.of(), messages));
         }
 
@@ -217,15 +217,16 @@ public class CspSubmissionController implements CspSubmissionApi {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
                     new SubmissionSubmitResponse(false, code,
                             "Submission cannot be saved until all issues are resolved.",
-                            null, result.acceptance().accepted(), rejected, messages));
+                            null, null, result.acceptance().accepted(), rejected, messages));
         }
 
         String submitterEmail = hasText(email) ? email.trim() : null;
         String submitterPhone = hasText(telephone) ? telephone.trim() : null;
 
-        Long submissionId = persistenceService.persist(submission, submitterEmail, submitterPhone);
+        CspSubmissionPersistenceService.PersistedSubmission saved =
+                persistenceService.persist(submission, submitterEmail, submitterPhone);
         return ResponseEntity.ok(new SubmissionSubmitResponse(
-                true, "OK", "Submission saved.", submissionId,
+                true, "OK", "Submission saved.", saved.cspSubmissionId(), saved.submissionNumber(),
                 result.acceptance().accepted(), List.of(), List.of()));
     }
 
@@ -363,7 +364,7 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     private SubmissionSubmitResponse submitError(String code, String message) {
-        return new SubmissionSubmitResponse(false, code, message, null, List.of(), List.of(),
+        return new SubmissionSubmitResponse(false, code, message, null, null, List.of(), List.of(),
                 List.of(new ValidationMessageResponse(code, null, MessageType.ERROR.name(), message)));
     }
 

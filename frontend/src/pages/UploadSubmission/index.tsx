@@ -239,8 +239,16 @@ export function UploadSubmissionPage() {
         email: fields.email,
         telephone: fields.telephone,
       });
-      if (result.valid && result.submissionId != null) {
-        navigate(`${ROUTES.SUBMISSION_HISTORY}/${result.submissionId}`);
+      // A valid result means the submission is already persisted, so always leave
+      // the form — staying here would show a clean "no issues" banner with Submit
+      // still enabled, inviting a duplicate save. Without a submission number
+      // there is no detail page to open, so fall back to the list.
+      if (result.valid) {
+        navigate(
+          result.submissionNumber != null
+            ? `${ROUTES.SUBMISSION_HISTORY}/${result.submissionNumber}`
+            : ROUTES.SUBMISSION_HISTORY,
+        );
         return;
       }
       // Rejected at submit time — surface the issues instead of saving.

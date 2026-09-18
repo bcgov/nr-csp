@@ -7,9 +7,13 @@ import java.util.List;
 
 /**
  * Response for the submission submit (persist) endpoint. On success it carries
- * the new {@code submissionId}; on a validation failure it mirrors the business
+ * the new submission's two ids; on a validation failure it mirrors the business
  * validation envelope (the submission is not saved unless every invoice is
  * accepted).
+ *
+ * <p>The two ids are not interchangeable: {@code submissionId} is the internal
+ * primary key, while {@code submissionNumber} is the business number the UI shows
+ * and the submission detail page is keyed on.</p>
  */
 @Schema(description = "Result of submitting (persisting) an uploaded submission.")
 public record SubmissionSubmitResponse(
@@ -19,8 +23,11 @@ public record SubmissionSubmitResponse(
         String code,
         @Schema(description = "Human-readable summary")
         String message,
-        @Schema(description = "New csp_submission id when saved; null when not saved", example = "12345")
+        @Schema(description = "New internal csp_submission id when saved; null when not saved", example = "12345")
         Long submissionId,
+        @Schema(description = "Business submission number allocated to the saved submission — what the "
+                + "submission detail page is keyed on; null when not saved", example = "9001")
+        Long submissionNumber,
         @Schema(description = "Invoice numbers accepted by business validation")
         List<String> acceptedInvoices,
         @Schema(description = "Invoice numbers rejected by business validation (blocks the save)")
