@@ -22,6 +22,7 @@ const UnderConstructionTag: FC<UnderConstructionTagProps> = ({ type = 'feature' 
   <Tooltip
     label={`This ${type} is under development. Features may be incomplete or display incorrect data.`}
     align="bottom"
+    autoAlign
   >
     <Tag className="under-construction-tag" type="cyan" size="md" renderIcon={Construction}>
       Under construction
