@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 
 import DateInput from './index';
@@ -13,6 +14,24 @@ const setup = (overrides: Partial<React.ComponentProps<typeof DateInput>> = {}) 
 const lastDate = (onChange: ReturnType<typeof vi.fn>): Date | undefined => {
   const call = [...onChange.mock.calls].reverse().find((c) => Array.isArray(c[0]) && c[0].length === 1);
   return call?.[0][0];
+};
+
+const committed = (onChange: ReturnType<typeof vi.fn>): Date[] => (onChange.mock.calls.at(-1)?.[0] ?? []) as Date[];
+
+const allEmitted = (onChange: ReturnType<typeof vi.fn>): Date[] =>
+  onChange.mock.calls.flatMap((c) => (c[0] ?? []) as Date[]);
+
+// Mirrors a page that holds the date in state and hands it straight back.
+const Controlled = () => {
+  const [held, setHeld] = useState<Date | null>(null);
+  return (
+    <DateInput
+      id="c"
+      labelText="Controlled date"
+      value={held ?? undefined}
+      onChange={(dates) => setHeld(dates[0] ?? null)}
+    />
+  );
 };
 
 describe('DateInput', () => {
@@ -46,5 +65,121 @@ describe('DateInput', () => {
   it('shows an externally provided ISO value in the field', () => {
     const { input } = setup({ value: '2026-03-15' });
     expect(input.value).toContain('2026');
+  });
+
+  it('does not roll an out-of-range day over when Enter is pressed', async () => {
+    const { input, onChange } = setup();
+    await userEvent.type(input, '2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(input.value).toBe('2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    // Flagged as an error the user has to fix, not a warning.
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(document.querySelector('.cds--date-picker-input__wrapper--warn')).toBeNull();
+    expect(committed(onChange)).toEqual([]);
+    // Nothing rolled over into March on the way through, either.
+    expect(allEmitted(onChange).some((d) => d.getMonth() === 2)).toBe(false);
+  });
+
+  it('does not invent a date for an incomplete value on Enter', async () => {
+    const { input, onChange } = setup();
+    await userEvent.type(input, '2026-1');
+    await userEvent.keyboard('{Enter}');
+
+    expect(input.value).toBe('2026-1');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(committed(onChange)).toEqual([]);
+  });
+
+  it('still commits a valid typed date on Enter', async () => {
+    const { input, onChange } = setup();
+    await userEvent.type(input, '2026-02-05');
+    await userEvent.keyboard('{Enter}');
+
+    expect(input.value).toBe('2026-02-05');
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    const d = lastDate(onChange);
+    expect(d?.getFullYear()).toBe(2026);
+    expect(d?.getMonth()).toBe(1);
+    expect(d?.getDate()).toBe(5);
+  });
+
+  it('still accepts a date picked from the calendar, and clears an earlier warning', async () => {
+    const { input, onChange } = setup();
+    await userEvent.type(input, '2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+
+    await userEvent.clear(input);
+    await userEvent.click(input);
+    const day = document.querySelector('.flatpickr-calendar .flatpickr-day:not(.flatpickr-disabled)');
+    expect(day).not.toBeNull();
+    await userEvent.click(day as HTMLElement);
+
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+    expect(committed(onChange)).toHaveLength(1);
+    expect(input.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  // Swallowing the Enter event also swallows flatpickr's only call to close(),
+  // while Carbon's keypress listener still hides the calendar — leaving it
+  // unable to reopen unless the two are kept in step.
+  it('leaves the calendar closed and reopenable after a rejected Enter', async () => {
+    const { input } = setup();
+    const fp = (input as unknown as { _flatpickr: { isOpen: boolean } })._flatpickr;
+
+    await userEvent.click(input);
+    expect(fp.isOpen).toBe(true);
+
+    await userEvent.type(input, '2026-02-51');
+    await userEvent.keyboard('{Enter}');
+    expect(fp.isOpen).toBe(false);
+    expect(document.querySelector('.flatpickr-calendar.open')).toBeNull();
+
+    await userEvent.click(input);
+    expect(fp.isOpen).toBe(true);
+    expect(document.querySelector('.flatpickr-calendar.open')).not.toBeNull();
+  });
+
+  // Reported in review: typing 2020-02-33 into a field whose page feeds the
+  // value back wiped the whole entry on the last keystroke instead of showing
+  // the error, while pasting the same text showed it. Typing passes through
+  // "2020-02-3" — a valid date — which the page handed back, and Carbon applied
+  // it to the input; the keystroke that invalidated it then blanked the field.
+  it('keeps every keystroke visible when the page feeds the value back', async () => {
+    render(<Controlled />);
+    const input = screen.getByLabelText('Controlled date') as HTMLInputElement;
+
+    await userEvent.type(input, '2020-02-3');
+    expect(input.value).toBe('2020-02-3');
+
+    await userEvent.type(input, '3');
+    expect(input.value).toBe('2020-02-33');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('types a valid date through without reformatting it under the caret', async () => {
+    render(<Controlled />);
+    const input = screen.getByLabelText('Controlled date') as HTMLInputElement;
+
+    await userEvent.type(input, '2020-02-5');
+    expect(input.value).toBe('2020-02-5');
+
+    await userEvent.type(input, '{Backspace}05');
+    expect(input.value).toBe('2020-02-05');
+    expect(screen.queryByText('Invalid date')).not.toBeInTheDocument();
+  });
+
+  it('flags an invalid date left in the field when focus moves away', async () => {
+    const { input, onChange } = setup();
+    await userEvent.type(input, '2026-02-51');
+    await userEvent.tab();
+
+    expect(input.value).toBe('2026-02-51');
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+    expect(committed(onChange)).toEqual([]);
   });
 });
