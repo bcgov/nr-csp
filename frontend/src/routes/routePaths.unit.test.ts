@@ -26,7 +26,6 @@ describe('ROUTES', () => {
   it('has exactly the expected keys', () => {
     expect(Object.keys(ROUTES)).toEqual([
       'LANDING',
-      'LOGIN',
       'LOGOUT',
       'SEARCH',
       'SUBMISSION_HISTORY',

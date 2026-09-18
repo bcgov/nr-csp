@@ -21,7 +21,6 @@ function renderRoute({ bceidAllowed }: { bceidAllowed?: boolean } = {}) {
   return render(
     <MemoryRouter initialEntries={['/private']}>
       <Routes>
-        <Route path={ROUTES.LOGIN} element={<div>Login Page</div>} />
         <Route path={ROUTES.UPLOAD_SUBMISSION} element={<div>Upload Submission Page</div>} />
         <Route
           path="/private"
@@ -44,7 +43,13 @@ describe('ProtectedRoute — auth states', () => {
   });
 
   it('shows the loading screen while auth is loading', () => {
-    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: true, isSigningOut: false });
+    mockUseAuth.mockReturnValue({
+      user: null,
+      isAuthenticated: false,
+      isLoading: true,
+      isSigningOut: false,
+      signIn: vi.fn(),
+    });
 
     renderRoute();
 
@@ -53,7 +58,13 @@ describe('ProtectedRoute — auth states', () => {
   });
 
   it('shows the loading screen while signing out', () => {
-    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: true });
+    mockUseAuth.mockReturnValue({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isSigningOut: true,
+      signIn: vi.fn(),
+    });
 
     renderRoute();
 
@@ -61,13 +72,15 @@ describe('ProtectedRoute — auth states', () => {
     expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
   });
 
-  it('redirects to /login when unauthenticated', () => {
-    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: false });
+  it('shows the loading screen and starts an IDIR sign-in when unauthenticated', () => {
+    const signIn = vi.fn();
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false, isSigningOut: false, signIn });
 
     renderRoute();
 
-    expect(screen.getByText('Login Page')).toBeInTheDocument();
+    expect(screen.getByTestId('loading')).toBeInTheDocument();
     expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
+    expect(signIn).toHaveBeenCalledWith('IDIR');
   });
 
   it('renders children when authenticated as IDIR', () => {
@@ -76,6 +89,7 @@ describe('ProtectedRoute — auth states', () => {
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,
+      signIn: vi.fn(),
     });
 
     renderRoute();
@@ -90,6 +104,7 @@ describe('ProtectedRoute — auth states', () => {
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,
+      signIn: vi.fn(),
     });
 
     renderRoute();
@@ -104,6 +119,7 @@ describe('ProtectedRoute — auth states', () => {
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,
+      signIn: vi.fn(),
     });
 
     renderRoute({ bceidAllowed: true });

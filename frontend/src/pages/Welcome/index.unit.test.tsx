@@ -82,7 +82,7 @@ describe('WelcomePage', () => {
 
     await user.click(screen.getByRole('button', { name: /log in with idir/i }));
 
-    expect(signIn).toHaveBeenCalledTimes(1);
+    expect(signIn).toHaveBeenCalledWith('IDIR');
   });
 
   it('reports a sign-in that fails before it leaves the page', async () => {
@@ -95,14 +95,23 @@ describe('WelcomePage', () => {
     expect(await screen.findByText(/could not start the idir login/i)).toBeInTheDocument();
   });
 
-  it('says Business BCeID is not wired up yet instead of starting a sign-in', async () => {
+  it('starts the BCeID sign-in when the Business BCeID button is pressed', async () => {
     const user = userEvent.setup();
     arrange();
 
     await user.click(screen.getByRole('button', { name: /log in with business bceid/i }));
 
-    expect(await screen.findByText(/business bceid login is not available yet/i)).toBeInTheDocument();
-    expect(signIn).not.toHaveBeenCalled();
+    expect(signIn).toHaveBeenCalledWith('BCEID');
+  });
+
+  it('reports a BCeID sign-in that fails before it leaves the page', async () => {
+    const user = userEvent.setup();
+    signIn.mockRejectedValueOnce(new Error('UserAlreadyAuthenticatedException'));
+    arrange();
+
+    await user.click(screen.getByRole('button', { name: /log in with business bceid/i }));
+
+    expect(await screen.findByText(/could not start the bceid login/i)).toBeInTheDocument();
   });
 
   it('sends an already-authenticated visitor into the app', () => {

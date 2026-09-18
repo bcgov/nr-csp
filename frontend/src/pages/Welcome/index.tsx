@@ -63,10 +63,19 @@ export function WelcomePage() {
   if (isLoading || isCallbackPending) return <LoadingScreen />;
 
   const startIdirLogin = () =>
-    void signIn().catch(() =>
+    void signIn('IDIR').catch(() =>
       addNotification({
         kind: 'error',
         title: 'Could not start the IDIR login',
+        subtitle: 'Please try again, or reload the page if this keeps happening.',
+      }),
+    );
+
+  const startBceidLogin = () =>
+    void signIn('BCEID').catch(() =>
+      addNotification({
+        kind: 'error',
+        title: 'Could not start the BCeID login',
         subtitle: 'Please try again, or reload the page if this keeps happening.',
       }),
     );
@@ -86,13 +95,7 @@ export function WelcomePage() {
             size="lg"
             renderIcon={Login}
             className="welcome-page__action"
-            onClick={() =>
-              addNotification({
-                kind: 'info',
-                title: 'Business BCeID login is not available yet',
-                subtitle: 'Please log in with IDIR to continue.',
-              })
-            }
+            onClick={startBceidLogin}
           >
             Log in with Business BCeID
           </Button>
