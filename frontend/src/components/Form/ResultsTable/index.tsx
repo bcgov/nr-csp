@@ -242,6 +242,14 @@ const ResultsTable = <T extends { id: string }>({
       itemsPerPageText={paginationItemsPerPageText}
       itemRangeText={paginationItemRangeText}
       pageRangeText={paginationPageRangeText}
+      // Carbon renders the prev/next nav buttons as IconButtons but exposes no
+      // `autoAlign`, so their default top-centered tooltips bleed past the
+      // viewport edge (the rightmost "Next page" button caused a horizontal
+      // scrollbar — CSP-625). The nav buttons always sit at the right end of
+      // the bar, so point the tooltips inward: "Next page" opens left, and
+      // "Previous page" opens up (it isn't near the edge).
+      forwardTextTooltipPosition="left"
+      backwardTextTooltipPosition="top"
     />
   ) : null;
 
