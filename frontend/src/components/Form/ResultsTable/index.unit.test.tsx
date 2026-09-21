@@ -95,6 +95,50 @@ describe('ResultsTable - page clamping', () => {
     expect(onPaginationChange).not.toHaveBeenCalled();
   });
 
+  it('does not let a page below 1 reach the control', () => {
+    const onPaginationChange = vi.fn();
+    const { container } = render(
+      <ResultsTable
+        rows={[]}
+        columns={columns}
+        hasSearched
+        page={0}
+        pageSize={20}
+        totalItems={100}
+        isLoading={false}
+        onPaginationChange={onPaginationChange}
+      />,
+    );
+
+    // Carbon disables its back button on `page === 1` alone, so an unclamped 0 would
+    // leave it live and send the parent to -1.
+    const back = container.querySelector('.cds--pagination__button--backward') as HTMLButtonElement;
+    expect(back.disabled).toBe(true);
+    fireEvent.click(back);
+    expect(onPaginationChange).not.toHaveBeenCalled();
+  });
+
+  it('derives the page count from the same pageSize fallback the control uses', () => {
+    const onPaginationChange = vi.fn();
+    const { container } = render(
+      <ResultsTable
+        rows={[]}
+        columns={columns}
+        hasSearched
+        page={3}
+        totalItems={100}
+        isLoading={false}
+        onPaginationChange={onPaginationChange}
+      />,
+    );
+
+    // With `pageSize` omitted both sides fall back to 20, so this is 5 pages and page 3
+    // is in range — a mismatched fallback would have pinned the display to page 1.
+    const pageSelect = container.querySelector('select[id$="-right"]') as HTMLSelectElement;
+    expect(pageSelect.options.length).toBe(5);
+    expect(pageSelect.value).toBe('3');
+  });
+
   it('disables the forward button while a fetch is in flight with no total yet', () => {
     const onPaginationChange = vi.fn();
     const { container } = render(

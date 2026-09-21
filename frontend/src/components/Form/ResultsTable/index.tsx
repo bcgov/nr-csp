@@ -244,13 +244,19 @@ const ResultsTable = <T extends { id: string }>({
   // set, but equally an in-flight or failed fetch — and on a restored page whose data has
   // since shrunk. Showing the control the clamped position keeps it honest without
   // touching the parent's page, which the effect above owns and only moves on real data.
-  const lastRenderablePage = pageSize ? Math.max(1, Math.ceil((totalItems ?? 0) / pageSize)) : 1;
-  const paginationPage = Math.min(page ?? 1, lastRenderablePage);
+  //
+  // Both bounds matter: clamping only from above would let a `page` of 0 or less through
+  // to Carbon, which disables its back button on `page === 1` alone and so would hand the
+  // parent a page of -1. The page count is derived from the same `pageSize` fallback the
+  // control is given, so the two can never disagree about how many pages there are.
+  const effectivePageSize = pageSize || 20;
+  const lastRenderablePage = Math.max(1, Math.ceil((totalItems ?? 0) / effectivePageSize));
+  const paginationPage = Math.min(Math.max(page ?? 1, 1), lastRenderablePage);
 
   const paginationBar = onPaginationChange ? (
     <Pagination
       totalItems={totalItems ?? 0}
-      pageSize={pageSize ?? 20}
+      pageSize={effectivePageSize}
       pageSizes={pageSizes ?? [20, 40, 60, 80, 100]}
       page={paginationPage}
       onChange={onPaginationChange}
