@@ -138,7 +138,7 @@ export function SubmissionHistoryPage() {
             label="View submission"
             align="left"
              autoAlign
-            onClick={() => navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.cspSubmissionId}`)}
+            onClick={() => navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`)}
           >
             <View />
           </IconButton>
