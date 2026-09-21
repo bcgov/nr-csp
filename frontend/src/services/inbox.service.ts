@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/config/api/request';
 import { type PageResponse } from '@/services/search.service';
@@ -43,6 +43,10 @@ export const useInboxSearchQuery = (params: InboxSearchParams, enabled: boolean)
     queryKey: ['inbox', params],
     queryFn: () => searchInbox(params),
     enabled,
+    // Keep the previous page's rows and totals on screen while the next page's
+    // request is in flight, so the pagination bar never flickers to
+    // "0 – 0 of 0" on the first visit to a page (CSP-630).
+    placeholderData: keepPreviousData,
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,

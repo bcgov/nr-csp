@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -58,5 +58,41 @@ describe('useInboxSearchQuery', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(PAGE);
+  });
+
+  it('keeps the previous page on screen while the next page is fetching (CSP-630)', async () => {
+    const PAGE_1 = { content: [], totalElements: 42, totalPages: 3, size: 20, number: 0 };
+    const PAGE_2 = { ...PAGE_1, number: 1 };
+
+    // Page 1 resolves immediately; page 2's request is held pending so we can
+    // observe the in-flight window a first visit to that page opens up.
+    let releasePage2: (value: { data: typeof PAGE_2 }) => void = () => {};
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({ data: PAGE_1 })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          releasePage2 = resolve;
+        }),
+      );
+
+    const { result, rerender } = renderHook(({ page }) => useInboxSearchQuery({ page, size: 20 }, true), {
+      wrapper: createWrapper(),
+      initialProps: { page: 0 },
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual(PAGE_1));
+
+    // Navigate to a page number never visited before: its request is in flight.
+    rerender({ page: 1 });
+
+    // Without keepPreviousData the hook would report `data: undefined` here, and
+    // the consumer would collapse totalElements to 0 — the "0 – 0 of 0" flicker.
+    await waitFor(() => expect(result.current.isPlaceholderData).toBe(true));
+    expect(result.current.data).toEqual(PAGE_1);
+    expect(result.current.data?.totalElements).toBe(42);
+
+    act(() => releasePage2({ data: PAGE_2 }));
+    await waitFor(() => expect(result.current.data).toEqual(PAGE_2));
+    expect(result.current.isPlaceholderData).toBe(false);
   });
 });

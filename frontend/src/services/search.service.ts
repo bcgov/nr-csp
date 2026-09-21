@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/config/api/request';
 
@@ -70,6 +70,10 @@ export const useSearchQuery = (params: SearchParams, enabled: boolean) =>
     queryKey: ['search', params],
     queryFn: () => searchInvoices(params),
     enabled,
+    // Keep the previous page's rows and totals on screen while the next page's
+    // request is in flight, so the pagination bar never flickers to
+    // "0 – 0 of 0" on the first visit to a page (CSP-630).
+    placeholderData: keepPreviousData,
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,

@@ -111,6 +111,46 @@ describe('sort-code hooks', () => {
     expect(result.current.data).toEqual(PAGE);
   });
 
+  it('keeps the previous page on screen while the next page is fetching (CSP-630)', async () => {
+    const PAGE_1 = { content: [SORT_CODE], totalElements: 42, totalPages: 3, size: 20, number: 0 };
+    const PAGE_2 = { ...PAGE_1, content: [{ ...SORT_CODE, sortCode: 'B' }], number: 1 };
+
+    // Page 1 resolves immediately; page 2's request is held pending so we can
+    // observe the in-flight window a first visit to that page opens up.
+    let releasePage2: (value: { data: typeof PAGE_2 }) => void = () => {};
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({ data: PAGE_1 })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          releasePage2 = resolve;
+        }),
+      );
+
+    const { wrapper } = createWrapper();
+    const { result, rerender } = renderHook(({ page }) => useListSortCodesQuery(page, 20), {
+      wrapper,
+      initialProps: { page: 0 },
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual(PAGE_1));
+
+    // Navigate to page 2 (a page number never visited before): its request is
+    // still in flight.
+    rerender({ page: 1 });
+
+    // Without keepPreviousData the hook would report `data: undefined` here, and
+    // the consumer would collapse totalElements to 0 — the "0 – 0 of 0" flicker.
+    // Instead the previous page's rows and totals must stay put until page 2 lands.
+    await waitFor(() => expect(result.current.isPlaceholderData).toBe(true));
+    expect(result.current.data).toEqual(PAGE_1);
+    expect(result.current.data?.totalElements).toBe(42);
+
+    // Once page 2 lands the hook swaps to the fresh data.
+    act(() => releasePage2({ data: PAGE_2 }));
+    await waitFor(() => expect(result.current.data).toEqual(PAGE_2));
+    expect(result.current.isPlaceholderData).toBe(false);
+  });
+
   it.each([
     {
       label: 'create',

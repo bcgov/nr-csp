@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/config/api/request';
 import { SORT_CODE_LOOKUP_QUERY_KEY } from '@/services/lookup.service';
@@ -51,7 +51,14 @@ export const deleteSortCode = (code: string): Promise<void> =>
   apiClient.delete(`/sort-codes/${code}`).then(() => undefined);
 
 export const useListSortCodesQuery = (page: number, size: number, sort?: string) =>
-  useQuery({ queryKey: [...QUERY_KEY, page, size, sort], queryFn: () => listSortCodes(page, size, sort) });
+  useQuery({
+    queryKey: [...QUERY_KEY, page, size, sort],
+    queryFn: () => listSortCodes(page, size, sort),
+    // Keep the previous page's rows and totals on screen while the next page's
+    // request is in flight, so the pagination bar never flickers to
+    // "0 – 0 of 0" on the first visit to a page (CSP-630).
+    placeholderData: keepPreviousData,
+  });
 
 // Refresh every cache a sort-code change affects: the maintenance list (active,
 // so invalidation refetches it) and the shared lookup that feeds the invoice and
