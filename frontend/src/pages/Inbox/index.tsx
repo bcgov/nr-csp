@@ -109,7 +109,7 @@ export function InboxPage() {
 
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error } = useInboxSearchQuery(queryParams, hasSearched);
+  const { data, isLoading, isPlaceholderData, isError, error } = useInboxSearchQuery(queryParams, hasSearched);
 
   // Extract the most specific message from a backend 400 validation response.
   const apiErrorMessage = (() => {
@@ -332,6 +332,7 @@ export function InboxPage() {
             serverSide
             hasSearched={hasSearched}
             isLoading={isLoading}
+            isFetching={isPlaceholderData}
             page={currentPage}
             pageSize={pageSize}
             totalItems={totalElements}

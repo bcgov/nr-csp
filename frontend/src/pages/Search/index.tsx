@@ -157,7 +157,7 @@ export function SearchPage() {
     keyword: keyword || undefined,
   };
 
-  const { data, isLoading, isError } = useSearchQuery(queryParams, hasSearched);
+  const { data, isLoading, isPlaceholderData, isError } = useSearchQuery(queryParams, hasSearched);
 
   const rows: InvoiceRow[] = hasSearched ? (data?.content ?? []).map(toInvoiceRow) : [];
   const totalElements = hasSearched ? (data?.totalElements ?? 0) : 0;
@@ -381,6 +381,7 @@ export function SearchPage() {
             serverSide
             hasSearched={hasSearched}
             isLoading={isLoading}
+            isFetching={isPlaceholderData}
             page={currentPage}
             pageSize={pageSize}
             onSortChange={(sortKey, sortDir) => {

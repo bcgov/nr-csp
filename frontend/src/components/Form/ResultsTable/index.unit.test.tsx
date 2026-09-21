@@ -249,6 +249,55 @@ describe('ResultsTable - page clamping', () => {
   });
 });
 
+describe('ResultsTable - fetching a new page', () => {
+  it('skeletons the body but keeps the pagination bar and its counts while fetching (CSP-630)', () => {
+    // `isFetching` models a page change under keepPreviousData: the previous
+    // page's rows are still in `rows`, but the body should skeleton rather than
+    // show them, while the pagination bar keeps rendering from `totalItems`.
+    const onPaginationChange = vi.fn();
+    const { container } = render(
+      <ResultsTable
+        rows={[{ id: '1', name: 'Alpha' }]}
+        columns={columns}
+        hasSearched
+        serverSide
+        page={2}
+        pageSize={20}
+        totalItems={42}
+        isLoading={false}
+        isFetching
+        onPaginationChange={onPaginationChange}
+      />,
+    );
+
+    // The stale row is not shown — the body is skeletoned instead.
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+    // The pagination bar stays, rendering the retained totals (not blanked to 0).
+    const pagination = container.querySelector('.cds--pagination');
+    expect(pagination).not.toBeNull();
+    expect(pagination).toHaveTextContent('42');
+  });
+
+  it('renders the real rows once the fetch settles (isFetching false)', () => {
+    render(
+      <ResultsTable
+        rows={[{ id: '1', name: 'Alpha' }]}
+        columns={columns}
+        hasSearched
+        serverSide
+        page={2}
+        pageSize={20}
+        totalItems={42}
+        isLoading={false}
+        isFetching={false}
+        onPaginationChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+  });
+});
+
 describe('ResultsTable - keyword re-seed', () => {
   // The draft is re-seeded by comparing against the previous applied keyword during
   // render, which is React's documented way to adjust state when a prop changes. An

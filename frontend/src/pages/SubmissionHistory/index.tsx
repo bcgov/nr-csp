@@ -66,7 +66,7 @@ export function SubmissionHistoryPage() {
     sort: sortParam,
   };
 
-  const { data, isLoading, isError, error } = useSubmissionHistoryListQuery(queryParams);
+  const { data, isLoading, isPlaceholderData, isError, error } = useSubmissionHistoryListQuery(queryParams);
 
   const apiErrorMessage = (() => {
     if (!isError) return null;
@@ -175,6 +175,7 @@ export function SubmissionHistoryPage() {
               <InvoiceCommentsPanel submissionId={row.cspSubmissionId} enabled={expandedRowIds.has(row.id)} />
             )}
             isLoading={isLoading}
+            isFetching={isPlaceholderData}
             page={currentPage}
             pageSize={pageSize}
             totalItems={totalElements}
