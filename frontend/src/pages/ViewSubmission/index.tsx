@@ -31,10 +31,12 @@ const submitterName = (submittedBy: string | null): string => submittedBy?.split
 const pluralize = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
 export function ViewSubmissionPage() {
-  const { id } = useParams<{ id: string }>();
+  // The route param is the business submission number, which is what the detail
+  // endpoint is keyed on — not the internal csp submission id.
+  const { submissionId } = useParams<{ submissionId: string }>();
   const navigate = useNavigate();
 
-  const { data, isLoading, isError, error } = useSubmissionDetailQuery(id);
+  const { data, isLoading, isError, error } = useSubmissionDetailQuery(submissionId);
 
   const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(new Set());
 

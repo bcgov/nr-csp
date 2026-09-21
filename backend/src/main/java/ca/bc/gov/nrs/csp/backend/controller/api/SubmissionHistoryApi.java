@@ -45,7 +45,11 @@ public interface SubmissionHistoryApi {
 
     @Operation(
             summary = "Get submission detail",
-            description = "Returns a single submission's header, contact metadata, invoices, and line items."
+            description = """
+                    Returns a single submission's header, contact metadata, invoices, and line items, \
+                    looked up by the electronic submission number (csp_submission.submission_id) — the \
+                    id shown on the Inbox and Submission History screens. Manual submissions carry no \
+                    submission number and have no detail page."""
     )
     @ApiResponse(responseCode = "200", description = "Submission detail",
             content = @Content(schema = @Schema(implementation = SubmissionDetailResponse.class)))
@@ -53,22 +57,25 @@ public interface SubmissionHistoryApi {
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected error",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    @GetMapping("/submission-history/{id}")
+    @GetMapping("/submission-history/{submissionId}")
     ResponseEntity<SubmissionDetailResponse> getSubmissionDetail(
-            @Parameter(description = "CSP submission id.") @PathVariable Long id
+            @Parameter(description = "Electronic submission number (csp_submission.submission_id).")
+            @PathVariable Long submissionId
     );
 
     @Operation(
             summary = "Get submission invoice comments",
             description = "Returns each invoice in the submission with its status and reviewer comment, "
-                    + "backing the Submission History expanded row's \"Invoice comments\" sub-table."
+                    + "backing the Submission History expanded row's \"Invoice comments\" sub-table. "
+                    + "Unlike the detail endpoint, this is keyed on the internal csp_submission_id, so "
+                    + "it also serves manual submissions."
     )
     @ApiResponse(responseCode = "200", description = "Per-invoice status and comments",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = SubmissionInvoiceCommentResponse.class))))
     @ApiResponse(responseCode = "500", description = "Unexpected error",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    @GetMapping("/submission-history/{id}/invoices")
+    @GetMapping("/submission-history/{cspSubmissionId}/invoices")
     ResponseEntity<java.util.List<SubmissionInvoiceCommentResponse>> getSubmissionInvoiceComments(
-            @Parameter(description = "CSP submission id.") @PathVariable Long id
+            @Parameter(description = "Internal CSP submission id.") @PathVariable Long cspSubmissionId
     );
 }
