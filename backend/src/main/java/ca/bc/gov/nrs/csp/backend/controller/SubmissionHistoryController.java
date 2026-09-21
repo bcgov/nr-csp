@@ -31,14 +31,15 @@ public class SubmissionHistoryController implements SubmissionHistoryApi {
     }
 
     @Override
-    public ResponseEntity<SubmissionDetailResponse> getSubmissionDetail(Long id) {
-        log.info("GET /api/submission-history/{}", id);
-        return ResponseEntity.ok(submissionHistoryService.getById(id));
+    public ResponseEntity<SubmissionDetailResponse> getSubmissionDetail(Long submissionId) {
+        log.info("GET /api/submission-history/{}", submissionId);
+        return ResponseEntity.ok(submissionHistoryService.getById(submissionId));
     }
 
     @Override
-    public ResponseEntity<java.util.List<SubmissionInvoiceCommentResponse>> getSubmissionInvoiceComments(Long id) {
-        log.info("GET /api/submission-history/{}/invoices", id);
-        return ResponseEntity.ok(submissionHistoryService.getInvoiceComments(id));
+    public ResponseEntity<java.util.List<SubmissionInvoiceCommentResponse>> getSubmissionInvoiceComments(
+            Long cspSubmissionId) {
+        log.info("GET /api/submission-history/{}/invoices", cspSubmissionId);
+        return ResponseEntity.ok(submissionHistoryService.getInvoiceComments(cspSubmissionId));
     }
 }

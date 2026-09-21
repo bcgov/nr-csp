@@ -80,7 +80,10 @@ export interface SubmissionSubmitResponse {
   valid: boolean;
   code: string;
   message: string;
+  // Internal csp submission id — keys the invoice-comments sub-resource.
   submissionId: number | null;
+  // Business submission number — what the submission detail page is keyed on.
+  submissionNumber: number | null;
   acceptedInvoices: string[];
   rejectedInvoices: string[];
   errors: ValidationMessageResponse[];

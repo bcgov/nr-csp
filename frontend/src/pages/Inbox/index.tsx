@@ -1,6 +1,7 @@
 import { Search as SearchIcon } from '@carbon/icons-react';
-import { Grid, Column, TextInput, Button } from '@carbon/react';
+import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import PageTitle from '@/components/core/PageTitle';
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
@@ -10,15 +11,18 @@ import ResultsTable, { type ResultsTableColumn } from '@/components/Form/Results
 import SingleSelect from '@/components/Form/SingleSelect';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useSearchTableState } from '@/hooks/useSearchTableState';
+import { ROUTES } from '@/routes/routePaths';
 import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { formatDisplayDate, formatIsoDate } from '@/utils/format';
+import { isModifiedClick } from '@/utils/link';
 
 import './index.scss';
 
 type InboxRow = {
   id: string;
-  submissionId: string;
+  // Null for manual submissions, which have no submission number and so no detail page.
+  submissionId: string | null;
   submissionDate: string;
   submissionStatus: string;
   submissionType: string;
@@ -44,7 +48,7 @@ const typeItems: SelectItem[] = [
 function toInboxRow(r: InboxRowResponse, index: number): InboxRow {
   return {
     id: r.coastalLogSaleId?.toString() ?? `row-${index}`,
-    submissionId: r.submissionId ?? '—',
+    submissionId: r.submissionId,
     submissionDate: formatDisplayDate(r.submissionDate),
     submissionStatus: r.submissionStatus,
     submissionType: r.submissionType,
@@ -60,6 +64,8 @@ const NS = 'csp.table.inbox.v1';
 const DEFAULT_PAGE_SIZE = 100;
 
 export function InboxPage() {
+  const navigate = useNavigate();
+
   const {
     hasSearched,
     setHasSearched,
@@ -117,7 +123,29 @@ export function InboxPage() {
   const totalElements = hasSearched ? (data?.totalElements ?? 0) : 0;
 
   const inboxColumns: ResultsTableColumn<InboxRow>[] = [
-    { key: 'submissionId', header: 'Submission ID' },
+    {
+      key: 'submissionId',
+      header: 'Submission ID',
+      // Electronic submissions link to their detail page; manual ones have no
+      // submission number, so there is nothing to link to.
+      renderCell: (row) =>
+        row.submissionId == null ? (
+          '—'
+        ) : (
+          <Link
+            href={`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`}
+            onClick={(e) => {
+              // Let the browser own Cmd/Ctrl+Click and friends, so a row can be
+              // opened in a background tab.
+              if (isModifiedClick(e)) return;
+              e.preventDefault();
+              navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
+            }}
+          >
+            {row.submissionId}
+          </Link>
+        ),
+    },
     { key: 'submissionDate', header: 'Submission date' },
     {
       key: 'submissionStatus',

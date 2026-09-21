@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
 
@@ -7,11 +7,37 @@ import App from './App';
 // then report an anonymous visitor — MockAuthProvider is always signed in, and
 // the welcome screen sends an authenticated visitor straight into the app.
 vi.mock('@/env', () => ({ env: { mockUser: true } }));
-vi.mock('@/context/auth/useAuth', () => ({
-  useAuth: () => ({ isAuthenticated: false, isLoading: false, isSigningOut: false, signIn: vi.fn() }),
+
+const { mockUseAuth } = vi.hoisted(() => ({ mockUseAuth: vi.fn() }));
+vi.mock('@/context/auth/useAuth', () => ({ useAuth: () => mockUseAuth() }));
+
+const ANONYMOUS = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  isSigningOut: false,
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+};
+
+// Protected routes only render for a signed-in visitor, and the shell reads
+// `user` for the profile panel and permission checks.
+const SIGNED_IN = {
+  ...ANONYMOUS,
+  isAuthenticated: true,
+  user: { username: 'jsmith', email: 'j.smith@gov.bc.ca', roles: ['CSP_ADMIN'], privileges: ['ADMIN'] },
+};
+
+const useSubmissionDetailQuery = vi.fn();
+vi.mock('@/services/submissionHistory.service', () => ({
+  useSubmissionDetailQuery: (submissionId: string | undefined) => useSubmissionDetailQuery(submissionId),
 }));
 
 describe('App', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue(ANONYMOUS);
+  });
+
   it('renders the provider tree and serves the public welcome route', async () => {
     window.history.pushState({}, '', '/');
 
@@ -31,5 +57,17 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: 'Welcome to CSP' })).toBeInTheDocument();
     // `replace`, so Back doesn't return to a URL with nothing on it.
     expect(window.location.pathname).toBe('/');
+  });
+
+  // Guards the wiring between the route's param name and the page's useParams:
+  // a mismatch leaves the id undefined and the detail page silently empty.
+  it('passes the submission history url segment through to the detail lookup', async () => {
+    mockUseAuth.mockReturnValue(SIGNED_IN);
+    useSubmissionDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
+    window.history.pushState({}, '', '/submission-history/9001');
+
+    render(<App />);
+
+    await waitFor(() => expect(useSubmissionDetailQuery).toHaveBeenCalledWith('9001'));
   });
 });

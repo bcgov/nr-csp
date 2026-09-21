@@ -37,11 +37,15 @@ public class SubmissionHistoryService {
         return results;
     }
 
-    /** Loads a single submission's detail, or throws 404 when it doesn't exist. */
-    public SubmissionDetailResponse getById(Long cspSubmissionId) {
-        log.debug("Submission history detail requested for id={}", cspSubmissionId);
-        return repository.findDetail(cspSubmissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission " + cspSubmissionId + " was not found."));
+    /**
+     * Loads a single submission's detail by its electronic submission number, or
+     * throws 404 when no submission carries that number. Manual submissions have
+     * no submission number, so they have no detail page.
+     */
+    public SubmissionDetailResponse getById(Long submissionId) {
+        log.debug("Submission history detail requested for submissionId={}", submissionId);
+        return repository.findDetail(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission " + submissionId + " was not found."));
     }
 
     /** Per-invoice status + reviewer comments for a submission's expanded row. */
