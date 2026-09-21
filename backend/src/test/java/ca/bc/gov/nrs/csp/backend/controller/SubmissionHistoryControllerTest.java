@@ -51,13 +51,14 @@ class SubmissionHistoryControllerTest {
     @Test
     void listSubmissionHistory_returns200WithPagedResults() throws Exception {
         SubmissionHistoryRowResponse row = new SubmissionHistoryRowResponse(
-                200456L, LocalDate.of(2024, Month.JANUARY, 31), "IDIR\\jdoe",
+                200456L, "9001", LocalDate.of(2024, Month.JANUARY, 31), "IDIR\\jdoe",
                 "00014963", "ACME LOGGING LTD", "Approved", 3, 1);
         given(service.search(any())).willReturn(new PageImpl<>(List.of(row), PageRequest.of(0, 10), 1));
 
         mockMvc.perform(get("/api/submission-history"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].cspSubmissionId").value(200456))
+                .andExpect(jsonPath("$.content[0].submissionId").value("9001"))
                 .andExpect(jsonPath("$.content[0].submissionStatus").value("Approved"))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
@@ -75,17 +76,20 @@ class SubmissionHistoryControllerTest {
     // getSubmissionDetail
     // ---------------------------------------------------------------
 
+    // The path variable is the business submission number, NOT the internal
+    // csp_submission_id — the two are different id spaces (see SubmissionHistoryApi).
     @Test
     void getSubmissionDetail_found_returns200() throws Exception {
         SubmissionDetailResponse detail = new SubmissionDetailResponse(
-                200456L, "ESUB-1", LocalDate.of(2024, Month.JANUARY, 31), "IDIR\\jdoe", "Approved",
+                200456L, "9001", LocalDate.of(2024, Month.JANUARY, 31), "IDIR\\jdoe", "Approved",
                 "00014963", "ACME LOGGING LTD", "00", null, null, "Y", "N", null,
                 List.of(), List.of());
-        given(service.getById(200456L)).willReturn(detail);
+        given(service.getById(9001L)).willReturn(detail);
 
-        mockMvc.perform(get("/api/submission-history/200456"))
+        mockMvc.perform(get("/api/submission-history/9001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cspSubmissionId").value(200456))
+                .andExpect(jsonPath("$.submissionId").value("9001"))
                 .andExpect(jsonPath("$.clientName").value("ACME LOGGING LTD"));
     }
 
@@ -95,6 +99,12 @@ class SubmissionHistoryControllerTest {
 
         mockMvc.perform(get("/api/submission-history/999"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getSubmissionDetail_nonNumeric_returns400() throws Exception {
+        mockMvc.perform(get("/api/submission-history/not-a-number"))
+                .andExpect(status().isBadRequest());
     }
 
     // ---------------------------------------------------------------

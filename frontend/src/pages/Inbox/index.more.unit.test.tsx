@@ -7,6 +7,12 @@ import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 
 // ── Service mocks ─────────────────────────────────────────────────────────────
 
+const mockNavigate = vi.fn();
+vi.mock('react-router', async (orig) => ({
+  ...(await orig<typeof import('react-router')>()),
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock('@/services/inbox.service', () => ({
   useInboxSearchQuery: vi.fn(),
 }));
@@ -118,6 +124,44 @@ describe('InboxPage interactions', () => {
     expect(screen.getByText('January 15, 2024')).toBeInTheDocument();
     // Sparse row renders em-dash fallbacks for submission id and date.
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('links an electronic submission id to its detail page, and leaves a manual row unlinked', () => {
+    seedSearched();
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow, sparseRow], totalElements: 2 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    const link = screen.getByRole('link', { name: 'SUB-555' });
+    expect(link).toHaveAttribute('href', '/submission-history/SUB-555');
+    // Routed in-app rather than reloading the SPA on the href.
+    fireEvent.click(link);
+    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/SUB-555');
+
+    // The manual row has no submission id, so there is nothing to link to.
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('leaves a cmd/ctrl-click to the browser so the row opens in a new tab', () => {
+    seedSearched();
+    mockUseInboxSearchQuery.mockReturnValue({
+      data: { content: [fullRow], totalElements: 1 },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as never);
+    renderInboxPage();
+
+    const link = screen.getByRole('link', { name: 'SUB-555' });
+    const opened = fireEvent.click(link, { metaKey: true });
+
+    // Not routed in-app, and the default action is left intact for the browser.
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(opened).toBe(true);
   });
 
   it('applies the filter inputs to the query when Search is clicked', () => {

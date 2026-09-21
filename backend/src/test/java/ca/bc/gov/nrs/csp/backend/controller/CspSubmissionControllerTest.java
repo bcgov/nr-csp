@@ -81,6 +81,14 @@ class CspSubmissionControllerTest {
         return new MockMultipartFile("file", name, "text/xml", content);
     }
 
+    /**
+     * A saved submission. The business submission number is deliberately not the
+     * internal id, so a test can't pass by confusing the two.
+     */
+    private static CspSubmissionPersistenceService.PersistedSubmission persisted(long cspSubmissionId) {
+        return new CspSubmissionPersistenceService.PersistedSubmission(cspSubmissionId, cspSubmissionId + 900000L);
+    }
+
     // ---------- structural endpoint ----------
 
     @Test
@@ -518,14 +526,16 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any(), any(), any())).willReturn(98765L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(98765L));
 
         mockMvc.perform(multipart("/api/submissions/submit")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(true))
                 .andExpect(jsonPath("$.code").value("OK"))
-                .andExpect(jsonPath("$.submissionId").value(98765));
+                .andExpect(jsonPath("$.submissionId").value(98765))
+                // The UI navigates by the business number, not the internal id.
+                .andExpect(jsonPath("$.submissionNumber").value(998765));
 
         verify(persistenceService).persist(any(), any(), any());
     }
@@ -538,7 +548,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any(), any(), any())).willReturn(42L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(42L));
 
         mockMvc.perform(multipart("/api/submissions/submit")
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes()))
@@ -567,7 +577,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any(), any(), any())).willReturn(11L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(11L));
 
         // ESF envelope carries one set of contact details; the form fields carry edits.
         String esf = """
@@ -595,7 +605,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any(), any(), any())).willReturn(12L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(12L));
 
         String esf = """
                 <esf:ESFSubmission xmlns:esf="http://www.for.gov.bc.ca/schema/esf">
@@ -631,6 +641,7 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.submissionId").value(nullValue()))
+                .andExpect(jsonPath("$.submissionNumber").value(nullValue()))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.fob.required.error"));
 
         verify(persistenceService, never()).persist(any(), any(), any());
@@ -828,7 +839,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), submission));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any(), any(), any())).willReturn(7L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(7L));
 
         var resp = controller().submit(
                 file("x.xml", "<csp:CSPSubmission/>".getBytes()), "00999999", "01", "Y", "Y",
@@ -848,7 +859,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any(), any(), any())).willReturn(1L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(1L));
 
         ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
         controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), null, null, null, value, null, null);
@@ -870,7 +881,7 @@ class CspSubmissionControllerTest {
                         SubmissionValidationResult.ok(), sampleSubmission()));
         given(validationService.validateBusiness(any(CSPSubmissionType.class)))
                 .willReturn(SubmissionValidationResult.ok());
-        given(persistenceService.persist(any(), any(), any())).willReturn(1L);
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(1L));
 
         ArgumentCaptor<CSPSubmissionType> captor = ArgumentCaptor.forClass(CSPSubmissionType.class);
         controller().submit(file("x.xml", "<csp:CSPSubmission/>".getBytes()), "  ", "  ", "  ", "  ", "  ", "  ");

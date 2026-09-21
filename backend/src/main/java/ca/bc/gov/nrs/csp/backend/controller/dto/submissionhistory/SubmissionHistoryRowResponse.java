@@ -5,12 +5,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 
 /**
- * One row of the Submission History list. Carries {@code cspSubmissionId} so the
- * UI can navigate (via the Actions "view" button) to the submission detail page.
+ * One row of the Submission History list. Carries {@code submissionId} so the UI
+ * can navigate (via the Actions "view" button) to the submission detail page, and
+ * {@code cspSubmissionId} for the expanded row's invoice-comments sub-resource.
  */
 public record SubmissionHistoryRowResponse(
-        @Schema(description = "CSP submission id — used to navigate to the submission detail page.")
+        @Schema(description = "Internal CSP submission id — keys the invoice-comments sub-resource.")
         Long cspSubmissionId,
+
+        @Schema(description = "Electronic submission number — used to navigate to the submission detail "
+                + "page. Null for manual submissions, which have no detail page.")
+        String submissionId,
 
         @Schema(description = "Submission entry date (yyyy-MM-dd).")
         LocalDate submissionDate,

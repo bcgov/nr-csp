@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, it, expect, vi } from 'vitest';
 
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
@@ -13,13 +13,17 @@ vi.mock('@/services/submissionHistory.service', () => ({
 
 import { ViewSubmissionPage } from './index';
 
-function renderPage() {
+// Mounted through a real route so useParams() actually resolves — rendering the
+// page bare leaves the param undefined and hides a route/param mismatch.
+function renderPage(submissionId = '9001') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/submission-history/42']}>
+      <MemoryRouter initialEntries={[`/submission-history/${submissionId}`]}>
         <PageTitleProvider>
-          <ViewSubmissionPage />
+          <Routes>
+            <Route path="/submission-history/:submissionId" element={<ViewSubmissionPage />} />
+          </Routes>
         </PageTitleProvider>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -136,6 +140,13 @@ const sampleDetail = {
 };
 
 describe('ViewSubmissionPage', () => {
+  it('requests the submission named in the url, not the internal csp submission id', () => {
+    useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false, error: null });
+    renderPage('9001');
+    // sampleDetail.cspSubmissionId is 42 — the lookup must use the url's 9001.
+    expect(useSubmissionDetailQuery).toHaveBeenCalledWith('9001');
+  });
+
   it('renders a loading indicator while fetching', () => {
     useSubmissionDetailQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
     renderPage();

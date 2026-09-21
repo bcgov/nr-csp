@@ -209,11 +209,17 @@ const ResultsTable = <T extends { id: string }>({
   // the table would render an empty page even though valid rows exist on earlier
   // pages. Only acts when pagination is controlled and data has finished loading;
   // it notifies the parent (which owns `page`) to snap back to the last real page.
+  //
+  // Deliberately skipped when there is no total: `totalItems` of 0 also covers an
+  // in-flight fetch and a failed one (both leave the consumer's `data` undefined, and
+  // every consumer collapses that to 0), where rewriting the parent's page would throw
+  // away the user's position on a transient error. `paginationPage` below is what keeps
+  // the control itself coherent in those states.
   useEffect(() => {
     if (!onPaginationChange || isLoading) return;
     if (page === undefined || !pageSize) return;
     const total = totalItems ?? 0;
-    if (total <= 0) return; // no data (or unknown) — leave the empty-state alone
+    if (total <= 0) return;
     const lastPage = Math.max(1, Math.ceil(total / pageSize));
     if (page > lastPage) {
       onPaginationChange({ page: lastPage, pageSize });
@@ -232,12 +238,27 @@ const ResultsTable = <T extends { id: string }>({
     onSortChange?.(newKey, newDir);
   };
 
+  // Carbon disables its forward button only when `page === totalPages`, so a page past
+  // the end renders that button live and each click walks the parent's page further out
+  // of range. That happens whenever `page > 1` and `totalItems` is 0 — an empty result
+  // set, but equally an in-flight or failed fetch — and on a restored page whose data has
+  // since shrunk. Showing the control the clamped position keeps it honest without
+  // touching the parent's page, which the effect above owns and only moves on real data.
+  //
+  // Both bounds matter: clamping only from above would let a `page` of 0 or less through
+  // to Carbon, which disables its back button on `page === 1` alone and so would hand the
+  // parent a page of -1. The page count is derived from the same `pageSize` fallback the
+  // control is given, so the two can never disagree about how many pages there are.
+  const effectivePageSize = pageSize || 20;
+  const lastRenderablePage = Math.max(1, Math.ceil((totalItems ?? 0) / effectivePageSize));
+  const paginationPage = Math.min(Math.max(page ?? 1, 1), lastRenderablePage);
+
   const paginationBar = onPaginationChange ? (
     <Pagination
       totalItems={totalItems ?? 0}
-      pageSize={pageSize ?? 20}
+      pageSize={effectivePageSize}
       pageSizes={pageSizes ?? [20, 40, 60, 80, 100]}
-      page={page ?? 1}
+      page={paginationPage}
       onChange={onPaginationChange}
       itemsPerPageText={paginationItemsPerPageText}
       itemRangeText={paginationItemRangeText}
