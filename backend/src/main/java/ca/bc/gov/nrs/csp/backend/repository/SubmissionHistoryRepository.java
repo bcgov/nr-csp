@@ -317,7 +317,7 @@ public class SubmissionHistoryRepository {
         try {
             header = jdbc.queryForObject(DETAIL_QUERY, headerParams, (rs, rowNum) -> new SubmissionDetailHeader(
                     RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
-                    rs.getString("submission_id"),
+                    rs.getString(COL_SUBMISSION_ID),
                     RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),
                     rs.getString(COL_SUBMITTED_BY),
                     rs.getString(COL_SUBMISSION_STATUS),
