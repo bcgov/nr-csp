@@ -111,6 +111,28 @@ describe('SortCodePage', () => {
     expect(screen.queryByText('A')).not.toBeInTheDocument();
   });
 
+  it('skeletons the rows but keeps the pagination counts while a new page loads (CSP-630)', () => {
+    // keepPreviousData: the previous page's rows are still in `data`, but during
+    // the fetch (isPlaceholderData) the body should skeleton while the bar keeps
+    // rendering the retained totals rather than blanking to zero.
+    vi.mocked(service.useListSortCodesQuery).mockReturnValue({
+      data: { content: SAMPLE_ROWS, totalElements: 42 },
+      isLoading: false,
+      isPlaceholderData: true,
+      isError: false,
+      error: null,
+    } as any);
+
+    const { container } = renderPage();
+
+    // Stale rows are hidden behind the skeleton.
+    expect(screen.queryByText('Lumber - Cedar')).not.toBeInTheDocument();
+    // Pagination bar stays with the retained totals.
+    const pagination = container.querySelector('.cds--pagination');
+    expect(pagination).not.toBeNull();
+    expect(pagination).toHaveTextContent('42');
+  });
+
   it('shows an error notification when the query fails', () => {
     vi.mocked(service.useListSortCodesQuery).mockReturnValue({
       data: undefined,

@@ -48,6 +48,11 @@ export interface ResultsTableColumn<T> {
  * @property {boolean} [isSortable] - Whether columns are sortable. Defaults to false.
  * @property {boolean} [hasSearched] - When true and `rows` is empty, renders the uniform "No results found" state. When false and `rows` is empty, renders the uniform "Your search results will appear here." state.
  * @property {boolean} [isLoading] - When true, renders an animated skeleton table in place of results.
+ * @property {boolean} [isFetching] - When true (and `isLoading` is false), the body renders the same skeleton
+ *   while the keyword bar and pagination bar stay put — the bar keeps rendering from `totalItems`. Consumers pass
+ *   react-query's `isPlaceholderData`, which is true only while a newly-selected page loads and the previous page's
+ *   totals are retained (see CSP-630). Scoping to placeholder data means the body skeletons on page changes but does
+ *   not flash on background refetches of the current page (these list queries refetch on mount and window focus).
  * @property {string} [searchKeyword] - Currently applied keyword filter. Seeds the search bar, and re-seeds it whenever this changes from outside (e.g. a page's "Clear filters").
  * @property {(keyword: string) => void} [onSearchKeywordChange] - Commits the keyword filter: called on Enter, on blur, and as soon as the bar is emptied (via its clear button or by deleting the text). Keystrokes otherwise stay local to the bar, so the committed keyword always matches what the bar displays. Omit to hide the bar.
  * @property {number} [page] - Current page number. When provided alongside `pageSize` (and `serverSide` is false), sorting spans the
@@ -66,6 +71,7 @@ interface ResultsTableProps<T extends { id: string }> {
   isSortable?: boolean;
   hasSearched?: boolean;
   isLoading?: boolean;
+  isFetching?: boolean;
   searchKeyword?: string;
   onSearchKeywordChange?: (keyword: string) => void;
   page?: number;
@@ -121,6 +127,7 @@ const ResultsTable = <T extends { id: string }>({
   isSortable = false,
   hasSearched = false,
   isLoading = false,
+  isFetching = false,
   searchKeyword,
   onSearchKeywordChange,
   page,
@@ -314,7 +321,12 @@ const ResultsTable = <T extends { id: string }>({
     </div>
   ) : null;
 
-  if (isLoading) {
+  // `isLoading` is the first load (no data yet); `isFetching` is a page change
+  // under keepPreviousData, where the previous page's rows are still cached. In
+  // both cases skeleton the body — but `paginationBar` renders from `totalItems`,
+  // so on a page change the counts stay put (the retained placeholder totals)
+  // rather than blanking to zero (CSP-630).
+  if (isLoading || isFetching) {
     return (
       <div className={`results-table${expandable ? ' results-table--expandable' : ''}`}>
         {keywordBar}

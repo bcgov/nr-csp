@@ -114,7 +114,7 @@ export function SortCodePage() {
   const { addNotification } = useNotification();
   const canAdd = usePermission(PROD_SORT_CODE_ADD_NEW_ROW);
   const canEditOrDelete = usePermission(PROD_SORT_CODE_DELETE);
-  const { data, isLoading, isError, error } = useListSortCodesQuery(page - 1, pageSize, sortParam);
+  const { data, isLoading, isPlaceholderData, isError, error } = useListSortCodesQuery(page - 1, pageSize, sortParam);
   const exportMutation = useExportSortCodesMutation();
 
   const handleExport = useCallback(
@@ -236,6 +236,7 @@ export function SortCodePage() {
           serverSide
           hasSearched
           isLoading={isLoading}
+          isFetching={isPlaceholderData}
           page={page}
           pageSize={pageSize}
           onSortChange={(sortKey, sortDir) => {
@@ -254,7 +255,9 @@ export function SortCodePage() {
             setPageSize(newPageSize);
           }}
         />
-        {!isLoading && rows.length === 0 && <p className="table-maintenance-page__empty-state">No sort codes found.</p>}
+        {!isLoading && !isPlaceholderData && rows.length === 0 && (
+          <p className="table-maintenance-page__empty-state">No sort codes found.</p>
+        )}
       </>
     );
   };
