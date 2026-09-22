@@ -10,9 +10,16 @@
     padding-right: 0 !important;
   }
 
-  &__title-col {
+  // Apply horizontal padding only to the filter-side content so it keeps its
+  // inset look. The table column has no padding and therefore stretches edge to edge.
+  &__title-col,
+  &__filter-row,
+  &__clear-col {
     padding-left: $spacing-07;
     padding-right: $spacing-07;
+  }
+
+  &__title-col {
     padding-bottom: $spacing-09;
   }
 
@@ -22,32 +29,39 @@
     margin-bottom: 0;
   }
 
-  // Bug fix: --cds-grid-gutter is 0 globally, add manual gaps between filter columns
-  &__filter-col {
-    padding-right: $spacing-03;
-    padding-bottom: $spacing-05;
+  // --cds-grid-gutter is 0 globally, so the row spaces its own children.
+  &__filter-row {
+    display: flex;
+    gap: $spacing-02;
+    margin-bottom: $spacing-05;
 
-    &--first {
-      padding-left: $spacing-07;
+    &--with-btn {
+      align-items: flex-start;
     }
   }
 
-  &__search-col {
-    display: flex;
-    flex-direction: column;
-    padding-bottom: $spacing-05;
-    padding-right: $spacing-07;
+  &__filter-item {
+    flex: 1;
+    min-width: 0;
+
+    // Carbon's `.cds--label` is `display: inline-block`, so in wrappers that hold
+    // it directly (ComboBox, Select) it sits in a line box and picks up the
+    // parent's half-leading, pushing label and field down ~2px. Blockify it so
+    // every field in the row starts at the same height.
+    .cds--label {
+      display: block;
+    }
 
     .cds--btn {
-      width: 75%;
-      max-width: 75%;
+      width: 100%;
+      max-width: 100%;
     }
   }
 
   // Invisible spacer whose rendered height exactly matches Carbon's form label
   // (same type-style + same margin-block-end), so the Search button bottom-aligns
   // with the adjacent filter dropdowns without any pixel guesswork.
-  &__search-label-spacer {
+  &__search-btn-spacer {
     @include type.type-style('label-01');
     line-height: 1rem;
     display: block;
@@ -58,7 +72,6 @@
   }
 
   &__clear-col {
-    padding-left: $spacing-07;
     padding-top: $spacing-04;
     padding-bottom: $spacing-08;
   }

@@ -396,67 +396,68 @@ export function FlatPriceConversionPage() {
 
   return (
     <div className="flat-price-conversion-page">
-      <Grid>
+      <Grid fullWidth>
         <Column sm={4} md={8} lg={16} className="flat-price-conversion-page__title-col">
           <h1 className="flat-price-conversion-page__title">Flat price conversion</h1>
         </Column>
 
-        <Column
-          sm={4}
-          md={2}
-          lg={3}
-          className="flat-price-conversion-page__filter-col flat-price-conversion-page__filter-col--first"
-        >
-          <SearchableSelect
-            id="maturity-filter"
-            titleText="Maturity"
-            label=""
-            items={maturityFilterItems}
-            selectedItem={filterMaturity ? (maturityDescriptions[filterMaturity] ?? null) : null}
-            onChange={({ selectedItem }) =>
-              setFilterMaturity(selectedItem ? (maturityCodeByDescription[selectedItem] ?? null) : null)
-            }
-          />
-        </Column>
-        <Column sm={4} md={2} lg={3} className="flat-price-conversion-page__filter-col">
-          <SearchableSelect
-            id="species-filter"
-            titleText="Species"
-            label=""
-            items={speciesFilterItems}
-            selectedItem={filterSpecies ? (speciesDescriptions[filterSpecies] ?? null) : null}
-            onChange={({ selectedItem }) =>
-              setFilterSpecies(selectedItem ? (speciesCodeByDescription[selectedItem] ?? null) : null)
-            }
-          />
-        </Column>
-        <Column sm={4} md={2} lg={3} className="flat-price-conversion-page__filter-col">
-          <SearchableSelect
-            id="sort-code-filter"
-            titleText="Sort"
-            label=""
-            items={sortCodeOptions}
-            selectedItem={filterSortCode}
-            onChange={({ selectedItem }) => setFilterSortCode(selectedItem ?? null)}
-          />
-        </Column>
-        <Column sm={4} md={2} lg={3} className="flat-price-conversion-page__filter-col">
-          <SearchableSelect
-            id="grade-filter"
-            titleText="Grade"
-            label=""
-            items={gradeFilterOptions}
-            selectedItem={filterGrade}
-            onChange={({ selectedItem }) => setFilterGrade(selectedItem ?? null)}
-          />
-        </Column>
-        <Column sm={4} md={8} lg={4} className="flat-price-conversion-page__search-col">
-          <div className="flat-price-conversion-page__search-label-spacer" aria-hidden="true">
-            &nbsp;
+        {/* Filters + Search share one full-width column; the flex row spans the page
+            minus its side padding, matching Inbox and Search. */}
+        <Column sm={4} md={8} lg={16}>
+          <div className="flat-price-conversion-page__filter-row flat-price-conversion-page__filter-row--with-btn">
+            <div className="flat-price-conversion-page__filter-item">
+              <SearchableSelect
+                id="maturity-filter"
+                titleText="Maturity"
+                label=""
+                items={maturityFilterItems}
+                selectedItem={filterMaturity ? (maturityDescriptions[filterMaturity] ?? null) : null}
+                onChange={({ selectedItem }) =>
+                  setFilterMaturity(selectedItem ? (maturityCodeByDescription[selectedItem] ?? null) : null)
+                }
+              />
+            </div>
+            <div className="flat-price-conversion-page__filter-item">
+              <SearchableSelect
+                id="species-filter"
+                titleText="Species"
+                label=""
+                items={speciesFilterItems}
+                selectedItem={filterSpecies ? (speciesDescriptions[filterSpecies] ?? null) : null}
+                onChange={({ selectedItem }) =>
+                  setFilterSpecies(selectedItem ? (speciesCodeByDescription[selectedItem] ?? null) : null)
+                }
+              />
+            </div>
+            <div className="flat-price-conversion-page__filter-item">
+              <SearchableSelect
+                id="sort-code-filter"
+                titleText="Sort"
+                label=""
+                items={sortCodeOptions}
+                selectedItem={filterSortCode}
+                onChange={({ selectedItem }) => setFilterSortCode(selectedItem ?? null)}
+              />
+            </div>
+            <div className="flat-price-conversion-page__filter-item">
+              <SearchableSelect
+                id="grade-filter"
+                titleText="Grade"
+                label=""
+                items={gradeFilterOptions}
+                selectedItem={filterGrade}
+                onChange={({ selectedItem }) => setFilterGrade(selectedItem ?? null)}
+              />
+            </div>
+            <div className="flat-price-conversion-page__filter-item">
+              <span className="flat-price-conversion-page__search-btn-spacer" aria-hidden="true">
+                &nbsp;
+              </span>
+              <Button kind="primary" size="md" renderIcon={SearchIcon} iconDescription="Search" onClick={handleSearch}>
+                Search
+              </Button>
+            </div>
           </div>
-          <Button kind="primary" size="md" renderIcon={SearchIcon} iconDescription="Search" onClick={handleSearch}>
-            Search
-          </Button>
         </Column>
 
         <Column sm={4} md={8} lg={16} className="flat-price-conversion-page__clear-col">
