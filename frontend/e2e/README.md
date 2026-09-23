@@ -270,6 +270,10 @@ Set your disks to sparse, so `wsl --shutdown` can reclaim the space back to your
 `DB_CONTAINER` if you'll run the seed-patch scripts). It's loaded by `playwright.config.ts` (via dotenv) and
 auto-sourced by `scripts/apply-patches.sh` / `teardown-patches.sh`.
 
+> **CSP:** read the [CSP quick start](#csp-quick-start-this-apps-actual-coordinates) above instead —
+> the paths and the `playwright install` command below both differ on a CGI-network machine
+> (`cd frontend/e2e`, and the browser download needs `NODE_EXTRA_CA_CERTS`).
+
 ```bash
 cd e2e
 cp .env.example .env    # then edit BASE_URL / DB vars for your local stack
