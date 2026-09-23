@@ -82,14 +82,21 @@ Health check: `curl http://localhost:8080/api/health` → `{"status":"UP",...}`.
 cd frontend && npm start
 ```
 
-Then enable mock auth by adding `"mockUser": true` to `frontend/public/amplify-config.js`. That file
-is **gitignored** (local-only), so this is not an app change.
+**Nothing to configure for auth.** Do **not** hand-edit `frontend/public/amplify-config.js`.
 
 **CSP's mock auth differs from the scaffold's assumption.** `MockAuthProvider` returns
 `isAuthenticated: true` on first paint, with the role from `localStorage['csp.mockRole']` (default
 `ADMIN`). There is **no login button to click** and the session is **not** in-memory-only, so
-`page.goto()` to a protected route is safe. `pages/common/authNav.ts` has been re-grounded
-accordingly — `signInAsMockUser()` seeds the role via `addInitScript` and performs no login dance.
+`page.goto()` to a protected route is safe. `pages/common/authNav.ts` is re-grounded accordingly:
+`signInAsMockUser()` seeds the role via `addInitScript` and performs no login dance.
+
+It also **injects mock auth per browser**, by intercepting the request for `/amplify-config.js` and
+setting `"mockUser": true` in the response. This is deliberate. That file is served to *every*
+frontend on your machine, so editing it on disk silently switches your own dev stack to mock auth
+too — and if that stack's backend still has `AUTH_MOCK_ENABLED=false`, every API call then 401s
+while the UI looks logged in. (That happened; it presents as "the app loads but nothing works",
+which reads like a broken port rather than an auth mismatch.) Intercepting keeps the opt-in inside
+the test browser, so a developer's real Cognito login keeps working while the suite runs.
 
 ### 4. Run
 
@@ -278,11 +285,9 @@ and env flags as **defaults to adjust for your app** — override them via `.env
    (SCS example: `POST /api/api/internal/cache/evict`) or restart it — otherwise a startup-warmed cache serves stale
    code lists and create calls 500. (Also: start the DB *before* the backend — the backend's Spring
    context fails to initialize if the Oracle listener isn't up yet, and then every `/api` route 404s.)
-3. **Frontend** on `:3000` (`npm start`). **CSP note:** mock auth is NOT enabled by an env var —
-   `src/env.ts` gates it on `"mockUser": true` in `frontend/public/amplify-config.js` (gitignored)
-   AND a localhost hostname. `MockAuthProvider` then auto-authenticates with the role from
-   `localStorage['csp.mockRole']`, so there is no login page to drive; see
-   [the CSP quick start](#csp-quick-start-this-apps-actual-coordinates).
+3. **Frontend** on `:3000` (`npm start`) — or any port; set `BASE_URL` to match. **No auth setup
+   is needed:** the suite injects mock auth into its own browser (see the CSP quick start), so
+   `frontend/public/amplify-config.js` should be left exactly as your own dev stack needs it.
 
 ## Seeded database image — how it's built and refreshed
 

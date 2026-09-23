@@ -63,6 +63,30 @@ export const MOCK_USER_ROLE: MockRole = 'ADMIN';
  * race against a redirect to the welcome screen. Call this before the first navigation.
  */
 export async function signInAsMockUser(page: Page, role: MockRole = MOCK_USER_ROLE): Promise<void> {
+  // Enable mock auth for THIS BROWSER ONLY, by rewriting the runtime config as it is served.
+  //
+  // src/env.ts gates mock auth on `window.amplifyConfig.mockUser === true`, which comes from
+  // public/amplify-config.js -- a file the dev server serves to EVERY frontend on this machine.
+  // Editing it on disk would be invisible, sticky, and shared: it silently switches the developer's
+  // own stack to mock auth too, and if that stack's backend still has AUTH_MOCK_ENABLED=false it
+  // then 401s every single API call while looking logged in. (Observed for real.)
+  //
+  // Intercepting the request instead keeps the opt-in inside the test browser: the file on disk is
+  // never touched, so a developer's manual Cognito login keeps working while the suite runs.
+  await page.route('**/amplify-config.js', async (route) => {
+    const response = await route.fetch();
+    const original = await response.text();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      // Injected as the FIRST key so it cannot be overwritten by a later one in the served file.
+      body: original.replace(
+        /window\.amplifyConfig\s*=\s*\{/,
+        'window.amplifyConfig = {\n  "mockUser": true,',
+      ),
+    });
+  });
+
   await page.addInitScript(
     ([key, value]) => {
       try {

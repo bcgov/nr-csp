@@ -43,6 +43,18 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       watch: {
         usePolling: env.VITE_USE_POLLING === 'true',
+        // The e2e suite is a nested npm project inside this tree (frontend/e2e), so its
+        // dependencies and generated artifacts sit under the dev server's watch root. Without
+        // these, every `npm test` makes THIS dev server emit a full page reload
+        // ("[vite] page reload e2e/playwright-report/index.html") and re-scan thousands of files
+        // -- ~2,500 of them under e2e/node_modules alone. None of it is application source.
+        ignored: [
+          '**/e2e/node_modules/**',
+          '**/e2e/.features-gen/**',
+          '**/e2e/playwright-report/**',
+          '**/e2e/test-results/**',
+          '**/e2e/blob-report/**',
+        ],
       },
       proxy: {
         '/api': {
