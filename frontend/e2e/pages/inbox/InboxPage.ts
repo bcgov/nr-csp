@@ -98,4 +98,13 @@ export class InboxPage {
   async firstResultSubmissionId(): Promise<string> {
     return (await this.resultRows.first().locator('td').first().innerText()).trim();
   }
+
+  /**
+   * Every rendered Submission ID, for an ORDER-INDEPENDENT comparison against the API. The Inbox
+   * orders by entry_timestamp DESC with no tiebreaker, so positional comparisons are unsafe.
+   */
+  async renderedSubmissionIds(): Promise<string[]> {
+    const first = this.resultRows.locator('td:first-child');
+    return (await first.allInnerTexts()).map((t) => t.trim());
+  }
 }

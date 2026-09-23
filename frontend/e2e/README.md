@@ -95,25 +95,42 @@ accordingly — `signInAsMockUser()` seeds the role via `addInitScript` and perf
 
 ```bash
 cd frontend/e2e
-npm test                    # pretest runs bddgen first — ALWAYS use this, not `npx playwright test`
-npm test -- --headed
-npx playwright test --repeat-each=5     # flake check (after an explicit `npm run bddgen`)
+npm test                 # the LOCAL BDD suite (preflight + scenarios). pretest runs bddgen first —
+                         # ALWAYS use this, never a bare `npx playwright test`, which would run
+                         # whatever is stale in .features-gen/
+npm run test:headed
+npm run test:ui
+npm run report           # open the HTML report
+npm run bddgen && npx playwright test --project=chromium --repeat-each=5   # flake check
 ```
+
+From `frontend/` you can also run `npm run test:e2e`, which delegates here (matching nr-ilcr).
 
 `npx playwright test` on its own runs whatever is **stale** in `.features-gen/` — edit a `.feature`,
 run that, and you will be testing the previous version.
 
-### This directory holds TWO separate Playwright projects
+### ONE Playwright install, two Playwright projects
 
-| | `frontend/playwright.config.ts` | `frontend/e2e/playwright.config.ts` |
-|---|---|---|
-| Owns | `e2e/smoke.spec.ts` only | the BDD suite (`features/`, `steps/`, `pages/`) |
-| Runs against | the **deployed** OpenShift route | a **local** stack |
-| Driven by | CI (`reusable-tests.yml`) | `npm test` in this folder |
+Everything Playwright lives in this folder — one `package.json`, one `playwright.config.ts` — matching
+[nr-ilcr](https://github.com/bcgov/nr-ilcr/tree/main/frontend/e2e). There is deliberately **no**
+`frontend/playwright.config.ts`.
 
-They are kept apart by a `testIgnore` in the outer config. **Without it the outer config collects
-`.features-gen/**/*.spec.js`** — real Playwright specs — and runs them without playwright-bdd's
-fixtures, failing in ways that look like app bugs. Keep those patterns in sync if this project moves.
+| Project | Tests | Target | Run by |
+|---|---|---|---|
+| `chromium` | the BDD suite (`features/` → `steps/` → `pages/`) | **local** stack on :3000 | `npm test` |
+| `deployed` | `deployed/smoke.spec.ts` (anonymous smoke) | the **deployed** route via `E2E_BASE_URL` | CI, and `npm run test:deployed` |
+
+`chromium` depends on the `setup` (preflight) project; `deployed` deliberately does not, since a
+deployed environment has no local seeded DB.
+
+**Why they share one install:** a spec file inside this folder resolves `@playwright/test` to *this*
+folder's `node_modules`. A second runner rooted at `frontend/` then dies with
+`Requiring @playwright/test second time` and silently reports `0 tests in 0 files` — which is what
+happened when the deployed smoke lived under its own `frontend/playwright.config.ts`. It only bit
+locally, because CI never installed these deps. One install removes the failure mode entirely.
+
+**Note:** `npm test` runs only `chromium`. Running the `deployed` project against a local stack fails
+by design — local mock auth auto-authenticates, so the anonymous welcome screen never renders.
 
 ---
 
@@ -223,9 +240,11 @@ and env flags as **defaults to adjust for your app** — override them via `.env
    (SCS example: `POST /api/api/internal/cache/evict`) or restart it — otherwise a startup-warmed cache serves stale
    code lists and create calls 500. (Also: start the DB *before* the backend — the backend's Spring
    context fails to initialize if the Oracle listener isn't up yet, and then every `/api` route 404s.)
-3. **Frontend** on `:3000` with `VITE_MOCK_USER=true` (`npm start`). Mock auth auto-logs-in a single
-   admin role — no Cognito/login flow needed. (The one app-specific bit — the Landing page's login
-   button test-id and route — is a labeled default at the top of `pages/common/authNav.ts`.)
+3. **Frontend** on `:3000` (`npm start`). **CSP note:** mock auth is NOT enabled by an env var —
+   `src/env.ts` gates it on `"mockUser": true` in `frontend/public/amplify-config.js` (gitignored)
+   AND a localhost hostname. `MockAuthProvider` then auto-authenticates with the role from
+   `localStorage['csp.mockRole']`, so there is no login page to drive; see
+   [the CSP quick start](#csp-quick-start-this-apps-actual-coordinates).
 
 ## Seeded database image — how it's built and refreshed
 

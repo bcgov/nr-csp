@@ -15,7 +15,7 @@
 # if you have one, otherwise the bundled Docker wrapper that runs sqlplus inside your DB container
 # (it prints which it chose). Config comes from .env / the environment; defaults match the local seeded DB:
 #     ORACLE_DSN    (default THE/default@localhost:1525/DBDOCK_01)
-#     DB_CONTAINER  (default real-data-seeded-db — only used by the Docker fallback)
+#     DB_CONTAINER  (default real-data-seeded-csp-db — only used by the Docker fallback)
 #     SQLPLUS       (advanced: force a specific sqlplus command, bypassing auto-detect)
 #
 #   Usage:  ./scripts/apply-patches.sh
@@ -34,7 +34,7 @@ ENV_FILE="$HERE/../.env"
 ORACLE_DSN="${ORACLE_DSN:-THE/default@localhost:1525/DBDOCK_01}"
 
 # Auto-select the sqlplus client: an explicit $SQLPLUS override, else a local `sqlplus`, else the Docker wrapper.
-DB_CONTAINER="${DB_CONTAINER:-real-data-seeded-db}"; export DB_CONTAINER
+DB_CONTAINER="${DB_CONTAINER:-real-data-seeded-csp-db}"; export DB_CONTAINER
 if [ -n "${SQLPLUS:-}" ]; then
   echo "Using SQLPLUS override: $SQLPLUS"
 elif command -v sqlplus >/dev/null 2>&1; then

@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
 /**
  * Cross-domain browser-interaction helpers — mock identity, client-side navigation, and Carbon
@@ -26,8 +26,31 @@ import { type Page, expect } from '@playwright/test';
 /** localStorage key MockAuthProvider reads the role from (MOCK_ROLE_KEY in MockAuthProvider.tsx). */
 const MOCK_ROLE_KEY = 'csp.mockRole';
 
-/** Roles CSP's mock provider accepts; it maps `X` -> group `CSP_X` (see auth/permissions.ts). */
-export type MockRole = 'ADMIN' | 'APPROVER' | 'SUBMITTER' | 'VIEWER';
+/**
+ * Roles CSP's mock provider accepts. These are the EXACT members of `ROLES` in
+ * frontend/src/context/auth/permissions.ts — `['ADMIN', 'APPROVE', 'VIEW']`. The provider maps `X`
+ * to the Cognito group `CSP_X`.
+ *
+ * Getting this wrong is silent: `MockAuthProvider.getStoredRole()` falls back to 'ADMIN' for any
+ * value not in that list, so a scenario asking for a role that does not exist runs with FULL ADMIN
+ * rights and its permission assertions pass while proving nothing. `assertMockRole` below turns
+ * that into a loud failure instead.
+ */
+export const MOCK_ROLES = ['ADMIN', 'APPROVE', 'VIEW'] as const;
+export type MockRole = (typeof MOCK_ROLES)[number];
+
+/** Fail loudly on a role the app does not define, rather than silently getting ADMIN. */
+export function assertMockRole(role: string): MockRole {
+  const upper = role.toUpperCase();
+  if (!(MOCK_ROLES as readonly string[]).includes(upper)) {
+    throw new Error(
+      `Unknown CSP role "${role}". MockAuthProvider only accepts ${MOCK_ROLES.join(', ')} ` +
+        `(frontend/src/context/auth/permissions.ts) and silently falls back to ADMIN for anything ` +
+        `else — which would make a permission assertion pass for the wrong reason.`,
+    );
+  }
+  return upper as MockRole;
+}
 
 /** The role MockAuthProvider falls back to when localStorage holds nothing valid. */
 export const MOCK_USER_ROLE: MockRole = 'ADMIN';

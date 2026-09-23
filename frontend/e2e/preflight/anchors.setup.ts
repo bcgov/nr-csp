@@ -47,7 +47,11 @@ test('preflight: backend is up and reachable through the dev-server proxy', asyn
 test('preflight: the seeded Inbox slice still resolves', async ({ request }) => {
   const body = (await jsonOrThrow(
     request,
-    `/api/inbox?page=0&size=100&startDate=${seededDateWindow.start}&endDate=${seededDateWindow.end}`,
+    // Param names must match InboxApi (submissionDateFrom / submissionDateTo). Spring IGNORES
+    // unknown params, so a typo silently queries the UNFILTERED page — the preflight would then
+    // report success against data it never actually filtered.
+    `/api/inbox?page=0&size=100&submissionDateFrom=${seededDateWindow.start}` +
+      `&submissionDateTo=${seededDateWindow.end}`,
     'seeded Inbox slice',
   )) as { content: { submissionId: string | null }[] };
 

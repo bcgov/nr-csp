@@ -89,12 +89,16 @@ jobs:
     name: E2E
     defaults:
       run:
-        working-directory: frontend
+        # The Playwright suite lives in frontend/e2e as its own npm project (matching nr-ilcr).
+        # A spec inside that folder resolves @playwright/test to ITS node_modules, so a runner
+        # rooted at frontend/ fails with "Requiring @playwright/test second time" and collects 0
+        # tests. One install, one config, run from here.
+        working-directory: frontend/e2e
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       matrix:
-        project: [chromium]
+        project: [deployed]
     steps:
       - uses: actions/checkout@v7
         name: Checkout
@@ -103,7 +107,7 @@ jobs:
         with:
           node-version: 24
           cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: frontend/e2e/package-lock.json
       - name: Install dependencies
         run: |
           npm ci
@@ -118,6 +122,9 @@ jobs:
           E2E_BASE_URL: https://${{ env.PREFIX }}.${{ env.DOMAIN }}/
           CI: "true"
         run: |
+          # `deployed` is the project that targets E2E_BASE_URL (the OpenShift route). The `chromium`
+          # BDD project is deliberately NOT run here: it needs a local seeded Oracle + backend, so it
+          # is developer-run only (see frontend/e2e/README.md).
           npx playwright test --project="${{ matrix.project }}" --reporter=html
 
       - uses: actions/upload-artifact@v7
@@ -125,5 +132,5 @@ jobs:
         name: upload results
         with:
           name: playwright-report-${{ matrix.project }}
-          path: "./frontend/playwright-report" # path from current folder
+          path: "./frontend/e2e/playwright-report" # path from repo root
           retention-days: 7

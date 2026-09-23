@@ -19,6 +19,12 @@ import { defineBddConfig } from 'playwright-bdd';
  */
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
 
+/**
+ * Where the DEPLOYED-environment smoke project points. CI (reusable-tests.yml) sets E2E_BASE_URL to
+ * the PR/TEST OpenShift route after the deploy job; locally you would pass it explicitly.
+ */
+const DEPLOYED_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000/';
+
 // Compile features/*.feature + steps/*.ts into generated Playwright tests; returns their dir.
 const testDir = defineBddConfig({
   features: 'features/**/*.feature',
@@ -55,6 +61,30 @@ export default defineConfig({
       name: 'setup',
       testDir: './preflight',
       testMatch: /.*\.setup\.ts$/,
+    },
+    {
+      /**
+       * DEPLOYED-environment smoke — the suite that predates the BDD work and that CI runs after a
+       * deploy. It lives HERE, inside the e2e project, rather than under its own
+       * frontend/playwright.config.ts, because a spec file sitting inside frontend/e2e/ resolves
+       * `@playwright/test` to THIS folder's node_modules; a second runner rooted at frontend/ then
+       * fails with "Requiring @playwright/test second time" and silently collects 0 tests. One
+       * Playwright install, one config, no clash.
+       *
+       * Deliberately does NOT depend on the `setup` project: preflight asserts a LOCAL seeded DB,
+       * which a deployed environment neither has nor needs. It also carries no BDD steps — these are
+       * plain Playwright specs.
+       */
+      name: 'deployed',
+      testDir: './deployed',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: DEPLOYED_BASE_URL,
+        // OpenShift PR routes can lag on cert provisioning; the workflow's health check uses curl -k
+        // for the same reason.
+        ignoreHTTPSErrors: true,
+        trace: 'on-first-retry',
+      },
     },
     {
       name: 'chromium',
