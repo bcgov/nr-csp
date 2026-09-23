@@ -3,6 +3,7 @@ import { test, expect, type APIRequestContext } from '@playwright/test';
 import {
   busiestSubmission,
   seededDateWindow,
+  snapshotFingerprint,
   unfilteredInboxRowCount,
 } from '../fixtures/inbox/inbox-test-data';
 
@@ -53,11 +54,16 @@ test('preflight: the seeded Inbox slice still resolves', async ({ request }) => 
     `/api/inbox?page=0&size=100&submissionDateFrom=${seededDateWindow.start}` +
       `&submissionDateTo=${seededDateWindow.end}`,
     'seeded Inbox slice',
-  )) as { content: { submissionId: string | null }[] };
+  )) as { content: { submissionId: string | null }[]; totalElements?: number };
 
+  // Assert on totalElements, NOT content.length: the latter is capped by the page `size`, so a
+  // database with far MORE rows (e.g. a backend pointed at delivery, which has ~20,500) reports
+  // exactly the page size and the message reads as a plausible small number instead of "wrong
+  // database". Observed for real: a colleague saw "returned 100, expected 50" when the true count
+  // was 20,528.
   expect(
-    body.content.length,
-    `[preflight] the Inbox returned ${body.content.length} rows for the seeded window ` +
+    body.totalElements,
+    `[preflight] the Inbox reported ${body.totalElements} total rows for the seeded window ` +
       `${seededDateWindow.start}..${seededDateWindow.end}, expected ${unfilteredInboxRowCount}. ` +
       REGROUND,
   ).toBe(unfilteredInboxRowCount);
@@ -84,4 +90,48 @@ test('preflight: reference data is loaded (lookups are not empty)', async ({ req
       'reference-data cache before the DB was seeded — restart the backend (or evict its cache). ' +
       REGROUND,
   ).toBeGreaterThan(0);
+});
+
+/**
+ * SNAPSHOT FINGERPRINT — the drift guard.
+ *
+ * The suite cannot tell which database the backend is pointed at; it only speaks HTTP to :3000. So
+ * this asserts the DB still LOOKS like the published snapshot before any scenario runs. It catches
+ * three things that would otherwise produce a confusing mid-suite red, or worse a meaningless green:
+ *
+ *   1. the backend is pointed at delivery (fortmp1) rather than the local seeded image;
+ *   2. a previous run's cleanup failed and left residue;
+ *   3. the image was rebuilt from a fresh extract, so every pinned value needs re-grounding.
+ *
+ * It is deliberately cheap — one request per reference table — and runs once per suite, not per test.
+ */
+test('preflight: the database still matches the published snapshot', async ({ request }) => {
+  const drift: string[] = [];
+
+  const inbox = (await jsonOrThrow(request, '/api/inbox?page=0&size=1', 'inbox row count')) as {
+    totalElements?: number;
+  };
+  if (inbox.totalElements !== snapshotFingerprint.inboxRows) {
+    drift.push(
+      `inbox rows: expected ${snapshotFingerprint.inboxRows}, got ${inbox.totalElements}`,
+    );
+  }
+
+  for (const [name, expected] of Object.entries(snapshotFingerprint.lookups)) {
+    const rows = (await jsonOrThrow(request, `/api/lookup/${name}`, `lookup ${name}`)) as unknown[];
+    if (rows.length !== expected) {
+      drift.push(`lookup/${name}: expected ${expected}, got ${rows.length}`);
+    }
+  }
+
+  expect(
+    drift,
+    `[preflight] the database does not match the published snapshot:\n  - ${drift.join('\n  - ')}\n\n` +
+      `Most likely one of:\n` +
+      `  * the backend is pointed at a DIFFERENT database (delivery/fortmp1 rather than the local\n` +
+      `    seeded image) — check its SPRING_DATASOURCE_URL;\n` +
+      `  * a previous run left residue — reset with ./scripts/reset-db.sh, then restart the backend;\n` +
+      `  * the seed image was rebuilt from a fresh extract — re-measure snapshotFingerprint in\n` +
+      `    fixtures/inbox/inbox-test-data.ts (a re-ground event).`,
+  ).toEqual([]);
 });

@@ -82,3 +82,40 @@ export const inboxColumnHeaders = [
   'Processing',
   'Cancelled',
 ] as const;
+
+/**
+ * SNAPSHOT FINGERPRINT — the shape of the published seed image, measured through the app's own API.
+ *
+ * The preflight asserts every one of these at the start of a run. Together they answer the question
+ * "is the database still the snapshot?" cheaply and over HTTP (no Oracle client), which matters
+ * because the suite has no way of its own to know WHICH database the backend is pointed at: run it
+ * against a delivery-pointed backend and these numbers diverge immediately instead of producing a
+ * plausible-looking but meaningless green.
+ *
+ * They also catch DRIFT — a test whose cleanup failed, or a manual poke at the DB — before it can
+ * make a later run pass or fail for the wrong reason.
+ *
+ * Measured 2026-09-23 against
+ * ghcr.io/cgi-bc/nr-mof-oracle-csp-real-test-data-seeded:2026-09-23.
+ *
+ * WHEN ONE OF THESE FAILS: either the DB drifted (reset it — `./scripts/reset-db.sh`) or the image
+ * was rebuilt from a fresh extract (re-measure and update these numbers; that is a re-ground event).
+ * Reference-data counts are the FULL code tables, so they do not move with the seed selection.
+ */
+export const snapshotFingerprint = {
+  /** Submissions with >= 1 invoice — what the Inbox returns unfiltered. */
+  inboxRows: 50,
+  /** Reference data, pulled in full by the extract (independent of which submissions were seeded). */
+  lookups: {
+    maturity: 5,
+    type: 4,
+    status: 8,
+    'submission-status': 4,
+    'sort-code': 17,
+    species: 12,
+    grade: 17,
+    'modelling-code': 4,
+    fob: 145,
+    'species-grade-combinations': 92,
+  },
+} as const;

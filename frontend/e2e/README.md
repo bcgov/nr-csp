@@ -109,6 +109,44 @@ From `frontend/` you can also run `npm run test:e2e`, which delegates here (matc
 `npx playwright test` on its own runs whatever is **stale** in `.features-gen/` — edit a `.feature`,
 run that, and you will be testing the previous version.
 
+### Resetting the database to the snapshot
+
+The seeded DB is **long-lived** — nothing in the suite starts, stops or resets it (no `webServer`,
+no `globalSetup`). Bring it up once and leave it. Write scenarios are expected to clean up after
+themselves via the cleanup registry, so routine runs should not drift.
+
+When you do need a clean slate — a cleanup failed, something wrote data you can't identify, or you
+want to prove a green run wasn't leaning on leftovers:
+
+```bash
+./scripts/reset-db.sh            # ~1-3 min; destroys the container and recreates it from the image
+docker restart <your-backend>    # so it doesn't serve a reference-data cache warmed on the old DB
+```
+
+**Why recreate rather than roll back?** The container has no volumes — all of Oracle's datafiles
+live in its writable layer, so the image *is* the snapshot and a fresh container is bit-for-bit that
+state. An in-place `FLASHBACK DATABASE` would be far quicker, but the published image runs
+`NOARCHIVELOG` with flashback off and no recovery area, so it isn't available without reconfiguring
+and republishing the image. Worth revisiting if write scenarios ever make resets frequent.
+
+Override the target with `DB_CONTAINER` / `DB_IMAGE` / `DB_PORT`; an explicitly-exported value beats
+`.env`, so you can point the script at a throwaway container without touching your real one.
+
+### Which database am I actually on?
+
+The suite only speaks HTTP to `:3000` — **it cannot tell which database the backend is using.** Point
+a delivery-backed backend at it and the tests will happily run against `fortmp1`.
+
+The preflight is the guard: it asserts the snapshot fingerprint (row counts across the reference
+tables plus the seeded Inbox slice) and fails in about a second with a message naming the likely
+cause. If you see it complain about row counts, check the backend first:
+
+```bash
+docker inspect <your-backend> --format '{{range .Config.Env}}{{println .}}{{end}}' | grep SPRING_DATASOURCE_URL
+```
+
+`nrcdb03.bcgov` means delivery; you want `1525/DBDOCK_01`.
+
 ### ONE Playwright install, two Playwright projects
 
 Everything Playwright lives in this folder — one `package.json`, one `playwright.config.ts` — matching
