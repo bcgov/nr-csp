@@ -116,6 +116,92 @@ From `frontend/` you can also run `npm run test:e2e`, which delegates here (matc
 `npx playwright test` on its own runs whatever is **stale** in `.features-gen/` — edit a `.feature`,
 run that, and you will be testing the previous version.
 
+### Running the e2e stack ALONGSIDE your delivery dev stack
+
+The common setup: keep your normal `docker compose` dev stack on **:3000** against **delivery**, and
+run the e2e stack on **:3001** against the **seeded** image. Both at once; neither touches the other.
+
+|  | dev stack | e2e stack |
+|---|---|---|
+| Frontend | `:3000` (`csp-frontend`) | `:3001` (Vite) |
+| Backend | `csp-backend` (internal only) | `csp-backend-e2e` on `:8080` |
+| Database | delivery (`nrcdb03`, remote) | seeded image (`localhost:1525`) |
+| Auth | your real Cognito setup | mock, injected into the test browser only |
+
+They don't collide: the compose backend does not publish a port (the frontend proxies to it over the
+compose network), so `:8080` is free for the e2e backend. And the databases were never in conflict —
+delivery is a remote server, the seeded one is a local container on 1525.
+
+#### One-time
+
+```bash
+# 1. Let Node through the corporate TLS proxy (CGI re-signs TLS; Node ignores the system store).
+#    Put this in your shell profile — without it `playwright install` fails with
+#    UNABLE_TO_GET_ISSUER_CERT_LOCALLY, which does not read like a certificate problem.
+export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+
+# 2. Pull the seeded DB image (private package -> PAT with read:packages).
+docker login ghcr.io -u <your-github-username>
+docker run -d --name real-data-seeded-csp-db -p 1525:1521 \
+  ghcr.io/cgi-bc/nr-mof-oracle-csp-real-test-data-seeded:latest
+
+# 3. Install the suite and point it at :3001.
+cd frontend/e2e
+cp .env.example .env
+sed -i 's|^BASE_URL=.*|BASE_URL=http://localhost:3001|' .env
+npm install
+npx playwright install chromium
+```
+
+#### Each session
+
+```bash
+# 1. Delivery stack on :3000 (needs VPN). Make sure :3000 is FREE first — see the note below.
+cd <repo-root> && docker compose up -d
+
+# 2. Seeded DB (skip if already running).
+docker start real-data-seeded-csp-db
+
+# 3. E2E backend on :8080, pointed at the seeded DB.
+docker start csp-backend-e2e 2>/dev/null || docker run -d --name csp-backend-e2e -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=local \
+  -e SPRING_DATASOURCE_URL='jdbc:oracle:thin:@//host.docker.internal:1525/DBDOCK_01' \
+  -e SPRING_DATASOURCE_USERNAME=THE -e SPRING_DATASOURCE_PASSWORD=default \
+  -e AUTH_MOCK_ENABLED=true -e AUTH_MOCK_ROLES=ADMIN \
+  -e JWT_JWKS_URI='https://mock-auth.invalid/.well-known/jwks.json' \
+  -e JWT_ISSUER='https://mock-auth.invalid' -e JWT_AUDIENCE='mock-audience' \
+  nr-csp-backend:latest
+
+# 4. E2E frontend on :3001.
+cd frontend && npm start -- --port 3001 --strictPort
+
+# 5. Run.
+cd frontend/e2e && npm test
+```
+
+#### Four things that will bite you
+
+1. **Free `:3000` before `docker compose up`.** If something else holds it, Rancher's port-forwarder
+   fails to establish and does not retry — `docker ps` shows the mapping, the app answers *inside*
+   the container, but the host has no listener. Fix: `docker restart csp-frontend`.
+2. **The `JWT_*` placeholders on the e2e backend are mandatory**, even with mock auth on.
+   `JwtService.init()` is an unconditional `@PostConstruct` doing `new URL(jwksUri)`; an empty value
+   throws `MalformedURLException: no protocol` and the context never starts. They are only parsed,
+   never fetched.
+3. **Do not use `--network host` under Rancher Desktop** — it binds inside the Rancher VM, not your
+   WSL distro, so `localhost:8080` from your shell never reaches it. Publish the port instead.
+4. **Give Oracle ~40s.** `docker ps` reports `Up` well before it accepts connections, and the
+   listener returns `ORA-12514` meanwhile. Poll for a real connection, don't trust the status.
+
+#### Sanity check
+
+```bash
+curl -s 'http://localhost:3001/api/inbox?page=0&size=1' | grep -o '"totalElements":[0-9]*'   # 50 = seeded
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/                              # 200 = dev stack up
+```
+
+A 401 from `:3000/api/...` without signing in is **correct** — that stack uses real Cognito.
+
 ### Resetting the database to the snapshot
 
 The seeded DB is **long-lived** — nothing in the suite starts, stops or resets it (no `webServer`,
