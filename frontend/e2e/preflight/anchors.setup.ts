@@ -26,8 +26,22 @@ const REGROUND =
   'the backend points at it, then re-verify the pinned values in fixtures/inbox/inbox-test-data.ts. ' +
   'If the image was rebuilt from a fresh extract, the pinned ids will have moved.';
 
+/**
+ * A 401/403 from a protected endpoint has exactly one cause worth naming, and it is NOT stale data:
+ * the backend is enforcing real JWT auth while the suite is presenting a mock session. Reported
+ * separately from REGROUND because the fix is completely different.
+ */
+const MOCK_AUTH_HINT =
+  'The backend rejected an unauthenticated request, which means it is NOT running with mock auth. ' +
+  'Start it with AUTH_MOCK_ENABLED=true (and AUTH_MOCK_ROLES=ADMIN) — see the CSP quick start in ' +
+  'e2e/README.md. Note this is the BACKEND flag; the frontend side needs no setup, because the ' +
+  'suite injects mock auth into its own browser.';
+
 async function jsonOrThrow(req: APIRequestContext, url: string, hint: string): Promise<unknown> {
   const res = await req.get(url);
+  if (res.status() === 401 || res.status() === 403) {
+    throw new Error(`[preflight] ${hint} — GET ${url} returned HTTP ${res.status()}. ${MOCK_AUTH_HINT}`);
+  }
   expect(
     res.ok(),
     `[preflight] ${hint} — GET ${url} returned HTTP ${res.status()}. ${REGROUND}`,
@@ -43,6 +57,26 @@ test('preflight: backend is up and reachable through the dev-server proxy', asyn
       'reachable but unhealthy — check it started AFTER the database. ' +
       REGROUND,
   ).toBe('UP');
+});
+
+test('preflight: the backend is running with mock auth enabled', async ({ request }) => {
+  // /api/health is PUBLIC on both auth modes, so it cannot detect this — a backend enforcing real
+  // JWT looks perfectly healthy right up until the first protected call. Probe a PROTECTED endpoint
+  // unauthenticated instead: 200 means mock auth is on, 401 means it is not.
+  //
+  // Without this check the failure surfaces as a confusing red much later (or as an empty grid in a
+  // scenario), which is what a reviewer hit setting the suite up for the first time.
+  const res = await request.get('/api/inbox?page=0&size=1');
+  expect(
+    res.status(),
+    `[preflight] ${MOCK_AUTH_HINT}\n\n` +
+      `(GET /api/inbox returned HTTP ${res.status()}; expected 200. A 401/403 here is the signature ` +
+      `of AUTH_MOCK_ENABLED=false.)`,
+  ).not.toBe(401);
+  expect(
+    res.status(),
+    `[preflight] ${MOCK_AUTH_HINT}\n\n(GET /api/inbox returned HTTP ${res.status()}; expected 200.)`,
+  ).not.toBe(403);
 });
 
 test('preflight: the seeded Inbox slice still resolves', async ({ request }) => {

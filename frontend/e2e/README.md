@@ -163,6 +163,9 @@ cd <repo-root> && docker compose up -d
 docker start real-data-seeded-csp-db
 
 # 3. E2E backend on :8080, pointed at the seeded DB.
+#    AUTH_MOCK_ENABLED=true is REQUIRED. Without it the backend enforces real JWT auth, the suite's
+#    mock session carries no token, and every /api call 401s — /api/health still returns 200, so the
+#    backend looks healthy. The preflight detects this and says so explicitly.
 docker start csp-backend-e2e 2>/dev/null || docker run -d --name csp-backend-e2e -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=local \
   -e SPRING_DATASOURCE_URL='jdbc:oracle:thin:@//host.docker.internal:1525/DBDOCK_01' \
@@ -239,6 +242,23 @@ docker inspect <your-backend> --format '{{range .Config.Env}}{{println .}}{{end}
 ```
 
 `nrcdb03.bcgov` means delivery; you want `1525/DBDOCK_01`.
+
+### Why `@playwright/test` is pinned exactly
+
+`frontend/e2e/package.json` pins `@playwright/test` to an **exact** version, matching the
+`playwright` version `frontend/package.json` uses for Vitest browser mode
+(`@vitest/browser-playwright`). Keep them in lockstep when either is bumped.
+
+This is not cosmetic. Each Playwright version requires its **own browser build** — a
+`npx playwright install chromium` run for one version does not satisfy another, and the failure
+surfaces as a confusing "executable doesn't exist" or a version-mismatch error rather than as
+"your two package.json files disagree". A caret range here (it was `^1.50.0`) resolves differently
+on different machines and at different times, so two developers can get two Playwright versions
+from the same commit.
+
+`frontend` itself no longer depends on `@playwright/test` at all: its only consumers were the
+deleted `frontend/playwright.config.ts` and the smoke spec now living in `e2e/deployed/`. It keeps
+`playwright` because Vitest's browser provider needs it.
 
 ### ONE Playwright install, two Playwright projects
 
