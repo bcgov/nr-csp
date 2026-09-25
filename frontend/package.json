@@ -10,13 +10,14 @@
     "start": "vite",
     "build": "cross-env CI=false vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,json}\"",
     "test": "vitest",
     "test:unit": "vitest --project node",
     "test:browser": "cross-env VITEST_BROWSER_ENABLED=true vitest --project browser",
     "test:coverage": "vitest run --coverage --project node",
-    "test:ci": "vitest run --ci"
+    "test:ci": "vitest run --ci",
+    "test:e2e": "npm --prefix e2e test"
   },
   "dependencies": {
     "@bcgov-nr/nr-theme": "1.8.9",
@@ -32,7 +33,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
-    "@playwright/test": "1.63.0",
     "@tanstack/eslint-plugin-query": "^5.84.2",
     "@tanstack/react-query-devtools": "^5.84.2",
     "@testing-library/dom": "^10.4.0",

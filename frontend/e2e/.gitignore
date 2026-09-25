@@ -1,0 +1,23 @@
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.env
+.features-gen/
+
+# ---------------------------------------------------------------------------
+# Re-include this suite's markdown.
+#
+# The REPO ROOT .gitignore has `**.md` with only `!README.md` negated, so every
+# other markdown file is ignored repo-wide. That would silently drop this
+# suite's ledgers -- the per-UC `coverage.md` (coverage audit trail) and
+# `defects.md` (the queue that feeds Jira), plus the two guides BA/QA read them
+# with. They would exist on disk, pass every check, and never be committed.
+#
+# A nested .gitignore may re-include files a parent pattern excluded, provided
+# no parent DIRECTORY is excluded -- the root only excludes *.md files, so this
+# works. Scoped to this folder so the repo-wide policy is untouched.
+# ---------------------------------------------------------------------------
+!*.md
+!**/*.md
