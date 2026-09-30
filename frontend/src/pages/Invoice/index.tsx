@@ -51,6 +51,7 @@ import {
   INVOICE_DETAILS_CANCEL,
   INVOICE_DETAILS_REJECT,
   INVOICE_DETAILS_DELETE,
+  INVOICE_DETAILS_UNAPPROVE,
 } from '@/context/auth/permissions';
 import {
   type CreateInvoiceRequest,
@@ -843,6 +844,10 @@ export function InvoicePage() {
   const canCancelPerm = usePermission(INVOICE_DETAILS_CANCEL);
   const canRejectPerm = usePermission(INVOICE_DETAILS_REJECT);
   const canDeletePerm = usePermission(INVOICE_DETAILS_DELETE);
+  // Unapprove is permission-gated like every other decision. It previously checked nothing, so a
+  // user without it — a VIEW role holds no invoice decision permission at all — saw a live-looking
+  // button that failed with a 403 from `changeStatus`, which does enforce it.
+  const canUnapprovePerm = usePermission(INVOICE_DETAILS_UNAPPROVE);
 
   // Brand-new invoice (no id) is editable; existing invoice is editable
   // only after it has loaded AND has an editable status (DFT).
@@ -2277,7 +2282,7 @@ export function InvoicePage() {
                     size="md"
                     className="invoice-page__action-btn invoice-page__action-btn--reject"
                     onClick={handleUnapprove}
-                    disabled={anyMutationPending}
+                    disabled={!canUnapprovePerm || anyMutationPending}
                   >
                     {actionLabel(unapprovePending, 'Unapprove')}
                   </Button>

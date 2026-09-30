@@ -23,7 +23,7 @@ below are restyled text and a button-rendering change, not faults.
 
 ## Bug / Regression
 
-### BUG-001 — The Unapprove button is the one decision control with no permission check — OPEN
+### BUG-001 — The Unapprove button is the one decision control with no permission check — FIXED
 
 **What's wrong.** Every other decision button on the invoice screen is disabled unless the signed-in
 user holds the matching permission — Approve checks `invoiceDetails/Approve`, Reject checks
@@ -50,8 +50,14 @@ inconsistency, not an authorization hole. The backend does enforce it:
 VIEW role holds none of those four, so the request is refused server-side. The consequence is a
 misleading control and a raw failure instead of a disabled button.
 
-**Not covered by a test in this pass** — it needs a VIEW-role scenario, which is out of scope for
-S01. See Coverage gap #2.
+**FIXED** on branch `defects-from-e2e`. The button now checks `INVOICE_DETAILS_UNAPPROVE`, matching
+every other decision control, so a user without it sees the button disabled rather than live.
+
+Covered two ways, and both were confirmed to fail before the fix: a unit test that denies **only**
+`invoiceDetails/Unapprove` — proving the button is gated on its own permission rather than on any
+permission being absent — and a `@VIEW-role` e2e scenario that opens an APPROVED invoice as
+`CSP VIEW` and asserts Unapprove is visible but disabled, along with the rest of the decision set.
+Awaiting BA/QA confirmation before this entry is closed.
 
 ### BUG-002 — Unapprove demands a reviewer comment in the UI but not in the backend — OPEN
 
@@ -89,13 +95,13 @@ unexercised, and the backend's silence on it is BUG-002.
 reject equivalent it cannot also be asserted against the API; that asymmetry is the point of
 BUG-002.
 
-### #2 — No VIEW-role scenario, which is where BUG-001 would show — OPEN
-**What's wrong:** the scenario runs as `CSP_ADMIN`. The VIEW arm is unauthored, and it is the arm
-that would demonstrate the missing permission check on Unapprove.
-**Expected vs actual:** untested surface.
-**Next:** open an APPROVED invoice as `CSP VIEW` and assert Unapprove is disabled. **This test will
-FAIL today** — it is the natural `@discovered-divergence` red for BUG-001, and worth authoring for
-exactly that reason once BA/QA confirm the button should be gated.
+### #2 — No VIEW-role scenario, which is where BUG-001 would show — CLOSED
+**What was missing:** a VIEW arm, which is what would demonstrate the ungated Unapprove button.
+**Now covered:** the `@VIEW-role` scenario in `unapprove.feature` opens an APPROVED invoice as
+`CSP VIEW` and asserts Unapprove is visible but disabled, and that Reject and Cancel are too. It was
+verified to fail before the BUG-001 fix, so it genuinely guards it.
+**Still open for this UC:** the VIEW arm of the *happy path* (a viewer should not be able to
+unapprove successfully) is implied by the above but not separately asserted.
 
 ### #3 — "Unapprove never moves the submission" is not asserted — OPEN
 **What's wrong:** `applySubmissionStatusOnStatusChange` returns early for UNA, so unapproving can

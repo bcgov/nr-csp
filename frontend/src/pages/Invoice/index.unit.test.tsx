@@ -392,6 +392,24 @@ describe('InvoicePage — permission gating (viewer)', () => {
     expect(screen.getByRole('button', { name: /delete/i })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Add new item' })).not.toBeInTheDocument();
   });
+
+  // Unapprove used to check NO permission at all — its only condition was that no request was in
+  // flight. A VIEW role holds no invoice decision permission, so it saw a live-looking button that
+  // failed with a 403 from `changeStatus`, which does enforce it.
+  //
+  // Denying only `invoiceDetails/Unapprove` rather than everything: that proves the button is gated
+  // on its OWN permission, not merely on some permission being absent.
+  it('disables Unapprove on an approved invoice without the Unapprove permission', async () => {
+    h.usePermission.mockImplementation((action: string) => action !== 'invoiceDetails/Unapprove');
+    await renderLoaded({ invStatus: 'APP' });
+    expect(screen.getByRole('button', { name: 'Unapprove' })).toBeDisabled();
+  });
+
+  it('leaves Unapprove enabled on an approved invoice when the permission is held', async () => {
+    h.usePermission.mockReturnValue(true);
+    await renderLoaded({ invStatus: 'APP' });
+    expect(screen.getByRole('button', { name: 'Unapprove' })).toBeEnabled();
+  });
 });
 
 describe('InvoicePage — action flows', () => {

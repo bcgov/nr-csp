@@ -41,6 +41,11 @@ Given('that invoice has already been approved', async ({ request, world }) => {
   // note), so this arrange needs no undo of its own — it is covered either way.
 });
 
+Then('the invoice is shown as APPROVED', async ({ invoicePage }) => {
+  // Status only — no claim about the buttons, so a role-gated scenario can reuse it.
+  await expect(invoicePage.statusTag).toHaveText(invoiceStatus.approved);
+});
+
 Then('the invoice is shown as APPROVED with Unapprove available', async ({ invoicePage }) => {
   await expect(invoicePage.statusTag).toHaveText(invoiceStatus.approved);
   await expect(invoicePage.unapproveButton).toBeVisible();
@@ -114,4 +119,19 @@ Then('the unapproval and its reason read back from the API', async ({ request, w
     world.unapproveReason,
   );
   expect(body.lineItems.length, 'line items must survive the unapproval untouched').toBeGreaterThan(0);
+});
+
+Then('Unapprove is shown but not available to me', async ({ invoicePage }) => {
+  // The button is offered on an APPROVED invoice regardless of role — `canUnapprove` is a status
+  // check — so a viewer sees it. It must be DISABLED: `changeStatus` enforces the permission
+  // server-side, so an enabled button here could only ever produce a 403.
+  await expect(invoicePage.unapproveButton).toBeVisible();
+  await expect(invoicePage.unapproveButton).toBeDisabled();
+});
+
+Then('no other decision is available to me either', async ({ invoicePage }) => {
+  // Same gate, the rest of the decision set. Asserting only Unapprove would let a regression that
+  // ungated a sibling through.
+  await expect(invoicePage.rejectButton).toBeDisabled();
+  await expect(invoicePage.actionButton('Cancel')).toBeDisabled();
 });
