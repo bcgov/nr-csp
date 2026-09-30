@@ -281,7 +281,44 @@ public class InvoiceService {
         // the referencing coastal_log_sale row to be gone first).
         participantRepo.delete(existing.buyerParticipantId());
         participantRepo.delete(existing.sellerParticipantId());
+        deleteSubmissionIfNowEmptyAndManual(existing);
         log.info("Deleted invoice id={}", id);
+    }
+
+    /**
+     * Remove the parent submission when deleting this invoice has left it empty — but only for a
+     * manually-entered one.
+     *
+     * <p>{@link #create} inserts a {@code csp_submission} row for every manual invoice, purely as
+     * a parent to hang it on. Deleting the invoice used to leave that row behind with nothing
+     * referencing it, so each created-then-deleted invoice leaked one orphan. Nothing surfaced it:
+     * the Inbox inner-joins invoices, so an empty submission never appears anywhere.
+     *
+     * <p>Two guards, both deliberate:
+     * <ul>
+     *   <li><b>Only when empty.</b> An ESF submission carries many invoices, and a manual one can
+     *       have gained siblings through Duplicate — removing the parent while any remain would
+     *       violate the {@code CLS_CSPS_FK} foreign key and orphan those invoices instead.</li>
+     *   <li><b>Only when manual</b> ({@code submissionNumber} is null). An ESF submission is a
+     *       record of a real transmission — it carries the business submission number and the
+     *       submitter's contact details — so it is kept even once its last invoice is gone. This
+     *       undoes exactly what {@code create} did and nothing more.</li>
+     * </ul>
+     *
+     * <p>Safe to run inside the delete transaction: {@code coastal_log_sale} holds the only foreign
+     * key into {@code csp_submission}, and those rows are gone by this point.
+     */
+    private void deleteSubmissionIfNowEmptyAndManual(LoadedInvoice existing) {
+        Long submissionId = existing.submissionId();
+        if (submissionId == null || existing.submissionNumber() != null) {
+            return;
+        }
+        int remaining = invoiceRepo.countByCspSubmissionId(submissionId);
+        if (remaining > 0) {
+            return;
+        }
+        submissionRepo.delete(submissionId);
+        log.info("Deleted now-empty manual submission submissionId={}", submissionId);
     }
 
     // ---------------------------------------------------------------

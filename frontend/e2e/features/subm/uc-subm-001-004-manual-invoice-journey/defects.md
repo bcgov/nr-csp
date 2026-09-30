@@ -95,7 +95,7 @@ a Timber mark alone satisfies the rule too. Both page fixtures also gained a boo
 described an invoice the backend would have rejected, so 12 existing save/submit tests had been
 passing against an unsaveable record. Awaiting BA/QA confirmation before this entry is closed.
 
-### BUG-002 — Deleting an invoice leaves its submission record behind — OPEN
+### BUG-002 — Deleting an invoice leaves its submission record behind — FIXED
 
 **What's wrong.** Creating a manual invoice also creates a parent "submission" record. Deleting the
 invoice removes the invoice, its line items, its boom/timber/weigh references, its related-invoice
@@ -117,10 +117,27 @@ suite's preflight fingerprints. It is nonetheless unbounded growth over time.
 **Impact in production.** For BA/QA to judge: the same code path runs there, so every deleted
 manual invoice presumably leaves a row too.
 
-**Why the suite does not clean it up.** There is no API for it, and adding a direct database
-teardown would give the suite an Oracle/Docker dependency at runtime that it deliberately does not
-have (every other check goes over HTTP). `./scripts/reset-db.sh` clears the orphans if they ever
-need clearing.
+**FIXED** on branch `defects-from-e2e`. `InvoiceService.delete` now removes the parent submission
+once deleting the invoice has left it empty — under two deliberate guards:
+
+* **only when empty** (`countByCspSubmissionId == 0`). An ESF submission holds many invoices, and a
+  manual one can gain siblings through Duplicate; removing the parent while any remain would
+  violate the `CLS_CSPS_FK` foreign key and orphan those invoices instead.
+* **only when manual** (no business submission number). An ESF submission records a real
+  transmission — it carries the submission number and the submitter's contact details — so it is
+  kept even once its last invoice is gone. The fix undoes exactly what `create` did, nothing more.
+
+Safe inside the delete transaction: `coastal_log_sale` holds the only foreign key into
+`csp_submission`, confirmed against the schema, and those rows are gone by that point.
+
+**Verified by A/B against the live seeded database**, running the patched build alongside the
+unpatched one: create-then-delete leaked **+1** orphan on the unpatched backend and **0** on the
+patched one. Three unit tests cover the branches (manual-and-empty deletes it; manual-with-siblings
+keeps it; ESF keeps it even when empty).
+
+**Existing orphans are not retroactively cleaned** — the fix only stops new ones. The seeded
+container has accumulated them from earlier suite runs; `./scripts/reset-db.sh` clears them.
+Awaiting BA/QA confirmation before this entry is closed.
 
 ---
 
