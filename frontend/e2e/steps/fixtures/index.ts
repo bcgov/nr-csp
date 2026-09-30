@@ -4,6 +4,9 @@ import { createBdd } from 'playwright-bdd';
 import { globalTest } from './global';
 import { exampleTest } from './example';
 import { inboxTest } from './inbox';
+import { submTest } from './subm';
+import { searchTest } from './search';
+import { fpcpTest } from './fpcp';
 
 /**
  * ============================================================================
@@ -32,10 +35,13 @@ import { inboxTest } from './inbox';
  * Two authors adding two domains then touch one shared line each (the `mergeTests` list) instead of
  * appending to the same 200-line body.
  */
-export const test = mergeTests(globalTest, exampleTest, inboxTest);
+export const test = mergeTests(globalTest, exampleTest, inboxTest, submTest, searchTest, fpcpTest);
 
 export type { World } from './global';
 export type { InboxFixtures } from './inbox';
+export type { SubmFixtures } from './subm';
+export type { SearchFixtures } from './search';
+export type { FpcpFixtures } from './fpcp';
 // TODO(author): re-export the types your step files need, e.g.
 //   export type { ExampleCleanup } from './example';
 

@@ -7,7 +7,10 @@
   "scripts": {
     "bddgen": "bddgen test",
     "pretest": "npm run bddgen",
-    "test": "playwright test --project=chromium",
+    "_comment_test": "`test` EXCLUDES @discovered-divergence: those scenarios track confirmed app defects and are red on purpose, so leaving them in made the default command permanently fail and its exit status meaningless. They are NOT skipped -- `test:divergences` runs them, and each is documented in the defects.md beside its feature.",
+    "test": "playwright test --project=chromium --grep-invert @discovered-divergence",
+    "pretest:divergences": "npm run bddgen",
+    "test:divergences": "playwright test --project=chromium --grep @discovered-divergence",
     "pretest:headed": "npm run bddgen",
     "test:headed": "playwright test --project=chromium --headed",
     "pretest:ui": "npm run bddgen",

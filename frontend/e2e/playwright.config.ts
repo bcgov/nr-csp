@@ -37,8 +37,30 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  timeout: 60_000,
+  /**
+   * Locally capped at 4 — NOT left as Playwright's default (one worker per CPU core, 7 here).
+   *
+   * The whole suite runs against ONE Vite dev server, ONE Spring backend and ONE Oracle container.
+   * Past about four concurrent browsers they queue on the backend rather than on the browser, and
+   * the longest scenarios — the multi-screen journeys, which poll API read-backs — cross the test
+   * timeout. It surfaces as `Request context disposed` or `Target page, context or browser has
+   * been closed` inside an `expect.poll`, which reads like a bug in the test but is just the test
+   * timing out mid-poll while the stack thrashes.
+   *
+   * Measured on a 14-core machine, full suite:
+   *   7 workers (the default) -> 3 failed, ~90 s   (the review journey alone took 1.1 min)
+   *   4 workers               -> 0 failed, ~87 s
+   *   3 workers               -> 0 failed, ~110 s
+   * So the cap is FASTER as well as correct: over-subscribing the backend costs more than it buys.
+   * Raise it only if the stack behind it gains capacity.
+   */
+  workers: process.env.CI ? 1 : 4,
+  /**
+   * 90 s, not 60 s. The journeys legitimately take 30-45 s under load — three screens, several
+   * polled read-backs — so 60 s left almost no headroom on a busy machine or a slow CI runner.
+   * This is headroom, not a mask: a scenario that genuinely hangs still fails.
+   */
+  timeout: 90_000,
   expect: { timeout: 10_000 },
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],

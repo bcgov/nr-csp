@@ -108,8 +108,37 @@ npm test                 # the LOCAL BDD suite (preflight + scenarios). pretest 
 npm run test:headed
 npm run test:ui
 npm run report           # open the HTML report
-npm run bddgen && npx playwright test --project=chromium --repeat-each=5   # flake check
+npm run test:divergences # the scenarios that are SUPPOSED to fail (tracked app defects)
+# Flake check. Drops below the configured cap of 4, because --repeat-each multiplies the load.
+npm run bddgen && npx playwright test --project=chromium --repeat-each=5 --workers=3 \
+  --grep-invert @discovered-divergence
 ```
+
+**Two things to know about running the suite.**
+
+`npm test` already excludes the scenarios that are *designed* to fail. Each `@discovered-divergence`
+scenario tracks a confirmed app defect and stays red until the app is fixed (see the `defects.md`
+beside each feature) — so leaving them in the default command made it permanently non-zero and its
+exit status meaningless, with a real regression indistinguishable from the expected reds. They are
+**not** skipped: `npm run test:divergences` runs them, and they are expected to fail there.
+
+**Worker count matters a lot here**, which is why `playwright.config.ts` caps it at **4** rather
+than leaving Playwright's default of one per core. The whole suite runs against one Vite dev
+server, one Spring backend and one Oracle container, and past about four concurrent browsers they
+queue on the backend rather than on the browser. The longest journeys then cross the test timeout,
+which surfaces as `Request context disposed` or `Target page, context or browser has been closed`
+inside an `expect.poll` — that reads like a bug in the test, but it is just the test timing out
+mid-poll while the stack thrashes. Measured on a 14-core machine, full suite:
+
+| Workers | Result | Wall clock |
+|---|---|---|
+| 7 (Playwright's default) | 3 failed — the review journey alone took 1.1 min | ~90 s |
+| **4 (the configured cap)** | **0 failed** | **~87 s** |
+| 3 | 0 failed | ~110 s |
+
+So the cap is faster as well as correct — over-subscribing the backend costs more than it buys.
+The flake check goes lower still (3) only because `--repeat-each=5` multiplies the concurrency. CI
+is unaffected: it runs `workers: 1`.
 
 From `frontend/` you can also run `npm run test:e2e`, which delegates here (matching nr-ilcr).
 

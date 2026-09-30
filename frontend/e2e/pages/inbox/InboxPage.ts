@@ -1,6 +1,7 @@
 import { type Page, type Locator, expect } from '@playwright/test';
 
 import { signInAsMockUser, setDateField, type MockRole } from '../common/authNav';
+import { loadingSkeleton, resultsTable } from '../common/carbonHelpers';
 
 /**
  * Page Object — Submission Inbox (`/inbox`).
@@ -36,7 +37,7 @@ export class InboxPage {
   }
 
   get table(): Locator {
-    return this.page.getByRole('table');
+    return resultsTable(this.page, 'Submission ID');
   }
 
   /** Header cell by visible label, e.g. 'Submission ID', 'Submission date', 'Status'. */
@@ -71,7 +72,15 @@ export class InboxPage {
   async searchByDateRange(startIso: string, endIso: string): Promise<void> {
     await setDateField(this.page, '#date-start', startIso);
     await setDateField(this.page, '#date-end', endIso);
+    const responded = this.page.waitForResponse(
+      (r) => r.url().includes('/api/inbox') && r.request().method() === 'GET',
+      { timeout: 30_000 },
+    );
     await this.searchButton.click();
+    await responded;
+    // The loading skeleton renders real headers and ten BLANK rows, so a row count taken before it
+    // clears would read those instead of results — see pages/common/carbonHelpers.ts.
+    await expect(loadingSkeleton(this.page)).toHaveCount(0, { timeout: 30_000 });
   }
 
   get searchButton(): Locator {
@@ -92,6 +101,21 @@ export class InboxPage {
   /** Text of every cell in one row, in column order. */
   async rowCells(row: Locator): Promise<string[]> {
     return (await row.locator('td').allInnerTexts()).map((t) => t.trim());
+  }
+
+  /**
+   * Follow a result row's Submission ID link through to the submission detail screen.
+   *
+   * The Submission ID cell is a Carbon `Link` whose `onClick` calls `preventDefault()` and routes
+   * client-side, so this is an SPA transition — `waitForURL` is the settle signal, not a load
+   * event. A submission with no business number renders as plain text instead of a link, and no
+   * row in the seeded set does, but the explicit link locator would fail clearly if one did.
+   */
+  async openSubmission(submissionId: string): Promise<void> {
+    await this.page.locator(`a[href="/submission-history/${submissionId}"]`).click();
+    await this.page.waitForURL(new RegExp(`/submission-history/${submissionId}(?:[/?#]|$)`), {
+      timeout: 30_000,
+    });
   }
 
   /** Submission ID of the first real result row, as rendered. */
