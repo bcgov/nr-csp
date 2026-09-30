@@ -17,13 +17,47 @@ import { defineBddConfig } from 'playwright-bdd';
  *
  * Timeout / artifact standards follow the TEA `playwright-config` guardrails.
  */
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
+
+/**
+ * Rewrite a `localhost` host to `127.0.0.1`, leaving every other URL byte-for-byte alone.
+ *
+ * NOT cosmetic, and not paranoia about IPv6 — this is worth ~10 seconds PER API CALL on a
+ * corporate-VPN machine. Playwright's `APIRequestContext` resolves a bare hostname through the
+ * system resolver rather than short-circuiting on /etc/hosts the way glibc (so curl, and the
+ * browser) does. Under WSL on the CGI network, /etc/resolv.conf carries six `search` domains, and
+ * `localhost` has no dots — so each one gets appended and queried against the VPN nameserver
+ * (`localhost.ent.cginet`, `localhost.cgi-utilities.com`, …) before the bare name resolves.
+ *
+ * Measured on this stack, same endpoint, backend responding in 4 ms:
+ *   http://localhost:3000   -> 10320 ms      <- the DNS search-domain walk
+ *   http://localhost.:3000  ->     7 ms      (trailing dot suppresses the walk)
+ *   http://127.0.0.1:3000   ->     5 ms
+ *
+ * Every preflight check is a sequential loop of API calls, so the cost is multiplied by the
+ * request count: the two longest loops (12 pool invoices, 11 fingerprint lookups) crossed the 90 s
+ * test timeout and failed as `Request context disposed`, which reads exactly like a broken test or
+ * a stale DB. Preflight's whole job is to name the real cause, so it must not be the thing that
+ * gets fooled. Normalising HERE means the env var cannot reintroduce it.
+ */
+const preferLoopbackIp = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== 'localhost') return url;
+    parsed.hostname = '127.0.0.1';
+    return parsed.toString();
+  } catch {
+    // Not a parseable absolute URL — hand it back untouched and let Playwright report it.
+    return url;
+  }
+};
+
+const BASE_URL = preferLoopbackIp(process.env.BASE_URL ?? 'http://127.0.0.1:3000');
 
 /**
  * Where the DEPLOYED-environment smoke project points. CI (reusable-tests.yml) sets E2E_BASE_URL to
  * the PR/TEST OpenShift route after the deploy job; locally you would pass it explicitly.
  */
-const DEPLOYED_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000/';
+const DEPLOYED_BASE_URL = preferLoopbackIp(process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000/');
 
 // Compile features/*.feature + steps/*.ts into generated Playwright tests; returns their dir.
 const testDir = defineBddConfig({
