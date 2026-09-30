@@ -1,8 +1,6 @@
 import { test as base } from 'playwright-bdd';
 
-// TODO(author): import the page objects that are NOT owned by any single domain, e.g. the app shell or
-// a landing page every domain navigates through:
-//   import { AppShellPage } from '../../pages/common/AppShellPage';
+import { InvoicePage } from '../../pages/invoice/InvoicePage';
 
 /**
  * Global (cross-domain) fixtures for the BDD suite.
@@ -31,6 +29,37 @@ export type World = {
   /** Rows the Inbox API returned for the scenario's request, for UI-vs-API read-back. */
   inboxApiRows?: { submissionId: string | null; invTotal: number }[];
 
+  /** The invoice the review journey borrowed, opened and approved (UC-INBOX-001..003). */
+  reviewInvoiceId?: number;
+  /** The submission the review journey navigated through, for the UI-vs-API read-back. */
+  reviewSubmissionId?: string;
+  /** The rejection reason this scenario typed, for the API read-back (UC-INBOX-004). */
+  rejectionReason?: string;
+  /** The unapprove reason this scenario typed, for the API read-back (UC-INBOX-005). */
+  unapproveReason?: string;
+
+  /** The pinned invoice's client-supplied number, resolved at run time (never committed). */
+  searchInvoiceNumber?: string;
+
+  // --- fpcp domain (flat price conversion maintenance, UC-FPCP-001) ---
+  /** The production flat-price row this scenario created, for the UI lookup and API read-back. */
+  flatPriceRowId?: number;
+  /** Its effective date (ISO) — the only rendered column that identifies it in the grid. */
+  flatPriceEffectiveDate?: string;
+
+  // --- subm domain (manual invoice submission, UC-SUBM-001..004) ---
+  /** Invoice number minted for this scenario — unique per run so parallel scenarios never collide. */
+  invoiceNumber?: string;
+  /** Boom number minted for this scenario (the invoice's required source-document reference). */
+  boomNumber?: string;
+  /** DB id of the invoice the scenario created, from the post-save URL. Also the cleanup key. */
+  invoiceId?: string;
+  /** The clients this scenario resolved at run time, for the API read-back assertion. */
+  submitterClient?: { clientNumber: string; clientName: string; clientLocnCode: string };
+  otherClient?: { clientNumber: string; clientName: string; clientLocnCode: string };
+  /** Invoice date the scenario entered, for the API read-back assertion. */
+  invoiceDate?: string;
+
   // --- example domain (delete/rename; one group per real domain) ---
   /** Id of an <your-resource> created via the UI or API-seeded, for read-back + cleanup. */
   exampleId?: string;
@@ -40,13 +69,24 @@ export type World = {
 
 export type GlobalFixtures = {
   world: World;
-  // TODO(author): add cross-domain page objects here, e.g.
-  //   appShell: AppShellPage;
+  /**
+   * The Invoice details screen (`/invoice`, `/invoice/:id`).
+   *
+   * Cross-domain by nature, which is why it lives here rather than in a domain file: SUBM drives it
+   * to create/itemise/submit an invoice, and INBOX lands on it to review and approve one. Declaring
+   * it once here is also what stops two domain files each declaring an `invoicePage` fixture, which
+   * `mergeTests` would treat as a conflict.
+   */
+  invoicePage: InvoicePage;
 };
 
 export const globalTest = base.extend<GlobalFixtures>({
   world: async ({}, use) => {
     await use({});
+  },
+
+  invoicePage: async ({ page }, use) => {
+    await use(new InvoicePage(page));
   },
 
   // TODO(author): if your app has a suite-wide identity, declare it once by overriding `page` — the
