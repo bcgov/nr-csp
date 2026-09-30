@@ -17,12 +17,14 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationE
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationResult;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidationService;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.parser.SubmissionEnvelopeStripper;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -257,6 +259,24 @@ public class CspSubmissionController implements CspSubmissionApi {
             if ("Y".equals(normalized) || "N".equals(normalized)) {
                 submitter.setSellerSubmission(SellerSubmissionType.fromValue(normalized));
             }
+        }
+        enforceClientScope(submitter.getSubmissionClientNumber());
+    }
+
+    /**
+     * Rejects the request when the caller is scoped to specific client
+     * number(s) (via FAM's contextual Cognito groups — see
+     * JwtService#extractAuthorities) and the submission's client number isn't
+     * one of them. An unrestricted caller (no CLIENT_ authorities — every IDIR
+     * user today, and any BCeID user FAM hasn't scoped) is unaffected.
+     */
+    private void enforceClientScope(String clientNumber) {
+        List<String> allowed = SecurityContextUtils.currentClientNumbers();
+        if (allowed.isEmpty()) {
+            return;
+        }
+        if (clientNumber == null || !allowed.contains(clientNumber.trim())) {
+            throw new AuthorizationDeniedException("Not authorized for this client number.");
         }
     }
 

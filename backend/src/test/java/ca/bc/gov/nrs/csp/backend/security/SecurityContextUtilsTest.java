@@ -82,4 +82,52 @@ class SecurityContextUtilsTest {
         assertThrows(AuthenticationCredentialsNotFoundException.class,
                 SecurityContextUtils::requireUsername);
     }
+
+    @Test
+    void currentClientNumbers_returnsEmpty_whenNoAuthentication() {
+        assertTrue(SecurityContextUtils.currentClientNumbers().isEmpty());
+    }
+
+    @Test
+    void currentClientNumbers_returnsEmpty_whenNoClientAuthorities() {
+        var auth = new UsernamePasswordAuthenticationToken(
+                "USER", null, List.of(new SimpleGrantedAuthority("ADMIN")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertTrue(SecurityContextUtils.currentClientNumbers().isEmpty());
+    }
+
+    @Test
+    void currentClientNumbers_stripsPrefix_fromClientAuthorities() {
+        var auth = new UsernamePasswordAuthenticationToken(
+                "USER", null, List.of(
+                        new SimpleGrantedAuthority("APPROVE"),
+                        new SimpleGrantedAuthority("CLIENT_000478HH"),
+                        new SimpleGrantedAuthority("CLIENT_000512AB")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        var clientNumbers = SecurityContextUtils.currentClientNumbers();
+
+        assertEquals(2, clientNumbers.size());
+        assertTrue(clientNumbers.contains("000478HH"));
+        assertTrue(clientNumbers.contains("000512AB"));
+    }
+
+    @Test
+    void isClientRestricted_false_whenNoClientAuthorities() {
+        var auth = new UsernamePasswordAuthenticationToken(
+                "USER", null, List.of(new SimpleGrantedAuthority("ADMIN")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertFalse(SecurityContextUtils.isClientRestricted());
+    }
+
+    @Test
+    void isClientRestricted_true_whenClientAuthorityPresent() {
+        var auth = new UsernamePasswordAuthenticationToken(
+                "USER", null, List.of(new SimpleGrantedAuthority("CLIENT_000478HH")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        assertTrue(SecurityContextUtils.isClientRestricted());
+    }
 }

@@ -87,6 +87,12 @@ public class SubmissionHistoryRepository {
 
     private static final String DEFAULT_ORDER_BY = "entry_timestamp DESC";
 
+    // Appended when the caller is scoped to specific client number(s) (see
+    // SecurityContextUtils#currentClientNumbers); omitted entirely — including the
+    // "clientNumbers" bind param — for an unrestricted caller, since NamedParameterJdbcTemplate
+    // rejects an empty collection bound to an IN clause.
+    private static final String CLIENT_SCOPE_CLAUSE = " AND sub.client_number IN (:clientNumbers)";
+
     private static final String DETAIL_QUERY = """
             SELECT sub.csp_submission_id                                                       AS csp_submission_id,
                    sub.submission_id                                                           AS submission_id,
@@ -121,7 +127,7 @@ public class SubmissionHistoryRepository {
             LEFT JOIN THE.electronic_submission es
                     ON sub.submission_id = es.submission_id
             WHERE  sub.csp_submission_id = :id
-            """;
+            """; // Client-scope clause, when present, is appended after this WHERE in findDetail.
 
     // One row per invoice in the submission. The plain columns back the table
     // row; the joins + correlated subqueries supply the expandable per-invoice
@@ -223,11 +229,14 @@ public class SubmissionHistoryRepository {
                    COALESCE(st.description, inv.log_sale_entry_status_code)  AS status,
                    inv.reviewer_notes                                       AS comment_text
             FROM   THE.coastal_log_sale inv
+            INNER JOIN THE.csp_submission sub
+                    ON inv.csp_submission_id = sub.csp_submission_id
             LEFT JOIN THE.log_sale_entry_status_code st
                     ON inv.log_sale_entry_status_code = st.log_sale_entry_status_code
             WHERE  inv.csp_submission_id = :id
-            ORDER BY inv.coastal_log_sale_id
-            """;
+            """; // Client-scope clause (when present) and ORDER BY are appended in findInvoiceComments.
+
+    private static final String INVOICE_COMMENTS_ORDER_BY = " ORDER BY inv.coastal_log_sale_id";
 
     private static final String DETAIL_LINE_ITEMS_QUERY = """
             SELECT inv.coastal_log_sale_id                                  AS coastal_log_sale_id,
@@ -254,18 +263,20 @@ public class SubmissionHistoryRepository {
         this.jdbc = jdbc;
     }
 
-    /** Paged list of submissions. */
-    public Page<SubmissionHistoryRowResponse> search(Pageable pageable) {
+    /** Paged list of submissions, scoped to {@code clientNumbers} when non-empty. */
+    public Page<SubmissionHistoryRowResponse> search(Pageable pageable, List<String> clientNumbers) {
         MapSqlParameterSource params = new MapSqlParameterSource();
         String orderBy = buildOrderBy(pageable.getSort());
 
-        String dataSql = LIST_QUERY
+        String scopedListQuery = LIST_QUERY + (clientNumbers.isEmpty() ? "" : CLIENT_SCOPE_CLAUSE);
+        String dataSql = scopedListQuery
                 + " ORDER BY " + orderBy
                 + " OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY";
         params.addValue("offset", pageable.getOffset());
         params.addValue("limit", pageable.getPageSize());
+        if (!clientNumbers.isEmpty()) params.addValue("clientNumbers", clientNumbers);
 
-        String countSql = "SELECT count(*) FROM (" + LIST_QUERY + ") cnt";
+        String countSql = "SELECT count(*) FROM (" + scopedListQuery + ") cnt";
 
         // orderBy is composed only from the SORT_COLUMNS whitelist and hardcoded
         // ASC/DESC keywords (see buildOrderBy); offset/limit are bound parameters.
@@ -286,13 +297,15 @@ public class SubmissionHistoryRepository {
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
     }
 
-    /** Loads a submission header plus its invoices and line items. */
-    public Optional<SubmissionDetailResponse> findDetail(Long cspSubmissionId) {
+    /** Loads a submission header plus its invoices and line items, scoped to {@code clientNumbers} when non-empty. */
+    public Optional<SubmissionDetailResponse> findDetail(Long cspSubmissionId, List<String> clientNumbers) {
         MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
+        if (!clientNumbers.isEmpty()) params.addValue("clientNumbers", clientNumbers);
+        String detailSql = DETAIL_QUERY + (clientNumbers.isEmpty() ? "" : CLIENT_SCOPE_CLAUSE);
 
         SubmissionDetailHeader header;
         try {
-            header = jdbc.queryForObject(DETAIL_QUERY, params, (rs, rowNum) -> new SubmissionDetailHeader(
+            header = jdbc.queryForObject(detailSql, params, (rs, rowNum) -> new SubmissionDetailHeader(
                     RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
                     rs.getString("submission_id"),
                     RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),
@@ -373,10 +386,19 @@ public class SubmissionHistoryRepository {
         ));
     }
 
-    /** Per-invoice status + reviewer comment for a submission's expanded "Invoice comments" sub-table. */
-    public List<SubmissionInvoiceCommentResponse> findInvoiceComments(Long cspSubmissionId) {
+    /**
+     * Per-invoice status + reviewer comment for a submission's expanded "Invoice
+     * comments" sub-table, scoped to {@code clientNumbers} when non-empty. Unlike
+     * {@link #findDetail}, an out-of-scope id returns an empty list rather than
+     * throwing — this endpoint isn't gated behind the header lookup, but that's
+     * also its existing behavior for a nonexistent id, so the response shape
+     * doesn't change, only which rows a scoped caller can reach.
+     */
+    public List<SubmissionInvoiceCommentResponse> findInvoiceComments(Long cspSubmissionId, List<String> clientNumbers) {
         MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
-        return jdbc.query(INVOICE_COMMENTS_QUERY, params, (rs, rowNum) ->
+        if (!clientNumbers.isEmpty()) params.addValue("clientNumbers", clientNumbers);
+        String sql = INVOICE_COMMENTS_QUERY + (clientNumbers.isEmpty() ? "" : CLIENT_SCOPE_CLAUSE) + INVOICE_COMMENTS_ORDER_BY;
+        return jdbc.query(sql, params, (rs, rowNum) ->
                 new SubmissionInvoiceCommentResponse(
                         rs.getString(COL_INVOICE_NUMBER),
                         rs.getString("status"),

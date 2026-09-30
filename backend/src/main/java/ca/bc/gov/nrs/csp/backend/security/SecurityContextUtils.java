@@ -13,6 +13,8 @@ import java.util.Optional;
  */
 public final class SecurityContextUtils {
 
+    private static final String CLIENT_AUTHORITY_PREFIX = "CLIENT_";
+
     private SecurityContextUtils() {}
 
     public static Optional<String> currentUsername() {
@@ -31,6 +33,23 @@ public final class SecurityContextUtils {
         return auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList();
+    }
+
+    /**
+     * Client numbers this caller is scoped to via FAM's contextual Cognito
+     * groups (see JwtService#extractAuthorities), or empty when unrestricted
+     * (every IDIR user today, and any BCeID user FAM hasn't scoped).
+     */
+    public static List<String> currentClientNumbers() {
+        return currentRoles().stream()
+                .filter(a -> a.startsWith(CLIENT_AUTHORITY_PREFIX))
+                .map(a -> a.substring(CLIENT_AUTHORITY_PREFIX.length()))
+                .toList();
+    }
+
+    /** Whether this caller is scoped to specific client number(s) rather than unrestricted. */
+    public static boolean isClientRestricted() {
+        return !currentClientNumbers().isEmpty();
     }
 
     /**

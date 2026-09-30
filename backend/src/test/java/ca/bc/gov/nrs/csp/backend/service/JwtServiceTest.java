@@ -274,4 +274,49 @@ class JwtServiceTest {
         List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
         assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("IDP_BCEIDBUSINESS")));
     }
+
+    // ── client-number tenancy scoping (FAM contextual groups) ────────────────
+
+    @Test
+    void extractAuthorities_contextualGroup_grantsRoleAndClientAuthority() {
+        String jwt = tokenWithGroups("sub", List.of("CSP_APPROVE.000478HH"));
+
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("APPROVE")));
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("CLIENT_000478HH")));
+    }
+
+    @Test
+    void extractAuthorities_multipleContextualGroups_grantDistinctClientAuthorities() {
+        String jwt = tokenWithGroups("sub",
+                List.of("CSP_APPROVE.000478HH", "CSP_VIEW.000512AB"));
+
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("CLIENT_000478HH")));
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("CLIENT_000512AB")));
+    }
+
+    @Test
+    void extractAuthorities_sameClientNumberAcrossGroups_grantsOneClientAuthority() {
+        String jwt = tokenWithGroups("sub",
+                List.of("CSP_APPROVE.000478HH", "CSP_VIEW.000478HH"));
+
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+
+        assertEquals(1, authorities.stream()
+                .filter(a -> a.getAuthority().equals("CLIENT_000478HH")).count());
+    }
+
+    @Test
+    void extractAuthorities_plainGroup_grantsNoClientAuthority() {
+        // Regression: a non-dotted group must keep working exactly as before.
+        String jwt = tokenWithGroups("sub", List.of("CSP_ADMIN"));
+
+        List<GrantedAuthority> authorities = service.extractAuthorities(jwt);
+
+        assertTrue(authorities.stream().anyMatch(a -> a.getAuthority().equals("ADMIN")));
+        assertTrue(authorities.stream().noneMatch(a -> a.getAuthority().startsWith("CLIENT_")));
+    }
 }

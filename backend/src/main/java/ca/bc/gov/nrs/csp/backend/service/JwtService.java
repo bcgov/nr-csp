@@ -77,6 +77,8 @@ public class JwtService {
             if (matchesRole(groups, Roles.VIEW))    authorities.add(new SimpleGrantedAuthority(Roles.VIEW));
             if (matchesRole(groups, Roles.APPROVE)) authorities.add(new SimpleGrantedAuthority(Roles.APPROVE));
             if (matchesRole(groups, Roles.ADMIN))   authorities.add(new SimpleGrantedAuthority(Roles.ADMIN));
+            extractClientNumbers(groups).forEach(clientNumber ->
+                    authorities.add(new SimpleGrantedAuthority("CLIENT_" + clientNumber)));
         }
         authorities.add(new SimpleGrantedAuthority("IDP_" + extractIdpProvider(claims)));
         return authorities;
@@ -101,13 +103,37 @@ public class JwtService {
 
     /**
      * Matches a Cognito group name against a role constant.
-     * Supports plain names ("ADMIN") and FAM-prefixed names ("CSP_ADMIN", "NRS_CSP_ADMIN").
+     * Supports plain names ("ADMIN") and FAM-prefixed names ("CSP_ADMIN", "NRS_CSP_ADMIN"),
+     * and FAM's contextual client-scoped names ("CSP_ADMIN.000478HH" — see
+     * {@link #extractClientNumbers}), by comparing against the part before the dot.
      */
     private boolean matchesRole(List<String> groups, String role) {
         String roleSuffix = "_" + role.toUpperCase();
         return groups.stream().anyMatch(g -> {
-            String upper = g.toUpperCase();
+            String upper = roleName(g).toUpperCase();
             return upper.equals(role.toUpperCase()) || upper.endsWith(roleSuffix);
         });
+    }
+
+    /** Strips FAM's contextual "{@code <parent_role>.<client_number>}" suffix, if present. */
+    private String roleName(String group) {
+        int dot = group.indexOf('.');
+        return dot < 0 ? group : group.substring(0, dot);
+    }
+
+    /**
+     * Client numbers FAM has scoped this caller to, one per contextual Cognito
+     * group shaped "{@code <parent_role>.<client_number>}" (FAM's "Runtime
+     * Authorization Lookup" — any group containing a dot is treated as
+     * contextual, regardless of the parent role's name, since that naming isn't
+     * guaranteed stable). A caller with no such groups is unrestricted.
+     */
+    private List<String> extractClientNumbers(List<String> groups) {
+        return groups.stream()
+                .filter(g -> g.indexOf('.') >= 0)
+                .map(g -> g.substring(g.indexOf('.') + 1))
+                .filter(s -> !s.isBlank())
+                .distinct()
+                .toList();
     }
 }

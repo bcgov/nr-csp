@@ -16,6 +16,7 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidat
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.SubmissionValidationProperties;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.parser.SubmissionEnvelopeStripper;
 import ca.bc.gov.nrs.csp.backend.service.CspSubmissionPersistenceService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.StaticMessageSource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.multipart.MultipartFile;
@@ -75,6 +79,20 @@ class CspSubmissionControllerTest {
                         validationService, envelopeStripper, persistenceService, messageSource))
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .build();
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private static void authenticateAsClientScoped(String... clientNumbers) {
+        List<org.springframework.security.core.GrantedAuthority> authorities = new java.util.ArrayList<>();
+        for (String clientNumber : clientNumbers) {
+            authorities.add(new SimpleGrantedAuthority("CLIENT_" + clientNumber));
+        }
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("bceid-user", null, authorities));
     }
 
     private static MockMultipartFile file(String name, byte[] content) {
@@ -343,6 +361,19 @@ class CspSubmissionControllerTest {
     }
 
     @Test
+    void business_restrictedCaller_nonMatchingClientNumber_returns403AccessDenied() throws Exception {
+        authenticateAsClientScoped("00099999");
+        givenParsedSubmission();
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+    }
+
+    @Test
     void business_structuralFailure_returns422AndSkipsTheRules() throws Exception {
         // Business rules cannot run on an unparseable document: report the
         // structural errors and never reach the rules.
@@ -528,6 +559,59 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.submissionId").value(98765));
 
         verify(persistenceService).persist(any(), any(), any());
+    }
+
+    @Test
+    void submit_restrictedCaller_matchingClientNumber_persists() throws Exception {
+        // sampleSubmission()'s submitter client number is "00012345" — matches the caller's scope.
+        authenticateAsClientScoped("00012345");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class)))
+                .willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any(), any(), any())).willReturn(98765L);
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.submissionId").value(98765));
+
+        verify(persistenceService).persist(any(), any(), any());
+    }
+
+    @Test
+    void submit_restrictedCaller_nonMatchingClientNumber_returns403AccessDenied() throws Exception {
+        // Caller is scoped to a different client than sampleSubmission()'s "00012345".
+        authenticateAsClientScoped("00099999");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+        verify(persistenceService, never()).persist(any(), any(), any());
+    }
+
+    @Test
+    void submit_restrictedCaller_editedClientNumberOutOfScope_returns403AccessDenied() throws Exception {
+        // The caller-declared edit itself is what must be checked, not just the parsed value.
+        authenticateAsClientScoped("00012345");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes()))
+                        .param("submissionClientNumber", "00099999"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+
+        verify(persistenceService, never()).persist(any(), any(), any());
     }
 
     @Test
