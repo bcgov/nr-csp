@@ -706,6 +706,56 @@ class InvoiceValidatorTest {
         assertHasError(result, "invoice.reject.need.reviewer.comment.error");
     }
 
+    // Legacy required the reviewer comment to have been CHANGED before reject, unapprove or cancel
+    // — `isReviewerCommentUpdate`, called from legacy InvoiceService with the new status code. The
+    // rule was ported but never reachable for those statuses: it was only invoked with an
+    // ActionType (SAVE/SUBMIT/DELETE/OTHER), which can never equal REJ, UNA or CAN.
+    @Test
+    void validateForChangeStatus_unapproveWithUnchangedComment_addsError() {
+        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("same note");
+        InvoiceDetails details = invWith(i -> i.reviewComments = "same note");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "user2");
+
+        assertHasError(result, "invoice.reviewer.notes.update.warning");
+    }
+
+    @Test
+    void validateForChangeStatus_unapproveWithChangedComment_noError() {
+        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("the stored note");
+        InvoiceDetails details = invWith(i -> i.reviewComments = "a new reason");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "user2");
+
+        assertThat(result.hasErrors()).isFalse();
+    }
+
+    @Test
+    void validateForChangeStatus_cancelWithUnchangedComment_addsError() {
+        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("same note");
+        InvoiceDetails details = invWith(i -> i.reviewComments = "same note");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_CANCELLED, "user2");
+
+        assertHasError(result, "invoice.reviewer.notes.update.warning");
+    }
+
+    // Approve is deliberately outside the rule — legacy's branch list is DELETE/REJ/UNA/CAN only,
+    // so approving needs no comment at all.
+    @Test
+    void validateForChangeStatus_approveWithUnchangedComment_noCommentError() {
+        lenient().when(invoiceRepo.findReviewCommentsById(1L)).thenReturn("same note");
+        InvoiceDetails details = invWith(i -> i.reviewComments = "same note");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_APPROVED, "anotherUser");
+
+        assertThat(result.hasErrors()).isFalse();
+    }
+
     @Test
     void validateForChangeStatus_rejectWithComments_noError() {
         ValidationResult result = validator.validateForChangeStatus(

@@ -146,6 +146,13 @@ public class InvoiceValidator {
 
     public ValidationResult validateForChangeStatus(InvoiceDetails details, String newStatus, String userID) {
         messages.clear();
+        // Always the manual/reviewer validator on this path, matching legacy: its
+        // `getInvoiceValidator()` unconditionally called `setManual(true)`, and
+        // `changeInvoiceStatus` used it. The only `setManual(false)` in the legacy code is in
+        // `SubmissionValidator`, the ESF INGESTION path — so the flag distinguishes which validator
+        // is running, not where the invoice originally came from. The reviewer-comment rule below
+        // therefore applies to every invoice reviewed through the UI, ESF-sourced or hand-entered.
+        this.manual = true;
         if (details == null) {
             addError("invoice.details.missing.error", null);
             return new ValidationResult(messages);
@@ -157,6 +164,17 @@ public class InvoiceValidator {
                 && isBlank(details.reviewComments())) {
             addError("invoice.reject.need.reviewer.comment.error", null);
         }
+        // Reject / unapprove / cancel additionally require the reviewer to have CHANGED the
+        // comment — legacy's `isReviewerCommentUpdate`, which InvoiceService called from this exact
+        // path with the new status code (legacy InvoiceService.java:665). Approve is deliberately
+        // outside the rule.
+        //
+        // This was previously unreachable. The rule was ported, but only called from `validate(...)`
+        // with `action.toString()` — an ActionType, whose values are SAVE/SUBMIT/DELETE/OTHER — so
+        // its comparisons against the status codes REJ, UNA and CAN could never match, and this
+        // path never called it at all. The upshot was that an approval could be reversed with no
+        // reason recorded at all: PATCH {"status":"UNA","reviewComments":""} returned 200.
+        isReviewerCommentUpdate(details, newStatus, "invoice.reviewer.notes.update.warning");
         return new ValidationResult(messages);
     }
 

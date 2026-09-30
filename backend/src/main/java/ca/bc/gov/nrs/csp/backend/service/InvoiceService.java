@@ -433,7 +433,14 @@ public class InvoiceService {
 
         // Apply the supplied reviewer comments to the details we hand to the validator
         // so its "reviewer comments must change" check sees the new value.
-        InvoiceDetails withNewComments = withReviewComments(existing.details(), request.reviewComments());
+        // A null comment in the request means "leave the note as it is" — the write below is
+        // skipped for it. So validate against the STORED value in that case, not against null:
+        // otherwise the must-have-changed rule could be bypassed by simply omitting the field,
+        // since null reads as "" and "" differs from any non-blank stored note.
+        String effectiveComments = request.reviewComments() != null
+                ? request.reviewComments()
+                : existing.details().reviewComments();
+        InvoiceDetails withNewComments = withReviewComments(existing.details(), effectiveComments);
 
         ValidationResult result = newValidator().validateForChangeStatus(withNewComments, request.status(), user);
         throwIfErrors(result, "Invoice failed validation on status change.");

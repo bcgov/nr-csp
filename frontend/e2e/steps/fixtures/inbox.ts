@@ -100,20 +100,50 @@ export const inboxTest = base.extend<InboxFixtures>({
 
     // ---- RESTORE, and fail loud if it does not take ----
     // Runs whether the scenario passed or failed, so a mid-scenario failure still hands the row
-    // back. Idempotent: a scenario that never acted simply rewrites the values it already had.
-    // Status AND the reviewer note go back in one PATCH — for approve the note rewrite is a
-    // harmless no-op, for reject it is the whole point.
-    const restore = await request.patch(`/api/invoices/${invoice.invoiceId}/status`, {
-      data: { status: asFound.invStatus, reviewComments: asFound.reviewComments },
-    });
-    if (!restore.ok()) {
+    // back.
+    //
+    // ⚠ A NO-OP NOTE WRITE IS REJECTED, which is why this is not one simple PATCH. Reject,
+    // unapprove and cancel now require the reviewer comment to have CHANGED from the stored value
+    // (`InvoiceValidator.isReviewerCommentUpdate`, restored from legacy). So:
+    //
+    //   * after a reject or unapprove the note holds the test's reason, and writing the original
+    //     back IS a change — one PATCH does it;
+    //   * after an approve the note was never touched, so writing the original back is a no-op and
+    //     would be refused with "Please enter the changes in the Reviewer Comment field below!".
+    //     Restoring the STATUS there still needs a comment change, so it takes two steps: a
+    //     transient marker to carry the status change, then the original note over the top.
+    const currentRes = await request.get(`/api/invoices/${invoice.invoiceId}`);
+    const current = currentRes.ok()
+      ? ((await currentRes.json()) as { invStatus: string; reviewComments: string | null })
+      : null;
+    const noteAlreadyCorrect = current?.reviewComments === asFound.reviewComments;
+    const statusAlreadyCorrect = current?.invStatus === asFound.invStatus;
+
+    const patch = (reviewComments: string | null) =>
+      request.patch(`/api/invoices/${invoice.invoiceId}/status`, {
+        data: { status: asFound.invStatus, reviewComments },
+      });
+
+    const failRestore = async (res: { status: () => number; text: () => Promise<string> }) => {
       throw new Error(
         `[cleanup] FAILED to restore borrowed invoice ${invoice.invoiceId} to ` +
-          `${asFound.invStatus}: HTTP ${restore.status()} — ${await restore.text()}. The seeded DB is ` +
+          `${asFound.invStatus}: HTTP ${res.status()} — ${await res.text()}. The seeded DB is ` +
           `now drifted: later runs will not find this invoice reviewable. Restore it by hand or run ` +
           `./scripts/reset-db.sh.`,
       );
+    };
+
+    if (!noteAlreadyCorrect) {
+      const res = await patch(asFound.reviewComments);
+      if (!res.ok()) await failRestore(res);
+    } else if (!statusAlreadyCorrect) {
+      // The note is right but the status is not, and moving the status needs a comment change.
+      const marker = await patch(`e2e teardown ${Date.now()}`);
+      if (!marker.ok()) await failRestore(marker);
+      const res = await patch(asFound.reviewComments);
+      if (!res.ok()) await failRestore(res);
     }
+    // Nothing to do when both already match — the scenario never acted on the row.
     // Read back rather than trusting the 200 — a restore that silently no-ops is exactly the drift
     // this teardown exists to prevent. Both fields are checked, because a reject scenario can only
     // be fully undone if the note went back too.

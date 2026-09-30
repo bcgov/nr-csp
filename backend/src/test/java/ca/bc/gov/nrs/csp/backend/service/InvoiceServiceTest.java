@@ -804,6 +804,22 @@ class InvoiceServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    // Omitting the comment must NOT bypass the must-have-changed rule. A null means "leave the
+    // note alone", so the value handed to the validator has to be the STORED one -- validating
+    // null would read as "" and differ from any non-blank note, letting the rule be side-stepped.
+    @Test
+    void changeStatus_nullComment_validatesAgainstTheStoredComment() {
+        ChangeStatusRequest req = new ChangeStatusRequest("UNA", null);
+        InvoiceDetails stored = details(1L, "APP", "5678", null, "Seller");
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(stored, 10L)));
+
+        service.changeStatus(1L, req);
+
+        ArgumentCaptor<InvoiceDetails> captor = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(validator).validateForChangeStatus(captor.capture(), eq("UNA"), any());
+        assertThat(captor.getValue().reviewComments()).isEqualTo(stored.reviewComments());
+    }
+
     @Test
     void changeStatus_validationError_throws() {
         ChangeStatusRequest req = new ChangeStatusRequest("REJ", "bad");
