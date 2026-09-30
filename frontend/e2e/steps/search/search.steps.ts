@@ -295,27 +295,3 @@ Then('the page reports the validation problems with this legacy record', async (
     'month-complete warning banner',
   ).toBeVisible();
 });
-
-// ---------------------------------------------------------------------------
-// BUG-001 — a validation error the app computes but never shows
-// ---------------------------------------------------------------------------
-
-Then('the invoice type validation error is visible somewhere on the page', async ({ invoicePage, page }) => {
-  // FAILS TODAY, deliberately. `GET /api/invoices/200388` returns
-  // "The Invoice submitted by Seller cannot be type PUR." in errors[], and the page routes it to
-  // the Invoice type field because that key is in MESSAGE_KEY_TO_FIELD. But an APPROVED invoice's
-  // header fields are disabled, and Carbon does not render a disabled field's invalidText — so the
-  // message reaches the user nowhere.
-  //
-  // Asserted as "visible ANYWHERE on the page" rather than against one locator on purpose: the fix
-  // could reasonably surface it inline, in the banner, or elsewhere, and any of those should turn
-  // this green. It is the invisibility that is the defect, not the placement.
-  await expect(
-    page.getByText(viewTargetValidationMessages.suppressedError).first(),
-    'The backend reported this error on the record, but nothing on the screen says so.',
-  ).toBeVisible();
-  // Kept for diagnosis when the fix lands inline: this is where the routing intends it to go.
-  await expect(invoicePage.fieldErrorFor(viewTargetValidationMessages.suppressedErrorFieldId)).toHaveText(
-    viewTargetValidationMessages.suppressedError,
-  );
-});

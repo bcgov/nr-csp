@@ -14,7 +14,7 @@ on `localhost:1525` → `csp-backend-e2e` on `:8080` → Vite on `:3001`.
 
 ## Divergence (app behaves differently from the Gherkin)
 
-### DIV-001 — The "you still need to submit" reminder never appears the first time you save — OPEN
+### DIV-001 — The "you still need to submit" reminder never appears the first time you save — FIXED
 
 **What's wrong.** When someone enters an invoice by hand and presses Save for the first time, the
 app is supposed to remind them that saving is not submitting. It doesn't. The invoice saves fine,
@@ -43,10 +43,16 @@ reset-on-id-change effect, which clears the warnings; the page then reloads the 
 `ActionType.OTHER`, whereas the reminder is only raised on a save). So the message is generated,
 stored, and then wiped a moment later by the redirect.
 
-**Tracked by.** `submit-reminder.feature` — a deliberately failing scenario tagged
-`@discovered-divergence`. It is **not** skipped: the red is the tracking signal, and it will turn
-green by itself when the app is fixed. Exclude it from a "is anything newly broken?" run with
-`--grep-invert @discovered-divergence`.
+**FIXED** on branch `defects-from-e2e`. `pages/Invoice/index.tsx` now keeps a save's warnings in
+their own `saveWarnings` state, which the post-create redirect deliberately preserves (gaining an id
+for the first time is the same invoice, not a switch to a different one) and which the re-hydrating
+GET cannot clobber. They are cleared by `clearErrors`, so any later action — Submit above all —
+drops a reminder that no longer applies.
+
+The dedicated `submit-reminder.feature` scenario has been **retired**: with the defect fixed, the
+assertion belongs where UC-SUBM-001-S01 puts it, and `journey.feature` now asserts the reminder
+after the create-save as well as after the draft re-save. Awaiting BA/QA confirmation before this
+entry is closed.
 
 **Spec citations.** UC-SUBM-001-S01 (expected outcome: "reminder to submit shown"; message WRN-004);
 UC-SUBM-003-S01 (message WRN-001, exact text as above); `messages.properties`

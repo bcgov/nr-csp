@@ -22,7 +22,7 @@ deliberate screen redesign (Spec gap #1), a renamed control (#2), and two spec i
 
 ## Bug / Regression
 
-### BUG-001 — A validation error the app computes is shown to nobody — OPEN
+### BUG-001 — A validation error the app computes is shown to nobody — FIXED
 
 **What's wrong.** Opening an APPROVED invoice, the system finds two things wrong with the record
 and tells the reader about only one of them. The other is computed, routed, and then rendered
@@ -52,12 +52,17 @@ invisible.
 is partial. Given these screens exist "for audit or reference purposes" (the UC's own words), that
 matters.
 
-**Tracked by.** `suppressed-error.feature` — a deliberately failing scenario tagged
-`@discovered-divergence`. Not skipped: the red is the tracking signal, and it will turn green by
-itself once the message is surfaced. Its assertion is deliberately "visible **anywhere** on the
-page", because the fix could reasonably put it inline, in the banner, or elsewhere — the
-invisibility is the defect, not the placement. Exclude expected reds from a run with
-`--grep-invert @discovered-divergence`.
+**FIXED** on branch `defects-from-e2e`. `applyServerErrors` in `pages/Invoice/index.tsx` now passes
+an empty field map when the header is not editable, so a field-mapped error falls through to the
+page banner — where the unmapped ones already went — instead of to a control that cannot render it.
+The reviewer-comment box is the one header field that stays editable on a locked invoice, and no
+error targets it there (the comment rule fires on reject/cancel/unapprove, which are only offered
+in PRO/UNA, where the header is editable and the normal inline path applies).
+
+The dedicated `suppressed-error.feature` scenario has been **retired**: the journey's
+"the page reports the validation problems with this legacy record" step now asserts **both** errors
+in the banner, which is what guards the fix. Awaiting BA/QA confirmation before this entry is
+closed.
 
 ### BUG-002 — Breadcrumbs are not links and cannot be reached by keyboard — OPEN
 

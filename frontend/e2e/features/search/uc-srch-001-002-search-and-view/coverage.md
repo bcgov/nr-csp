@@ -30,7 +30,6 @@ invoice path had no coverage anywhere; the review journey covers Inbox → submi
 | Searching by date range and type finds an invoice, which opens with its full details | `journey.feature` | `@p0 @UC-SRCH-001 @UC-SRCH-002 @S01 @journey` | green |
 | Searching by invoice number returns just that invoice | `search-criteria.feature` | `@p1 @UC-SRCH-001 @S01` | green |
 | Searching by status returns only invoices with that status | `search-criteria.feature` | `@p1 @UC-SRCH-001 @S01` | green |
-| Every validation error the system found is shown to the reader | `suppressed-error.feature` | `@p1 @UC-SRCH-002 @S01 @discovered-divergence` | **red on purpose** (BUG-001) |
 
 ## Coverage matrix
 
@@ -52,7 +51,7 @@ invoice path had no coverage anywhere; the review journey covers Inbox → submi
 | Total pieces / volume / amount displayed | S01 `:33-35` | header meta values + totals footer row | `journey` `@S01 @p0` (both renderings, against the API's stored totals) | covered, strengthened | — |
 | No Save / Approve / Reject / Submit / Delete / Cancel buttons | S01 `:36-41` | one shared Invoice screen, buttons gated by status | `journey` `@S01 @p0` (asserts each is **disabled**) | covered, re-grounded | **Spec gap #1** |
 | "Back" button visible | S01 `:42` | the "Invoice search" breadcrumb from `fromSearch` | `journey` `@S01 @p0` | covered, re-grounded | Spec gap #2 |
-| Every validation error on the record is shown | implied by "review … for audit" | `routeServerErrors` + Carbon's disabled-field behaviour | `suppressed-error` `@discovered-divergence` | **covered by a failing test** | **BUG-001** |
+| Every validation error on the record is shown | implied by "review … for audit" | `routeServerErrors` + Carbon's disabled-field behaviour | `journey` `@S01 @p0` — asserts **both** banner errors | covered (was BUG-001, now fixed) | BUG-001 (fixed) |
 | Background — WebADE auth + `search/Search`, `search/Clear`, `search/Details` | both Backgrounds | Cognito groups / `usePermission` | — | not-applicable | Coverage gap #3 |
 
 **Symmetry check.** One mirror matrix is in play, and it is deliberately lopsided:

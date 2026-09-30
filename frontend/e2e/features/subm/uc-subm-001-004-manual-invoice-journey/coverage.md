@@ -29,7 +29,6 @@ listed as coverage gaps below so nothing looks silently covered.
 | Scenario | File | Tags | Result |
 |---|---|---|---|
 | A manual Purchase invoice is created, itemised, re-saved as a draft, and submitted | `journey.feature` | `@p0 @UC-SUBM-001 @UC-SUBM-002 @UC-SUBM-003 @UC-SUBM-004 @S01 @journey` | green |
-| Saving a brand-new invoice reminds the submitter that it still needs submitting | `submit-reminder.feature` | `@p1 @UC-SUBM-001 @S01 @discovered-divergence` | **red on purpose** (DIV-001) |
 
 ## Coverage matrix
 
@@ -41,7 +40,7 @@ listed as coverage gaps below so nothing looks silently covered.
 | Save creates the invoice in **DFT** | S01 `:34`; BR "transitions to DFT after full save" | `InvoiceService.create` → `INVENTRYSTATUS_DRAFT` | `journey` `@S01 @p0` | covered (UI **and** API read-back) | — |
 | STA-002 — after save, Submit / Add-line-item become available | slices STA-002 | `canSubmit`, `canAddLineItem` (`Invoice/index.tsx:808,815`) | `journey` `@S01 @p0` | covered (implicitly — both are exercised next) | — |
 | SUC-001 — success message on save | slices SUC-001 (`[TODO — capture from live app]`) | toast `Invoice '<num>' created.` (`handleSave`) | `journey` `@S01 @p0` | covered (+ captured — see Spec gap #4) | Spec gap #4 |
-| WRN-004 — submit-reminder warning after save | slices WRN-004; `invoice.submit.saved.warning` | `InvoiceValidator.isSubmitProcessRequiered` | `submit-reminder` `@discovered-divergence`; and `journey` on the **re-save** | **covered by a failing test** | **DIV-001** |
+| WRN-004 — submit-reminder warning after save | slices WRN-004; `invoice.submit.saved.warning` | `InvoiceValidator.isSubmitProcessRequiered` | `journey` `@S01 @p0` — after the create-save **and** the re-save | covered (was DIV-001, now fixed) | DIV-001 (fixed) |
 | Submission ID populated after save | S01 `:35`; slices control `cspSubmissionId` | `InvoiceResponse.submissionNumber` (null when manual) | `journey` `@S01 @p0` (asserts the **opposite**) | covered, re-grounded | Spec gap #3 |
 | Seller cannot submit PUR / Buyer cannot submit SAL | slices BR; `InvoiceValidator.java` | `checkSenderBuyerForInvoiceType` | — (journey *complies* with the rule; no negative test) | partially covered | Spec gap #1, Coverage gap #2 |
 | Submitter and other party must differ | slices BR | `isSameSellerAndBuyer` | — (journey complies) | partially covered | Coverage gap #2 |

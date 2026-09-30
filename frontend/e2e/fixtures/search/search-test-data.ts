@@ -126,40 +126,42 @@ export const viewTargetInvoice = {
  * screen, and asserting them stops a future change that suppresses validation on read from passing
  * unnoticed.
  *
- * ⚠ ONLY ONE OF THE TWO ERRORS IS EVER SHOWN TO THE USER. `routeServerErrors` splits them by
- * `MESSAGE_KEY_TO_FIELD` (pages/Invoice/messageKeyMap.ts): a key IN the map becomes an INLINE
- * error on its field, anything else falls through to the page banner.
- *   * `invoice.oneofthe.boom.timber.wiegh.requiered.error` -> unmapped -> page banner -> VISIBLE
- *   * `invoice.type.invalid.submitter` -> mapped to `invType` -> inline on the Invoice type
- *     dropdown -> **NOT RENDERED AT ALL** on this invoice
+ * ⚠ ONE OF THESE USED TO BE INVISIBLE, and this record is what guards the fix.
+ * `routeServerErrors` splits errors by `MESSAGE_KEY_TO_FIELD` (pages/Invoice/messageKeyMap.ts): a
+ * mapped key becomes an inline error on its field, anything else falls through to the page banner.
+ *   * `invoice.oneofthe.boom.timber.wiegh.requiered.error` -> unmapped -> page banner
+ *   * `invoice.type.invalid.submitter` -> mapped to `invType`
  *
- * The second is suppressed because an APPROVED invoice's header fields are disabled
- * (`canEdit` is false outside DFT/PRO/UNA), and Carbon does not render a disabled field's
- * `invalid`/`invalidText`. Measured on this record: the dropdown button is `disabled`, carries no
- * invalid class and no `aria-invalid`, and the page contains ZERO `.cds--form-requirement`
- * elements — while the two banners above render fine.
+ * Every header field is DISABLED on a locked invoice (`canEdit` is false outside DFT/PRO/UNA), and
+ * Carbon renders nothing for a disabled field's `invalid`/`invalidText` — so the second error was
+ * computed, routed to its field, and shown to nobody. Measured at the time: the dropdown button was
+ * `disabled` with no invalid class and no `aria-invalid`, and the page held ZERO
+ * `.cds--form-requirement` elements, while the banners rendered fine.
  *
- * So the app computes a validation error and shows the user nothing. Tracked by a deliberately
- * failing scenario (`suppressed-error.feature`) and written up as BUG-001 in defects.md.
+ * `applyServerErrors` now routes field-mapped errors to the banner when the header is not
+ * editable, so both appear. Written up as BUG-001 in defects.md.
  *
  * Warnings do not go through that split at all — every warning renders as a banner, even one whose
  * key appears in the map (the month-complete key maps to `invDate`, yet it banners correctly).
  */
 export const viewTargetValidationMessages = {
-  /** Rendered in the page-level error banner — the journey asserts these. */
-  pageErrors: ['One of Boom Number, Timber Mark or Weigh Slip must have a value.'],
+  /**
+   * Both of the record's errors, in the page-level banner.
+   *
+   * The second one used to be invisible: it is mapped to the Invoice type field, and Carbon renders
+   * nothing for a DISABLED field's `invalidText`, which every header field is on a locked invoice.
+   * `applyServerErrors` now sends field-mapped errors to the banner when the header is not
+   * editable, so both are shown. Asserting both is what keeps that fix from regressing.
+   */
+  pageErrors: [
+    'One of Boom Number, Timber Mark or Weigh Slip must have a value.',
+    'The Invoice submitted by Seller cannot be type PUR.',
+  ],
   /**
    * Matched as a FRAGMENT, not the whole message. The full text interpolates the client-supplied
    * invoice number, which is not committed here — this is the stable part of the sentence.
    */
   warningFragment: 'is for a month that is already "Completed"',
-  /**
-   * Returned by the API but rendered NOWHERE on this screen. Asserted only by the
-   * `@discovered-divergence` scenario, which is red until the app surfaces it.
-   */
-  suppressedError: 'The Invoice submitted by Seller cannot be type PUR.',
-  /** The field the suppressed error is mapped to, and which is disabled on an APPROVED invoice. */
-  suppressedErrorFieldId: '#inv-type',
 } as const;
 
 /**

@@ -38,8 +38,10 @@
 #               "[id$='cspSubmissionId'] is not empty"; here that field shows the BUSINESS
 #               submission number, which only an ESF submission has.
 #
-# ONE DISCOVERED DEFECT sits alongside this journey rather than inside it: DIV-001, the
-# submit-reminder warning that a FIRST save never shows. See submit-reminder.feature.
+# THE SUBMIT-REMINDER ASSERTION IS BACK WHERE THE SPEC PUTS IT. It used to fail on a first save:
+# the backend raised the warning on the POST, and the post-create redirect then discarded it before
+# it could render. That was DIV-001, and it is now fixed — so this journey asserts the reminder
+# after the create-save, exactly as UC-SUBM-001-S01 describes, and again after the draft re-save.
 #
 # NOT COVERED by this journey (deliberately — see coverage.md): every exception and alternative
 # slice of all four UCs, e.g. the missing-required-field, invalid-type-for-date, same-client and
@@ -70,12 +72,9 @@ Feature: Manual invoice — create, itemise, save as draft, and submit for revie
     And I enter yesterday's date as the invoice date
     And I save the invoice
     Then the invoice is created and opened in DFT status
+    And the submit-reminder warning is displayed
     And the Submission ID stays blank because the invoice is manual
     And the invoice reads back from the API in "DFT" status
-    # NOTE: UC-SUBM-001-S01 also expects the submit-reminder warning here. This app raises it on the
-    # POST but then discards it during the post-create redirect, so it is never shown on a FIRST
-    # save. That is DIV-001, tracked by the deliberately-failing scenario in
-    # submit-reminder.feature — not asserted here, so this journey stays a true happy path.
 
     # --- UC-SUBM-002-S01 — Add Single Line Item -----------------------------
     When I add the seeded line item
