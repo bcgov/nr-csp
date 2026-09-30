@@ -293,13 +293,15 @@ export class InvoicePage {
    * equivalent of the legacy screen's Back button, so a scenario arriving from search asserts it,
    * and one arriving any other way asserts it is absent.
    *
-   * ⚠ NOT addressable by the `link` role. `PageTitle` renders each crumb as a Carbon
-   * `BreadcrumbItem` with an `onClick` and NO `href`, which produces a plain `<span>` — clickable
-   * with a mouse, but carrying no link semantics and no keyboard focus. Logged as an accessibility
-   * finding in the UC-SRCH defects.md; until it changes, crumbs must be located structurally.
+   * Addressed by the `link` role, which is also the assertion: a navigable crumb must be a real
+   * anchor. It used to be a `<span>` with an `onClick` — clickable by mouse, but with no link
+   * semantics and no keyboard focus — which forced this locator to be structural. That was BUG-002
+   * in the UC-SRCH defects.md, now fixed, so the role-based locator both works and guards it.
    */
   breadcrumb(label: string): Locator {
-    return this.page.locator('.page-title-breadcrumb .cds--breadcrumb-item').filter({ hasText: label });
+    return this.page
+      .locator('.page-title-breadcrumb')
+      .getByRole('link', { name: label, exact: true });
   }
 
   /** Every action button in the page's action row, by visible label. */

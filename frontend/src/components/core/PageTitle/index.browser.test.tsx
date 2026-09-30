@@ -45,6 +45,57 @@ describe('PageTitle (browser)', () => {
     await user.click(dashboardCrumb);
   });
 
+  // Breadcrumbs used to be spans with an onClick: clickable by mouse, but with no link semantics,
+  // no keyboard focus and nothing for a screen reader to announce as navigation. On the Invoice
+  // screen the breadcrumb is the only way back to the search results, so that was the sole route
+  // out — and it was unreachable without a mouse.
+  it('renders a navigable crumb as a real, keyboard-focusable link', () => {
+    renderPageTitle({
+      title: 'With Breadcrumbs',
+      breadCrumbs: [
+        { name: 'Invoice search', path: '/search' },
+        { name: 'Invoice', path: '#' },
+      ],
+    });
+
+    const link = screen.getByRole('link', { name: 'Invoice search' });
+    expect(link).toHaveAttribute('href', '/search');
+    // Anchors with an href are in the tab order natively — no tabindex juggling required.
+    link.focus();
+    expect(link).toHaveFocus();
+  });
+
+  it('marks the last crumb as the current page and does not link it', () => {
+    renderPageTitle({
+      title: 'With Breadcrumbs',
+      breadCrumbs: [
+        { name: 'Reports', path: '/reports/r06-invoice-print-out' },
+        { name: 'R13 — Ad hoc', path: '/reports/r13-ad-hoc' },
+      ],
+    });
+
+    expect(screen.getByRole('link', { name: 'Reports' })).toBeInTheDocument();
+    // You are already here, so it is announced as current rather than offered as a destination.
+    expect(screen.queryByRole('link', { name: 'R13 — Ad hoc' })).not.toBeInTheDocument();
+    expect(screen.getByText('R13 — Ad hoc').closest('li')).toHaveClass('cds--breadcrumb-item--current');
+  });
+
+  it('does not link a placeholder crumb whose path is "#"', () => {
+    renderPageTitle({
+      title: 'With Breadcrumbs',
+      breadCrumbs: [
+        { name: 'Invoice search', path: '/search' },
+        { name: 'Invoice', path: '#' },
+        { name: 'INV-001', path: '#' },
+      ],
+    });
+
+    // "Invoice" is a label, not a destination — it must not advertise itself as one.
+    expect(screen.queryByRole('link', { name: 'Invoice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'INV-001' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Invoice search' })).toBeInTheDocument();
+  });
+
   it('renders the experimental tag when experimental is true', () => {
     renderPageTitle({ title: 'Experimental Page', experimental: true });
     // UnderConstructionTag renders a tag with text 'Under Construction' by default

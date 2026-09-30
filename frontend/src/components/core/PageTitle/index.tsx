@@ -48,11 +48,40 @@ const PageTitle: FC<PageTitleProps> = ({ title, subtitle, experimental, children
     <Column className="page-title-col" sm={4} md={8} lg={16}>
       {breadCrumbs?.length ? (
         <Breadcrumb className="page-title-breadcrumb">
-          {breadCrumbs.map((crumb) => (
-            <BreadcrumbItem key={crumb.name} onClick={() => navigate(crumb.path)}>
-              {crumb.name}
-            </BreadcrumbItem>
-          ))}
+          {breadCrumbs.map((crumb, i) => {
+            // The last crumb is the page you are already on: marked current, never a link.
+            const isCurrentPage = i === breadCrumbs.length - 1;
+            // '#' is used for crumbs that are labels rather than destinations (the Invoice screen
+            // uses it for "Invoice" and the invoice number). Those get no link either.
+            const isNavigable = !isCurrentPage && crumb.path !== '#';
+
+            // A crumb only becomes an <a> when Carbon is given an `href` — without one it renders
+            // a plain span. Every crumb used to be span + onClick: clickable with a mouse, but
+            // carrying no link semantics, no keyboard focus and nothing for a screen reader to
+            // announce as navigation. That mattered most on the Invoice screen, where the
+            // breadcrumb is the ONLY way back to the search results.
+            //
+            // `href` makes it a real link (focusable, actionable by keyboard, announced, and
+            // open-in-new-tab-able); the click handler still routes client-side so the SPA does not
+            // do a full document load. Same pattern the in-page Links already use.
+            return (
+              <BreadcrumbItem
+                key={crumb.name}
+                isCurrentPage={isCurrentPage}
+                {...(isNavigable
+                  ? {
+                      href: crumb.path,
+                      onClick: (event: React.MouseEvent<HTMLAnchorElement>) => {
+                        event.preventDefault();
+                        navigate(crumb.path);
+                      },
+                    }
+                  : {})}
+              >
+                {crumb.name}
+              </BreadcrumbItem>
+            );
+          })}
         </Breadcrumb>
       ) : null}
       <div className="page-title-container">
