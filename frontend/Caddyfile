@@ -14,6 +14,17 @@
 	}
 
 	handle /api/* {
+		# NOTE: deliberately NOT stripping the backend's security headers here.
+		# Spring Security sets its own CSP/X-Frame-Options/X-Content-Type-Options
+		# (plus HSTS when it sees X-Forwarded-Proto: https), but the site-level
+		# `header` block below uses SET semantics and already replaces them on
+		# the way out — verified on Caddy 2.7.6, 2.8.4 and 2.11.4, all of which
+		# serve exactly one of each, with Caddy's value.
+		#
+		# A `header_down -Strict-Transport-Security` style strip looks like the
+		# obvious dedupe but is a REGRESSION: it runs after the header block, so
+		# it removes Caddy's own value too and leaves /api/* with no CSP, no
+		# HSTS and no frame/content-type protection at all.
 		reverse_proxy {$BACKEND_URL}
 	}
 
@@ -24,19 +35,37 @@
 	}
 
 	header {
+		# NOTE: do NOT add `-Server` (or any other deletion) to this block. A
+		# header block containing a deletion stops its SET operations reaching
+		# reverse-proxied responses: with `-Server` present, /api/* loses both
+		# Content-Security-Policy and Strict-Transport-Security entirely
+		# (verified on Caddy 2.11.4). The Server header discloses no version, so
+		# there is nothing to gain by risking it.
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
-		# TLS terminates at the OpenShift edge router, so the backend's Spring
-		# HSTS config never fires (it only sees plain HTTP). Set it here at the
-		# edge-facing layer instead; this covers both the static SPA responses
-		# and the reverse-proxied /api/* responses. 1 year, matches the backend.
+		# TLS terminates at the OpenShift edge router, so set HSTS here at the
+		# edge-facing layer; this covers the static SPA responses and the
+		# reverse-proxied /api/* responses alike. 1 year, matches the backend.
+		#
+		# (Correcting an earlier note here: Spring's HSTS is NOT simply dormant.
+		# The backend runs `forward-headers-strategy: framework`, so once it sees
+		# X-Forwarded-Proto: https it treats the request as secure and emits its
+		# own HSTS — `max-age=31536000 ; includeSubDomains`, note the space before
+		# the semicolon. This block's SET replaces it, which is why only one
+		# reaches the browser and why it is Caddy's value.)
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# form-action is listed explicitly because it is one of the directives
+		# that does NOT fall back to default-src — without it the policy places
+		# no restriction at all on where a form may submit. The SPA posts no HTML
+		# forms (API calls are fetch/XHR and the Amplify sign-in/sign-out flow is
+		# GET redirects), so 'self' costs nothing.
+		#
 		# connect-src covers two Cognito hosts the SPA calls via fetch/XHR:
 		# {$COGNITO_DOMAIN} for the hosted-UI OAuth token exchange, and the
 		# regional cognito-idp API for Amplify's silent token refresh once the
 		# short-lived access/ID token expires — without it, the browser blocks
 		# the refresh call and the user gets bounced to sign-in every ~5 min.
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://{$COGNITO_DOMAIN} https://cognito-idp.{$COGNITO_REGION}.amazonaws.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://{$COGNITO_DOMAIN} https://cognito-idp.{$COGNITO_REGION}.amazonaws.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 	}
 }
