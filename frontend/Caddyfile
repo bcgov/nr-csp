@@ -17,14 +17,25 @@
 		# NOTE: deliberately NOT stripping the backend's security headers here.
 		# Spring Security sets its own CSP/X-Frame-Options/X-Content-Type-Options
 		# (plus HSTS when it sees X-Forwarded-Proto: https), but the site-level
-		# `header` block below uses SET semantics and already replaces them on
-		# the way out — verified on Caddy 2.7.6, 2.8.4 and 2.11.4, all of which
-		# serve exactly one of each, with Caddy's value.
+		# `header` block below uses SET semantics and replaces them on the way
+		# out. Measured against this backend with the edge router's forwarded
+		# headers (-H 'X-Forwarded-Proto: https'), on Caddy 2.7.6, 2.8.4 and
+		# 2.11.4: /api/* carries exactly one of each, and it is Caddy's value
+		# (Spring's HSTS renders `max-age=31536000 ; includeSubDomains`, with a
+		# space before the semicolon — a quick way to tell whose value won).
+		#
+		# Do NOT read that as a general guarantee that a Caddy SET always
+		# collapses an upstream's copy: against a stub upstream that replies
+		# HTTP/1.0 with no Content-Length, this same config emitted TWO of each.
+		# Whether Set replaces or appends depends on the upstream's response, so
+		# re-measure here rather than assuming if the backend's stack changes.
 		#
 		# A `header_down -Strict-Transport-Security` style strip looks like the
-		# obvious dedupe but is a REGRESSION: it runs after the header block, so
-		# it removes Caddy's own value too and leaves /api/* with no CSP, no
-		# HSTS and no frame/content-type protection at all.
+		# obvious dedupe but is a REGRESSION: it removes Caddy's own value too
+		# and leaves /api/* with no CSP, no HSTS and no frame/content-type
+		# protection at all. That holds even with the strip moved into this
+		# proxy block and the header block marked `defer` — measured: /api/*
+		# CSP:0 HSTS:0 while the static SPA responses keep theirs.
 		reverse_proxy {$BACKEND_URL}
 	}
 
