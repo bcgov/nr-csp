@@ -171,7 +171,9 @@ const makeInvoice = (overrides: Record<string, any> = {}) => ({
   maturity: 'O',
   fobCode: 'FOB01',
   primarySortCode: 'P1',
-  boomNumbers: [],
+  // A saveable invoice must reference at least one source document — the backend rejects a save
+  // without one (`InvoiceValidator.checkSourceDocumentRefs`), and the Save button is gated on it.
+  boomNumbers: ['BM001'],
   timberMarks: [],
   weightSlips: [],
   reviewComments: '',
@@ -312,6 +314,33 @@ describe('InvoicePage — header field handlers', () => {
     fireEvent.input(date, { target: { value: '' } });
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     fireEvent.input(date, { target: { value: '2026-02-05' } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  // The backend rejects a save with no Boom number, Timber mark or Weigh slip
+  // (`InvoiceValidator.checkSourceDocumentRefs`). Save used to stay enabled regardless, so the
+  // rule only surfaced as a 400 in the page banner after a round trip.
+  it('Save is disabled until a source document is referenced, and the rule is stated on screen', async () => {
+    await renderLoaded({ invStatus: 'DFT', boomNumbers: [], timberMarks: [], weightSlips: [] });
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    const note = screen.getByText(/Provide at least one Boom number, Timber mark or Weigh slip/);
+    expect(note).toBeInTheDocument();
+    expect(note.className).toContain('invoice-page__field-note--unmet');
+
+    // Committing a boom number satisfies the rule and releases Save.
+    const boom = screen.getByLabelText(/Boom numbers/);
+    fireEvent.change(boom, { target: { value: 'BM999' } });
+    fireEvent.keyDown(boom, { key: 'Enter' });
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(
+      screen.getByText(/Provide at least one Boom number, Timber mark or Weigh slip/).className,
+    ).not.toContain('invoice-page__field-note--unmet');
+  });
+
+  it('a Timber mark alone also satisfies the source-document rule', async () => {
+    await renderLoaded({ invStatus: 'DFT', boomNumbers: [], timberMarks: ['TM001'], weightSlips: [] });
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 });

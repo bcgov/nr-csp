@@ -62,7 +62,7 @@ UC-SUBM-003-S01 (message WRN-001, exact text as above); `messages.properties`
 
 ## Bug / Regression
 
-### BUG-001 — Save is offered before the invoice can actually be saved (source-document fields) — OPEN
+### BUG-001 — Save is offered before the invoice can actually be saved (source-document fields) — FIXED
 
 **What's wrong.** An invoice must carry at least one Boom Number, Timber Mark or Weigh Slip. None
 of those three fields is marked as required on screen, and the Save button turns on without them —
@@ -83,9 +83,17 @@ telling them something else was missing.
 and the error arrives detached from the field that caused it (it lands in the page banner, because
 the message key has no field mapping in `messageKeyMap.ts`).
 
-**Not covered by a test in this pass** — it belongs to the "required fields missing" exception
-slices (UC-SUBM-001-S04 / S12), which are out of scope here. See Coverage gap #2. The journey
-complies with the rule by entering a boom number.
+**FIXED** on branch `defects-from-e2e`. `requiredFieldsFilled` in `pages/Invoice/index.tsx` now
+includes the one-of-three rule, so Save and Submit stay disabled until a Boom number, Timber mark or
+Weigh slip is provided. Because it is a one-of-three, no single field can carry an asterisk — so the
+rule is stated in a note beside the three fields, which turns the same colour as a Carbon field
+error while unmet. A silently-disabled Save would have been its own defect.
+
+Covered by two new unit tests in `pages/Invoice/index.more.unit.test.tsx`: Save is disabled with
+none of the three, the note renders in its unmet state, committing a boom number releases Save, and
+a Timber mark alone satisfies the rule too. Both page fixtures also gained a boom number — they had
+described an invoice the backend would have rejected, so 12 existing save/submit tests had been
+passing against an unsaveable record. Awaiting BA/QA confirmation before this entry is closed.
 
 ### BUG-002 — Deleting an invoice leaves its submission record behind — OPEN
 

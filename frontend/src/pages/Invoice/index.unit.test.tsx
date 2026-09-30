@@ -154,7 +154,9 @@ const makeInvoice = (overrides: Record<string, any> = {}) => ({
   maturity: 'O',
   fobCode: 'FOB01',
   primarySortCode: 'P1',
-  boomNumbers: [],
+  // A saveable invoice must reference at least one source document — the backend rejects a save
+  // without one (`InvoiceValidator.checkSourceDocumentRefs`), and the Save button is gated on it.
+  boomNumbers: ['BM001'],
   timberMarks: [],
   weightSlips: [],
   reviewComments: '',

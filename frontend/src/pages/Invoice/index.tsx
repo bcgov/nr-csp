@@ -539,6 +539,16 @@ export function InvoicePage() {
 
   // Every required (asterisked) header field must be filled before Save/Submit
   // are available.
+  /**
+   * At least one source document must be referenced — a Boom number, a Timber mark or a Weigh
+   * slip. `InvoiceValidator.checkSourceDocumentRefs` enforces this on every save, so leaving it
+   * out of the gate below meant Save looked available, the request went out, and the user got
+   * "One of Boom Number, Timber Mark or Weigh Slip must have a value." back in the page banner —
+   * detached from the fields that caused it, after a round trip. The note beside the three fields
+   * states the rule, since it is a one-of-three and no single field can carry an asterisk.
+   */
+  const hasSourceDocumentRef = boomNumbers.length > 0 || timberMarks.length > 0 || weighSlips.length > 0;
+
   const requiredFieldsFilled =
     invNumber.trim() !== '' &&
     invTypeCode.trim() !== '' &&
@@ -548,7 +558,8 @@ export function InvoicePage() {
     submittingClientLocation.trim() !== '' &&
     maturityCode.trim() !== '' &&
     fobCodeValue.trim() !== '' &&
-    (otherClientNumber.trim() !== '' || otherClientName.trim() !== '');
+    (otherClientNumber.trim() !== '' || otherClientName.trim() !== '') &&
+    hasSourceDocumentRef;
 
   const clientNewLineErrors = useMemo(
     () =>
@@ -2088,6 +2099,19 @@ export function InvoicePage() {
                       maxTags={5}
                       uppercase
                     />
+                  </Column>
+
+                  {/* The one-of-three rule, stated where the fields are. It cannot be an asterisk
+                      on any single field, and without it a disabled Save has no visible reason. */}
+                  <Column sm={4} md={8} lg={16} className="invoice-page__field-note-col">
+                    <p
+                      className={`invoice-page__field-note${
+                        canEdit && !hasSourceDocumentRef ? ' invoice-page__field-note--unmet' : ''
+                      }`}
+                    >
+                      <span className="required-label__star">*</span> Provide at least one Boom number, Timber mark or
+                      Weigh slip.
+                    </p>
                   </Column>
 
                   <Column sm={4} md={8} lg={16} className="invoice-page__field-col">

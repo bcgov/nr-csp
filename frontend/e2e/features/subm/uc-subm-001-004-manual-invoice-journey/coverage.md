@@ -55,7 +55,7 @@ listed as coverage gaps below so nothing looks silently covered.
 | Save is an UPDATE, not a second create | not in the Gherkin (new-app behaviour) | `handleSave` `isExisting` branch | `journey` `@S01 @p0` (route-spy verb count) | covered | — |
 | SUC-001 — `The Invoice has been Saved successfully.` | slices SUC-001 (exact text given) | toast `Invoice '<num>' saved.` | `journey` `@S01 @p0` | covered, re-grounded | Spec gap #4 |
 | WRN-001 — submit reminder on a draft save | slices WRN-001 (exact text given) | `invoice.submit.saved.warning` on the PUT | `journey` `@S01 @p0` | covered (exact legacy text, unchanged) | — |
-| At least one of Boom / Timber Mark / Weigh Slip | S01 `:26`; `InvoiceValidator` | `checkSourceDocumentRefs` (server only) | `journey` `@S01 @p0` (complies — a boom number is entered) | partially covered | **BUG-001**, Coverage gap #2 |
+| At least one of Boom / Timber Mark / Weigh Slip | S01 `:26`; `InvoiceValidator` | `checkSourceDocumentRefs` **and** `requiredFieldsFilled` | `journey` `@S01 @p0` (complies); the gate itself by unit test | covered (was BUG-001, now fixed) | BUG-001 (fixed) |
 | DRAFT invoices are not in the reviewer's inbox (`LOB`) | slices BR | `SUBMSTATUS_LOBBY` on create | — | deferred | Coverage gap #3 |
 | **UC-SUBM-004-S01** — submit a valid DRAFT invoice | S01 `:22-31` | `POST /api/invoices/{id}/submit` | `journey` `@S01 @p0` | covered | — |
 | Submit requires at least one line item | `invoice.noline.item.error`; `checkInvoiceLines` | validator on `ActionType.SUBMIT` + `!hasLineItems` gate | — (journey complies) | partially covered | Coverage gap #2 |
