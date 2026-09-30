@@ -1,5 +1,6 @@
 import { test as base } from 'playwright-bdd';
 
+import { installToastRecorder } from '../../pages/common/toastRecorder';
 import { InvoicePage } from '../../pages/invoice/InvoicePage';
 
 /**
@@ -87,6 +88,17 @@ export const globalTest = base.extend<GlobalFixtures>({
 
   invoicePage: async ({ page }, use) => {
     await use(new InvoicePage(page));
+  },
+
+  /**
+   * Every scenario records the toasts the app shows, so toast assertions are not racing the app's
+   * own 5-second auto-dismiss. Installed by overriding `page` because the recorder is an init
+   * script: it has to be registered before the first navigation, and doing it here means no step or
+   * page object can forget to. See `pages/common/toastRecorder.ts` for why this is necessary.
+   */
+  page: async ({ page }, use) => {
+    await installToastRecorder(page);
+    await use(page);
   },
 
   // TODO(author): if your app has a suite-wide identity, declare it once by overriding `page` — the

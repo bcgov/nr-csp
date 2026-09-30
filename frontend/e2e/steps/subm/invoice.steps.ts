@@ -163,7 +163,7 @@ Then('the invoice is created and opened in DFT status', async ({ invoicePage, wo
   createdInvoiceIds.push(id);
 
   await expect(invoicePage.statusTag).toHaveText('DFT');
-  await expect(invoicePage.toast(`Invoice '${world.invoiceNumber}' created.`)).toBeVisible();
+  await invoicePage.expectToastShown(`Invoice '${world.invoiceNumber}' created.`);
 });
 
 Then('the submit-reminder warning is displayed', async ({ invoicePage }) => {
@@ -242,7 +242,7 @@ Then('the invoice totals reflect the added line item', async ({ invoicePage }) =
 
 Then('the invoice stays in DFT status', async ({ invoicePage, world }) => {
   await expect(invoicePage.statusTag).toHaveText('DFT');
-  await expect(invoicePage.toast(`Invoice '${world.invoiceNumber}' saved.`)).toBeVisible();
+  await invoicePage.expectToastShown(`Invoice '${world.invoiceNumber}' saved.`);
 });
 
 Then('the save updated the existing invoice instead of creating another', async ({
@@ -263,7 +263,7 @@ Then('the save updated the existing invoice instead of creating another', async 
 
 Then('the invoice moves to {string} status on screen', async ({ invoicePage, world }, status: string) => {
   await expect(invoicePage.statusTag).toHaveText(status);
-  await expect(invoicePage.toast(`Invoice '${world.invoiceNumber}' submitted.`)).toBeVisible();
+  await invoicePage.expectToastShown(`Invoice '${world.invoiceNumber}' submitted.`);
 });
 
 Then('Submit is no longer offered', async ({ invoicePage }) => {

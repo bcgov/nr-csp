@@ -62,7 +62,7 @@ Then('the invoice becomes REJECTED on screen', async ({ invoicePage }) => {
   await expect(invoicePage.statusTag).toHaveText(invoiceStatus.rejected);
   // The toast names the invoice. Matching on the verb rather than pinning the number: invoice
   // numbers are not unique within a submission, so the number would be the weaker half.
-  await expect(invoicePage.toast('rejected.')).toBeVisible();
+  await invoicePage.expectToastShown('rejected.');
 });
 
 Then('Reject is no longer offered', async ({ invoicePage }) => {

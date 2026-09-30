@@ -67,7 +67,7 @@ When('I unapprove the invoice', async ({ invoicePage }) => {
 
 Then('the invoice returns to UNAPPROVED on screen', async ({ invoicePage }) => {
   await expect(invoicePage.statusTag).toHaveText(invoiceStatus.unapproved);
-  await expect(invoicePage.toast('unapproved.')).toBeVisible();
+  await invoicePage.expectToastShown('unapproved.');
 });
 
 Then('Unapprove is replaced by an enabled Approve', async ({ invoicePage }) => {

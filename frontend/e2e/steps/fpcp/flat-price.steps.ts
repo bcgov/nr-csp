@@ -136,7 +136,7 @@ Then('the row update is confirmed on screen', async ({ flatPricePage }) => {
   // RE-GROUNDED. The legacy slice expects the growl "Record has been updated successfully."
   // (resource key `update.successful.info`, which its own TODO says was never confirmed). This app
   // shows a toast reading "Row updated successfully."
-  await expect(flatPricePage.toast('Row updated successfully.')).toBeVisible();
+  await flatPricePage.expectToastShown('Row updated successfully.');
 });
 
 Then('the grid shows my row at the new relative price', async ({ flatPricePage, world }) => {
