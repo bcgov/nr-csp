@@ -170,6 +170,11 @@ public class InvoiceValidator {
                 && isBlank(details.reviewComments())) {
             addError("invoice.cancel.need.reviewer.comment.error", null);
         }
+        // Reject / unapprove / cancel also require the comment to have CHANGED, not just to be
+        // present — the blank checks above and this are two halves of one rule. Approve is
+        // deliberately outside it. Load-bearing call: without it nothing enforces the change, and
+        // InvoiceValidatorTest's unchanged-comment cases fail.
+        isReviewerCommentUpdate(details, newStatus, "invoice.reviewer.notes.update.warning");
         return new ValidationResult(messages);
     }
 
