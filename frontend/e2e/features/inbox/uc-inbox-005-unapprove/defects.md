@@ -79,7 +79,7 @@ comment for both.
 a script, a future integration — could do so with no audit reason.
 
 **FIXED** on branch `defects-from-e2e`, as a business rule, matched to the legacy app rather than
-invented. The legacy source (`/home/rylanevans/nr-csp`) has the answer, and it is **stronger** than
+invented. The legacy `nr-csp` source has the answer, and it is **stronger** than
 "non-empty": `InvoiceValidator.isReviewerCommentUpdate` required the reviewer comment to have
 **CHANGED** from the stored value, and legacy `InvoiceService.changeInvoiceStatus` called it from
 the status-change path with the new status code (legacy `InvoiceService.java:665`); the delete path
