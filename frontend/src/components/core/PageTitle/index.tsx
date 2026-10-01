@@ -79,11 +79,14 @@ const PageTitle: FC<PageTitleProps> = ({ title, subtitle, experimental, children
                   ? {
                       href: crumb.path,
                       onClick: (event: React.MouseEvent<HTMLAnchorElement>) => {
-                        const isModifiedClick =
-                          event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
+                        const isModifiedClick = event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
                         if (event.defaultPrevented || event.button !== 0 || isModifiedClick) return;
                         event.preventDefault();
-                        navigate(crumb.path);
+                        // `void`: react-router 8's `navigate` returns a Promise, and nothing here
+                        // needs to wait for or handle it — the crumb's only job is to start the
+                        // transition. Marking it ignored is explicit about that rather than leaving
+                        // a floating promise for a reader (or a linter) to wonder about.
+                        void navigate(crumb.path);
                       },
                     }
                   : {})}
