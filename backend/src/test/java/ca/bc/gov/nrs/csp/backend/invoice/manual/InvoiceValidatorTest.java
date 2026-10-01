@@ -734,43 +734,39 @@ class InvoiceValidatorTest {
 
     // The changed-check alone does NOT require a reason: a blank comment "differs from" a populated
     // stored note, so it satisfied the rule and reversed the approval with nothing recorded. These
-    // four pin the blank check that closes it, for the two statuses where it was missing.
+    // pin the blank check that closes it, for the two statuses where it was missing.
     //
     // A DELIBERATE DEPARTURE from the legacy implementation, which has the same gap. It follows
     // legacy's own documented rule B ("A Reviewer Comment is required when the following buttons
     // have been clicked: Unapproved, Delete, Cancel, Reject"), signed off as a business rule.
-    // Note the stored note is populated in each case — that is what made the old rule pass.
-    @Test
-    void validateForChangeStatus_unapproveWithBlankComment_addsError() {
-        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("the stored note");
-        InvoiceDetails details = invWith(i -> i.reviewComments = "");
-
-        ValidationResult result = validator.validateForChangeStatus(
-                details, ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "user2");
-
-        assertHasError(result, "invoice.unapprove.need.reviewer.comment.error");
+    //
+    // Whitespace-only is a case in its own right, not padding: `"   "` is what a reviewer who
+    // tabbed through the box actually sends, and it is the value a changed-check happily accepts.
+    private static Stream<Arguments> blankReviewerCommentScenarios() {
+        return Stream.of(
+                Arguments.of(ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "",
+                        "invoice.unapprove.need.reviewer.comment.error"),
+                Arguments.of(ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "   ",
+                        "invoice.unapprove.need.reviewer.comment.error"),
+                Arguments.of(ConstantsCode.INVENTRYSTATUS_CANCELLED, "",
+                        "invoice.cancel.need.reviewer.comment.error"),
+                Arguments.of(ConstantsCode.INVENTRYSTATUS_CANCELLED, "   ",
+                        "invoice.cancel.need.reviewer.comment.error")
+        );
     }
 
-    @Test
-    void validateForChangeStatus_unapproveWithWhitespaceOnlyComment_addsError() {
+    @ParameterizedTest
+    @MethodSource("blankReviewerCommentScenarios")
+    void validateForChangeStatus_blankReviewerComment_addsError(
+            String newStatus, String comment, String expectedError) {
+        // The stored note is POPULATED on purpose — that is precisely what made the old
+        // changed-only rule pass, because a blank comment "differs from" it.
         given(invoiceRepo.findReviewCommentsById(1L)).willReturn("the stored note");
-        InvoiceDetails details = invWith(i -> i.reviewComments = "   ");
+        InvoiceDetails details = invWith(i -> i.reviewComments = comment);
 
-        ValidationResult result = validator.validateForChangeStatus(
-                details, ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "user2");
+        ValidationResult result = validator.validateForChangeStatus(details, newStatus, "user2");
 
-        assertHasError(result, "invoice.unapprove.need.reviewer.comment.error");
-    }
-
-    @Test
-    void validateForChangeStatus_cancelWithBlankComment_addsError() {
-        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("the stored note");
-        InvoiceDetails details = invWith(i -> i.reviewComments = "");
-
-        ValidationResult result = validator.validateForChangeStatus(
-                details, ConstantsCode.INVENTRYSTATUS_CANCELLED, "user2");
-
-        assertHasError(result, "invoice.cancel.need.reviewer.comment.error");
+        assertHasError(result, expectedError);
     }
 
     // Approve stays outside the rule entirely — it needs no reason, blank or otherwise. No stored
