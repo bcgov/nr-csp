@@ -145,13 +145,34 @@ integrations configured.
 
 **2. Create your frontend auth config**
 
+`frontend/public/amplify-config.js` is git-ignored and is **not** present in a fresh clone.
+The app will not boot without it — `getAmplifyConfig()` throws if `window.amplifyConfig` is
+unset. Two ways to get one:
+
 ```bash
+# Quickest — a committed template, already pointed at localhost with mock auth on
 cp frontend/public/amplify-config.example.js frontend/public/amplify-config.js
 ```
 
-`amplify-config.js` is git-ignored and is **not** present in a fresh clone — the app will not
-start without it. The template is preconfigured for local mock auth, so for ordinary local
-development you can copy it and move on. See [Authentication](#authentication) for real Cognito.
+Or **grab the live file from a deployed environment**, which is what the template was made
+from and the better route if the Cognito values have moved on:
+
+```bash
+# From a running environment
+curl -s https://nr-csp-test.apps.gold.devops.gov.bc.ca/amplify-config.js \
+  > frontend/public/amplify-config.js
+
+# Or straight from the ConfigMap, if you have cluster access
+oc extract configmap/nr-csp-frontend-amplify-config-test --to=frontend/public/ --confirm
+```
+
+Then make the two local edits:
+
+1. Point `redirectSignIn` / `redirectSignOut` at `http://localhost:3000/` and
+   `http://localhost:3000/logout`.
+2. Add `"mockUser": true` to skip Cognito — deployments omit it or set it false.
+
+See [Authentication](#authentication) for running against real Cognito instead.
 
 **3. Connect to a database, then start**
 
@@ -257,11 +278,9 @@ and **both must be on** or you get a half-broken session:
 (`frontend/src/env.ts` re-checks the hostname), so it cannot weaken a deployed environment.
 It is read as `mockUser === true`: if `amplify-config.js` is missing the key — or the file
 itself is absent, as in a fresh clone — mock mode is **off** and you get a real Cognito login
-screen. Copy the template to get the intended local default:
-
-```bash
-cp frontend/public/amplify-config.example.js frontend/public/amplify-config.js
-```
+screen. A config copied from a deployment won't have it either — deployments set it false — so
+add it by hand, or start from the template, which has it on. See
+[step 2](#running-locally-with-docker-compose).
 
 **Backend half.** `AUTH_MOCK_ENABLED` defaults to on under the `local` profile. Under the
 `prod` profile `application.yml` sets it off, but the environment variable overrides that
@@ -277,12 +296,14 @@ user's roles come from `AUTH_MOCK_ROLES` (default `ADMIN`); see
 
 1. Set `AUTH_MOCK_ENABLED=false` in `.env` and fill in `JWT_JWKS_URI`, `JWT_ISSUER`, and
    `JWT_AUDIENCE`. They must point at the same Cognito User Pool the frontend uses.
-2. In `frontend/public/amplify-config.js`, set `mockUser: false` and replace the `REPLACE_ME`
-   placeholders with your Cognito values. The full key set, with comments on where each value
-   comes from, is in [`frontend/public/amplify-config.example.js`](frontend/public/amplify-config.example.js).
+2. In `frontend/public/amplify-config.js`, set `"mockUser": false` (or remove the key) and make
+   sure the Cognito values are current. The simplest way to be sure is to take them from a
+   deployed environment — see [step 2](#running-locally-with-docker-compose).
 
-Cognito values (User Pool ID, client ID, domain, IDP name) come from the FAM team / DevOps.
-Redirect URLs must match the FAM application registration.
+Keep `redirectSignIn` / `redirectSignOut` pointed at localhost, and note that both must be
+registered with FAM for local sign-in to work at all. Cognito values (User Pool ID, client ID,
+domain, IDP name) are owned by the FAM team / DevOps; the canonical rendering of the whole set
+is the ConfigMap template in `common/openshift.init.yml`.
 
 > **How sign-out works.** Signing out drives a federated logout chain — SiteMinder → Keycloak → Cognito → back to the app at `/logout`, which immediately redirects to the welcome screen — built at runtime from the `logout*` values above (see `frontend/src/utils/logoutChain.ts`; same pattern as FAM's own console). This clears all three upstream sessions, not just Cognito's. Two registration constraints, both owned by FAM (`oidc_clients_csp.tf` in [nr-forests-access-management](https://github.com/bcgov/nr-forests-access-management)): `redirectSignOut` must be registered verbatim as a Cognito sign-out URL, and the Cognito domain must be on the shared Keycloak client's post-logout allow-list. If the `logout*` values are missing, the app falls back to a Cognito-only Amplify sign-out. Test/prod use `test.loginproxy`/`loginproxy` and (prod) `logon7` hosts — see the `LOGOUT_*` GitHub variables. Sign-out also briefly opens a small popup against loginproxy's `idir` broker realm: that realm holds a fourth session the chain cannot reach (its logout endpoint rejects redirect chaining and its pages are not frameable), and without clearing it the next sign-in silently logs the user back in without prompting for credentials.
 

@@ -277,10 +277,13 @@ its pages are not frameable.
 Nothing environment-specific is baked into the frontend build. The SPA reads
 `window.amplifyConfig` from `public/amplify-config.js` at runtime:
 
-- **Locally** — copy `amplify-config.example.js` to `amplify-config.js`. The real file is
-  git-ignored.
 - **In OpenShift** — a ConfigMap defined in `common/openshift.init.yml` is mounted over
   `/usr/share/caddy/amplify-config.js`. Changing Cognito values needs a rollout, not a rebuild.
+  This template is the canonical definition of the key set.
+- **Locally** — the file is git-ignored and absent from a fresh clone, and the app throws at
+  module load without it. Developers take the rendered file from a deployed environment and
+  repoint the redirects at localhost, adding `"mockUser": true` for mock auth;
+  `amplify-config.example.js` is a committed snapshot of that result.
 
 The ConfigMap is created in the **init** step rather than the deploy template, because that is
 where environment-scoped GitHub variables resolve correctly.
