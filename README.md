@@ -1,5 +1,7 @@
 # NRS CSP App
-A starting point for NR application teams. Spring Boot 4 backend, React 19 frontend, Oracle DB.
+The **Coast Selling Price (CSP) System** for the BC Ministry of Forests. Users submit, review and approve coastal log sale invoices (entered manually or uploaded as XML), maintain the sort-code and flat-price-conversion reference tables, and run the R06–R13 reports.
+
+Spring Boot 4 (Java 21) backend, React 19 + Vite + Carbon frontend, Oracle DB, deployed to OpenShift Gold. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together.
 
 **Frontend**
 ***
@@ -48,25 +50,46 @@ Open `.env` and fill in the required values:
 
 | Variable | Description |
 |---|---|
+| `SPRING_PROFILES_ACTIVE` | `prod` (default in `.env.example`) or `local` — see below |
 | `SPRING_DATASOURCE_URL` | Oracle JDBC URL (TCPS descriptor form — see `.env.example`) |
 | `SPRING_DATASOURCE_USERNAME` | Oracle username |
 | `SPRING_DATASOURCE_PASSWORD` | Oracle password |
+| `JWT_JWKS_URI` | Cognito JWKS endpoint. **Must be a well-formed URL even in mock mode** — the backend parses it at startup and fails to boot on an empty value. With mock auth, any placeholder such as `https://mock-auth.invalid/.well-known/jwks.json` works |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | Expected JWT issuer and audience (Cognito user pool / app client). Only needed for real Cognito auth |
 | `AUTH_MOCK_ENABLED` | Set to `true` for local development — enables backend mock auth (see [Authentication](#authentication)) |
+| `AUTH_MOCK_ROLES` | Roles granted to the mock user (default `ADMIN`) |
+| `JAVA_OPTS` | JVM flags for the backend container (defaults are fine) |
+| `COGNITO_DOMAIN` | Optional. Only feeds the Caddy `Content-Security-Policy` header when running the production image; leave unset for the dev server (compose will warn that it is unset) |
 
 > Use single quotes if a value contains special characters: `PASSWORD='p@ss!'`
 
-`.env.example` defaults to `SPRING_PROFILES_ACTIVE=prod`, which mirrors OpenShift: all of the variables above are **required**. If you don't have DB credentials yet, set `SPRING_PROFILES_ACTIVE=local` instead — the `local` profile boots with empty fallbacks for Cognito, mock auth enabled, and DEBUG logging, so the app starts without any integrations configured.
+`.env.example` defaults to `SPRING_PROFILES_ACTIVE=prod`, which mirrors OpenShift. Setting `SPRING_PROFILES_ACTIVE=local` instead turns on mock auth by default and DEBUG logging for `ca.bc.gov.nrs.csp` and Spring Security. Neither profile starts without integrations:
 
-**2. Connect VPN, then start**
+- **Database.** The backend runs `SELECT 1 FROM DUAL` at startup (`ValidatingDataSource`) and refuses to start if the DB is unreachable. You need VPN and valid DB credentials if connecting to dev db, whichever profile you use.
+- **JWKS URI.** `JWT_JWKS_URI` must be a syntactically valid URL (see the table above).
+
+The frontend container waits for the backend health check, so if the backend fails to start, the frontend never comes up either.
+
+**2. Create the frontend runtime config**
+
+The frontend reads all environment config from `frontend/public/amplify-config.js` at runtime. This file is **git-ignored and not in the repo**, so you have to create it. Without it the app crashes on load with `window.amplifyConfig not found`. For mock mode, this is enough:
+
+```javascript
+window.amplifyConfig = {
+  "appEnv": "dev",
+  "mockUser": true,
+  "famClientId": "CSP"
+};
+```
+
+See [Authentication](#authentication) for the full set of keys needed for real Cognito auth.
+
+**3. Connect VPN, then start**
 
 By default, `docker compose up` runs the frontend as a **Vite dev server** with hot-module reloading (via `docker-compose.override.yml`). The source tree is bind-mounted so edits on the host reload live.
 
 ```bash
-# Docker
 docker compose up --build
-
-# Podman
-podman compose up --build
 ```
 
 | Service | URL |
@@ -109,15 +132,15 @@ For local development, use **mock mode** — no Cognito login required. Mock mod
 
 | Half | Switch | Default |
 |---|---|---|
-| Frontend | `"mockUser": true` in `frontend/public/amplify-config.js` (only honoured when served from localhost) | on |
+| Frontend | `"mockUser": true` in `frontend/public/amplify-config.js` (only honoured when served from `localhost`, `127.0.0.1`, `0.0.0.0`, `::1` or `*.localhost`) | none — you create the file yourself (see step 2 above) |
 | Backend | `AUTH_MOCK_ENABLED=true` in `.env` | on with the `local` profile; **off** with the `prod` profile — you must set it explicitly |
 
-With the backend half off (and no JWT vars configured), the frontend will show a fake logged-in user but every API call will be rejected with 401. The mock user's roles are controlled by `AUTH_MOCK_ROLES` (default `ADMIN`).
+If only the frontend half is on, the frontend shows a fake logged-in user but the backend rejects every API call with 401. The mock user (`local-dev-user`) gets the roles in `AUTH_MOCK_ROLES` (default `ADMIN`).
 
 **Running with real Cognito auth locally**
 
 1. Set `AUTH_MOCK_ENABLED=false` in `.env` and fill in the JWT vars.
-2. Edit `frontend/public/amplify-config.js`, set `"mockUser": false`, and replace the `REPLACE_ME` placeholders with your Cognito values:
+2. In `frontend/public/amplify-config.js`, set `"mockUser": false` and fill in your Cognito values (get them from the FAM team or DevOps):
 
 ```javascript
 window.amplifyConfig = {
@@ -134,9 +157,12 @@ window.amplifyConfig = {
   "logoutKeycloakUrl": "https://dev.loginproxy.gov.bc.ca/auth/realms/standard/protocol/openid-connect/logout",
   "logoutKeycloakClientId": "fsa-cognito-idir-dev-4088",
   "mockUser": false,
-  "famClientId": "CSP"
+  "famClientId": "CSP",
+  "idleTimeoutMinutes": 30
 };
 ```
+
+`famClientId` identifies the FAM application. The app has three roles, `VIEW`, `APPROVE` and `ADMIN`. A role is granted when a Cognito group in the ID token equals the role name or ends with `_<ROLE>`, e.g. `CSP_ADMIN`. The backend and the frontend apply the same rule. `idleTimeoutMinutes` is optional; after that many minutes of inactivity the app signs the user out (default 30). In dev mode, `redirectSignIn` is replaced with the current origin.
 
 > **How sign-out works.** Signing out drives a federated logout chain — SiteMinder → Keycloak → Cognito → back to the app at `/logout`, which immediately redirects to the welcome screen — built at runtime from the `logout*` values above (see `frontend/src/utils/logoutChain.ts`; same pattern as FAM's own console). This clears all three upstream sessions, not just Cognito's. Two registration constraints, both owned by FAM (`oidc_clients_csp.tf` in [nr-forests-access-management](https://github.com/bcgov/nr-forests-access-management)): `redirectSignOut` must be registered verbatim as a Cognito sign-out URL, and the Cognito domain must be on the shared Keycloak client's post-logout allow-list. If the `logout*` values are missing, the app falls back to a Cognito-only Amplify sign-out. Test/prod use `test.loginproxy`/`loginproxy` and (prod) `logon7` hosts — see the `LOGOUT_*` GitHub variables. Sign-out also briefly opens a small popup against loginproxy's `idir` broker realm: that realm holds a fourth session the chain cannot reach (its logout endpoint rejects redirect chaining and its pages are not frameable), and without clearing it the next sign-in silently logs the user back in without prompting for credentials.
 
@@ -151,6 +177,8 @@ This is a **local development concern only.** Certificate files are git-ignored 
 **How it works**
 
 The backend Dockerfile has a dedicated build stage that imports every certificate file found in `backend/certs/` into the JRE's trust store before the final image is assembled. Supported extensions: `.cer`, `.pem`, `.crt`. Empty or missing files are silently skipped.
+
+The Maven build stage imports only `*.pem` files. If Maven dependency downloads fail behind the proxy, provide the certificate as a `.pem`.
 
 **Adding a certificate**
 
@@ -174,9 +202,12 @@ Deployments to OpenShift are fully automated through GitHub Actions — no manua
 
 | Event | What happens |
 |---|---|
-| PR opened | Images built, pushed to GHCR, deployed to a PR-specific environment |
-| Merged to `main` | Images deployed to **test**, integration tests run, then deployed to **prod** |
-| After prod deploy | Sysdig monitoring alerts synced; images tagged `prod` in GHCR |
+| PR opened (`pr-open.yml`) | Images built, pushed to GHCR and deployed to a PR-specific environment (`nr-csp-<PR# mod 50>`, one replica, no HPA/PDB). Integration tests then run against it |
+| Every PR and push (`analysis.yml`) | Backend unit tests + JaCoCo, frontend lint + Vitest coverage, SonarCloud, and a Trivy scan (vulnerabilities, secrets, misconfiguration). The `Analysis Results` job is the merge gate |
+| Merged to `main` (`merge.yml`) | The PR's images (not rebuilt) are deployed to **test**, integration tests run, then the same images go to **prod** |
+| After prod deploy | Sysdig monitoring alerts synced from `monitoring/alerts/`; images tagged `prod` in GHCR |
+| PR closed (`pr-close.yml`) | PR environment removed |
+| Saturdays (`scheduled.yml`) | Stale issues and PRs closed, PR environments older than a week purged, SchemaSpy published, and a ZAP full scan run against **test** |
 
 **Oracle init container**
 
@@ -211,16 +242,42 @@ The following secrets and variables must be configured on the repository for the
 |---|---|
 | `OC_TOKEN` | Environment-specific OpenShift service account token |
 
-**Repository variables**
+**Variables**
 
-| Variable | Description |
-|---|---|
-| `OC_SERVER` | OpenShift API server URL |
-| `COGNITO_REGION` | AWS region for Cognito (e.g. `ca-central-1`) |
-| `COGNITO_USER_POOL_ID` | Cognito User Pool ID |
-| `COGNITO_USER_POOL_CLIENT_ID` | Cognito App Client ID |
-| `COGNITO_DOMAIN` | Cognito hosted UI domain |
-| `COGNITO_OAUTH_SCOPES` | OAuth scopes, comma-separated (e.g. `openid,profile,email`) |
-| `APP_ENV` | Application environment label injected into the frontend config (`dev`, `test`, `prod`) |
-| `COGNITO_IDP_NAME` | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
-| `FAM_CLIENT_ID` | FAM application client ID for role-group mapping (injected at runtime via `amplify-config.js`) |
+Variables marked *per-env* differ between environments. Set them as environment variables on `test` and `prod`, with a repo-level value as the fallback for PR deployments. The others are repo-level only. Variables used in the deploy job matrix, such as `COGNITO_DOMAIN` and `COGNITO_REGION`, resolve at repo level, because GitHub evaluates the matrix before the environment is attached.
+
+| Variable | Scope | Description |
+|---|---|---|
+| `OC_SERVER` | repo | OpenShift API server URL |
+| `OPENSHIFT_APPS_DOMAIN` | repo | Optional. Apps domain for routes and test targets (default `apps.gold.devops.gov.bc.ca`) |
+| `COGNITO_REGION` | repo | AWS region for Cognito (e.g. `ca-central-1`) |
+| `COGNITO_USER_POOL_ID` | repo | Cognito User Pool ID |
+| `COGNITO_USER_POOL_CLIENT_ID` | repo | Cognito App Client ID |
+| `COGNITO_DOMAIN` | repo | Cognito hosted UI domain (also used in the Caddy CSP header) |
+| `COGNITO_OAUTH_SCOPES` | repo | OAuth scopes, comma-separated (e.g. `openid,profile,email`) |
+| `FAM_CLIENT_ID` | repo | FAM application client ID for role-group mapping (injected at runtime via `amplify-config.js`) |
+| `APP_ENV` | per-env | Application environment label injected into the frontend config (`dev`, `test`, `prod`) |
+| `COGNITO_IDP_NAME` | per-env | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
+| `LOGOUT_SITEMINDER_URL` | per-env | SiteMinder `logoff.cgi` URL, the first hop of the sign-out chain |
+| `LOGOUT_KEYCLOAK_URL` | per-env | Keycloak end-session endpoint, the second hop of the sign-out chain |
+| `LOGOUT_KEYCLOAK_CLIENT_ID` | per-env | FAM's shared Keycloak client ID |
+| `FRONTEND_LOG_LEVEL` | per-env | Optional. Frontend log level (default `INFO`) |
+| `BACKEND_LOG_LEVEL`, `BACKEND_ROOT_LOG_LEVEL`, `BACKEND_SPRING_LOG_LEVEL`, `BACKEND_SPRING_SECURITY_LOG_LEVEL` | repo (matrix) | Optional. Backend log levels (default `INFO`, `INFO`, `INFO`, `WARN`) |
+
+> `JWT_JWKS_URI` is declared optional in `reusable-deploy.yml`, but the backend will not start without it.
+
+## Testing
+
+| What | Command | Notes |
+|---|---|---|
+| Backend unit tests | `cd backend && mvn -DskipITs verify` | JUnit + JaCoCo coverage |
+| Backend integration tests | `cd backend && mvn test-compile failsafe:integration-test failsafe:verify` | `*IT.java`, Oracle via Testcontainers (needs Docker) |
+| Frontend lint / unit tests | `cd frontend && npm run lint && npm run test:unit` | `npm run test:coverage` for coverage; `npm run test:browser` for browser-mode tests |
+| Frontend E2E | `cd frontend && npm run test:e2e` | Playwright BDD suite. See [frontend/e2e/README.md](frontend/e2e/README.md) for setup |
+
+A [gitleaks](https://github.com/gitleaks/gitleaks) pre-commit hook is configured in `.pre-commit-config.yaml`. Run `pre-commit install` to enable it.
+
+## Contributing notes
+
+- The root `.gitignore` ignores `.github/` and every `*.md` file except `README.md`. New workflow files or documentation, including `ARCHITECTURE.md`, must be added with `git add -f`. Files that are already tracked are unaffected.
+- See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together, and [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.

@@ -44,6 +44,8 @@ playbooks/collections/
 .github
 **.md
 !README.md
+!ARCHITECTURE.md
+!SECURITY.md
 **.log
 **.iml
 
