@@ -1,6 +1,6 @@
 // src/components/PageTitle/PageTitle.browser.test.tsx
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, it, expect } from 'vitest';
@@ -70,7 +70,7 @@ describe('PageTitle (browser)', () => {
   // swallowed them and routed in place instead, which silently broke opening a crumb in a new tab —
   // the thing the href was added for. Asserting on defaultPrevented is what distinguishes the two:
   // it is the single bit that decides whether the browser still gets to act on the anchor.
-  it('lets a modified click fall through to the browser instead of routing', async () => {
+  it('lets a modified click fall through to the browser instead of routing', () => {
     renderPageTitle({
       title: 'With Breadcrumbs',
       breadCrumbs: [
@@ -81,22 +81,34 @@ describe('PageTitle (browser)', () => {
 
     const link = screen.getByRole('link', { name: 'Invoice search' });
 
-    const ctrlClick = new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
-    link.dispatchEvent(ctrlClick);
-    expect(ctrlClick.defaultPrevented).toBe(false);
+    // `defaultPrevented` is the single bit that decides whether the browser still gets to act on
+    // the anchor, so it is what distinguishes "fell through to the browser" from "routed in place".
+    //
+    // ⚠ This listener is REQUIRED, not incidental. Falling through is the behaviour under test, so
+    // on a modified click nothing calls preventDefault — and the browser then really does follow
+    // href="/search", navigating the Vitest browser runner's own iframe away and killing the whole
+    // file with "Cannot connect to the iframe". Registering on `document` means this runs in the
+    // bubble phase, AFTER the component's handler: it reads whether the component prevented the
+    // event, then prevents it so the real navigation never happens.
+    const prevented: boolean[] = [];
+    const recordAndBlockNavigation = (event: Event) => {
+      prevented.push(event.defaultPrevented);
+      event.preventDefault();
+    };
+    document.addEventListener('click', recordAndBlockNavigation);
+    try {
+      // act(): the plain click routes via `navigate`, which updates router state.
+      for (const modifiers of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, {}]) {
+        act(() => {
+          link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...modifiers }));
+        });
+      }
+    } finally {
+      document.removeEventListener('click', recordAndBlockNavigation);
+    }
 
-    const metaClick = new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true });
-    link.dispatchEvent(metaClick);
-    expect(metaClick.defaultPrevented).toBe(false);
-
-    const shiftClick = new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true });
-    link.dispatchEvent(shiftClick);
-    expect(shiftClick.defaultPrevented).toBe(false);
-
-    // ...while a plain left click is still handled by the SPA router.
-    const plainClick = new MouseEvent('click', { bubbles: true, cancelable: true });
-    link.dispatchEvent(plainClick);
-    expect(plainClick.defaultPrevented).toBe(true);
+    // Ctrl, Meta and Shift are left for the browser; the plain left click is taken by the router.
+    expect(prevented).toEqual([false, false, false, true]);
   });
 
   it('marks the last crumb as the current page and does not link it', () => {
