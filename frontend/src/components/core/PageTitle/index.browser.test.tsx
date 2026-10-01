@@ -65,6 +65,40 @@ describe('PageTitle (browser)', () => {
     expect(link).toHaveFocus();
   });
 
+  // A plain click must route client-side (no document load), but Ctrl/Cmd+click and Shift+click are
+  // the browser's own open-in-new-tab/window gestures. Calling preventDefault unconditionally
+  // swallowed them and routed in place instead, which silently broke opening a crumb in a new tab —
+  // the thing the href was added for. Asserting on defaultPrevented is what distinguishes the two:
+  // it is the single bit that decides whether the browser still gets to act on the anchor.
+  it('lets a modified click fall through to the browser instead of routing', async () => {
+    renderPageTitle({
+      title: 'With Breadcrumbs',
+      breadCrumbs: [
+        { name: 'Invoice search', path: '/search' },
+        { name: 'Invoice', path: '#' },
+      ],
+    });
+
+    const link = screen.getByRole('link', { name: 'Invoice search' });
+
+    const ctrlClick = new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
+    link.dispatchEvent(ctrlClick);
+    expect(ctrlClick.defaultPrevented).toBe(false);
+
+    const metaClick = new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true });
+    link.dispatchEvent(metaClick);
+    expect(metaClick.defaultPrevented).toBe(false);
+
+    const shiftClick = new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true });
+    link.dispatchEvent(shiftClick);
+    expect(shiftClick.defaultPrevented).toBe(false);
+
+    // ...while a plain left click is still handled by the SPA router.
+    const plainClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link.dispatchEvent(plainClick);
+    expect(plainClick.defaultPrevented).toBe(true);
+  });
+
   it('marks the last crumb as the current page and does not link it', () => {
     renderPageTitle({
       title: 'With Breadcrumbs',

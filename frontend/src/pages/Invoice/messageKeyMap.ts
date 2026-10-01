@@ -39,6 +39,8 @@ export const MESSAGE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.boomnumber.duplicate.warning': 'boomNumbers',
   // Approve / Reject / Reviewer
   'invoice.reject.need.reviewer.comment.error': 'reviewerComment',
+  'invoice.unapprove.need.reviewer.comment.error': 'reviewerComment',
+  'invoice.cancel.need.reviewer.comment.error': 'reviewerComment',
   'invoice.reviewer.notes.update.warning': 'reviewerComment',
   // Duplicate invoice number — show against the invoice number field
   'invoice.number.duplicate.same.type.warning': 'invNumber',

@@ -732,6 +732,61 @@ class InvoiceValidatorTest {
         assertThat(result.hasErrors()).isFalse();
     }
 
+    // The changed-check alone does NOT require a reason: a blank comment "differs from" a populated
+    // stored note, so it satisfied the rule and reversed the approval with nothing recorded. These
+    // four pin the blank check that closes it, for the two statuses where it was missing.
+    //
+    // A DELIBERATE DEPARTURE from the legacy implementation, which has the same gap. It follows
+    // legacy's own documented rule B ("A Reviewer Comment is required when the following buttons
+    // have been clicked: Unapproved, Delete, Cancel, Reject"), signed off as a business rule.
+    // Note the stored note is populated in each case — that is what made the old rule pass.
+    @Test
+    void validateForChangeStatus_unapproveWithBlankComment_addsError() {
+        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("the stored note");
+        InvoiceDetails details = invWith(i -> i.reviewComments = "");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "user2");
+
+        assertHasError(result, "invoice.unapprove.need.reviewer.comment.error");
+    }
+
+    @Test
+    void validateForChangeStatus_unapproveWithWhitespaceOnlyComment_addsError() {
+        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("the stored note");
+        InvoiceDetails details = invWith(i -> i.reviewComments = "   ");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_UNAPPROVED, "user2");
+
+        assertHasError(result, "invoice.unapprove.need.reviewer.comment.error");
+    }
+
+    @Test
+    void validateForChangeStatus_cancelWithBlankComment_addsError() {
+        given(invoiceRepo.findReviewCommentsById(1L)).willReturn("the stored note");
+        InvoiceDetails details = invWith(i -> i.reviewComments = "");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_CANCELLED, "user2");
+
+        assertHasError(result, "invoice.cancel.need.reviewer.comment.error");
+    }
+
+    // Approve stays outside the rule entirely — it needs no reason, blank or otherwise. No stored
+    // note is stubbed here deliberately: approve must not consult it at all, and Mockito's strict
+    // stubbing is what enforces that (stubbing `findReviewCommentsById` makes this test fail as
+    // UnnecessaryStubbing, which is the assertion).
+    @Test
+    void validateForChangeStatus_approveWithBlankComment_noCommentError() {
+        InvoiceDetails details = invWith(i -> i.reviewComments = "");
+
+        ValidationResult result = validator.validateForChangeStatus(
+                details, ConstantsCode.INVENTRYSTATUS_APPROVED, "user2");
+
+        assertThat(result.hasErrors()).isFalse();
+    }
+
     @Test
     void validateForChangeStatus_cancelWithUnchangedComment_addsError() {
         given(invoiceRepo.findReviewCommentsById(1L)).willReturn("same note");

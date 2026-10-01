@@ -283,10 +283,12 @@ Then('the page reports the validation problems with this legacy record', async (
   // new app enforces. Asserting them stops a future change that silently suppresses validation on
   // read from going unnoticed — and documents that legacy data does not satisfy today's rules.
   //
-  // Only the UNMAPPED error reaches the banner. The other one is mapped to the Invoice type field
-  // and is silently suppressed on this locked invoice — asserted separately, and red, in
-  // suppressed-error.feature (BUG-001). Asserting it here would make this journey fail for a
-  // reason that has nothing to do with search-and-view.
+  // BOTH errors reach the banner, which is why the loop below asserts both. They did not always:
+  // the field-mapped one used to be routed to the disabled Invoice-type field, where Carbon renders
+  // nothing for `invalid`/`invalidText`, so it was computed and then shown to nobody — tracked as
+  // BUG-001 and asserted red in a `suppressed-error.feature`. The fix sends mapped errors to the
+  // banner while the header is locked, so that feature was removed and its assertion folded in
+  // here. Keep asserting both: it is what would catch that routing regressing.
   for (const message of viewTargetValidationMessages.pageErrors) {
     await expect(invoicePage.errorBanner(message), `error banner: ${message}`).toBeVisible();
   }

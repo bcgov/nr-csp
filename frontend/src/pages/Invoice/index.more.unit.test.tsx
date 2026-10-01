@@ -461,6 +461,39 @@ describe('InvoicePage — submit, status change, duplicate & delete results', ()
     expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: expectedTitle }));
   });
 
+  // Mapped errors go to the page banner while the header is locked, because Carbon renders nothing
+  // for a disabled field's invalidText. The reviewer-comment box is the exception: it stays ENABLED
+  // in every status, so an error naming it must land on the field.
+  //
+  // This matters specifically for unapprove, which is only offered on an APPROVED invoice — where
+  // the header is locked. Routing its reviewer-comment error to the banner would tell the user
+  // something is wrong without marking the box they have to type in. The backend now returns this
+  // error whenever an unapprove is attempted with a blank reason.
+  it('an unapprove reviewer-comment error lands on the field, not only the banner', async () => {
+    h.extractValidationErrors.mockReturnValue([
+      {
+        messageKey: 'invoice.unapprove.need.reviewer.comment.error',
+        message: 'For unapproving an invoice, reviewer comment is required.',
+        type: 'ERROR',
+        args: null,
+      },
+    ]);
+    h.mutations.changeStatus.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onError?.(new Error('422'));
+    });
+    await renderLoaded({ invStatus: 'APP' });
+    fireEvent.change(screen.getByLabelText('Reviewer comment'), { target: { value: 'x' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Unapprove' }));
+
+    // ⚠ Asserting the message TEXT is not enough and would pass either way — with an empty field
+    // map the error still renders, just in the page banner. The field's own invalid state is the
+    // only thing that distinguishes "routed to the field" from "routed to the banner", so that is
+    // what is asserted. (Verified by reverting the fix: the text assertion alone still passed.)
+    expect(document.getElementById('reviewer-comment')).toBeInvalid();
+    expect(document.getElementById('reviewer-comment')).toBeEnabled();
+    expect(screen.getByText('For unapproving an invoice, reviewer comment is required.')).toBeInTheDocument();
+  });
+
   it('status change failure shows the status error toast', async () => {
     h.mutations.changeStatus.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
       opts.onError?.(new Error('boom'));

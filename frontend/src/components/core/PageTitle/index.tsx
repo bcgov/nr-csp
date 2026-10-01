@@ -64,6 +64,13 @@ const PageTitle: FC<PageTitleProps> = ({ title, subtitle, experimental, children
             // `href` makes it a real link (focusable, actionable by keyboard, announced, and
             // open-in-new-tab-able); the click handler still routes client-side so the SPA does not
             // do a full document load. Same pattern the in-page Links already use.
+            //
+            // The handler only hijacks a PLAIN left-click. Calling preventDefault unconditionally
+            // would swallow Ctrl/Cmd+click and Shift+click — the browser's own
+            // open-in-new-tab/window gestures — and route in place instead, which would make the
+            // open-in-new-tab claim above false for exactly the users who rely on it. The guard is
+            // the same one React Router's `Link` applies. (Right-click needs no guard: it fires no
+            // click event, so "Open in new tab" from the context menu already worked.)
             return (
               <BreadcrumbItem
                 key={crumb.name}
@@ -72,6 +79,9 @@ const PageTitle: FC<PageTitleProps> = ({ title, subtitle, experimental, children
                   ? {
                       href: crumb.path,
                       onClick: (event: React.MouseEvent<HTMLAnchorElement>) => {
+                        const isModifiedClick =
+                          event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
+                        if (event.defaultPrevented || event.button !== 0 || isModifiedClick) return;
                         event.preventDefault();
                         navigate(crumb.path);
                       },

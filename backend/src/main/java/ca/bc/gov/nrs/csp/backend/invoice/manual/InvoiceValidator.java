@@ -163,6 +163,12 @@ public class InvoiceValidator {
         } else if (ConstantsCode.INVENTRYSTATUS_REJECTED.equals(newStatus)
                 && isBlank(details.reviewComments())) {
             addError("invoice.reject.need.reviewer.comment.error", null);
+        } else if (ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(newStatus)
+                && isBlank(details.reviewComments())) {
+            addError("invoice.unapprove.need.reviewer.comment.error", null);
+        } else if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(newStatus)
+                && isBlank(details.reviewComments())) {
+            addError("invoice.cancel.need.reviewer.comment.error", null);
         }
         // Reject / unapprove / cancel additionally require the reviewer to have CHANGED the
         // comment — legacy's `isReviewerCommentUpdate`, which InvoiceService called from this exact
@@ -172,8 +178,26 @@ public class InvoiceValidator {
         // This was previously unreachable. The rule was ported, but only called from `validate(...)`
         // with `action.toString()` — an ActionType, whose values are SAVE/SUBMIT/DELETE/OTHER — so
         // its comparisons against the status codes REJ, UNA and CAN could never match, and this
-        // path never called it at all. The upshot was that an approval could be reversed with no
-        // reason recorded at all: PATCH {"status":"UNA","reviewComments":""} returned 200.
+        // path never called it at all.
+        //
+        // ⚠ THE CHANGED-CHECK ALONE DOES NOT REQUIRE A REASON, which is why the blank checks above
+        // exist for all three statuses and not just REJ. "Changed" is satisfied by any value that
+        // differs from the stored note, INCLUDING an empty or whitespace-only one — so on an invoice
+        // whose reviewer_notes is already populated (the normal case), a bare
+        // PATCH {"status":"UNA","reviewComments":""} cleared the note and reversed the approval with
+        // no reason recorded, and returned 200.
+        //
+        // This is a DELIBERATE DEPARTURE from the legacy implementation, which has the same gap
+        // (legacy InvoiceValidator.isReviewerCommentUpdate compares only for equality). It follows
+        // legacy's own documented rule instead, stated in the javadoc directly above that method:
+        // "B. A Reviewer Comment is required when the following buttons have been clicked:
+        // Unapproved, Delete, Cancel, Reject". Signed off as a business rule rather than inherited
+        // as an implementation accident.
+        //
+        // Delete is NOT covered here even though rule B names it: that path is a separate endpoint
+        // which carries no reviewer comment at all (the frontend's delete sends only the invoice
+        // id), so requiring one would make delete permanently fail. Raise it separately if the rule
+        // is meant to apply there.
         isReviewerCommentUpdate(details, newStatus, "invoice.reviewer.notes.update.warning");
         return new ValidationResult(messages);
     }

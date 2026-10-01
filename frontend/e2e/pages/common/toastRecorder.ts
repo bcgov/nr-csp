@@ -51,16 +51,23 @@ declare global {
 export async function installToastRecorder(page: Page): Promise<void> {
   await page.addInitScript(() => {
     window.__cspToasts = [];
-    // Dedupe by exact text: the observer rescans on every mutation batch (cheaper and far more
-    // robust than trying to identify which specific added node was the toast), so without this a
-    // single toast would be recorded once per unrelated DOM change while it is on screen.
-    const seen = new Set<string>();
+    // Dedupe by ELEMENT, not by text. The observer rescans on every mutation batch (cheaper and far
+    // more robust than working out which specific added node was the toast), so some dedupe is
+    // needed or one toast would be recorded once per unrelated DOM change while it is on screen.
+    //
+    // Keying on the element rather than the string is what lets a repeated toast be recorded twice.
+    // With a text-keyed Set, a scenario that triggers the same message twice — two FPCP row updates
+    // both saying "Row updated successfully.", or a second save of the same invoice — would have its
+    // second assertion satisfied by the FIRST toast, and would pass even if the second action
+    // produced no toast at all. A WeakSet also lets the detached nodes be collected.
+    const seen = new WeakSet<Element>();
 
     const scan = () => {
       for (const el of document.querySelectorAll('.layout-toast-container > *')) {
+        if (seen.has(el)) continue;
         const text = (el.textContent ?? '').trim();
-        if (text && !seen.has(text)) {
-          seen.add(text);
+        if (text) {
+          seen.add(el);
           window.__cspToasts?.push(text);
         }
       }
@@ -77,9 +84,22 @@ export async function installToastRecorder(page: Page): Promise<void> {
   });
 }
 
-/** Every toast text recorded on the current document, oldest first. */
+/**
+ * Every toast text recorded on the current document, oldest first.
+ *
+ * Returns `[]` instead of throwing when the page is mid-navigation. `expect.poll` evaluates its
+ * callback OUTSIDE its own try/catch, so it retries a failed matcher but NOT a callback that
+ * throws — without this, a full-document navigation overlapping the poll would fail the assertion
+ * instantly with "Execution context was destroyed" rather than retrying, which is an opaque symptom
+ * for something that is merely a timing overlap. An empty list simply fails the match and lets the
+ * poll try again on the new document.
+ */
 export async function recordedToasts(page: Page): Promise<string[]> {
-  return page.evaluate(() => window.__cspToasts ?? []);
+  try {
+    return await page.evaluate(() => window.__cspToasts ?? []);
+  } catch {
+    return [];
+  }
 }
 
 /**

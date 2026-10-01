@@ -130,8 +130,16 @@ Then('Unapprove is shown but not available to me', async ({ invoicePage }) => {
 });
 
 Then('no other decision is available to me either', async ({ invoicePage }) => {
-  // Same gate, the rest of the decision set. Asserting only Unapprove would let a regression that
-  // ungated a sibling through.
+  // ⚠ THIS IS NOT A PERMISSION ASSERTION, despite sitting in a @VIEW-role scenario. Reject and
+  // Cancel are disabled on an APPROVED invoice for EVERY role, ADMIN included, because they are
+  // gated on `canChangeStatus` (STATUS_CHANGEABLE = PRO/UNA) rather than on a permission. So these
+  // two assertions would pass whatever role were signed in, and an earlier comment here was wrong
+  // to claim they would catch a sibling being ungated by permission — only the Unapprove assertion
+  // above is role-sensitive.
+  //
+  // They are kept because they still pin something real: that reaching APP closes the whole
+  // decision set, so a change to STATUS_CHANGEABLE that reopened reject/cancel on an approved
+  // invoice would fail here. The permission-shaped regression is covered by the Unapprove step.
   await expect(invoicePage.rejectButton).toBeDisabled();
   await expect(invoicePage.actionButton('Cancel')).toBeDisabled();
 });

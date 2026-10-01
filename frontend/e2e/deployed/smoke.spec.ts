@@ -53,11 +53,16 @@ test.describe('security response headers', () => {
   // one. Two layers were emitting it — Caddy (frontend/Caddyfile) and Spring Security, the latter
   // because `forward-headers-strategy: framework` makes a forwarded request look secure to it.
   //
-  // Fixed by disabling it in the backend, leaving Caddy the single owner. That fix is
-  // deployment-INDEPENDENT: it removes the second source outright rather than relying on Caddy
-  // collapsing it, which is why this assertion is safe to pin at exactly one. Stripping it in
-  // Caddy instead was measured and rejected — a `header_down -Strict-Transport-Security` removes
-  // Caddy's own value too and leaves /api/* with no security headers at all.
+  // Fixed in BOTH layers, deliberately. The backend no longer sets it (SecurityConfig disables it:
+  // that service terminates no TLS and has no Route, so it has no business asserting a transport
+  // policy), and the Caddyfile also strips the upstream copy on /api/*. Either alone would do; both
+  // means a scanner finding nobody re-checks cannot quietly come back through one of them.
+  //
+  // ⚠ Do NOT "simplify" by removing the Caddyfile's `header_down` lines on the strength of a
+  // measurement showing them deleting everything. That measurement is what a 502 looks like: with
+  // the backend unreachable Caddy answers the error itself, the strips apply to its own response,
+  // and you see zero security headers. An earlier revision of this branch removed them for exactly
+  // that reason and left the duplicates unfixed. See the measured matrix in frontend/Caddyfile.
   for (const path of ['/api/health', '/']) {
     test(`sends exactly one Strict-Transport-Security header on ${path}`, async ({ request }) => {
       const res = await request.get(path);

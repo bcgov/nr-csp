@@ -547,6 +547,18 @@ export function InvoicePage() {
    * "One of Boom Number, Timber Mark or Weigh Slip must have a value." back in the page banner —
    * detached from the fields that caused it, after a round trip. The note beside the three fields
    * states the rule, since it is a one-of-three and no single field can carry an asterisk.
+   *
+   * ⚠ THIS GATES SUBMIT AS WELL AS SAVE, deliberately: the rule lives in the shared `validate(...)`
+   * path, which the submit endpoint also runs (`InvoiceService.java:340`, with ActionType.SUBMIT),
+   * so a submit without a source-document reference fails server-side for the same reason. Gating
+   * both keeps the round trip from being wasted either way.
+   *
+   * The consequence worth knowing: ESF-ingested invoices with no source-document reference DO exist
+   * in the real data, and ingestion does not run this validator. A reviewer who unapproves one back
+   * into UNA finds both Save and Submit disabled until a reference is added — which is correct (the
+   * server would reject both) but gives no reason beside the buttons, only the one-of-three note up
+   * beside the fields. If that proves confusing in practice, the fix is a reason surfaced at the
+   * button, not a loosened gate.
    */
   const hasSourceDocumentRef = boomNumbers.length > 0 || timberMarks.length > 0 || weighSlips.length > 0;
 
@@ -1045,15 +1057,26 @@ export function InvoicePage() {
    * nothing for a DISABLED field's `invalid`/`invalidText`, and every header field is disabled
    * outside DFT/PRO/UNA — so on an APPROVED, REJECTED or CANCELLED invoice a mapped error used to
    * be computed, routed to its field, and then shown to nobody, with nothing on screen to suggest
-   * anything was missing. Passing an empty field map sends them to the page banner instead, where
+   * anything was missing. Mapped errors therefore go to the page banner in those statuses, where
    * the unmapped ones already go.
    *
-   * (The reviewer-comment box is the one header control that stays editable in those statuses, but
-   * no error targets it there: the comment rule fires on reject/cancel/unapprove, which are only
-   * offered in PRO/UNA — where the header is editable and this takes the normal path.)
+   * The ONE exception is the reviewer-comment box, which stays enabled in every status (it is the
+   * only header control that does), so an error naming it renders fine there and belongs on the
+   * field rather than the banner. That exception is load-bearing rather than theoretical:
+   * UNAPPROVE is offered only on an APPROVED invoice — precisely where `canEdit` is false — and
+   * its reviewer-comment errors are the ones a user has to act on in that box. Routing them to the
+   * banner would point at a problem without marking the field to fix.
    */
+  const REVIEWER_COMMENT_ONLY_FIELD_MAP: Record<string, string> = Object.fromEntries(
+    Object.entries(MESSAGE_KEY_TO_FIELD).filter(([, field]) => field === 'reviewerComment'),
+  );
+
   const applyServerErrors = (errors: ValidationMessageResponse[]) =>
-    routeServerErrors(errors, canEdit ? MESSAGE_KEY_TO_FIELD : {}, setFieldErrors);
+    routeServerErrors(
+      errors,
+      canEdit ? MESSAGE_KEY_TO_FIELD : REVIEWER_COMMENT_ONLY_FIELD_MAP,
+      setFieldErrors,
+    );
 
   // Variant for the POST/PATCH /line-items mutations — routes mapped keys to
   // the Add New Line Item form's inline state and unmapped keys to the banner.
