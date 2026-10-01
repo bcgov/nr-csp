@@ -361,6 +361,37 @@ describe('InvoicePage — save & create flows', () => {
     expect(screen.getByText('Post-save warning')).toBeInTheDocument();
   });
 
+  // `setSaveWarnings(data.warnings ?? [])` on both save paths. A response that omits `warnings`
+  // entirely must clear the previous save's warnings rather than throw on undefined — the field is
+  // optional on the API type, so this is a real shape, not a hypothetical one.
+  it.each([
+    ['update', 'update' as const, 'Save'],
+    ['create', 'create' as const, 'Save'],
+  ])('a %s response with no warnings field clears them instead of throwing', async (_label, mutation, button) => {
+    if (mutation === 'create') {
+      h.params.id = undefined;
+      h.invoiceQuery = { data: makeInvoice(), isLoading: false };
+    }
+    const { warnings: _omitted, ...withoutWarnings } = makeInvoice();
+    h.mutations[mutation].mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onSuccess?.(withoutWarnings);
+    });
+
+    if (mutation === 'create') {
+      renderPage();
+      const save = screen.getByRole('button', { name: button });
+      await waitFor(() => expect(save).toBeEnabled(), { timeout: 5000 });
+      await userEvent.click(save);
+    } else {
+      await renderLoaded({ invStatus: 'DFT' });
+      await userEvent.click(screen.getByRole('button', { name: button }));
+    }
+
+    expect(h.addNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'success', title: expect.stringContaining('INV-001') }),
+    );
+  });
+
   it('Save failure with validation errors puts unmapped ones in the page banner', async () => {
     h.extractValidationErrors.mockReturnValue([
       { messageKey: 'some.unmapped.key', message: 'Business rule broken', type: 'ERROR', args: null },
@@ -402,6 +433,112 @@ describe('InvoicePage — save & create flows', () => {
     expect(h.mutations.create.mutate).toHaveBeenCalled();
     expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: "Invoice 'INV-001' created." }));
     expect(h.navigate).toHaveBeenCalledWith('/invoice/5', expect.objectContaining({ replace: true }));
+  });
+
+  // THE POST-CREATE REDIRECT IS THE WHOLE POINT OF `saveWarnings`. Saving a new invoice navigates
+  // from /invoice to /invoice/:id, which changes the `id` param and re-runs the effect that clears
+  // the previous save's warnings. Clearing on that particular transition is what used to wipe the
+  // "submit this invoice" reminder the create had just returned — the user saved, saw the reminder
+  // flash, and lost it. The effect now recognises undefined -> defined as the redirect and leaves
+  // the warnings alone.
+  it('keeps a save warning across the post-create redirect', async () => {
+    h.params.id = undefined;
+    h.invoiceQuery = { data: makeInvoice(), isLoading: false };
+    h.mutations.create.mutate.mockImplementation((_body: unknown, opts: MutationOpts) => {
+      opts.onSuccess?.(
+        makeInvoice({
+          invID: 5,
+          warnings: [{ messageKey: 'invoice.submit.saved.warning', message: 'Remember to submit this invoice', type: 'WARNING', args: null }],
+        }),
+      );
+    });
+
+    // Rendered here rather than via renderPage() so the same tree can be re-rendered below with the
+    // new :id — which is what the redirect does in the real app.
+    //
+    // ⚠ Each render must build a FRESH element. Passing the same JSX element object to `rerender`
+    // lets React bail out on reference equality, so the component never re-renders, the
+    // [invoiceId] effect never re-runs, and the assertion below passes because nothing happened
+    // rather than because the guard worked — verified by checking the branch was never taken.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={qc}>
+        <InvoicePage />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+
+    const save = screen.getByRole('button', { name: 'Save' });
+    await waitFor(() => expect(save).toBeEnabled(), { timeout: 5000 });
+    await userEvent.click(save);
+    expect(screen.getByText('Remember to submit this invoice')).toBeInTheDocument();
+
+    // The redirect: the route now carries the new id, and the invoice query returns the saved record
+    // (whose own `warnings` are empty — only `saveWarnings` holds the reminder).
+    h.params.id = '5';
+    h.invoiceQuery = { data: makeInvoice({ invID: 5 }), isLoading: false };
+    rerender(tree());
+
+    // Awaited, not immediate: gaining an id makes `isExisting` true, and the page re-enters its
+    // loading state (`isLoadingInvoice = isExisting && !initialLoadComplete`) which hides the
+    // notification area until hydration finishes. The warning is in state throughout — the wait is
+    // for the render guard, not for the state.
+    //
+    // Still there once loaded: the effect re-ran for the new id and recognised the redirect. An id
+    // change that is NOT a post-create redirect clears it (asserted in the next test).
+    expect(await screen.findByText('Remember to submit this invoice', undefined, { timeout: 5000 })).toBeInTheDocument();
+  });
+
+  // The other side of the same guard: switching between two EXISTING invoices is a different
+  // record, so the previous save's warnings must not follow you onto it.
+  it('drops save warnings when the id changes between two existing invoices', async () => {
+    h.mutations.update.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onSuccess?.(
+        makeInvoice({
+          warnings: [{ messageKey: 'w', message: 'Warning for invoice one', type: 'WARNING', args: null }],
+        }),
+      );
+    });
+    h.params.id = '1';
+    h.invoiceQuery = { data: makeInvoice({ invStatus: 'DFT' }), isLoading: false };
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={qc}>
+        <InvoicePage />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+
+    await screen.findByRole('button', { name: 'Save' }, { timeout: 5000 });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Warning for invoice one')).toBeInTheDocument();
+
+    h.params.id = '2';
+    h.invoiceQuery = { data: makeInvoice({ invID: 2, invStatus: 'DFT' }), isLoading: false };
+    rerender(tree());
+
+    expect(screen.queryByText('Warning for invoice one')).not.toBeInTheDocument();
+  });
+
+  // Dismissal has to clear from BOTH sources, so it is exercised against a warning that came from
+  // a save rather than from the loaded record — the record-sourced case is covered in
+  // index.unit.test.tsx.
+  it('dismisses a warning that came from the save response', async () => {
+    h.mutations.update.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onSuccess?.(
+        makeInvoice({
+          warnings: [{ messageKey: 'w', message: 'Post-save warning', type: 'WARNING', args: null }],
+        }),
+      );
+    });
+    await renderLoaded({ invStatus: 'DFT' });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Post-save warning')).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: /close/i })[0]);
+
+    expect(screen.queryByText('Post-save warning')).not.toBeInTheDocument();
   });
 
   it('create failure shows the create-specific error toast', async () => {

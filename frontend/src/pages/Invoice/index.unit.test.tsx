@@ -550,6 +550,30 @@ describe('InvoicePage — warnings & errors', () => {
     expect(screen.getByText('Heads up — check this')).toBeInTheDocument();
   });
 
+  // Dismissal matches on key + message rather than on list index, because the rendered list is a
+  // MERGE of the loaded record's warnings and the ones a save returned. An index into the merged
+  // list means nothing to either underlying state, so an index-based remove would drop the wrong
+  // entry — and a record warning removed that way would come straight back on the next refetch.
+  it('dismissing one warning removes only that warning', async () => {
+    await renderLoaded({
+      invStatus: 'DFT',
+      warnings: [
+        { messageKey: 'w1', message: 'First warning', type: 'WARNING', args: null },
+        { messageKey: 'w2', message: 'Second warning', type: 'WARNING', args: null },
+      ],
+    });
+    expect(screen.getByText('First warning')).toBeInTheDocument();
+    expect(screen.getByText('Second warning')).toBeInTheDocument();
+
+    // Carbon labels each InlineNotification's dismiss control "closes notification"; take the one
+    // belonging to the first warning by its position in the notification list.
+    const closeButtons = screen.getAllByRole('button', { name: /close/i });
+    await userEvent.click(closeButtons[0]);
+
+    expect(screen.queryByText('First warning')).not.toBeInTheDocument();
+    expect(screen.getByText('Second warning')).toBeInTheDocument();
+  });
+
   it('renders page-level errors from the loaded invoice in the banner', async () => {
     await renderLoaded({
       invStatus: 'DFT',
