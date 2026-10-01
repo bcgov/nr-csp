@@ -1050,23 +1050,7 @@ export function InvoicePage() {
     setPageErrors(page);
   };
 
-  /**
-   * Route the header's validation errors.
-   *
-   * ⚠ ONLY WHEN THE HEADER IS EDITABLE do field-mapped errors go to their field. Carbon renders
-   * nothing for a DISABLED field's `invalid`/`invalidText`, and every header field is disabled
-   * outside DFT/PRO/UNA — so on an APPROVED, REJECTED or CANCELLED invoice a mapped error used to
-   * be computed, routed to its field, and then shown to nobody, with nothing on screen to suggest
-   * anything was missing. Mapped errors therefore go to the page banner in those statuses, where
-   * the unmapped ones already go.
-   *
-   * The ONE exception is the reviewer-comment box, which stays enabled in every status (it is the
-   * only header control that does), so an error naming it renders fine there and belongs on the
-   * field rather than the banner. That exception is load-bearing rather than theoretical:
-   * UNAPPROVE is offered only on an APPROVED invoice — precisely where `canEdit` is false — and
-   * its reviewer-comment errors are the ones a user has to act on in that box. Routing them to the
-   * banner would point at a problem without marking the field to fix.
-   */
+  // Route the header's validation errors.
   const REVIEWER_COMMENT_ONLY_FIELD_MAP: Record<string, string> = Object.fromEntries(
     Object.entries(MESSAGE_KEY_TO_FIELD).filter(([, field]) => field === 'reviewerComment'),
   );
