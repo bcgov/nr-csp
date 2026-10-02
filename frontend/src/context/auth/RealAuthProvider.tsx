@@ -126,10 +126,15 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    loadUser();
+    // `void` on both `loadUser()` calls: it returns a Promise that neither the effect
+    // nor the Hub listener can await (one is a cleanup-returning effect body, the other
+    // a sync callback), and there is nothing to handle anyway — `loadUser` swallows its
+    // own failures by design (see its catch) and always clears `isLoading`, so it never
+    // rejects. Marking them ignored says that, rather than leaving floating promises.
+    void loadUser();
     let handledSessionExpired = false;
     const unsubscribeHub = Hub.listen('auth', ({ payload }) => {
-      if (payload.event === 'signedIn' || payload.event === 'signedOut') loadUser();
+      if (payload.event === 'signedIn' || payload.event === 'signedOut') void loadUser();
     });
     const unsubscribeSessionExpired = onSessionExpired(() => {
       if (handledSessionExpired) return;
