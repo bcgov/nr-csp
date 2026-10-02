@@ -2,6 +2,7 @@ import { type Page, type Locator, expect } from '@playwright/test';
 
 import { signInAsMockUser, type MockRole } from '../common/authNav';
 import { loadingSkeleton, resultsTable } from '../common/carbonHelpers';
+import { expectToastShown } from '../common/toastRecorder';
 
 /**
  * Page Object — Flat price conversion, Production table
@@ -263,8 +264,18 @@ export class FlatPriceConversionPage {
     return options.map((t) => t.trim());
   }
 
-  /** A bottom-right Carbon toast by its text. */
+  /**
+   * A bottom-right Carbon toast by its text.
+   *
+   * ⚠ DO NOT ASSERT ON THIS — use `expectToastShown`. Toasts auto-dismiss after 5s, so asserting
+   * the live DOM races the app's own timer. See `pages/common/toastRecorder.ts`.
+   */
   toast(text: string): Locator {
     return this.page.locator('.layout-toast-container').filter({ hasText: text });
+  }
+
+  /** Assert the app showed a toast containing `text` at any point in this scenario. */
+  async expectToastShown(text: string): Promise<void> {
+    await expectToastShown(this.page, text);
   }
 }

@@ -23,7 +23,7 @@ below are restyled text and a button-rendering change, not faults.
 
 ## Bug / Regression
 
-### BUG-001 — The Unapprove button is the one decision control with no permission check — OPEN
+### BUG-001 — The Unapprove button is the one decision control with no permission check — FIXED
 
 **What's wrong.** Every other decision button on the invoice screen is disabled unless the signed-in
 user holds the matching permission — Approve checks `invoiceDetails/Approve`, Reject checks
@@ -50,10 +50,16 @@ inconsistency, not an authorization hole. The backend does enforce it:
 VIEW role holds none of those four, so the request is refused server-side. The consequence is a
 misleading control and a raw failure instead of a disabled button.
 
-**Not covered by a test in this pass** — it needs a VIEW-role scenario, which is out of scope for
-S01. See Coverage gap #2.
+**FIXED** on branch `defects-from-e2e`. The button now checks `INVOICE_DETAILS_UNAPPROVE`, matching
+every other decision control, so a user without it sees the button disabled rather than live.
 
-### BUG-002 — Unapprove demands a reviewer comment in the UI but not in the backend — OPEN
+Covered two ways, and both were confirmed to fail before the fix: a unit test that denies **only**
+`invoiceDetails/Unapprove` — proving the button is gated on its own permission rather than on any
+permission being absent — and a `@VIEW-role` e2e scenario that opens an APPROVED invoice as
+`CSP VIEW` and asserts Unapprove is visible but disabled, along with the rest of the decision set.
+Awaiting BA/QA confirmation before this entry is closed.
+
+### BUG-002 — Unapprove demands a reviewer comment in the UI but not in the backend — FIXED
 
 **What's wrong.** To unapprove, the screen requires a reviewer comment and refuses an empty box with
 *"Reviewer comment is required for this action."* The backend does not: it only enforces the
@@ -70,32 +76,67 @@ and the blank-comment check for REJECT. Nothing covers UNAPPROVE or CANCEL, thou
 comment for both.
 
 **Impact.** Anything that reverses an approval without going through this screen — another client,
-a script, a future integration — can do so with no audit reason. Whether the requirement is meant to
-be a business rule (enforce it server-side) or merely a UI prompt (drop the pretence) is a BA/QA
-call.
+a script, a future integration — could do so with no audit reason.
 
-**Not covered by a test in this pass.** See Coverage gap #1.
+**FIXED** on branch `defects-from-e2e`, as a business rule, matched to the legacy app rather than
+invented. The legacy `nr-csp` source has the answer, and it is **stronger** than
+"non-empty": `InvoiceValidator.isReviewerCommentUpdate` required the reviewer comment to have
+**CHANGED** from the stored value, and legacy `InvoiceService.changeInvoiceStatus` called it from
+the status-change path with the new status code (legacy `InvoiceService.java:665`); the delete path
+called it too (`:422`). The message is the one already in this app's bundle:
+*"Please enter the changes in the Reviewer Comment field below!"*
+
+The rule had in fact been ported — but was unreachable. It was only ever called from
+`validate(...)` with `action.toString()`, an `ActionType` whose values are SAVE/SUBMIT/DELETE/OTHER,
+so its comparisons against the status codes `REJ`, `UNA` and `CAN` could never match, and
+`validateForChangeStatus` never called it at all. It now does.
+
+One subtlety worth recording: legacy's `manual` flag gates the rule, and legacy's
+`getInvoiceValidator()` set it to `true` unconditionally — the only `setManual(false)` is in
+`SubmissionValidator`, the ESF **ingestion** path. So the flag says which validator is running, not
+where the invoice came from, and the rule applies to every invoice reviewed through the UI. A first
+attempt at this fix derived `manual` from the invoice's origin and was wrong; the legacy source
+settled it.
+
+**Verified against the live seeded database:**
+
+| Attempt | Result |
+|---|---|
+| same comment as stored | **400** — "Please enter the changes in the Reviewer Comment field below!" |
+| comment omitted (`null`) | **400** |
+| blank comment (`""`) | 200 — blanking IS a change, which legacy permitted |
+| a genuinely new reason | 200 |
+| **cancel** with the same comment | **400** — the rule covers CAN as well |
+
+⚠ **The blank case is a deliberate match to legacy, not an oversight.** Legacy's rule is
+"must have changed", so clearing a note counts. Only **reject** additionally requires a non-blank
+comment (`invoice.reject.need.reviewer.comment.error`). If unapprove and cancel should also require
+non-blank, that is a **departure from legacy** and needs BA/QA sign-off — it is a one-line addition.
+
+Five validator tests and one service test cover it, including that omitting the comment cannot
+bypass the rule. Awaiting BA/QA confirmation before this entry is closed.
 
 ---
 
 ## Coverage gap (something the spec covers that no test covers)
 
-### #1 — Unapproving WITHOUT a reviewer comment is not tested — OPEN
-**What's wrong:** only the happy path (a comment supplied) is covered. The client-side gate is
-unexercised, and the backend's silence on it is BUG-002.
-**Expected vs actual:** not a fault in the UI — the gate works; it is untested surface.
-**Next:** a UI no-write test — clear the comment box, click Unapprove, assert the inline error and
-(via a mutation spy) that no status PATCH was sent. Note this is a *client-only* rule, so unlike the
-reject equivalent it cannot also be asserted against the API; that asymmetry is the point of
-BUG-002.
+### #1 — Unapproving with an unchanged comment is not covered end-to-end — OPEN
+**What's wrong:** the rule is now enforced server-side and covered by backend tests, but no UI
+scenario drives it — open an approved invoice, leave the comment untouched, click Unapprove, and
+assert the inline error.
+**Expected vs actual:** not a fault — untested surface at the UI layer.
+**Next:** worth authoring, and it is now assertable on BOTH sides (the error comes back from the
+API), unlike when the rule was client-only. Note the UI's own gate is still "non-empty" rather than
+"changed", so the client will happily submit an unchanged comment and surface the server's error
+inline on the reviewer-comment field — which is the behaviour to assert.
 
-### #2 — No VIEW-role scenario, which is where BUG-001 would show — OPEN
-**What's wrong:** the scenario runs as `CSP_ADMIN`. The VIEW arm is unauthored, and it is the arm
-that would demonstrate the missing permission check on Unapprove.
-**Expected vs actual:** untested surface.
-**Next:** open an APPROVED invoice as `CSP VIEW` and assert Unapprove is disabled. **This test will
-FAIL today** — it is the natural `@discovered-divergence` red for BUG-001, and worth authoring for
-exactly that reason once BA/QA confirm the button should be gated.
+### #2 — No VIEW-role scenario, which is where BUG-001 would show — CLOSED
+**What was missing:** a VIEW arm, which is what would demonstrate the ungated Unapprove button.
+**Now covered:** the `@VIEW-role` scenario in `unapprove.feature` opens an APPROVED invoice as
+`CSP VIEW` and asserts Unapprove is visible but disabled, and that Reject and Cancel are too. It was
+verified to fail before the BUG-001 fix, so it genuinely guards it.
+**Still open for this UC:** the VIEW arm of the *happy path* (a viewer should not be able to
+unapprove successfully) is implied by the above but not separately asserted.
 
 ### #3 — "Unapprove never moves the submission" is not asserted — OPEN
 **What's wrong:** `applySubmissionStatusOnStatusChange` returns early for UNA, so unapproving can

@@ -1,4 +1,5 @@
 import { invoiceStatus, rejectionReason } from '../../fixtures/inbox/review-test-data';
+import { assertMockRole } from '../../pages/common/authNav';
 import { Given, When, Then, expect } from '../fixtures';
 
 /**
@@ -17,6 +18,12 @@ type InvoiceReadBack = {
   reviewComments: string | null;
   lineItems: { lineItemID: number }[];
 };
+
+Given('I open that invoice directly as a CSP {word}', async ({ invoicePage, world }, role: string) => {
+  // Same as the step below, but as a named role — `openInvoiceById` seeds the mock identity before
+  // navigating, so the page renders with that role's permissions from the first paint.
+  await invoicePage.openInvoiceById(world.reviewInvoiceId as number, assertMockRole(role));
+});
 
 Given('I open that invoice directly', async ({ invoicePage, world }) => {
   // UC-INBOX-004 is about the rejection itself, not about how the reviewer got to the screen —
@@ -55,7 +62,7 @@ Then('the invoice becomes REJECTED on screen', async ({ invoicePage }) => {
   await expect(invoicePage.statusTag).toHaveText(invoiceStatus.rejected);
   // The toast names the invoice. Matching on the verb rather than pinning the number: invoice
   // numbers are not unique within a submission, so the number would be the weaker half.
-  await expect(invoicePage.toast('rejected.')).toBeVisible();
+  await invoicePage.expectToastShown('rejected.');
 });
 
 Then('Reject is no longer offered', async ({ invoicePage }) => {

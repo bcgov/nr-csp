@@ -13,6 +13,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Optional;
@@ -62,7 +63,29 @@ public class SecurityConfig {
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
                         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"))
                 .frameOptions(frame -> frame.deny())
-                .httpStrictTransportSecurity(hsts -> hsts.maxAgeInSeconds(31536000))
+                // HSTS is deliberately NOT set here, and this service must not start setting it.
+                //
+                // It is a TRANSPORT policy — an assertion about the origin's own TLS — so it belongs
+                // to the layer the browser speaks TLS to. That is the OpenShift edge router, and the
+                // header is emitted by the layer in front of it (frontend/Caddyfile). This service
+                // terminates no TLS, has no Route (backend/openshift.deploy.yml declares only a
+                // ClusterIP Service on 8080), and is therefore never browser-reachable: the browser
+                // would never see a header this service set except via the proxy, which sets its own.
+                //
+                // Spring emitted one anyway because `forward-headers-strategy: framework` makes it
+                // treat a request carrying X-Forwarded-Proto: https as secure, which is wanted for
+                // correct absolute URLs but also switched HSTS on. Two layers emitting it is what a
+                // ZAP scan reported as a duplicate Strict-Transport-Security header.
+                //
+                // The proxy cannot fix this by stripping: a `header_down -Strict-Transport-Security`
+                // in Caddy removes Caddy's own value too and leaves /api/* with no security headers
+                // at all (measured — see the note in frontend/Caddyfile). Fixing it at the source is
+                // what keeps exactly one owner.
+                //
+                // The content policies above stay: unlike HSTS they are per-response protections
+                // that make sense from whoever produced the body, including the backend-served
+                // Swagger UI, and they cost nothing behind the proxy.
+                .httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable)
         );
 
         return http.build();

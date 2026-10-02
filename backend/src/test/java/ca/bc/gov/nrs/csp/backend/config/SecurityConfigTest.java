@@ -97,11 +97,20 @@ class SecurityConfigTest {
                         containsString("default-src 'self'")));
     }
 
+    // This service must NOT set HSTS, even on a request it considers secure. HSTS is a transport
+    // policy owned by the edge-facing layer (frontend/Caddyfile); this service terminates no TLS and
+    // has no Route, so a second copy here only ever reached the browser as the duplicate
+    // Strict-Transport-Security header a ZAP scan flagged. The proxy cannot strip it without also
+    // removing its own value, so the fix has to hold here. See the note in SecurityConfig.
+    //
+    // `.secure(true)` is the condition that used to produce it: in the cluster,
+    // `forward-headers-strategy: framework` makes a request carrying X-Forwarded-Proto: https look
+    // secure to Spring. Asserting under that condition is what makes this a real regression guard —
+    // a plain request would pass even if HSTS came back.
     @Test
-    void response_hasStrictTransportSecurityHeader() throws Exception {
+    void response_doesNotSetStrictTransportSecurity_evenWhenRequestIsSecure() throws Exception {
         mockMvc.perform(get("/api/health").secure(true))
-                .andExpect(header().string("Strict-Transport-Security",
-                        containsString("max-age=31536000")));
+                .andExpect(header().doesNotExist("Strict-Transport-Security"));
     }
 
     @Test

@@ -22,7 +22,7 @@ deliberate screen redesign (Spec gap #1), a renamed control (#2), and two spec i
 
 ## Bug / Regression
 
-### BUG-001 — A validation error the app computes is shown to nobody — OPEN
+### BUG-001 — A validation error the app computes is shown to nobody — FIXED
 
 **What's wrong.** Opening an APPROVED invoice, the system finds two things wrong with the record
 and tells the reader about only one of them. The other is computed, routed, and then rendered
@@ -52,14 +52,19 @@ invisible.
 is partial. Given these screens exist "for audit or reference purposes" (the UC's own words), that
 matters.
 
-**Tracked by.** `suppressed-error.feature` — a deliberately failing scenario tagged
-`@discovered-divergence`. Not skipped: the red is the tracking signal, and it will turn green by
-itself once the message is surfaced. Its assertion is deliberately "visible **anywhere** on the
-page", because the fix could reasonably put it inline, in the banner, or elsewhere — the
-invisibility is the defect, not the placement. Exclude expected reds from a run with
-`--grep-invert @discovered-divergence`.
+**FIXED** on branch `defects-from-e2e`. `applyServerErrors` in `pages/Invoice/index.tsx` now passes
+an empty field map when the header is not editable, so a field-mapped error falls through to the
+page banner — where the unmapped ones already went — instead of to a control that cannot render it.
+The reviewer-comment box is the one header field that stays editable on a locked invoice, and no
+error targets it there (the comment rule fires on reject/cancel/unapprove, which are only offered
+in PRO/UNA, where the header is editable and the normal inline path applies).
 
-### BUG-002 — Breadcrumbs are not links and cannot be reached by keyboard — OPEN
+The dedicated `suppressed-error.feature` scenario has been **retired**: the journey's
+"the page reports the validation problems with this legacy record" step now asserts **both** errors
+in the banner, which is what guards the fix. Awaiting BA/QA confirmation before this entry is
+closed.
+
+### BUG-002 — Breadcrumbs are not links and cannot be reached by keyboard — FIXED
 
 **What's wrong.** The breadcrumb trail is the only way back to the search results from an invoice
 (there is no Back button), but the crumbs are not links. `PageTitle` renders each as a Carbon
@@ -78,8 +83,18 @@ one, not just the invoice screen.
 **Impact.** An accessibility defect on a primary navigation control — a keyboard-only user cannot
 go back. Worth confirming against the project's WCAG obligations.
 
-**Not covered by a test in this pass** — it needs an accessibility-focused scenario. See Coverage
-gap #5.
+**FIXED** on branch `defects-from-e2e`. `PageTitle` now gives a navigable crumb an `href`, which is
+what makes Carbon render an anchor, and keeps the click handler for client-side routing
+(`preventDefault` + `navigate`) — the same pattern the in-page links already use. Two further
+corrections fell out of it: the last crumb is marked `isCurrentPage` rather than offered as a
+destination, and a placeholder crumb (the Invoice screen uses `path: '#'` for "Invoice" and the
+invoice number) is no longer presented as clickable at all.
+
+Covered by three `PageTitle` browser tests — a navigable crumb is a focusable anchor with the right
+`href`; the last crumb is current and not a link; a `'#'` crumb is not a link — all three confirmed
+to fail before the fix. The e2e page object's breadcrumb locator has also moved from a structural
+selector back to `getByRole('link')`, so the journey now asserts the crumb really is a link.
+Awaiting BA/QA confirmation before this entry is closed.
 
 ---
 
@@ -116,11 +131,13 @@ it — a DRAFT invoice would legitimately offer Save, Submit, Delete and Duplica
 **Next:** a `Scenario Outline` over statuses, with the expected button states per status, would be
 a strong addition — it is the real content of UC-SRCH-002.
 
-### #5 — Breadcrumb accessibility is asserted only incidentally — OPEN
-**What's wrong:** the journey asserts the crumb is visible, which passes despite BUG-002. Nothing
-asserts it is reachable or operable by keyboard.
-**Next:** once BA/QA confirm BUG-002 is a defect, a scenario asserting the crumb has a link role
-would be the natural `@discovered-divergence` red for it.
+### #5 — Breadcrumb accessibility is asserted only incidentally — CLOSED
+**What was missing:** the journey asserted the crumb was visible, which passed despite BUG-002.
+**Now covered:** the journey locates the crumb by `link` role, so it fails if the crumb stops being
+an anchor, and three `PageTitle` browser tests cover focusability, the current-page marker and
+placeholder crumbs.
+**Still open:** nothing here drives the crumb by keyboard end-to-end (tab to it, press Enter) —
+worth adding if the project has explicit WCAG obligations to evidence.
 
 ### #6 — Remaining slices of both UCs not authored — OPEN
 **What's wrong:** this pass covers the S01 slices only.

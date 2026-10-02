@@ -28,6 +28,7 @@ Unapprove (here) are now all covered, sharing one borrow-and-restore fixture.
 | Scenario | File | Tags | Result |
 |---|---|---|---|
 | Unapproving an APPROVED invoice returns it to UNAPPROVED with a reason recorded | `unapprove.feature` | `@p0 @UC-INBOX-005 @S01` | green |
+| A viewer sees Unapprove on an approved invoice but cannot use it | `unapprove.feature` | `@p0 @UC-INBOX-005 @S01 @VIEW-role` | green (guards BUG-001) |
 
 ## Coverage matrix
 
@@ -47,7 +48,7 @@ Unapprove (here) are now all covered, sharing one borrow-and-restore fixture.
 | Line items survive the unapproval | not in the Gherkin | — | `unapprove` `@S01 @p0` | covered (added) | — |
 | Reviewer comment box starts empty | not stated in this slice, but implied by "fill" flows elsewhere | box hydrates from `reviewComments` | `unapprove` `@S01 @p0` (asserts it starts **populated**) | covered, re-grounded | Spec gap #3 |
 | Unapprove never moves the submission | not in the Gherkin | `applySubmissionStatusOnStatusChange` returns early for UNA | — | deferred | Coverage gap #3 |
-| Background — WebADE auth + `invoiceDetails/Unapprove` provisioning | S01 Background | **not checked on the button** — see BUG-001 | — | not-applicable as written | **BUG-001**, Coverage gap #2 |
+| Background — provisioned for `invoiceDetails/Unapprove` | S01 Background | `usePermission(INVOICE_DETAILS_UNAPPROVE)` on the button (added — see BUG-001) | `@VIEW-role` scenario | covered (was BUG-001, now fixed) | BUG-001 (fixed) |
 
 **Symmetry check.** The decision set is now complete, and the remaining asymmetries are within
 this UC:
@@ -58,9 +59,9 @@ this UC:
 | Approve ↔ Unapprove round trip | APP → UNA — **covered** | UNA → APP again (re-approve) | **asymmetric** — Coverage gap #4 |
 | Unapprove with / without a comment | with — **covered** | without (UI refuses, backend does not) | **asymmetric** — Coverage gap #1 |
 
-**Role / permission coverage:** runs as `CSP_ADMIN`. The `VIEW` arm is both unauthored *and*
-interesting here, because the Unapprove button is the one decision control with no permission check
-— see BUG-001.
+**Role / permission coverage:** the happy path runs as `CSP_ADMIN`; the `@VIEW-role` scenario covers
+the denied arm. That arm mattered here because Unapprove was the one decision control with no
+permission check at all — see BUG-001, now fixed and guarded by that scenario.
 
 ## Parallel-safety notes
 

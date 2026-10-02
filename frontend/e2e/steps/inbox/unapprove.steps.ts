@@ -41,6 +41,11 @@ Given('that invoice has already been approved', async ({ request, world }) => {
   // note), so this arrange needs no undo of its own — it is covered either way.
 });
 
+Then('the invoice is shown as APPROVED', async ({ invoicePage }) => {
+  // Status only — no claim about the buttons, so a role-gated scenario can reuse it.
+  await expect(invoicePage.statusTag).toHaveText(invoiceStatus.approved);
+});
+
 Then('the invoice is shown as APPROVED with Unapprove available', async ({ invoicePage }) => {
   await expect(invoicePage.statusTag).toHaveText(invoiceStatus.approved);
   await expect(invoicePage.unapproveButton).toBeVisible();
@@ -62,7 +67,7 @@ When('I unapprove the invoice', async ({ invoicePage }) => {
 
 Then('the invoice returns to UNAPPROVED on screen', async ({ invoicePage }) => {
   await expect(invoicePage.statusTag).toHaveText(invoiceStatus.unapproved);
-  await expect(invoicePage.toast('unapproved.')).toBeVisible();
+  await invoicePage.expectToastShown('unapproved.');
 });
 
 Then('Unapprove is replaced by an enabled Approve', async ({ invoicePage }) => {
@@ -114,4 +119,27 @@ Then('the unapproval and its reason read back from the API', async ({ request, w
     world.unapproveReason,
   );
   expect(body.lineItems.length, 'line items must survive the unapproval untouched').toBeGreaterThan(0);
+});
+
+Then('Unapprove is shown but not available to me', async ({ invoicePage }) => {
+  // The button is offered on an APPROVED invoice regardless of role — `canUnapprove` is a status
+  // check — so a viewer sees it. It must be DISABLED: `changeStatus` enforces the permission
+  // server-side, so an enabled button here could only ever produce a 403.
+  await expect(invoicePage.unapproveButton).toBeVisible();
+  await expect(invoicePage.unapproveButton).toBeDisabled();
+});
+
+Then('no other decision is available to me either', async ({ invoicePage }) => {
+  // ⚠ THIS IS NOT A PERMISSION ASSERTION, despite sitting in a @VIEW-role scenario. Reject and
+  // Cancel are disabled on an APPROVED invoice for EVERY role, ADMIN included, because they are
+  // gated on `canChangeStatus` (STATUS_CHANGEABLE = PRO/UNA) rather than on a permission. So these
+  // two assertions would pass whatever role were signed in, and an earlier comment here was wrong
+  // to claim they would catch a sibling being ungated by permission — only the Unapprove assertion
+  // above is role-sensitive.
+  //
+  // They are kept because they still pin something real: that reaching APP closes the whole
+  // decision set, so a change to STATUS_CHANGEABLE that reopened reject/cancel on an approved
+  // invoice would fail here. The permission-shaped regression is covered by the Unapprove step.
+  await expect(invoicePage.rejectButton).toBeDisabled();
+  await expect(invoicePage.actionButton('Cancel')).toBeDisabled();
 });

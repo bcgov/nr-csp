@@ -61,3 +61,15 @@ Feature: Unapprove an invoice — a reviewer reverses an approval
     And Unapprove is replaced by an enabled Approve
     And Submit becomes available again
     And the unapproval and its reason read back from the API
+
+  # Guards the fix for BUG-001: Unapprove was the one decision button that checked no permission,
+  # so a VIEW user — who holds none of the four invoice decision permissions — saw a live-looking
+  # button that could only ever 403. This scenario failed before that fix.
+  @VIEW-role
+  Scenario: A viewer sees Unapprove on an approved invoice but cannot use it
+    Given an UNAPPROVED invoice is waiting to be reviewed
+    And that invoice has already been approved
+    And I open that invoice directly as a CSP VIEW
+    Then the invoice is shown as APPROVED
+    But Unapprove is shown but not available to me
+    And no other decision is available to me either

@@ -29,7 +29,6 @@ listed as coverage gaps below so nothing looks silently covered.
 | Scenario | File | Tags | Result |
 |---|---|---|---|
 | A manual Purchase invoice is created, itemised, re-saved as a draft, and submitted | `journey.feature` | `@p0 @UC-SUBM-001 @UC-SUBM-002 @UC-SUBM-003 @UC-SUBM-004 @S01 @journey` | green |
-| Saving a brand-new invoice reminds the submitter that it still needs submitting | `submit-reminder.feature` | `@p1 @UC-SUBM-001 @S01 @discovered-divergence` | **red on purpose** (DIV-001) |
 
 ## Coverage matrix
 
@@ -41,7 +40,7 @@ listed as coverage gaps below so nothing looks silently covered.
 | Save creates the invoice in **DFT** | S01 `:34`; BR "transitions to DFT after full save" | `InvoiceService.create` → `INVENTRYSTATUS_DRAFT` | `journey` `@S01 @p0` | covered (UI **and** API read-back) | — |
 | STA-002 — after save, Submit / Add-line-item become available | slices STA-002 | `canSubmit`, `canAddLineItem` (`Invoice/index.tsx:808,815`) | `journey` `@S01 @p0` | covered (implicitly — both are exercised next) | — |
 | SUC-001 — success message on save | slices SUC-001 (`[TODO — capture from live app]`) | toast `Invoice '<num>' created.` (`handleSave`) | `journey` `@S01 @p0` | covered (+ captured — see Spec gap #4) | Spec gap #4 |
-| WRN-004 — submit-reminder warning after save | slices WRN-004; `invoice.submit.saved.warning` | `InvoiceValidator.isSubmitProcessRequiered` | `submit-reminder` `@discovered-divergence`; and `journey` on the **re-save** | **covered by a failing test** | **DIV-001** |
+| WRN-004 — submit-reminder warning after save | slices WRN-004; `invoice.submit.saved.warning` | `InvoiceValidator.isSubmitProcessRequiered` | `journey` `@S01 @p0` — after the create-save **and** the re-save | covered (was DIV-001, now fixed) | DIV-001 (fixed) |
 | Submission ID populated after save | S01 `:35`; slices control `cspSubmissionId` | `InvoiceResponse.submissionNumber` (null when manual) | `journey` `@S01 @p0` (asserts the **opposite**) | covered, re-grounded | Spec gap #3 |
 | Seller cannot submit PUR / Buyer cannot submit SAL | slices BR; `InvoiceValidator.java` | `checkSenderBuyerForInvoiceType` | — (journey *complies* with the rule; no negative test) | partially covered | Spec gap #1, Coverage gap #2 |
 | Submitter and other party must differ | slices BR | `isSameSellerAndBuyer` | — (journey complies) | partially covered | Coverage gap #2 |
@@ -56,7 +55,7 @@ listed as coverage gaps below so nothing looks silently covered.
 | Save is an UPDATE, not a second create | not in the Gherkin (new-app behaviour) | `handleSave` `isExisting` branch | `journey` `@S01 @p0` (route-spy verb count) | covered | — |
 | SUC-001 — `The Invoice has been Saved successfully.` | slices SUC-001 (exact text given) | toast `Invoice '<num>' saved.` | `journey` `@S01 @p0` | covered, re-grounded | Spec gap #4 |
 | WRN-001 — submit reminder on a draft save | slices WRN-001 (exact text given) | `invoice.submit.saved.warning` on the PUT | `journey` `@S01 @p0` | covered (exact legacy text, unchanged) | — |
-| At least one of Boom / Timber Mark / Weigh Slip | S01 `:26`; `InvoiceValidator` | `checkSourceDocumentRefs` (server only) | `journey` `@S01 @p0` (complies — a boom number is entered) | partially covered | **BUG-001**, Coverage gap #2 |
+| At least one of Boom / Timber Mark / Weigh Slip | S01 `:26`; `InvoiceValidator` | `checkSourceDocumentRefs` **and** `requiredFieldsFilled` | `journey` `@S01 @p0` (complies); the gate itself by unit test | covered (was BUG-001, now fixed) | BUG-001 (fixed) |
 | DRAFT invoices are not in the reviewer's inbox (`LOB`) | slices BR | `SUBMSTATUS_LOBBY` on create | — | deferred | Coverage gap #3 |
 | **UC-SUBM-004-S01** — submit a valid DRAFT invoice | S01 `:22-31` | `POST /api/invoices/{id}/submit` | `journey` `@S01 @p0` | covered | — |
 | Submit requires at least one line item | `invoice.noline.item.error`; `checkInvoiceLines` | validator on `ActionType.SUBMIT` + `!hasLineItems` gate | — (journey complies) | partially covered | Coverage gap #2 |

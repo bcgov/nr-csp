@@ -122,6 +122,23 @@
     }
   }
 
+  // The one-of-three source-document rule. Reads as quiet helper text until it is unmet, at which
+  // point it carries the same colour as a Carbon field error so a disabled Save has a visible cause.
+  &__field-note-col {
+    margin-bottom: 0.5rem;
+  }
+
+  &__field-note {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.33;
+    color: var(--cds-text-secondary);
+
+    &--unmet {
+      color: var(--cds-text-error);
+    }
+  }
+
   &__subsection-heading-col {
     padding-bottom: $spacing-04;
   }

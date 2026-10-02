@@ -14,7 +14,7 @@ on `localhost:1525` → `csp-backend-e2e` on `:8080` → Vite on `:3001`.
 
 ## Divergence (app behaves differently from the Gherkin)
 
-### DIV-001 — The "you still need to submit" reminder never appears the first time you save — OPEN
+### DIV-001 — The "you still need to submit" reminder never appears the first time you save — FIXED
 
 **What's wrong.** When someone enters an invoice by hand and presses Save for the first time, the
 app is supposed to remind them that saving is not submitting. It doesn't. The invoice saves fine,
@@ -43,10 +43,16 @@ reset-on-id-change effect, which clears the warnings; the page then reloads the 
 `ActionType.OTHER`, whereas the reminder is only raised on a save). So the message is generated,
 stored, and then wiped a moment later by the redirect.
 
-**Tracked by.** `submit-reminder.feature` — a deliberately failing scenario tagged
-`@discovered-divergence`. It is **not** skipped: the red is the tracking signal, and it will turn
-green by itself when the app is fixed. Exclude it from a "is anything newly broken?" run with
-`--grep-invert @discovered-divergence`.
+**FIXED** on branch `defects-from-e2e`. `pages/Invoice/index.tsx` now keeps a save's warnings in
+their own `saveWarnings` state, which the post-create redirect deliberately preserves (gaining an id
+for the first time is the same invoice, not a switch to a different one) and which the re-hydrating
+GET cannot clobber. They are cleared by `clearErrors`, so any later action — Submit above all —
+drops a reminder that no longer applies.
+
+The dedicated `submit-reminder.feature` scenario has been **retired**: with the defect fixed, the
+assertion belongs where UC-SUBM-001-S01 puts it, and `journey.feature` now asserts the reminder
+after the create-save as well as after the draft re-save. Awaiting BA/QA confirmation before this
+entry is closed.
 
 **Spec citations.** UC-SUBM-001-S01 (expected outcome: "reminder to submit shown"; message WRN-004);
 UC-SUBM-003-S01 (message WRN-001, exact text as above); `messages.properties`
@@ -56,7 +62,7 @@ UC-SUBM-003-S01 (message WRN-001, exact text as above); `messages.properties`
 
 ## Bug / Regression
 
-### BUG-001 — Save is offered before the invoice can actually be saved (source-document fields) — OPEN
+### BUG-001 — Save is offered before the invoice can actually be saved (source-document fields) — FIXED
 
 **What's wrong.** An invoice must carry at least one Boom Number, Timber Mark or Weigh Slip. None
 of those three fields is marked as required on screen, and the Save button turns on without them —
@@ -77,11 +83,19 @@ telling them something else was missing.
 and the error arrives detached from the field that caused it (it lands in the page banner, because
 the message key has no field mapping in `messageKeyMap.ts`).
 
-**Not covered by a test in this pass** — it belongs to the "required fields missing" exception
-slices (UC-SUBM-001-S04 / S12), which are out of scope here. See Coverage gap #2. The journey
-complies with the rule by entering a boom number.
+**FIXED** on branch `defects-from-e2e`. `requiredFieldsFilled` in `pages/Invoice/index.tsx` now
+includes the one-of-three rule, so Save and Submit stay disabled until a Boom number, Timber mark or
+Weigh slip is provided. Because it is a one-of-three, no single field can carry an asterisk — so the
+rule is stated in a note beside the three fields, which turns the same colour as a Carbon field
+error while unmet. A silently-disabled Save would have been its own defect.
 
-### BUG-002 — Deleting an invoice leaves its submission record behind — OPEN
+Covered by two new unit tests in `pages/Invoice/index.more.unit.test.tsx`: Save is disabled with
+none of the three, the note renders in its unmet state, committing a boom number releases Save, and
+a Timber mark alone satisfies the rule too. Both page fixtures also gained a boom number — they had
+described an invoice the backend would have rejected, so 12 existing save/submit tests had been
+passing against an unsaveable record. Awaiting BA/QA confirmation before this entry is closed.
+
+### BUG-002 — Deleting an invoice leaves its submission record behind — FIXED
 
 **What's wrong.** Creating a manual invoice also creates a parent "submission" record. Deleting the
 invoice removes the invoice, its line items, its boom/timber/weigh references, its related-invoice
@@ -103,10 +117,27 @@ suite's preflight fingerprints. It is nonetheless unbounded growth over time.
 **Impact in production.** For BA/QA to judge: the same code path runs there, so every deleted
 manual invoice presumably leaves a row too.
 
-**Why the suite does not clean it up.** There is no API for it, and adding a direct database
-teardown would give the suite an Oracle/Docker dependency at runtime that it deliberately does not
-have (every other check goes over HTTP). `./scripts/reset-db.sh` clears the orphans if they ever
-need clearing.
+**FIXED** on branch `defects-from-e2e`. `InvoiceService.delete` now removes the parent submission
+once deleting the invoice has left it empty — under two deliberate guards:
+
+* **only when empty** (`countByCspSubmissionId == 0`). An ESF submission holds many invoices, and a
+  manual one can gain siblings through Duplicate; removing the parent while any remain would
+  violate the `CLS_CSPS_FK` foreign key and orphan those invoices instead.
+* **only when manual** (no business submission number). An ESF submission records a real
+  transmission — it carries the submission number and the submitter's contact details — so it is
+  kept even once its last invoice is gone. The fix undoes exactly what `create` did, nothing more.
+
+Safe inside the delete transaction: `coastal_log_sale` holds the only foreign key into
+`csp_submission`, confirmed against the schema, and those rows are gone by that point.
+
+**Verified by A/B against the live seeded database**, running the patched build alongside the
+unpatched one: create-then-delete leaked **+1** orphan on the unpatched backend and **0** on the
+patched one. Three unit tests cover the branches (manual-and-empty deletes it; manual-with-siblings
+keeps it; ESF keeps it even when empty).
+
+**Existing orphans are not retroactively cleaned** — the fix only stops new ones. The seeded
+container has accumulated them from earlier suite runs; `./scripts/reset-db.sh` clears them.
+Awaiting BA/QA confirmation before this entry is closed.
 
 ---
 

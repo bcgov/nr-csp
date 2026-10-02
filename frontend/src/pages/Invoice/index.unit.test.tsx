@@ -154,7 +154,9 @@ const makeInvoice = (overrides: Record<string, any> = {}) => ({
   maturity: 'O',
   fobCode: 'FOB01',
   primarySortCode: 'P1',
-  boomNumbers: [],
+  // A saveable invoice must reference at least one source document — the backend rejects a save
+  // without one (`InvoiceValidator.checkSourceDocumentRefs`), and the Save button is gated on it.
+  boomNumbers: ['BM001'],
   timberMarks: [],
   weightSlips: [],
   reviewComments: '',
@@ -390,6 +392,24 @@ describe('InvoicePage — permission gating (viewer)', () => {
     expect(screen.getByRole('button', { name: /delete/i })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Add new item' })).not.toBeInTheDocument();
   });
+
+  // Unapprove used to check NO permission at all — its only condition was that no request was in
+  // flight. A VIEW role holds no invoice decision permission, so it saw a live-looking button that
+  // failed with a 403 from `changeStatus`, which does enforce it.
+  //
+  // Denying only `invoiceDetails/Unapprove` rather than everything: that proves the button is gated
+  // on its OWN permission, not merely on some permission being absent.
+  it('disables Unapprove on an approved invoice without the Unapprove permission', async () => {
+    h.usePermission.mockImplementation((action: string) => action !== 'invoiceDetails/Unapprove');
+    await renderLoaded({ invStatus: 'APP' });
+    expect(screen.getByRole('button', { name: 'Unapprove' })).toBeDisabled();
+  });
+
+  it('leaves Unapprove enabled on an approved invoice when the permission is held', async () => {
+    h.usePermission.mockReturnValue(true);
+    await renderLoaded({ invStatus: 'APP' });
+    expect(screen.getByRole('button', { name: 'Unapprove' })).toBeEnabled();
+  });
 });
 
 describe('InvoicePage — action flows', () => {
@@ -528,6 +548,30 @@ describe('InvoicePage — warnings & errors', () => {
       warnings: [{ messageKey: 'w', message: 'Heads up — check this', type: 'WARNING', args: null }],
     });
     expect(screen.getByText('Heads up — check this')).toBeInTheDocument();
+  });
+
+  // Dismissal matches on key + message rather than on list index, because the rendered list is a
+  // MERGE of the loaded record's warnings and the ones a save returned. An index into the merged
+  // list means nothing to either underlying state, so an index-based remove would drop the wrong
+  // entry — and a record warning removed that way would come straight back on the next refetch.
+  it('dismissing one warning removes only that warning', async () => {
+    await renderLoaded({
+      invStatus: 'DFT',
+      warnings: [
+        { messageKey: 'w1', message: 'First warning', type: 'WARNING', args: null },
+        { messageKey: 'w2', message: 'Second warning', type: 'WARNING', args: null },
+      ],
+    });
+    expect(screen.getByText('First warning')).toBeInTheDocument();
+    expect(screen.getByText('Second warning')).toBeInTheDocument();
+
+    // Carbon labels each InlineNotification's dismiss control "closes notification"; take the one
+    // belonging to the first warning by its position in the notification list.
+    const closeButtons = screen.getAllByRole('button', { name: /close/i });
+    await userEvent.click(closeButtons[0]);
+
+    expect(screen.queryByText('First warning')).not.toBeInTheDocument();
+    expect(screen.getByText('Second warning')).toBeInTheDocument();
   });
 
   it('renders page-level errors from the loaded invoice in the banner', async () => {

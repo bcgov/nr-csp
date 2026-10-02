@@ -146,6 +146,13 @@ public class InvoiceValidator {
 
     public ValidationResult validateForChangeStatus(InvoiceDetails details, String newStatus, String userID) {
         messages.clear();
+        // Always the manual/reviewer validator on this path, matching legacy: its
+        // `getInvoiceValidator()` unconditionally called `setManual(true)`, and
+        // `changeInvoiceStatus` used it. The only `setManual(false)` in the legacy code is in
+        // `SubmissionValidator`, the ESF INGESTION path — so the flag distinguishes which validator
+        // is running, not where the invoice originally came from. The reviewer-comment rule below
+        // therefore applies to every invoice reviewed through the UI, ESF-sourced or hand-entered.
+        this.manual = true;
         if (details == null) {
             addError("invoice.details.missing.error", null);
             return new ValidationResult(messages);
@@ -156,7 +163,18 @@ public class InvoiceValidator {
         } else if (ConstantsCode.INVENTRYSTATUS_REJECTED.equals(newStatus)
                 && isBlank(details.reviewComments())) {
             addError("invoice.reject.need.reviewer.comment.error", null);
+        } else if (ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(newStatus)
+                && isBlank(details.reviewComments())) {
+            addError("invoice.unapprove.need.reviewer.comment.error", null);
+        } else if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(newStatus)
+                && isBlank(details.reviewComments())) {
+            addError("invoice.cancel.need.reviewer.comment.error", null);
         }
+        // Reject / unapprove / cancel also require the comment to have CHANGED, not just to be
+        // present — the blank checks above and this are two halves of one rule. Approve is
+        // deliberately outside it. Load-bearing call: without it nothing enforces the change, and
+        // InvoiceValidatorTest's unchanged-comment cases fail.
+        isReviewerCommentUpdate(details, newStatus, "invoice.reviewer.notes.update.warning");
         return new ValidationResult(messages);
     }
 

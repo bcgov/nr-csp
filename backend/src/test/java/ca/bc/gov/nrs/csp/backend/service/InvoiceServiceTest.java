@@ -474,6 +474,45 @@ class InvoiceServiceTest {
         verify(participantRepo).delete(60L);
     }
 
+    // `create` inserts a csp_submission row for every manual invoice; deleting the invoice used to
+    // leave it behind with nothing referencing it. Nothing surfaced the leak, because the Inbox
+    // inner-joins invoices and so never shows an empty submission.
+    @Test
+    void delete_manualInvoice_removesTheNowEmptySubmission() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(invoiceRepo.countByCspSubmissionId(10L)).willReturn(0);
+
+        service.delete(1L);
+
+        verify(submissionRepo).delete(10L);
+    }
+
+    // Duplicate can leave siblings on a manual submission. Removing the parent while any remain
+    // would break the CLS_CSPS_FK foreign key and orphan those invoices instead.
+    @Test
+    void delete_manualInvoiceWithSiblingsLeft_keepsTheSubmission() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(invoiceRepo.countByCspSubmissionId(10L)).willReturn(1);
+
+        service.delete(1L);
+
+        verify(submissionRepo, never()).delete(anyLong());
+    }
+
+    // An ESF submission is a record of a real transmission — it carries the business submission
+    // number and the submitter's contact details — so it is kept even once its last invoice is
+    // gone. `loaded(...)` sets a non-null submissionNumber, which is how the service tells them
+    // apart.
+    @Test
+    void delete_esfInvoice_keepsTheSubmissionEvenWhenEmpty() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
+        lenient().when(invoiceRepo.countByCspSubmissionId(10L)).thenReturn(0);
+
+        service.delete(1L);
+
+        verify(submissionRepo, never()).delete(anyLong());
+    }
+
     @Test
     void update_manualOtherPartyExistingBuyer_updatesInPlace() {
         UpdateInvoiceRequest req = updateRequest();
@@ -763,6 +802,22 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
         assertThatThrownBy(() -> service.changeStatus(99L, req))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // Omitting the comment must NOT bypass the must-have-changed rule. A null means "leave the
+    // note alone", so the value handed to the validator has to be the STORED one -- validating
+    // null would read as "" and differ from any non-blank note, letting the rule be side-stepped.
+    @Test
+    void changeStatus_nullComment_validatesAgainstTheStoredComment() {
+        ChangeStatusRequest req = new ChangeStatusRequest("UNA", null);
+        InvoiceDetails stored = details(1L, "APP", "5678", null, "Seller");
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(stored, 10L)));
+
+        service.changeStatus(1L, req);
+
+        ArgumentCaptor<InvoiceDetails> captor = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(validator).validateForChangeStatus(captor.capture(), eq("UNA"), any());
+        assertThat(captor.getValue().reviewComments()).isEqualTo(stored.reviewComments());
     }
 
     @Test

@@ -51,6 +51,7 @@ import {
   INVOICE_DETAILS_CANCEL,
   INVOICE_DETAILS_REJECT,
   INVOICE_DETAILS_DELETE,
+  INVOICE_DETAILS_UNAPPROVE,
 } from '@/context/auth/permissions';
 import {
   type CreateInvoiceRequest,
@@ -131,6 +132,19 @@ const DELETABLE_STATUSES = new Set(['DFT', 'PRO']);
 const STATUS_CHANGEABLE = new Set(['PRO', 'UNA']);
 
 const lookupDescription = (item: LookupItemResponse | null | undefined): string => item?.description ?? '';
+
+/**
+ * Combine the record's own warnings with any a save produced, without duplicating a message that
+ * appears in both. Identity is key + resolved text, not key alone: the same key can legitimately
+ * appear twice with different interpolated args (e.g. two different duplicate boom numbers).
+ */
+const mergeWarnings = (
+  recordWarnings: ValidationMessageResponse[],
+  saveWarnings: ValidationMessageResponse[],
+): ValidationMessageResponse[] => {
+  const seen = new Set(recordWarnings.map((w) => `${w.messageKey}|${w.message}`));
+  return [...recordWarnings, ...saveWarnings.filter((w) => !seen.has(`${w.messageKey}|${w.message}`))];
+};
 
 const findByCode = (items: LookupItemResponse[], code: string | null | undefined): LookupItemResponse | null =>
   code ? (items.find((i) => i.code === code) ?? null) : null;
@@ -422,6 +436,19 @@ export function InvoicePage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pageErrors, setPageErrors] = useState<ValidationMessageResponse[]>([]);
   const [warnings, setWarnings] = useState<ValidationMessageResponse[]>([]);
+  /**
+   * Warnings produced by a SAVE, held separately from the record's own.
+   *
+   * They cannot live in `warnings`: creating an invoice redirects `/invoice` -> `/invoice/{id}`,
+   * which trips the reset-on-id-change effect below, and the page then re-hydrates from a GET that
+   * deliberately does not reproduce them (the read validates with `ActionType.OTHER`, while the
+   * submit reminder is only raised on `ActionType.SAVE`). So a first save used to compute the
+   * reminder, store it, and lose it twice over before anyone could read it.
+   *
+   * Keeping them in their own state means hydration cannot clobber them. They are cleared by
+   * `clearErrors` — so any later action, including Submit, drops a reminder that no longer applies.
+   */
+  const [saveWarnings, setSaveWarnings] = useState<ValidationMessageResponse[]>([]);
 
   // Scroll to the top whenever banner errors appear so the user doesn't miss them.
   useEffect(() => {
@@ -513,6 +540,28 @@ export function InvoicePage() {
 
   // Every required (asterisked) header field must be filled before Save/Submit
   // are available.
+  /**
+   * At least one source document must be referenced — a Boom number, a Timber mark or a Weigh
+   * slip. `InvoiceValidator.checkSourceDocumentRefs` enforces this on every save, so leaving it
+   * out of the gate below meant Save looked available, the request went out, and the user got
+   * "One of Boom Number, Timber Mark or Weigh Slip must have a value." back in the page banner —
+   * detached from the fields that caused it, after a round trip. The note beside the three fields
+   * states the rule, since it is a one-of-three and no single field can carry an asterisk.
+   *
+   * ⚠ THIS GATES SUBMIT AS WELL AS SAVE, deliberately: the rule lives in the shared `validate(...)`
+   * path, which the submit endpoint also runs (`InvoiceService.java:340`, with ActionType.SUBMIT),
+   * so a submit without a source-document reference fails server-side for the same reason. Gating
+   * both keeps the round trip from being wasted either way.
+   *
+   * The consequence worth knowing: ESF-ingested invoices with no source-document reference DO exist
+   * in the real data, and ingestion does not run this validator. A reviewer who unapproves one back
+   * into UNA finds both Save and Submit disabled until a reference is added — which is correct (the
+   * server would reject both) but gives no reason beside the buttons, only the one-of-three note up
+   * beside the fields. If that proves confusing in practice, the fix is a reason surfaced at the
+   * button, not a loosened gate.
+   */
+  const hasSourceDocumentRef = boomNumbers.length > 0 || timberMarks.length > 0 || weighSlips.length > 0;
+
   const requiredFieldsFilled =
     invNumber.trim() !== '' &&
     invTypeCode.trim() !== '' &&
@@ -522,7 +571,8 @@ export function InvoicePage() {
     submittingClientLocation.trim() !== '' &&
     maturityCode.trim() !== '' &&
     fobCodeValue.trim() !== '' &&
-    (otherClientNumber.trim() !== '' || otherClientName.trim() !== '');
+    (otherClientNumber.trim() !== '' || otherClientName.trim() !== '') &&
+    hasSourceDocumentRef;
 
   const clientNewLineErrors = useMemo(
     () =>
@@ -637,7 +687,17 @@ export function InvoicePage() {
   // The hydration effect below then re-fills the form once the new
   // invoice's GET resolves.
   // -----------------------------------------------------------------
+  const prevInvoiceIdRef = useRef<number | undefined>(invoiceId);
   useEffect(() => {
+    // Gaining an id for the first time is the post-create redirect: the same invoice, now saved —
+    // not a switch to a different record. There is no stale data to clear in that case, and the
+    // warnings the create returned (the submit reminder) must survive it. Every other id change IS
+    // a different invoice, so its save warnings are dropped.
+    const previousInvoiceId = prevInvoiceIdRef.current;
+    prevInvoiceIdRef.current = invoiceId;
+    const isPostCreateRedirect = previousInvoiceId === undefined && invoiceId !== undefined;
+    if (!isPostCreateRedirect) setSaveWarnings([]);
+
     setInvNumber('');
     setInvTypeCode('');
     setInvDate('');
@@ -796,6 +856,10 @@ export function InvoicePage() {
   const canCancelPerm = usePermission(INVOICE_DETAILS_CANCEL);
   const canRejectPerm = usePermission(INVOICE_DETAILS_REJECT);
   const canDeletePerm = usePermission(INVOICE_DETAILS_DELETE);
+  // Unapprove is permission-gated like every other decision. It previously checked nothing, so a
+  // user without it — a VIEW role holds no invoice decision permission at all — saw a live-looking
+  // button that failed with a 403 from `changeStatus`, which does enforce it.
+  const canUnapprovePerm = usePermission(INVOICE_DETAILS_UNAPPROVE);
 
   // Brand-new invoice (no id) is editable; existing invoice is editable
   // only after it has loaded AND has an editable status (DFT).
@@ -986,8 +1050,17 @@ export function InvoicePage() {
     setPageErrors(page);
   };
 
+  // Route the header's validation errors.
+  const REVIEWER_COMMENT_ONLY_FIELD_MAP: Record<string, string> = Object.fromEntries(
+    Object.entries(MESSAGE_KEY_TO_FIELD).filter(([, field]) => field === 'reviewerComment'),
+  );
+
   const applyServerErrors = (errors: ValidationMessageResponse[]) =>
-    routeServerErrors(errors, MESSAGE_KEY_TO_FIELD, setFieldErrors);
+    routeServerErrors(
+      errors,
+      canEdit ? MESSAGE_KEY_TO_FIELD : REVIEWER_COMMENT_ONLY_FIELD_MAP,
+      setFieldErrors,
+    );
 
   // Variant for the POST/PATCH /line-items mutations — routes mapped keys to
   // the Add New Line Item form's inline state and unmapped keys to the banner.
@@ -998,7 +1071,22 @@ export function InvoicePage() {
   const applyEditLineItemServerErrors = (errors: ValidationMessageResponse[]) =>
     routeServerErrors(errors, LINE_ITEM_MESSAGE_KEY_TO_FIELD, setEditLineFieldErrors);
 
+  /** What the banner actually shows: the record's warnings plus any a save added, deduplicated. */
+  const displayedWarnings = useMemo(() => mergeWarnings(warnings, saveWarnings), [warnings, saveWarnings]);
+
+  /** Dismiss one warning from whichever source holds it, matched on key + text rather than index. */
+  const dismissWarning = (target: ValidationMessageResponse) => {
+    const isTarget = (w: ValidationMessageResponse) =>
+      w.messageKey === target.messageKey && w.message === target.message;
+    setWarnings((prev) => prev.filter((w) => !isTarget(w)));
+    setSaveWarnings((prev) => prev.filter((w) => !isTarget(w)));
+  };
+
   const clearErrors = () => {
+    // Save warnings go too: they describe the state after a save, so once another action starts
+    // they may no longer be true. Submitting, in particular, must not leave a "remember to submit"
+    // reminder on screen.
+    setSaveWarnings([]);
     setFieldErrors({});
     setPageErrors([]);
     setReviewerCommentError('');
@@ -1330,7 +1418,7 @@ export function InvoicePage() {
         { id: invoiceId, body },
         {
           onSuccess: (data) => {
-            setWarnings(data.warnings ?? []);
+            setSaveWarnings(data.warnings ?? []);
             addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' saved.` });
           },
           onError: (err) => handleMutationError(err, 'Failed to save invoice.'),
@@ -1339,7 +1427,8 @@ export function InvoicePage() {
     } else {
       createMutation.mutate(body, {
         onSuccess: (data) => {
-          setWarnings(data.warnings ?? []);
+          // Into `saveWarnings`, which survives the redirect below and the GET that follows it.
+          setSaveWarnings(data.warnings ?? []);
           addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' created.` });
           // Switch the URL to edit mode so subsequent saves PUT instead of POST.
           navigate(`/invoice/${data.invID}`, { replace: true, state: location.state });
@@ -1666,16 +1755,19 @@ export function InvoicePage() {
 
         {/* Page-level warning + error notifications — hidden until the page
             has finished loading. */}
-        {!isLoadingInvoice && warnings.length > 0 ? (
+        {!isLoadingInvoice && displayedWarnings.length > 0 ? (
           <Column sm={4} md={8} lg={16} className="invoice-page__notification-col">
-            {warnings.map((w, i) => (
+            {displayedWarnings.map((w, i) => (
               <InlineNotification
                 key={`warn-${i}-${w.messageKey}`}
                 className="invoice-page__notification"
                 kind="warning"
                 title={relabel(w.message || w.messageKey)}
                 lowContrast
-                onClose={() => setWarnings((prev) => prev.filter((_w, idx) => idx !== i))}
+                // Dismiss from BOTH sources by identity rather than by index: the rendered list is
+                // a merge, so an index into it means nothing to either underlying state, and a
+                // record warning removed by index would come straight back on the next refetch.
+                onClose={() => dismissWarning(w)}
               />
             ))}
           </Column>
@@ -2021,6 +2113,19 @@ export function InvoicePage() {
                     />
                   </Column>
 
+                  {/* The one-of-three rule, stated where the fields are. It cannot be an asterisk
+                      on any single field, and without it a disabled Save has no visible reason. */}
+                  <Column sm={4} md={8} lg={16} className="invoice-page__field-note-col">
+                    <p
+                      className={`invoice-page__field-note${
+                        canEdit && !hasSourceDocumentRef ? ' invoice-page__field-note--unmet' : ''
+                      }`}
+                    >
+                      <span className="required-label__star">*</span> Provide at least one Boom number, Timber mark or
+                      Weigh slip.
+                    </p>
+                  </Column>
+
                   <Column sm={4} md={8} lg={16} className="invoice-page__field-col">
                     <TextArea
                       id="client-primary-sort-code"
@@ -2184,7 +2289,7 @@ export function InvoicePage() {
                     size="md"
                     className="invoice-page__action-btn invoice-page__action-btn--reject"
                     onClick={handleUnapprove}
-                    disabled={anyMutationPending}
+                    disabled={!canUnapprovePerm || anyMutationPending}
                   >
                     {actionLabel(unapprovePending, 'Unapprove')}
                   </Button>

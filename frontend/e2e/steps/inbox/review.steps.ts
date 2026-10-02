@@ -135,7 +135,7 @@ Then('the invoice becomes APPROVED on screen', async ({ invoicePage }) => {
   await expect(invoicePage.statusTag).toHaveText(invoiceStatus.approved);
   // The toast names the invoice; the invoice number is not unique across a submission, so this
   // asserts the shape and the verb rather than pinning the number.
-  await expect(invoicePage.toast('approved.')).toBeVisible();
+  await invoicePage.expectToastShown('approved.');
 });
 
 Then('Approve is replaced by Unapprove', async ({ invoicePage }) => {

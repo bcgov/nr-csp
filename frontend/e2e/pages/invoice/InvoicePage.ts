@@ -2,6 +2,7 @@ import { type Page, type Locator, expect } from '@playwright/test';
 
 import { signInAsMockUser, setDateField, type MockRole } from '../common/authNav';
 import { fieldError } from '../common/carbonHelpers';
+import { expectToastShown } from '../common/toastRecorder';
 
 /**
  * Page Object — Invoice details (`/invoice` for a new invoice, `/invoice/:id` for a saved one).
@@ -280,9 +281,24 @@ export class InvoicePage {
   /**
    * A bottom-right Carbon toast by its title, e.g. "Invoice 'E2E-123' created.".
    * Rendered by components/Layout (the notification context), outside the invoice page's own DOM.
+   *
+   * ⚠ DO NOT ASSERT ON THIS — use `expectToastShown` below. Toasts auto-dismiss after 5s, so a
+   * `toBeVisible()` here is a race against the app's own timer and fails on a loaded box even
+   * though the toast really was shown. This locator remains only for the rare case of asserting a
+   * toast is on screen RIGHT NOW (e.g. that it has not yet dismissed).
    */
   toast(text: string): Locator {
     return this.page.locator('.layout-toast-container').filter({ hasText: text });
+  }
+
+  /**
+   * Assert the app showed a toast containing `text` at any point in this scenario.
+   *
+   * The race-free form of `toast()`, reading the recorder installed by the `page` fixture rather
+   * than the live DOM. See `pages/common/toastRecorder.ts`.
+   */
+  async expectToastShown(text: string): Promise<void> {
+    await expectToastShown(this.page, text);
   }
 
   /**
@@ -293,13 +309,15 @@ export class InvoicePage {
    * equivalent of the legacy screen's Back button, so a scenario arriving from search asserts it,
    * and one arriving any other way asserts it is absent.
    *
-   * ⚠ NOT addressable by the `link` role. `PageTitle` renders each crumb as a Carbon
-   * `BreadcrumbItem` with an `onClick` and NO `href`, which produces a plain `<span>` — clickable
-   * with a mouse, but carrying no link semantics and no keyboard focus. Logged as an accessibility
-   * finding in the UC-SRCH defects.md; until it changes, crumbs must be located structurally.
+   * Addressed by the `link` role, which is also the assertion: a navigable crumb must be a real
+   * anchor. It used to be a `<span>` with an `onClick` — clickable by mouse, but with no link
+   * semantics and no keyboard focus — which forced this locator to be structural. That was BUG-002
+   * in the UC-SRCH defects.md, now fixed, so the role-based locator both works and guards it.
    */
   breadcrumb(label: string): Locator {
-    return this.page.locator('.page-title-breadcrumb .cds--breadcrumb-item').filter({ hasText: label });
+    return this.page
+      .locator('.page-title-breadcrumb')
+      .getByRole('link', { name: label, exact: true });
   }
 
   /** Every action button in the page's action row, by visible label. */

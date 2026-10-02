@@ -14,7 +14,48 @@
 	}
 
 	handle /api/* {
-		reverse_proxy {$BACKEND_URL}
+		reverse_proxy {$BACKEND_URL} {
+			# Spring Security sets its own CSP, X-Frame-Options and
+			# X-Content-Type-Options. Without these strips, /api/* responses
+			# carry TWO of each — Caddy's and the backend's — which is what the
+			# 2026-09-30 ZAP scan flagged (duplicate HSTS also violates RFC
+			# 6797). Measured through this proxy against the real backend, all
+			# at status 200:
+			#
+			#   strips   -Server in header block   CSP / XFO / XCTO on /api/*
+			#   ------   ------------------------   -------------------------
+			#   no       no                         2 / 2 / 2   <- the finding
+			#   no       yes                        1 / 1 / 1
+			#   yes      no                         1 / 1 / 1
+			#   yes      yes                        1 / 1 / 1   <- this file
+			#
+			# Two independent mechanisms fix it, and this file uses both:
+			#   * these strips remove the upstream's copy outright;
+			#   * a DELETION anywhere in the site `header` block (the `-Server`
+			#     below) makes Caddy apply that whole block at response-write
+			#     time, so its SETs replace the upstream's values instead of
+			#     adding to them. That is why `-Server` is not merely cosmetic —
+			#     removing it changes header semantics for proxied responses.
+			# Belt-and-braces is deliberate: either one alone is a silent
+			# single point of failure for a scanner finding nobody re-checks.
+			#
+			# The surviving value is Caddy's full policy — the one carrying
+			# form-action and connect-src. The backend keeps its own headers as
+			# defence-in-depth for anything reaching it directly inside the
+			# namespace; these strips only affect the browser-facing copy.
+			#
+			# ⚠ MEASURE /api/* WITH A LIVE BACKEND, AND CHECK THE STATUS CODE.
+			# If the backend is unreachable, Caddy answers 502 itself, these
+			# strips apply to that error response, and you see ZERO security
+			# headers — which looks exactly like these strips being a
+			# regression. It is not; it is a 502. An earlier revision of this
+			# file removed these strips on the strength of such a measurement,
+			# and the duplicate headers went unfixed as a result.
+			header_down -Strict-Transport-Security
+			header_down -Content-Security-Policy
+			header_down -X-Frame-Options
+			header_down -X-Content-Type-Options
+		}
 	}
 
 	handle {
@@ -24,19 +65,40 @@
 	}
 
 	header {
+		# Don't advertise the server software (no version is disclosed either
+		# way, so as a disclosure fix this is cosmetic).
+		#
+		# ⚠ DO NOT REMOVE THIS AS "JUST COSMETIC" — it is load-bearing. A
+		# deletion anywhere in this block makes Caddy apply the whole block at
+		# response-write time, so the SETs below REPLACE a proxied response's
+		# headers instead of adding to them. With this line gone and the
+		# `header_down` strips gone, /api/* serves two of each security header.
+		# See the measured matrix in the /api/* handler above.
+		-Server
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
-		# TLS terminates at the OpenShift edge router, so the backend's Spring
-		# HSTS config never fires (it only sees plain HTTP). Set it here at the
-		# edge-facing layer instead; this covers both the static SPA responses
-		# and the reverse-proxied /api/* responses. 1 year, matches the backend.
+		# TLS terminates at the OpenShift edge router, so set HSTS here at the
+		# edge-facing layer; this covers the static SPA responses and the
+		# reverse-proxied /api/* responses alike. 1 year.
+		#
+		# This is the ONLY layer that should set HSTS. The backend no longer does
+		# (SecurityConfig disables it deliberately — it terminates no TLS and has
+		# no Route, so it has no business asserting a transport policy), which
+		# means the strip above is belt-and-braces for HSTS specifically and the
+		# real fix for the other three headers.
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# form-action is listed explicitly because it is one of the directives
+		# that does NOT fall back to default-src — without it the policy places
+		# no restriction at all on where a form may submit. The SPA posts no HTML
+		# forms (API calls are fetch/XHR and the Amplify sign-in/sign-out flow is
+		# GET redirects), so 'self' costs nothing.
+		#
 		# connect-src covers two Cognito hosts the SPA calls via fetch/XHR:
 		# {$COGNITO_DOMAIN} for the hosted-UI OAuth token exchange, and the
 		# regional cognito-idp API for Amplify's silent token refresh once the
 		# short-lived access/ID token expires — without it, the browser blocks
 		# the refresh call and the user gets bounced to sign-in every ~5 min.
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://{$COGNITO_DOMAIN} https://cognito-idp.{$COGNITO_REGION}.amazonaws.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://{$COGNITO_DOMAIN} https://cognito-idp.{$COGNITO_REGION}.amazonaws.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 	}
 }
