@@ -139,7 +139,9 @@ export function InboxPage() {
               // opened in a background tab.
               if (isModifiedClick(e)) return;
               e.preventDefault();
-              navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
+              // `void`: react-router's `navigate` returns a Promise and nothing here waits
+              // on it — starting the transition is the whole job.
+              void navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
             }}
           >
             {row.submissionId}

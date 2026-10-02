@@ -236,7 +236,9 @@ export function ViewSubmissionPage() {
             href={`${ROUTES.INVOICE}/${row.coastalLogSaleId}`}
             onClick={(e) => {
               e.preventDefault();
-              navigate(`${ROUTES.INVOICE}/${row.coastalLogSaleId}`);
+              // `void`: react-router's `navigate` returns a Promise and nothing here waits
+              // on it — starting the transition is the whole job.
+              void navigate(`${ROUTES.INVOICE}/${row.coastalLogSaleId}`);
             }}
           >
             {row.invoiceNumber ?? '—'}
@@ -293,7 +295,7 @@ export function ViewSubmissionPage() {
             className="view-submission-page__back-link"
             onClick={(e) => {
               e.preventDefault();
-              navigate(ROUTES.SUBMISSION_HISTORY);
+              void navigate(ROUTES.SUBMISSION_HISTORY);
             }}
           >
             <ArrowLeft />

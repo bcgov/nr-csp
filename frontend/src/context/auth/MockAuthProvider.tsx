@@ -33,9 +33,13 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     isLoading: false,
     isSigningOut: false,
     signIn: async () => {},
-    signOut: async (reason = 'user') => {
+    // Not `async`: the mock sign-out is entirely synchronous, so there is nothing to
+    // await. Resolve the contract's Promise explicitly instead of wearing an `async`
+    // keyword that promises asynchrony the body never has.
+    signOut: (reason = 'user') => {
       setSignOutReason(reason);
       clearPersistedTableState();
+      return Promise.resolve();
     },
   };
 

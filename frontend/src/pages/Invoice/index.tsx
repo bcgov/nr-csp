@@ -1431,7 +1431,9 @@ export function InvoicePage() {
           setSaveWarnings(data.warnings ?? []);
           addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' created.` });
           // Switch the URL to edit mode so subsequent saves PUT instead of POST.
-          navigate(`/invoice/${data.invID}`, { replace: true, state: location.state });
+          // `void`: react-router's `navigate` returns a Promise and nothing here waits on
+          // it — starting the transition is the whole job.
+          void navigate(`/invoice/${data.invID}`, { replace: true, state: location.state });
         },
         onError: (err) => handleMutationError(err, 'Failed to create invoice.'),
       });
@@ -1494,7 +1496,7 @@ export function InvoicePage() {
     duplicateMutation.mutate(invoiceId, {
       onSuccess: (data) => {
         addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' duplicated.` });
-        navigate(`/invoice/${data.invID}`, { replace: false });
+        void navigate(`/invoice/${data.invID}`, { replace: false });
       },
       onError: (err) => handleMutationError(err, 'Failed to duplicate invoice.'),
     });
@@ -1507,7 +1509,7 @@ export function InvoicePage() {
         // Navigate to the base "new invoice" screen.
         setDeleteConfirm(null);
         addNotification({ kind: 'success', title: 'Invoice deleted.' });
-        navigate('/invoice', { replace: true });
+        void navigate('/invoice', { replace: true });
       },
       onError: (err) => {
         setDeleteConfirm(null);

@@ -123,29 +123,22 @@ const revalidationKeyOf = (e: SubmissionMetadataEdits): string =>
 
 /**
  * The top status banner, keyed by the submission's worst severity: green when
- * clean, amber when only warnings remain, red when any error is present.
+ * clean, amber when only warnings remain, red when any error is present. The
+ * title is not kept here — renderBusinessResult builds a live one per severity
+ * (file name / warning count / error count), so a static one would be dead.
  */
-const STATUS_BANNER: Record<
-  InvoiceSeverity,
-  { kind: 'success' | 'warning' | 'error'; title: string; subtitle: string }
-> = {
+const STATUS_BANNER: Record<InvoiceSeverity, { kind: 'success' | 'warning' | 'error'; subtitle: string }> = {
   none: {
     kind: 'success',
-    // Title is overridden with the uploaded file name in renderBusinessResult;
-    // the clean banner shows no subtitle.
-    title: 'No issues found.',
+    // The clean banner's title is self-contained, so it shows no subtitle.
     subtitle: '',
   },
   warning: {
     kind: 'warning',
-    // Title is overridden with the live warning count in renderBusinessResult.
-    title: 'Warnings found.',
     subtitle: 'Submission is permitted. Review is recommended.',
   },
   error: {
     kind: 'error',
-    // Title is overridden with the live error count in renderBusinessResult.
-    title: 'Errors found.',
     subtitle: 'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
   },
 };
@@ -244,7 +237,9 @@ export function UploadSubmissionPage() {
       // still enabled, inviting a duplicate save. Without a submission number
       // there is no detail page to open, so fall back to the list.
       if (result.valid) {
-        navigate(
+        // `void`: react-router's `navigate` returns a Promise and nothing here waits on
+        // it — starting the transition is the whole job.
+        void navigate(
           result.submissionNumber != null
             ? `${ROUTES.SUBMISSION_HISTORY}/${result.submissionNumber}`
             : ROUTES.SUBMISSION_HISTORY,
@@ -629,7 +624,7 @@ export function UploadSubmissionPage() {
     // supporting subtitle the warning / error banners carry.
     const warnings = countWarnings(issues);
     const errors = countErrors(issues);
-    let title = banner.title;
+    let title: string;
     if (severity === 'warning') title = `${warnings} warning${warnings === 1 ? '' : 's'} found.`;
     else if (severity === 'error') title = `${errors} error${errors === 1 ? '' : 's'} found.`;
     else title = `${fileName ?? 'The file'} was uploaded with no issues found.`;
