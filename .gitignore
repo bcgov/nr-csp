@@ -49,6 +49,7 @@ playbooks/collections/
 **.md
 !README.md
 !ARCHITECTURE.md
+!SECURITY.md
 **.log
 **.iml
 

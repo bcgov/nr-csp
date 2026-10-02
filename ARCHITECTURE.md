@@ -1,7 +1,12 @@
 # Architecture
 
-How CSP is put together, and why. For setup and day-to-day commands see [README.md](README.md);
-for end-to-end testing see [`frontend/e2e/README.md`](frontend/e2e/README.md).
+How the **Coast Selling Price (CSP) System** is put together, and why. For setup and
+day-to-day commands see [README.md](README.md); for security reporting and controls see
+[SECURITY.md](SECURITY.md); for end-to-end testing see
+[`frontend/e2e/README.md`](frontend/e2e/README.md).
+
+> `.github/graphics/architecture.svg` is left over from the bcgov quickstart template. It
+> depicts a Node/Nest API with Postgres and does **not** describe this system.
 
 - [System overview](#system-overview)
 - [Tech stack](#tech-stack)
@@ -106,8 +111,30 @@ Controllers are split into an interface (`controller/api/*Api.java`) carrying th
 annotations and an implementation (`controller/*Controller.java`) carrying the logic and the
 `@PreAuthorize` rules. This keeps the generated API docs readable and the controllers short.
 
-`ClockConfig` injects a `Clock` bean rather than letting code call `LocalDate.now()` directly,
-so date-sensitive business rules are testable without freezing system time.
+`ClockConfig` injects a `Clock` bean fixed to the business zone **America/Vancouver**, rather
+than letting code call `LocalDate.now()` directly — so date-sensitive business rules are
+testable without freezing system time, and don't shift with the container's timezone.
+
+### API surface
+
+Everything is under `/api`. The OpenAPI document is at `/api/v3/api-docs`, Swagger UI at
+`/api/swagger-ui/index.html`.
+
+| Area | Path | Notes |
+|---|---|---|
+| Health | `GET /api/health` | Returns a hardcoded `UP`. **It does not check the database** — and it is the liveness probe, so a pod with a dead DB still reports healthy |
+| Search / clients | `GET /api/search`, `/api/clients` | Paged invoice search and client lookup |
+| Inbox | `GET /api/inbox` | The current user's review queue |
+| Invoices | `/api/invoices` | CRUD, submit, duplicate, status changes, line items, CSV/PDF export |
+| Electronic submissions | `/api/submissions` | Multipart XML: `validate/structural`, `parse`, `validate/business`, `submit` |
+| Submission history | `/api/submission-history[/{id}]` | Past submissions and their invoices |
+| Sort codes | `/api/sort-codes` | CRUD plus PDF/CSV export |
+| Flat price conversions | `/api/flat-price-conversions` | CRUD, copy, clear (all audited), plus PDF/CSV export |
+| Lookups | `/api/lookup/*` | Reference code tables |
+| Reports | `POST /api/R06` … `/api/R13` | PDF or CSV per request |
+
+Only **write** endpoints carry `@PreAuthorize`. Read, report, search, lookup, and submission
+endpoints require authentication but no specific role.
 
 ## Data access: why there is no JPA
 
@@ -139,8 +166,20 @@ Both are registered for the `plsql` query language in `jasperreports.properties`
 R06–R13 designs were authored for JasperReports **Server**, which bundles `plsql` support as a
 commercial extension absent from the open-source library.
 
-`ValidatingDataSource` wraps the pool to fail fast on a misconfigured datasource rather than
-surfacing the problem on first query.
+`ValidatingDataSource` wraps the pool and runs `SELECT 1 FROM DUAL` from its constructor, so a
+misconfigured or unreachable datasource fails at **startup** rather than on first query. This
+applies on every profile, `local` included — see the note in [README.md](README.md) about
+neither profile booting without a database.
+
+`spring-data-commons` is on the classpath only for `Page`, `Pageable` and `Sort`; it is not
+Spring Data JPA. Transactions are declared with `@Transactional` on service methods. The main
+tables are `COASTAL_LOG_SALE*`, `CSP_SUBMISSION`, `ELECTRONIC_SUBMISSION`, `LOG_SALE_SORT_CODE`,
+`LOG_SALE_FLAT_PRICE_CONVERSION` (with an `_AUD` audit table), `CSP_SPECIES_GRADE_XREF`, plus
+client views and code tables.
+
+Most report templates call the Oracle stored procedures `CSP_SP_RPT_*` directly via
+`<query language="plsql">{call …}`. **R13 (ad hoc) is the exception** — it uses plain SQL and
+adjusts its columns at runtime with dom4j.
 
 ## Invoice domain
 
@@ -228,9 +267,21 @@ Routes map to the domain: `Search`, `SubmissionHistory` (list and detail),
 the seven report pages, plus `Welcome`, `NotFound`, and a `/logout` route that immediately
 redirects to the welcome screen.
 
-**Server state is React Query's job**; component state is not used as a cache. The auth
-provider is chosen at runtime — `AuthProvider` returns a mock provider or the real Amplify one
-depending on `env.mockUser` — so no mock code paths run in a deployed environment.
+**Server state is React Query's job**; component state is not used as a cache. Defaults are
+deliberately quiet for a low-churn internal app — 3-hour `staleTime` and `gcTime`, no refetch
+on window focus, no retry (`config/react-query/config.ts`). Table and search state persist in
+`sessionStorage` via `usePersistentState`. There is no Redux or other global store.
+
+**The axios client** (`config/api/request.ts`) uses `baseURL: '/api'` and a 60-second timeout.
+A `401` from the backend is treated as the one unambiguous session-expired signal and triggers
+sign-out.
+
+> **No types are generated from OpenAPI.** Each `services/*.service.ts` hand-writes its
+> TypeScript types alongside the React Query hooks, so a backend DTO change has to be mirrored
+> by hand. Nothing fails at build time if you forget.
+
+The auth provider is chosen at runtime — `AuthProvider` returns a mock provider or the real
+Amplify one depending on `env.mockUser` — so no mock code paths run in a deployed environment.
 
 The PWA service worker uses a `navigateFallbackDenylist` for `/^\/api\//`. Without it, Workbox
 applies the SPA navigation fallback to API navigations and serves the React shell when you open
@@ -252,9 +303,13 @@ installs a synthetic authentication with the roles from `AUTH_MOCK_ROLES`. It is
 `Optional<MockRequestFilter>` injection, so when mock auth is off the filter does not exist in
 the context at all.
 
-**Authorization is action-level, not role-level.** Roles are `ADMIN`, `APPROVE`, `VIEW`,
-derived from Cognito groups (`CSP_ADMIN` → `ADMIN`; both plain and FAM-prefixed forms are
-accepted). Controllers declare a specific action string from the FAM permission matrix:
+**Authorization is action-level, not role-level.** Roles are `ADMIN`, `APPROVE`, `VIEW`, held
+as plain authorities with no `ROLE_` prefix. They come from the `cognito:groups` claim, matched
+by **suffix**: a group grants a role when it equals the role name or ends with `_<ROLE>`,
+case-insensitively — so `ADMIN`, `CSP_ADMIN` and `NRS_CSP_ADMIN` all grant `ADMIN`. Backend
+and frontend implement the same rule (`JwtService.matchesRole`, `RealAuthProvider`).
+
+Controllers declare a specific action string from the FAM permission matrix:
 
 ```java
 @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Approve')")
@@ -296,7 +351,9 @@ server-side idle limit.
 
 ## Deployment topology
 
-Two deployments per zone (a zone being a PR number, `test`, or `prod`):
+Each deployment gets its own **zone**: `test`, `prod`, or — for PR environments — the **PR
+number mod 50**. Every object name carries the zone, so environments are isolated. PR zones run
+lite: one replica, no HPA or PDB. Two deployments per zone:
 
 **Frontend pod** — Caddy on port 3000, serving static files and proxying `/api/*`. The
 `caddy:2-alpine` image ships `CAP_NET_BIND_SERVICE` as a file capability on the binary;
@@ -310,6 +367,18 @@ wallet and write it into a shared `/cert` volume. The main container mounts that
 entrypoint merges the wallet certificate into the JVM trust store before the app starts. This
 is why the JDBC URL must use the TCPS descriptor form: the short form bypasses the wallet.
 
+**Pod hardening.** Both deployments run non-root with `readOnlyRootFilesystem: true`, all
+capabilities dropped (`drop: ["ALL"]`), and `automountServiceAccountToken: false`.
+
+**Network isolation.** NetworkPolicies in `common/openshift.init.yml` allow ingress to the
+frontend only from the OpenShift router, and to the backend only from frontend pods **in the
+same zone** plus the cluster monitoring namespace. The backend has no Route of its own, so it
+is unreachable from outside the namespace — which is also why there is no CORS configuration
+anywhere: the SPA and the API share an origin.
+
+**Ordering.** `common/openshift.init.yml` is applied first and creates the Secrets, ConfigMaps
+(including `amplify-config.js`) and NetworkPolicies; the two deploy templates follow.
+
 Image rollout differs by zone. PR deploys pass the immutable head SHA as the image tag, so
 every push changes the pod spec and forces a rollout. Test and prod use the mutable PR-number
 tag, where `oc apply` would see an unchanged Deployment and keep serving a stale image despite
@@ -320,7 +389,7 @@ tag, where `oc apply` would see an unchanged Deployment and keep serving a stale
 | Layer | Tool | Scope |
 |---|---|---|
 | Backend unit | JUnit 5 + Mockito (Surefire) | Services, rules, mappers |
-| Backend integration | Failsafe + Testcontainers (`oracle-free`) | `*IT.java` — controllers and reports against a real Oracle |
+| Backend integration | Failsafe + Testcontainers (`gvenzl/oracle-free`), bootstrapped by `db/test-bootstrap.sql` (creates the `THE` schema, seed data, and stub `CSP_SP_RPT_*` procedures) | `*IT.java` — controllers and reports against a real Oracle. Skipped when Docker isn't available |
 | Frontend unit | Vitest, happy-dom | `*.unit.test.{ts,tsx}` |
 | Frontend component | Vitest, real Chromium | `*.browser.test.{ts,tsx}` — opt-in via `VITEST_BROWSER_ENABLED` |
 | API integration | Node suite in `common/tests/integration` | Run against a deployed zone in CI |
@@ -336,6 +405,33 @@ seeded data. Scenarios tagged `@discovered-divergence` track **confirmed applica
 and fail on purpose — they are excluded from the default `npm test` so its exit status stays
 meaningful, and run separately via `npm run test:divergences`. See
 [`frontend/e2e/README.md`](frontend/e2e/README.md).
+
+## Known quirks and technical debt
+
+Things that are genuinely worth fixing or confirming:
+
+- **Local dev needs a real DB and a JWKS URL.** `ValidatingDataSource` and `JwtService` both
+  fail at startup when these are missing, on every profile — the `local` profile's "empty
+  fallbacks" do not make the app self-contained.
+- **Role names in `.env.example` were wrong** (now fixed): it listed `CSP_VIEWER` /
+  `CSP_SUBMITTER` / `CSP_APPROVER`, but the code matches `_VIEW`, `_APPROVE`, `_ADMIN`.
+  Someone should still confirm which group names FAM actually issues.
+- **Page-level permissions are not enforced in the UI.** `context/auth/usePageAccess.ts`
+  exists but no application code calls it — only its own unit test. `ProtectedRoute` checks
+  authentication only, and the backend enforces permissions only on write endpoints.
+- **Unused serving certificate.** The backend Service requests an OpenShift serving cert and
+  mounts it at `/etc/tls-certs`, but the app serves plain HTTP on 8080 and never reads it.
+- **Java 21 compile, JRE 25 runtime.** `backend/Dockerfile` builds on Temurin 21 and runs on a
+  JRE 25 base; bytecode targets 21.
+- **`/api/health` doesn't check anything.** It returns a hardcoded `UP` and is wired as the
+  liveness probe, so a pod with an unreachable database still reports healthy.
+- **Stale comments and template leftovers:**
+  - `docs/investigations/reference-data-cold-start.md` describes `ConcurrentMapCacheManager`;
+    the code has since moved to Caffeine.
+  - `frontend/openshift.deploy.yml`'s header says config is baked into the image; it is
+    injected at runtime.
+  - `.github/graphics/*` (the architecture SVG shows Node/Postgres), the SchemaSpy job, and
+    `API_NAME: nest` in `reusable-tests.yml` are all quickstart-template leftovers.
 
 ## Notable constraints
 

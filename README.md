@@ -1,8 +1,9 @@
 # NRS CSP App
 
-**CSP** — the BC Ministry of Forests application for receiving, validating, and approving
-log-scaling invoices, and for producing the operational reports built from them. It replaces
-the legacy CSP system (Oracle Forms + JasperReports Server).
+The **Coast Selling Price (CSP) System** for the BC Ministry of Forests. Users submit, review
+and approve coastal log sale invoices, maintain the sort-code and flat-price-conversion
+reference tables, and run the R06–R13 reports. It replaces the legacy CSP system (Oracle Forms
++ JasperReports Server).
 
 Invoices reach CSP two ways: **electronically**, as ESF XML submissions pulled from an Oracle
 queue and run through a schema + business-rule validation pipeline; or **manually**, keyed in
@@ -124,12 +125,13 @@ Open `.env` and fill in the values:
 | `SPRING_DATASOURCE_URL` | yes | Oracle JDBC URL — **TCPS descriptor form**, see note below |
 | `SPRING_DATASOURCE_USERNAME` | yes | Oracle username |
 | `SPRING_DATASOURCE_PASSWORD` | yes | Oracle password |
-| `JWT_JWKS_URI` | prod profile | Cognito JWKS endpoint |
-| `JWT_ISSUER` | prod profile | JWT issuer claim |
-| `JWT_AUDIENCE` | prod profile | JWT audience claim (the Cognito app client ID) |
+| `JWT_JWKS_URI` | **always** | Cognito JWKS endpoint. Must be a **well-formed URL even in mock mode** — the backend parses it at startup and fails to boot on an empty value. With mock auth any placeholder works, e.g. `https://mock-auth.invalid/.well-known/jwks.json` |
+| `JWT_ISSUER` | real auth | JWT issuer claim |
+| `JWT_AUDIENCE` | real auth | JWT audience claim (the Cognito app client ID) |
 | `AUTH_MOCK_ENABLED` | for local dev | `true` enables backend mock auth — see [Authentication](#authentication) |
 | `AUTH_MOCK_ROLES` | no | Roles for the mock user: `ADMIN`, `APPROVE`, `VIEW` (comma-separated). Default `ADMIN` |
 | `JAVA_OPTS` | no | JVM flags for the backend container; defaults to container-aware heap sizing |
+| `COGNITO_DOMAIN` | no | Only feeds the Caddy `Content-Security-Policy` header when running the **production** image. Leave unset for the dev server — compose will warn that it is unset |
 
 > Use single quotes if a value contains special characters: `PASSWORD='p@ss!'`
 
@@ -138,10 +140,21 @@ Open `.env` and fill in the values:
 > errors. See `.env.example` for the exact shape. The local seeded image is the exception —
 > it serves plain TCP, so the short form is correct there.
 
-The `prod` profile mirrors OpenShift and requires everything above. If you don't have DB
-credentials yet, set `SPRING_PROFILES_ACTIVE=local` — the `local` profile boots with empty
-fallbacks for Cognito, mock auth enabled, and DEBUG logging, so the app starts without any
-integrations configured.
+`.env.example` defaults to `SPRING_PROFILES_ACTIVE=prod`, which mirrors OpenShift. Setting
+`local` instead turns on mock auth by default and raises logging to DEBUG for
+`ca.bc.gov.nrs.csp` and Spring Security.
+
+> **Neither profile starts without integrations.** This is the most common first-run failure,
+> and the `local` profile does not exempt you from it:
+>
+> - **Database.** `ValidatingDataSource` runs `SELECT 1 FROM DUAL` during startup and the app
+>   refuses to boot if the DB is unreachable. You need a working database either way — VPN and
+>   credentials, or the local seeded image.
+> - **JWKS URI.** `JwtService` parses `JWT_JWKS_URI` into a `URL` in `@PostConstruct`, so an
+>   empty value throws at startup even with mock auth on. Any syntactically valid URL will do.
+>
+> The frontend container waits on the backend's health check, so a backend that fails to start
+> takes the frontend down with it — the symptom you see is the frontend never coming up.
 
 **2. Create your frontend auth config**
 
@@ -323,8 +336,10 @@ CSP has three roles, granted through Cognito groups assigned by FAM. The group n
 | `CSP_APPROVE` | `APPROVE` | Review actions — approve, reject, unapprove, cancel |
 | `CSP_VIEW` | `VIEW` | Read-only: search, view, generate reports |
 
-Both plain (`ADMIN`) and FAM-prefixed (`CSP_ADMIN`, `NRS_CSP_ADMIN`) group names are accepted
-on the way in — see `JwtService` and `RealAuthProvider`.
+**The match is by suffix, not by exact name.** A group grants a role when it *equals* the role
+name or *ends with* `_<ROLE>`, compared case-insensitively — so `ADMIN`, `CSP_ADMIN` and
+`NRS_CSP_ADMIN` all grant `ADMIN`. The group names above are just the conventional FAM form.
+Backend and frontend apply the same rule (`JwtService.matchesRole`, `RealAuthProvider`).
 
 Authorization is **action-level, not role-level**. Controllers declare the specific action they
 need and a role→action map decides:
@@ -462,7 +477,17 @@ This is a **local development concern only.** Certificate files are git-ignored 
 
 **How it works**
 
-The backend Dockerfile has a dedicated build stage that imports every certificate file found in `backend/certs/` into the JRE's trust store before the final image is assembled. Supported extensions: `.cer`, `.pem`, `.crt`. Empty or missing files are silently skipped.
+The backend Dockerfile handles certificates in **two separate stages**, and they accept
+different things:
+
+| Stage | Reads | Fixes |
+|---|---|---|
+| Maven build | `backend/certs/*.pem` **only** | Dependency downloads failing behind the proxy during `mvn package` |
+| JRE trust store | `backend/certs/*.cer`, `*.pem`, `*.crt` | The running app's outbound HTTPS calls |
+
+Empty or missing files are silently skipped in both. **If your Maven build is the thing
+failing, the certificate must be a `.pem`** — a `.cer` or `.crt` is picked up for the runtime
+trust store but never reaches the build stage.
 
 **Adding a certificate**
 
@@ -498,6 +523,8 @@ browsers — you must run the install above explicitly.
 |---|---|---|
 | App shows a Cognito login screen instead of a mock user | `frontend/public/amplify-config.js` missing or has no `mockUser` key | `cp frontend/public/amplify-config.example.js frontend/public/amplify-config.js` |
 | UI loads, user looks signed in, but every API call returns 401 | Backend mock auth off — only the frontend half is on | Set `AUTH_MOCK_ENABLED=true` in `.env` and restart the backend |
+| Backend won't start; frontend never comes up either | DB unreachable, or `JWT_JWKS_URI` empty — both fail at startup on **any** profile, and the frontend waits on the backend's health check | Point at a working DB and give `JWT_JWKS_URI` a valid URL (any placeholder under mock auth) |
+| Pod is "healthy" but every request fails | `/api/health` returns a hardcoded `UP` and never touches the DB — and it is the liveness probe | Check the backend logs; don't trust health for DB state |
 | `PKIX path building failed` / certificate errors from Oracle | JDBC URL uses the short `@//host:port/service` form, bypassing the wallet | Use the TCPS descriptor form — see `.env.example` |
 | `ORA-12514` right after starting the seeded DB container | Oracle listener still coming up; `docker ps` reports `Up` early | Wait ~40 s and poll for a real connection |
 | Backend fails to start under the `prod` profile | A required var is unset — `prod` has no fallbacks | Fill in the table in [step 1](#running-locally-with-docker-compose), or switch to `SPRING_PROFILES_ACTIVE=local` |
@@ -532,7 +559,7 @@ Deployments to OpenShift are fully automated through GitHub Actions — no manua
 
 | Event | What happens |
 |---|---|
-| PR opened | Images built, pushed to GHCR, deployed to a PR-specific environment |
+| PR opened | Images built, pushed to GHCR, deployed to a PR-specific environment — zone is the **PR number mod 50**, running lite (one replica, no HPA or PDB) |
 | Merged to `main` | Images deployed to **test**, integration tests run, then deployed to **prod** |
 | After prod deploy | Sysdig monitoring alerts synced; images tagged `prod` in GHCR |
 
@@ -569,23 +596,42 @@ The following secrets and variables must be configured on the repository for the
 |---|---|
 | `OC_TOKEN` | Environment-specific OpenShift service account token |
 
-**Repository variables**
+**Variables**
 
-| Variable | Description |
-|---|---|
-| `OC_SERVER` | OpenShift API server URL |
-| `COGNITO_REGION` | AWS region for Cognito (e.g. `ca-central-1`) |
-| `COGNITO_USER_POOL_ID` | Cognito User Pool ID |
-| `COGNITO_USER_POOL_CLIENT_ID` | Cognito App Client ID |
-| `COGNITO_DOMAIN` | Cognito hosted UI domain |
-| `COGNITO_OAUTH_SCOPES` | OAuth scopes, comma-separated (e.g. `openid,profile,email`) |
-| `APP_ENV` | Application environment label injected into the frontend config (`dev`, `test`, `prod`) |
-| `COGNITO_IDP_NAME` | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
-| `FAM_CLIENT_ID` | FAM application client ID for role-group mapping (injected at runtime via `amplify-config.js`) |
-| `logout_siteminder_url` | SiteMinder logoff endpoint for the federated sign-out chain |
-| `logout_keycloak_url` | Keycloak logout endpoint for the federated sign-out chain |
-| `logout_keycloak_client_id` | Keycloak client ID used in the sign-out chain |
-| `OPENSHIFT_APPS_DOMAIN` | Optional — cluster apps domain; defaults to `apps.gold.devops.gov.bc.ca` |
+GitHub variable names are **lowercase**; the uppercase names you see in the workflows are
+OpenShift template parameters, not variables.
+
+Scope depends on **which job reads the variable**, and this is a real trap:
+
+- The **init** job has `environment:` attached (`reusable-deploy.yml:12`), so variables it
+  reads may be scoped per environment, with a repo-level value as the fallback for PR deploys.
+- The **deploy** job reads its variables inside a `matrix`, which GitHub evaluates *before*
+  the environment is attached. An environment-scoped value is **silently ignored** there, so
+  those variables must be set at repo level.
+
+This is why the `amplify-config` ConfigMap is built in `common/openshift.init.yml` rather than
+in the frontend deploy template — see the note at `common/openshift.init.yml:53`.
+
+| Variable | Read by | Description |
+|---|---|---|
+| `OC_SERVER` | both | OpenShift API server URL |
+| `OPENSHIFT_APPS_DOMAIN` | both | Optional — cluster apps domain; defaults to `apps.gold.devops.gov.bc.ca` |
+| `app_env` | init | Environment label injected into the frontend config (`dev`, `test`, `prod`) |
+| `cognito_idp_name` | init | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
+| `cognito_region` | init | AWS region for Cognito (e.g. `ca-central-1`) |
+| `cognito_user_pool_id` | init | Cognito User Pool ID |
+| `cognito_user_pool_client_id` | init | Cognito App Client ID — differs per environment |
+| `cognito_domain` | init | Cognito hosted UI domain; also used in the Caddy CSP header |
+| `cognito_oauth_scopes` | init | OAuth scopes, comma-separated (e.g. `openid,profile,email`) |
+| `fam_client_id` | init | FAM application client ID for role-group mapping |
+| `logout_siteminder_url` | init | SiteMinder `logoff.cgi` URL — first hop of the sign-out chain |
+| `logout_keycloak_url` | init | Keycloak end-session endpoint — second hop of the sign-out chain |
+| `logout_keycloak_client_id` | init | FAM's shared Keycloak client ID |
+| `frontend_log_level` | init | Optional — Caddy log level (default `INFO`) |
+| `backend_log_level`, `backend_root_log_level`, `backend_spring_log_level`, `backend_spring_security_log_level` | **deploy (matrix)** | Optional — backend log levels (defaults `INFO`, `INFO`, `INFO`, `WARN`). Must be repo-level |
+
+> `JWT_JWKS_URI` is declared optional in `reusable-deploy.yml`, but the backend will not start
+> without it.
 
 > The Cognito redirect URLs are **not** variables. `reusable-deploy.yml` derives them from the
 > repository name and apps domain (`https://<repo>-<zone>.<domain>` and `.../logout`), so each
