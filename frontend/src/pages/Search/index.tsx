@@ -97,7 +97,9 @@ export function SearchPage() {
           href="#"
           onClick={(e) => {
             e.preventDefault();
-            navigate(`/invoice/${row.id}`, { state: { fromSearch: true } });
+            // `void`: react-router's `navigate` returns a Promise and nothing here waits on
+            // it — starting the transition is the whole job.
+            void navigate(`/invoice/${row.id}`, { state: { fromSearch: true } });
           }}
         >
           {row.invoiceNumber}

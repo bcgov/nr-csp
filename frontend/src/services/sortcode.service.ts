@@ -67,7 +67,10 @@ export const useListSortCodesQuery = (page: number, size: number, sort?: string)
 // invalidated query would not refetch when those pages next mount — evicting it
 // forces a fresh fetch (CSP-591).
 const refreshSortCodeCaches = (qc: QueryClient) => {
-  qc.invalidateQueries({ queryKey: QUERY_KEY });
+  // `void`: `invalidateQueries` returns a Promise that resolves once the refetch settles.
+  // Callers only need the invalidation queued, not awaited, so mark it ignored rather than
+  // leaving it floating. (`removeQueries` is synchronous and returns nothing.)
+  void qc.invalidateQueries({ queryKey: QUERY_KEY });
   qc.removeQueries({ queryKey: SORT_CODE_LOOKUP_QUERY_KEY });
 };
 

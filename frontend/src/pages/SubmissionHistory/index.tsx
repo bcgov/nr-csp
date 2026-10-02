@@ -104,7 +104,9 @@ export function SubmissionHistoryPage() {
                   // be opened in a background tab.
                   if (isModifiedClick(e)) return;
                   e.preventDefault();
-                  navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
+                  // `void`: react-router's `navigate` returns a Promise and nothing here
+                  // waits on it — starting the transition is the whole job.
+                  void navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
                 }}
               >
                 {invoiceLabel}
@@ -138,7 +140,7 @@ export function SubmissionHistoryPage() {
             label="View submission"
             align="left"
             autoAlign
-            onClick={() => navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`)}
+            onClick={() => void navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`)}
           >
             <View />
           </IconButton>
