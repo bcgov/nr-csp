@@ -555,7 +555,7 @@ Sysdig alert definitions are version-controlled in `monitoring/alerts/` (`replic
 
 ## OpenShift deployment
 
-PR/TEST deployments run through GitHub Actions. PROD requires a manual tested-tag release; see [PROD setup and release instructions](docs/production-release.md).
+PR/TEST deployments run through GitHub Actions. PROD requires a manual tested-tag release.
 
 **Pipeline overview**
 
@@ -636,8 +636,7 @@ in the frontend deploy template — see the note at `common/openshift.init.yml:5
 > without it.
 
 > `reusable-deploy.yml` derives Cognito redirects from `VANITY_HOST` in PROD and the
-> repository name/Gold hostname in DEV and TEST. Register the exact callback and sign-out
-> URLs before cutover; see [PROD setup](docs/production-release.md).
+> repository name/Gold hostname in DEV and TEST.
 
 > Every variable in this table feeds the `amplify-config` ConfigMap template in
 > `common/openshift.init.yml`. A missing one renders as an empty string rather than failing
