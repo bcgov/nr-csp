@@ -544,7 +544,9 @@ All workflows live in `.github/workflows/`.
 | `analysis.yml` | Push, PR, schedule | Backend tests (Maven) and frontend tests, SonarCloud analysis for both, Trivy security scan with results uploaded as CodeQL SARIF |
 | `reusable-tests.yml` | Called by PR/merge | Backend integration tests, API integration tests (`common/tests/integration`), and the Playwright e2e suite, uploading reports as artifacts |
 | `reusable-deploy.yml` | Called by PR/merge | Deploys backend and frontend to a given OpenShift zone |
-| `merge.yml` | Push to `main` | Deploys to **test** → runs tests → deploys to **prod** → syncs Sysdig alerts → promotes images to the `prod` tag |
+| `merge.yml` | Push to `main` | Deploys **TEST**, runs tests, and records the tested image digests; does not deploy PROD |
+| `release-prod.yml` | Manual, tested tag | Deploys PROD by immutable image digest with the vanity route |
+| `release-checks.yml` | PR/push workflow changes | Tests release manifest and tag validation |
 | `pr-close.yml` | PR closed | Tears down the PR environment and promotes images |
 | `scheduled.yml` | Cron / manual | Closes stale branches and PRs, purges old PR deployments, regenerates SchemaSpy docs, runs OWASP ZAP full scans |
 
@@ -553,15 +555,15 @@ Sysdig alert definitions are version-controlled in `monitoring/alerts/` (`replic
 
 ## OpenShift deployment
 
-Deployments to OpenShift are fully automated through GitHub Actions — no manual steps are needed once the secrets and variables are configured.
+PR/TEST deployments run through GitHub Actions. PROD requires a manual tested-tag release; see [PROD setup and release instructions](docs/production-release.md).
 
 **Pipeline overview**
 
 | Event | What happens |
 |---|---|
 | PR opened | Images built, pushed to GHCR, deployed to a PR-specific environment — zone is the **PR number mod 50**, running lite (one replica, no HPA or PDB) |
-| Merged to `main` | Images deployed to **test**, integration tests run, then deployed to **prod** |
-| After prod deploy | Sysdig monitoring alerts synced; images tagged `prod` in GHCR |
+| Merged to `main` | Images deployed to **TEST**, acceptance tests run, and immutable release-candidate digests recorded |
+| Manual Release PROD | Tested images deployed by digest through the vanity route; Sysdig alerts synced |
 
 **Oracle init container**
 
@@ -633,10 +635,9 @@ in the frontend deploy template — see the note at `common/openshift.init.yml:5
 > `JWT_JWKS_URI` is declared optional in `reusable-deploy.yml`, but the backend will not start
 > without it.
 
-> The Cognito redirect URLs are **not** variables. `reusable-deploy.yml` derives them from the
-> repository name and apps domain (`https://<repo>-<zone>.<domain>` and `.../logout`), so each
-> PR, test, and prod environment gets its own pair. Both must be registered with FAM for the
-> environment or sign-in/sign-out will fail.
+> `reusable-deploy.yml` derives Cognito redirects from `VANITY_HOST` in PROD and the
+> repository name/Gold hostname in DEV and TEST. Register the exact callback and sign-out
+> URLs before cutover; see [PROD setup](docs/production-release.md).
 
 > Every variable in this table feeds the `amplify-config` ConfigMap template in
 > `common/openshift.init.yml`. A missing one renders as an empty string rather than failing

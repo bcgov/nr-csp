@@ -5,10 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - '*.md'
-      - '.github/**'
       - '.github/graphics/**'
-      - '!.github/workflows/**'
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}
@@ -24,14 +21,30 @@ jobs:
       pull-requests: read
     outputs:
       pr: ${{ steps.pr.outputs.pr }}
+      backend_image: ${{ steps.images.outputs.backend_image }}
+      frontend_image: ${{ steps.images.outputs.frontend_image }}
+      capture_attempt: ${{ steps.images.outputs.capture_attempt }}
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # PR images are built once; synchronize the PR with main before merging.
+      # Capture their immutable digests before TEST, and release exactly that pair.
       # Get PR number for squash merges to main
       - id: pr
         uses: bcgov/action-get-pr@28b0adf8e4d40720d41f9c87356ce24b0a4bd6af # v0.3.1
+      - name: Resolve candidate image digests
+        id: images
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.pr }}
+        run: node .github/scripts/release-images.mjs capture
+
   deploy-test:
     name: TEST Deploys (${{ needs.init.outputs.pr }})
     needs: [init]
+    permissions:
+      contents: read
     uses: ./.github/workflows/reusable-deploy.yml
     secrets:
       oc_namespace: ${{ secrets.oc_namespace }}
@@ -49,6 +62,8 @@ jobs:
       environment: test
       target: test
       tag: ${{ needs.init.outputs.pr }}
+      backend_image: ${{ needs.init.outputs.backend_image }}
+      frontend_image: ${{ needs.init.outputs.frontend_image }}
 
   tests:
     name: Tests
@@ -57,61 +72,24 @@ jobs:
     with:
       target: test
 
-  deploy-prod:
-    name: PROD Deploys (${{ needs.init.outputs.pr }})
-    needs: [tests, init]
-    uses: ./.github/workflows/reusable-deploy.yml
-    secrets:
-      oc_namespace: ${{ secrets.oc_namespace }}
-      oc_token: ${{ secrets.oc_token }}
-      spring_datasource_url: ${{ secrets.spring_datasource_url }}
-      spring_datasource_username: ${{ secrets.spring_datasource_username }}
-      spring_datasource_password: ${{ secrets.spring_datasource_password }}
-      keystore_secret: ${{ secrets.keystore_secret }}
-      database_host: ${{ secrets.database_host }}
-      database_service_name: ${{ secrets.database_service_name }}
-      jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
-      jwt_issuer: ${{ secrets.jwt_issuer }}
-      jwt_audience: ${{ secrets.jwt_audience }}
-    with:
-      environment: prod
-      target: prod
-      tag: ${{ needs.init.outputs.pr }}
-
-  # Sync Sysdig email alerts for PROD. No-ops cleanly if SYSDIG_API_TOKEN is
-  # unset or monitoring/alerts/ is empty — adoption is gradual. Alert
-  # templates live in monitoring/alerts/ in this repo; add or remove files
-  # there to customize the alert set.
-  monitor-prod:
-    name: Sysdig Monitor (PROD)
-    needs: [deploy-prod]
+  release-candidate:
+    name: Record tested release candidate
+    needs: [init, tests]
     runs-on: ubuntu-24.04
-    environment: prod
     permissions:
       contents: read
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: bcgov/action-sysdig-monitor@6806bcb6b427359881848a62508402f5c1bb0dc9 # 0.0.3
         with:
-          sysdig_api_token: ${{ secrets.SYSDIG_API_TOKEN }}
-          oc_namespace: ${{ secrets.oc_namespace }}
-          app: ${{ github.event.repository.name }}
-
-  promote:
-    name: Promote Images
-    needs: [deploy-prod, init]
-    runs-on: ubuntu-slim
-    permissions:
-      packages: write
-    strategy:
-      matrix:
-        package: [backend, frontend]
-    timeout-minutes: 1
-    steps:
-      - uses: shrink/actions-docker-registry-tag@e6aaef25c595b6e0edd18bf4c7dbfea3abd43299 # v5
+          persist-credentials: false
+      - name: Record tested images
+        env:
+          CAPTURE_ATTEMPT: ${{ needs.init.outputs.capture_attempt }}
+          BACKEND_IMAGE: ${{ needs.init.outputs.backend_image }}
+          FRONTEND_IMAGE: ${{ needs.init.outputs.frontend_image }}
+        run: node .github/scripts/release-images.mjs record "$RUNNER_TEMP/release-candidate.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          registry: ghcr.io
-          repository: ${{ github.repository }}/${{ matrix.package }}
-          target: ${{ needs.init.outputs.pr }}
-          tags: prod
+          name: release-candidate-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release-candidate.json
+          if-no-files-found: error

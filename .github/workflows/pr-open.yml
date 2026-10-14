@@ -45,12 +45,14 @@ jobs:
             ${{ github.event.number }}
             ${{ github.event.pull_request.head.sha }}
           tag_fallback: latest
-          triggers: ('${{ matrix.package }}/', 'common/', '.github/workflows/')
+          triggers: ('${{ matrix.package }}/', 'common/', '.github/workflows/', '.github/scripts/')
           build_args: |
             BUILDKIT_INLINE_CACHE=1
 
 
   deploys:
+    permissions:
+      contents: read
     name: Deploys (${{ github.event.number }})
     needs: [builds, init]
     uses: ./.github/workflows/reusable-deploy.yml
@@ -69,7 +71,7 @@ jobs:
     with:
       target: ${{ needs.init.outputs.zone }}
       tag: ${{ github.event.pull_request.head.sha }}
-      triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/')
+      triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/', '.github/scripts/')
 
   tests:
     name: Tests

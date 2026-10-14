@@ -13,29 +13,21 @@ kind: Template
 metadata:
   name: nr-csp-frontend-deploy
 parameters:
+  - name: ROLLOUT_TRIGGER
+    description: Deployment run and attempt; refresh mounted runtime configuration
+    value: ""
+  - name: IMAGE_REF
+    description: Full container image reference; tested releases use a sha256 digest
+    required: true
   - name: NAME
     description: App name prefix
     value: nr-csp
   - name: ZONE
     description: PR number, 'test', or 'prod'
     required: true
-  - name: IMAGE_TAG
-    description: Container image tag (PR number, 'test', or 'prod')
-    value: latest
-  # PR deploys pass the immutable head SHA as IMAGE_TAG, so every push changes
-  # the pod spec and forces a rollout. Test/prod deploys (merge.yml) still use
-  # the mutable PR-number tag, where `oc apply` would otherwise see an
-  # unchanged Deployment and keep serving the stale image despite
-  # imagePullPolicy: Always — there the commit stamp below forces the rollout.
   - name: COMMIT_SHA
     description: Git commit stamped on the pod template to force a rollout per push
     value: ""
-  - name: REGISTRY
-    description: Image registry path (no tag)
-    value: ghcr.io/bcgov/nr-csp/frontend
-  - name: DOMAIN
-    description: Cluster apps domain (no leading dot)
-    value: apps.gold.devops.gov.bc.ca
   - name: COGNITO_DOMAIN
     description: Cognito hosted UI domain (no https://)
     required: true
@@ -65,13 +57,14 @@ objects:
             app.kubernetes.io/instance: ${ZONE}
           annotations:
             app.openshift.io/vcs-ref: ${COMMIT_SHA}
+            app.openshift.io/rollout-trigger: ${ROLLOUT_TRIGGER}
         spec:
           automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
           containers:
             - name: ${NAME}-frontend
-              image: ${REGISTRY}:${IMAGE_TAG}
+              image: ${IMAGE_REF}
               imagePullPolicy: Always
               ports:
                 - name: http
@@ -160,28 +153,3 @@ objects:
           protocol: TCP
           port: 3000
           targetPort: 3000
-
-  # ── Route ─────────────────────────────────────────────────
-  - apiVersion: route.openshift.io/v1
-    kind: Route
-    metadata:
-      name: ${NAME}-frontend-${ZONE}
-      labels:
-        app: ${NAME}-frontend-${ZONE}
-        app.kubernetes.io/instance: ${ZONE}
-      annotations:
-        # The frontend is a stateless static server + reverse proxy, so it needs no
-        # session affinity. Without this, the HAProxy router injects a balancing
-        # cookie on every response — flagged by security scans as a SameSite=None
-        # cookie. Disabling it removes the cookie at the source.
-        haproxy.router.openshift.io/disable_cookies: "true"
-    spec:
-      host: ${NAME}-${ZONE}.${DOMAIN}
-      to:
-        kind: Service
-        name: ${NAME}-frontend-${ZONE}
-      port:
-        targetPort: http
-      tls:
-        termination: edge
-        insecureEdgeTerminationPolicy: Redirect
