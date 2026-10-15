@@ -72,7 +72,7 @@ the one authored.)
 **What's wrong:** the journey runs as `CSP_ADMIN`. The Approve / Reject buttons are permission
 gated (`invoiceDetails/Approve`, `/Reject`), and the `VIEW` arm is unexercised. Separately, the
 legacy Backgrounds' "authenticated via WebADE" and per-action provisioning have no equivalent —
-CSP uses Cognito groups, and the local mock provider grants one role unconditionally.
+CSP uses FAM roles, and the local mock provider grants one role unconditionally.
 **Expected vs actual:** not a fault; untested surface plus a changed mechanism.
 **Next:** author the VIEW arm with `Given I am signed in as a CSP VIEW` (the existing step already
 supports it); drop WebADE provisioning from the spec.

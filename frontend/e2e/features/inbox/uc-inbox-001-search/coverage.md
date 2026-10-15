@@ -20,7 +20,7 @@ are **not yet authored** and are listed below as coverage gaps so nothing looks 
 | Grid shows an empty state until criteria are supplied | not in legacy Gherkin (new-app behaviour) | `pages/Inbox/index.tsx` (ResultsTable empty state) | `smoke.feature` `@S01 @p0` | covered (+ spec-gap) | Spec gap #1 |
 | Clear search filters | S02 | `handleClearFilters` (`pages/Inbox/index.tsx:315`) | — | deferred | Coverage gap #2 |
 | Remaining slices S03–S10 (filters, pagination, sorting, no-match, validation, navigation) | S03–S10 | various | — | deferred | Coverage gap #2 |
-| "Authenticated via WebADE" + "provisioned for inbox/Search" | S01 Background | Cognito groups / `usePageAccess` | — | not-applicable | Coverage gap #3 |
+| "Authenticated via WebADE" + "provisioned for inbox/Search" | S01 Background | FAM roles / `usePageAccess` | — | not-applicable | Coverage gap #3 |
 | Paginator "Showing <count>" | S01 `:30` | `ResultsTable` pagination | — | deferred | Coverage gap #2 |
 
 **Symmetry check:** not applicable to this pass — no mirror matrix is exercised by a single smoke

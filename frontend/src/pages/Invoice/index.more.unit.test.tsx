@@ -25,7 +25,7 @@ const h = vi.hoisted(() => {
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
     usePermission: vi.fn((_action: string) => true),
-    authUser: { username: 'cognito-id', idirUsername: 'TESTUSER' } as {
+    authUser: { username: 'keycloak-sub', idirUsername: 'TESTUSER' } as {
       username: string;
       idirUsername?: string;
     } | null,
@@ -231,7 +231,7 @@ beforeEach(() => {
   h.params.id = undefined;
   h.invoiceQuery = { data: undefined, isLoading: false };
   h.usePermission.mockReturnValue(true);
-  h.authUser = { username: 'cognito-id', idirUsername: 'TESTUSER' };
+  h.authUser = { username: 'keycloak-sub', idirUsername: 'TESTUSER' };
   h.getClientsByNumber.mockResolvedValue([CLIENT]);
   h.getClientsByName.mockResolvedValue([CLIENT]);
   h.extractValidationErrors.mockReset();

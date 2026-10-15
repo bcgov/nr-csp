@@ -23,8 +23,8 @@ describe('ProtectedRoute — OAuth callback guard', () => {
     vi.unstubAllGlobals();
   });
 
-  // The params are only cleared by Amplify's success path, so before the wait
-  // was bounded this sat on the loading screen for good: the effect returned
+  // Params that are never exchanged are never cleared, so without a bounded
+  // wait this would sit on the loading screen for good: the effect returns
   // early every time and none of its deps could ever change.
   it('falls through to a fresh sign-in when the callback never completes', async () => {
     vi.useFakeTimers();

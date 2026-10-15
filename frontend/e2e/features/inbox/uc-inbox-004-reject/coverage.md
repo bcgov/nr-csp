@@ -46,7 +46,7 @@ decision are now covered, and both use the same borrow-and-restore fixture.
 | Approve also closed off after rejecting | not in the Gherkin (new assertion) | same `canChangeStatus` gate | `reject` `@S01 @p0` | covered (added — see note) | — |
 | Reviewer comment is REQUIRED to reject | `invoice.reject.need.reviewer.comment.error`; `runStatusChange('REJ', true)` | client gate **and** `validateForChangeStatus` | — (the happy path supplies one) | partially covered | **Coverage gap #1** |
 | Line items survive the rejection | not in the Gherkin | — | `reject` `@S01 @p0` | covered (added) | — |
-| Background — WebADE auth + `invoiceDetails/Reject` provisioning | S01 Background | Cognito groups / `usePermission` | — | not-applicable | Coverage gap #4 |
+| Background — WebADE auth + `invoiceDetails/Reject` provisioning | S01 Background | FAM roles / `usePermission` | — | not-applicable | Coverage gap #4 |
 
 Two assertions are **additions**, not re-groundings: that Approve is closed off too (a regression
 reopening it on a rejected invoice would otherwise go unseen), and that the line items are

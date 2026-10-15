@@ -16,7 +16,7 @@ import { ROUTES } from '@/routes/routePaths';
 import './index.scss';
 
 export function WelcomePage() {
-  const { isAuthenticated, isLoading, signIn } = useAuth();
+  const { isAuthenticated, isLoading, signIn, loginError } = useAuth();
   const { addNotification } = useNotification();
   const isCallbackPending = useOauthCallbackPending();
 
@@ -28,11 +28,12 @@ export function WelcomePage() {
   // turns out to be signed in is about to be redirected into the app by the
   // branch below, and a persistent notice queued on the way past would render
   // in the shell's toast stack and never auto-close — an "expired" toast stuck
-  // over a live session. That is reachable: the Cognito-only fallback sign-out
-  // clears local tokens without ending the upstream session, so ProtectedRoute
-  // re-authenticates silently and returns to this page — authenticated, with
-  // the flag still set. Gating on `isAuthenticated` alone would not be enough,
-  // since it is still false here while `isLoading` is true.
+  // over a live session. That is reachable: sign-out clears local credentials
+  // before redirecting, so if the redirect is abandoned before CSS ends its
+  // session (an error page, the Back button), ProtectedRoute re-authenticates
+  // silently and can return to this page — authenticated, with the flag still
+  // set. Gating on `isAuthenticated` alone would not be enough, since it is
+  // still false here while `isLoading` is true.
   //
   // The reason is consumed either way, so it cannot go stale and surface on
   // some later visit. A re-run reads 'user' and adds nothing, which is also
@@ -62,12 +63,12 @@ export function WelcomePage() {
   if (isAuthenticated) return <Navigate to={ROUTES.SEARCH} replace />;
   if (isLoading || isCallbackPending) return <LoadingScreen />;
 
-  const startIdirLogin = () =>
-    void signIn().catch(() =>
+  const startLogin = (provider: 'idir' | 'business-bceid') =>
+    void signIn(provider).catch(() =>
       addNotification({
         kind: 'error',
-        title: 'Could not start the IDIR login',
-        subtitle: 'Please try again, or reload the page if this keeps happening.',
+        title: 'Could not start sign-in',
+        subtitle: 'Please try again.',
       }),
     );
 
@@ -77,8 +78,15 @@ export function WelcomePage() {
         <img className="welcome-page__logo" src={bcGovLogo} alt="Government of British Columbia" />
         <h1 className="welcome-page__heading">Welcome to CSP</h1>
         <p className="welcome-page__subheading">Coast Selling Price System</p>
+        {loginError && <p role="alert">{loginError}</p>}
         <div className="welcome-page__actions">
-          <Button kind="primary" size="lg" renderIcon={Login} className="welcome-page__action" onClick={startIdirLogin}>
+          <Button
+            kind="primary"
+            size="lg"
+            renderIcon={Login}
+            className="welcome-page__action"
+            onClick={() => startLogin('idir')}
+          >
             Log in with IDIR
           </Button>
           <Button
@@ -86,13 +94,7 @@ export function WelcomePage() {
             size="lg"
             renderIcon={Login}
             className="welcome-page__action"
-            onClick={() =>
-              addNotification({
-                kind: 'info',
-                title: 'Business BCeID login is not available yet',
-                subtitle: 'Please log in with IDIR to continue.',
-              })
-            }
+            onClick={() => startLogin('business-bceid')}
           >
             Log in with Business BCeID
           </Button>

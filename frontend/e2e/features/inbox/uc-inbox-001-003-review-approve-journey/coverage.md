@@ -61,7 +61,7 @@ and its row data is correct. Neither is redundant; the S01 row below cites both.
 | Invoice leaves the active review queue | UC-INBOX-003 title/intent | `applySubmissionStatusOnStatusChange` | `journey` `@S01 @p0` (asserts the submission does **not** move while PRO invoices remain) | covered, re-grounded | Spec gap #5 |
 | Reviewer comment must be unmodified before approving | S01 `:26` | no such rule on APPROVE (`isReviewerCommentUpdate` targets DELETE/REJ/UNA/CAN) | — | not-applicable | Spec gap #6 |
 | All line-item price conversion factors exist | S01 `:25` | `PriceConversionService` runs on SUBMIT, not on approve | — | not-applicable | Spec gap #6 |
-| Background — WebADE auth + `invoiceDetails/Approve`, `/Reject` provisioning | all three S01 Backgrounds | Cognito groups / `usePermission` | — | not-applicable | Coverage gap #5 |
+| Background — WebADE auth + `invoiceDetails/Approve`, `/Reject` provisioning | all three S01 Backgrounds | FAM roles / `usePermission` | — | not-applicable | Coverage gap #5 |
 
 **Symmetry check.** One mirror matrix is in play and **only one arm is covered** — a genuine
 asymmetry, and the highest-value thing to author next:

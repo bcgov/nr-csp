@@ -12,8 +12,9 @@ services:
       # Build the Vite dev-server stage rather than the Caddy static stage.
       target: dev
     env_file:
-      # Supplies env vars to the dev server. Auth config (mockUser, Cognito,
-      # famClientId) comes from frontend/public/amplify-config.js at runtime.
+      # Supplies env vars to the dev server. Local CSS sign-in reads VITE_OIDC_*
+      # from the bind-mounted, git-ignored frontend/.env; without it the dev
+      # server uses mock auth (see frontend/.env.example).
       - ./.env
     environment:
       # Poll the filesystem so host edits are detected inside the container

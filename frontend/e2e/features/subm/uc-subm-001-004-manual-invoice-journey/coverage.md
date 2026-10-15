@@ -63,7 +63,7 @@ listed as coverage gaps below so nothing looks silently covered.
 | Submission moves to the reviewer's inbox (`INB`) | S01 outcome; BR | `submissionRepo.updateSubmissionStatus(..., SUBMSTATUS_INBOX)` | — | deferred | Coverage gap #3 |
 | SUC-001 — `The Invoice has been Submitted successfully.` | UC-SUBM-004 detailed `:46` | toast `Invoice '<num>' submitted.` | `journey` `@S01 @p0` | covered, re-grounded | Spec gap #4 |
 | Submit button state after submit | slices STA-002 ("remains enabled in UNA") | `SUBMITTABLE_STATUSES` excludes PRO | `journey` `@S01 @p0` (asserts visible **but disabled**) | covered, re-grounded | Spec gap #2 |
-| Background — "authenticated via WebADE", per-action provisioning | all four S01 Backgrounds | Cognito groups / `usePermission` | — | not-applicable | Coverage gap #4 |
+| Background — "authenticated via WebADE", per-action provisioning | all four S01 Backgrounds | FAM roles / `usePermission` | — | not-applicable | Coverage gap #4 |
 
 **Symmetry check.** Two mirror matrices exist in these UCs and **neither arm is covered** by this
 pass, which is consistent rather than lopsided:
