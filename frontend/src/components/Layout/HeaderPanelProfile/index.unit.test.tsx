@@ -59,7 +59,7 @@ describe('HeaderPanelProfile', () => {
     expect(screen.queryByText(/^IDIR:/)).not.toBeInTheDocument();
   });
 
-  it('falls back to the IDIR username (never the raw Cognito username) when there is no display name', () => {
+  it('falls back to the IDIR username (never the raw username) when there is no display name', () => {
     const { container } = arrange({ ...baseUser, displayName: undefined });
     expect(container.querySelector('.header-panel-profile-name')).toHaveTextContent('JDOE');
     expect(screen.queryByText('jdoe')).not.toBeInTheDocument();

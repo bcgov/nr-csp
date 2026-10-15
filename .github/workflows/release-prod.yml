@@ -39,20 +39,14 @@ jobs:
           KEYSTORE_SECRET: ${{ secrets.keystore_secret }}
           DATABASE_HOST: ${{ secrets.database_host }}
           DATABASE_SERVICE_NAME: ${{ secrets.database_service_name }}
-          JWT_JWKS_URI: ${{ secrets.jwt_jwks_uri }}
-          JWT_ISSUER: ${{ secrets.jwt_issuer }}
-          JWT_AUDIENCE: ${{ secrets.jwt_audience }}
-          APP_ENV: ${{ vars.app_env }}
-          COGNITO_IDP_NAME: ${{ vars.cognito_idp_name }}
-          COGNITO_USER_POOL_CLIENT_ID: ${{ vars.cognito_user_pool_client_id }}
-          LOGOUT_KEYCLOAK_URL: ${{ vars.logout_keycloak_url }}
-          LOGOUT_SITEMINDER_URL: ${{ vars.logout_siteminder_url }}
+          CSP_OIDC_ISSUER_URI: ${{ vars.CSP_OIDC_ISSUER_URI }}
+          CSP_OIDC_CLIENT_ID: ${{ vars.CSP_OIDC_CLIENT_ID }}
+          CSP_OIDC_SITEMINDER_LOGOUT_URL: ${{ vars.CSP_OIDC_SITEMINDER_LOGOUT_URL }}
         run: |
           set -euo pipefail
           found=""
           for name in SPRING_DATASOURCE_URL SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD KEYSTORE_SECRET \
-                      DATABASE_HOST DATABASE_SERVICE_NAME JWT_JWKS_URI JWT_ISSUER JWT_AUDIENCE \
-                      APP_ENV COGNITO_IDP_NAME COGNITO_USER_POOL_CLIENT_ID LOGOUT_KEYCLOAK_URL LOGOUT_SITEMINDER_URL; do
+                      DATABASE_HOST DATABASE_SERVICE_NAME CSP_OIDC_ISSUER_URI CSP_OIDC_CLIENT_ID CSP_OIDC_SITEMINDER_LOGOUT_URL; do
             if [[ -n "${!name:-}" ]]; then
               found="$found $name"
             fi
@@ -112,9 +106,6 @@ jobs:
       keystore_secret: ${{ secrets.keystore_secret }}
       database_host: ${{ secrets.database_host }}
       database_service_name: ${{ secrets.database_service_name }}
-      jwt_jwks_uri: ${{ secrets.jwt_jwks_uri }}
-      jwt_issuer: ${{ secrets.jwt_issuer }}
-      jwt_audience: ${{ secrets.jwt_audience }}
       vanity_tls_certificate: ${{ secrets.VANITY_TLS_CERTIFICATE }}
       vanity_tls_key: ${{ secrets.VANITY_TLS_KEY }}
       vanity_tls_ca_certificate: ${{ secrets.VANITY_TLS_CA_CERTIFICATE }}

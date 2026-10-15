@@ -7,8 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
-# All environment-specific config (Cognito, mockUser, FAM client ID) is injected
-# at runtime via amplify-config.js — nothing is baked into the build.
+# All environment-specific config (CSS issuer and client ID) is injected at
+# runtime via config.js — nothing is baked into the build.
 COPY . .
 RUN npm run build
 

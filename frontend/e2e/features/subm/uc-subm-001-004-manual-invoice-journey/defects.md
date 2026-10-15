@@ -175,7 +175,7 @@ authoring (a submitted invoice does appear in an unfiltered Inbox query).
 ### #4 — WebADE authentication and per-action provisioning are not automatable as specified — OPEN
 **What's wrong:** all four legacy Backgrounds require "authenticated via WebADE" and provisioning
 for named actions (`invoiceDetails/Save`, `.../Submit`, `.../New Line Item`). CSP replaced WebADE
-with Cognito groups, and locally `MockAuthProvider` grants one role unconditionally.
+with FAM roles, and locally `MockAuthProvider` grants one role unconditionally.
 **Expected vs actual:** not a fault; the mechanism changed between the legacy and the new app.
 **Next:** drop WebADE provisioning from the spec; express role-gated behaviour as roles (see #5).
 

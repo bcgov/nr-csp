@@ -60,15 +60,6 @@ on:
       database_service_name:
         description: Oracle service name
         required: true
-      jwt_jwks_uri:
-        description: JWKS endpoint for JWT validation
-        required: false
-      jwt_issuer:
-        description: Expected JWT issuer claim
-        required: false
-      jwt_audience:
-        description: Expected JWT audience claim
-        required: false
 
       vanity_tls_certificate:
         description: PEM server certificate for the PROD vanity hostname
@@ -101,9 +92,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    env:
-      COGNITO_DOMAIN: ${{ vars.cognito_domain }}
-      COGNITO_REGION: ${{ vars.cognito_region }}
     steps:
       # An environment secret replaces the caller's secret only when it exists. Without this
       # check, a missing environment secret would fall back to the repository-level value of the
@@ -130,37 +118,17 @@ jobs:
           KEYSTORE_SECRET: ${{ secrets.keystore_secret }}
           DATABASE_HOST: ${{ secrets.database_host }}
           DATABASE_SERVICE_NAME: ${{ secrets.database_service_name }}
-          JWT_JWKS_URI: ${{ secrets.jwt_jwks_uri }}
-          JWT_ISSUER: ${{ secrets.jwt_issuer }}
-          JWT_AUDIENCE: ${{ secrets.jwt_audience }}
-          APP_ENV: ${{ vars.app_env }}
-          COGNITO_IDP_NAME: ${{ vars.cognito_idp_name }}
-          COGNITO_USER_POOL_CLIENT_ID: ${{ vars.cognito_user_pool_client_id }}
-          COGNITO_USER_POOL_ID: ${{ vars.cognito_user_pool_id }}
-          COGNITO_DOMAIN: ${{ vars.cognito_domain }}
-          LOGOUT_KEYCLOAK_URL: ${{ vars.logout_keycloak_url }}
-          LOGOUT_SITEMINDER_URL: ${{ vars.logout_siteminder_url }}
+          CSP_OIDC_ISSUER_URI: ${{ vars.CSP_OIDC_ISSUER_URI }}
+          CSP_OIDC_CLIENT_ID: ${{ vars.CSP_OIDC_CLIENT_ID }}
         run: |
           set -euo pipefail
           for name in SPRING_DATASOURCE_URL SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD KEYSTORE_SECRET \
-                      DATABASE_HOST DATABASE_SERVICE_NAME JWT_JWKS_URI JWT_ISSUER JWT_AUDIENCE \
-                      APP_ENV COGNITO_IDP_NAME COGNITO_USER_POOL_CLIENT_ID COGNITO_USER_POOL_ID COGNITO_DOMAIN \
-                      LOGOUT_KEYCLOAK_URL LOGOUT_SITEMINDER_URL; do
+                      DATABASE_HOST DATABASE_SERVICE_NAME CSP_OIDC_ISSUER_URI CSP_OIDC_CLIENT_ID; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::${name} must be set in the prod GitHub Environment"
               exit 1
             fi
           done
-          if [[ "$APP_ENV" != prod ]]; then
-            echo "::error::APP_ENV must be prod in the prod GitHub Environment"
-            exit 1
-          fi
-          # The browser sends Cognito ID tokens, whose audience is the app client. Without this the
-          # backend would accept ID tokens issued to any client in the shared FAM user pool.
-          if [[ "$JWT_AUDIENCE" != "$COGNITO_USER_POOL_CLIENT_ID" ]]; then
-            echo "::error::JWT_AUDIENCE must equal the PROD Cognito app client ID (cognito_user_pool_client_id)"
-            exit 1
-          fi
 
       # Check both images before anything rolls out, so a bad frontend reference cannot leave
       # a new backend running beside the old frontend. PR deploys (dev) use their head-SHA tags.
@@ -179,6 +147,44 @@ jobs:
             fi
           done
 
+      # common/openshift.init.yml pastes these values into JavaScript string literals in the
+      # frontend config.js, and a template cannot escape them, so each must match a strict pattern.
+      - name: Validate SSO configuration
+        env:
+          DEPLOY_ENV: ${{ inputs.environment || 'dev' }}
+          OIDC_ISSUER_URI: ${{ vars.CSP_OIDC_ISSUER_URI }}
+          OIDC_CLIENT_ID: ${{ vars.CSP_OIDC_CLIENT_ID }}
+          OIDC_IDIR_HINT: ${{ vars.CSP_OIDC_IDIR_HINT || 'azureidir' }}
+          OIDC_BCEID_HINT: ${{ vars.CSP_OIDC_BCEID_HINT || 'bceidbusiness' }}
+          OIDC_SITEMINDER_LOGOUT_URL: ${{ vars.CSP_OIDC_SITEMINDER_LOGOUT_URL }}
+        run: |
+          if [[ ! "$OIDC_ISSUER_URI" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/(auth/)?realms/[A-Za-z0-9._-]+$ ]] ||
+             [[ ! "$OIDC_CLIENT_ID" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::CSP_OIDC_ISSUER_URI and CSP_OIDC_CLIENT_ID must identify the provisioned CSS client"
+            exit 1
+          fi
+          # Each environment trusts only its own SSO realm, so a fallen-back or copied issuer cannot
+          # make PROD accept DEV or TEST tokens.
+          case "$DEPLOY_ENV" in
+            prod) sso_host=loginproxy.gov.bc.ca ;;
+            test) sso_host=test.loginproxy.gov.bc.ca ;;
+            *) sso_host=dev.loginproxy.gov.bc.ca ;;
+          esac
+          if [[ "$OIDC_ISSUER_URI" != "https://$sso_host/"* ]]; then
+            echo "::error::CSP_OIDC_ISSUER_URI must be the $DEPLOY_ENV SSO realm on $sso_host"
+            exit 1
+          fi
+          if [[ ! "$OIDC_IDIR_HINT" =~ ^[A-Za-z0-9_-]+$ ]] || [[ ! "$OIDC_BCEID_HINT" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            echo "::error::CSP_OIDC_IDIR_HINT and CSP_OIDC_BCEID_HINT must be identity provider aliases"
+            exit 1
+          fi
+          # Optional: blank selects the logontest7/logon7 default in the frontend.
+          if [[ -n "$OIDC_SITEMINDER_LOGOUT_URL" ]] &&
+             [[ ! "$OIDC_SITEMINDER_LOGOUT_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$ ]]; then
+            echo "::error::CSP_OIDC_SITEMINDER_LOGOUT_URL must be an https URL without a query or fragment"
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -187,40 +193,31 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/deploy-templates"
           cp common/openshift.init.yml "$RUNNER_TEMP/deploy-templates/init.yml"
-      - name: Configure application origin
-        id: origin
+      - name: Validate PROD settings
+        if: ${{ inputs.target == 'prod' }}
         env:
-          DEPLOY_TARGET: ${{ inputs.target }}
           DEPLOY_ENV: ${{ inputs.environment }}
-          APP_NAME: ${{ github.event.repository.name }}
-          APPS_DOMAIN: ${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}
           VANITY_HOST: ${{ vars.VANITY_HOST }}
           VANITY_TLS_CERTIFICATE: ${{ secrets.vanity_tls_certificate }}
           VANITY_TLS_KEY: ${{ secrets.vanity_tls_key }}
           VANITY_TLS_CA_CERTIFICATE: ${{ secrets.vanity_tls_ca_certificate }}
         run: |
           set -euo pipefail
-          if [[ "$DEPLOY_TARGET" == prod ]]; then
-            # The namespace check above then requires a -prod namespace.
-            if [[ "$DEPLOY_ENV" != prod ]]; then
-              echo "::error::PROD requires the prod GitHub Environment"
-              exit 1
-            fi
-            for setting in VANITY_HOST VANITY_TLS_CERTIFICATE VANITY_TLS_KEY VANITY_TLS_CA_CERTIFICATE; do
-              if [[ -z "${!setting}" ]]; then
-                echo "::error::${setting} must be configured in the prod GitHub Environment"
-                exit 1
-              fi
-            done
-            if [[ ! "$VANITY_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]]; then
-              echo "::error::VANITY_HOST must be a hostname without a scheme or path"
-              exit 1
-            fi
-            app_origin="https://$VANITY_HOST"
-          else
-            app_origin="https://$APP_NAME-$DEPLOY_TARGET.$APPS_DOMAIN"
+          # The namespace check above then requires a -prod namespace.
+          if [[ "$DEPLOY_ENV" != prod ]]; then
+            echo "::error::PROD requires the prod GitHub Environment"
+            exit 1
           fi
-          echo "app_origin=$app_origin" >> "$GITHUB_OUTPUT"
+          for setting in VANITY_HOST VANITY_TLS_CERTIFICATE VANITY_TLS_KEY VANITY_TLS_CA_CERTIFICATE; do
+            if [[ -z "${!setting}" ]]; then
+              echo "::error::${setting} must be configured in the prod GitHub Environment"
+              exit 1
+            fi
+          done
+          if [[ ! "$VANITY_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]]; then
+            echo "::error::VANITY_HOST must be a hostname without a scheme or path"
+            exit 1
+          fi
       - uses: bcgov/action-deployer-openshift@e2d60eb9cacceb89c3b97d8dcf0a2c460eea5eab # v4.2.3
         id: deploy
         env:
@@ -230,9 +227,6 @@ jobs:
           KEYSTORE_SECRET: ${{ secrets.keystore_secret }}
           DATABASE_HOST: ${{ secrets.database_host }}
           DATABASE_SERVICE_NAME: ${{ secrets.database_service_name }}
-          JWT_JWKS_URI: ${{ secrets.jwt_jwks_uri }}
-          JWT_ISSUER: ${{ secrets.jwt_issuer }}
-          JWT_AUDIENCE: ${{ secrets.jwt_audience }}
         with:
           file: ${{ runner.temp }}/deploy-templates/init.yml
           oc_namespace: ${{ secrets.oc_namespace }}
@@ -248,23 +242,13 @@ jobs:
             -p KEYSTORE_SECRET="$KEYSTORE_SECRET"
             -p DATABASE_HOST="$DATABASE_HOST"
             -p DATABASE_SERVICE_NAME="$DATABASE_SERVICE_NAME"
-            -p JWT_JWKS_URI="$JWT_JWKS_URI"
-            -p JWT_ISSUER="$JWT_ISSUER"
-            -p JWT_AUDIENCE="$JWT_AUDIENCE"
-            -p APP_ENV='${{ vars.app_env }}'
-            -p COGNITO_IDP_NAME='${{ vars.cognito_idp_name }}'
-            -p COGNITO_REGION="$COGNITO_REGION"
-            -p COGNITO_USER_POOL_ID='${{ vars.cognito_user_pool_id }}'
-            -p COGNITO_USER_POOL_CLIENT_ID='${{ vars.cognito_user_pool_client_id }}'
-            -p COGNITO_DOMAIN="$COGNITO_DOMAIN"
-            -p COGNITO_OAUTH_SCOPES='${{ vars.cognito_oauth_scopes }}'
-            -p COGNITO_REDIRECT_SIGN_IN='${{ steps.origin.outputs.app_origin }}'
-            -p COGNITO_REDIRECT_SIGN_OUT='${{ steps.origin.outputs.app_origin }}/logout'
-            -p LOGOUT_SITEMINDER_URL='${{ vars.logout_siteminder_url }}'
-            -p LOGOUT_KEYCLOAK_URL='${{ vars.logout_keycloak_url }}'
-            -p LOGOUT_KEYCLOAK_CLIENT_ID='${{ vars.logout_keycloak_client_id }}'
-            -p FAM_CLIENT_ID='${{ vars.fam_client_id }}'
             -p FRONTEND_LOG_LEVEL='${{ vars.frontend_log_level || 'INFO' }}'
+            -p CSP_OIDC_ISSUER_URI='${{ vars.CSP_OIDC_ISSUER_URI }}'
+            -p CSP_OIDC_CLIENT_ID='${{ vars.CSP_OIDC_CLIENT_ID }}'
+            -p APP_ENV='${{ inputs.environment || 'dev' }}'
+            -p OIDC_IDIR_HINT='${{ vars.CSP_OIDC_IDIR_HINT || 'azureidir' }}'
+            -p OIDC_BCEID_HINT='${{ vars.CSP_OIDC_BCEID_HINT || 'bceidbusiness' }}'
+            -p OIDC_SITEMINDER_LOGOUT_URL='${{ vars.CSP_OIDC_SITEMINDER_LOGOUT_URL }}'
             $OC_PROCESS_FLAGS
           debug: false
           triggers: ${{ inputs.triggers }}
@@ -300,19 +284,14 @@ jobs:
           # attached, so environment-scoped (test/prod) variables are ignored
           # here. Anything that differs per environment belongs in the init
           # step's parameters (common/openshift.init.yml), not in this matrix.
-          # Frontend Cognito settings come from the job environment below.
-          - name: frontend
-            parameters: >-
-              -p COGNITO_DOMAIN="$COGNITO_DOMAIN"
-              -p COGNITO_REGION="$COGNITO_REGION"
+          # The frontend takes no extra parameters: its auth settings are read
+          # from the init-created ConfigMaps, per environment.
     outputs:
       triggered: ${{ steps.deploy.outputs.triggered }}
     env:
       IMAGE_REF: ${{ matrix.name == 'backend' && (inputs.backend_image || format('ghcr.io/{0}/backend:{1}', github.repository, inputs.tag)) || (inputs.frontend_image || format('ghcr.io/{0}/frontend:{1}', github.repository, inputs.tag)) }}
       VANITY_HOST: ${{ vars.VANITY_HOST }}
       APPS_DOMAIN: ${{ vars.OPENSHIFT_APPS_DOMAIN || 'apps.gold.devops.gov.bc.ca' }}
-      COGNITO_DOMAIN: ${{ vars.cognito_domain }}
-      COGNITO_REGION: ${{ vars.cognito_region }}
     steps:
       # Each job resolves its environment secrets separately; see the init job.
       - name: Validate OpenShift namespace
