@@ -1,0 +1,38 @@
+---
+# Default cluster-hostname route for DEV previews and TEST only.
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: nr-csp-frontend-route
+parameters:
+  - name: NAME
+    value: nr-csp
+  - name: ZONE
+    required: true
+  - name: DOMAIN
+    value: apps.gold.devops.gov.bc.ca
+objects:
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: ${NAME}-frontend-${ZONE}
+      labels:
+        app: ${NAME}-frontend-${ZONE}
+        app.kubernetes.io/instance: ${ZONE}
+      annotations:
+        haproxy.router.openshift.io/timeout: 300s
+        # The frontend is a stateless static server + reverse proxy, so it needs no
+        # session affinity. Without this, the HAProxy router injects a balancing
+        # cookie on every response — flagged by security scans as a SameSite=None
+        # cookie. Disabling it removes the cookie at the source.
+        haproxy.router.openshift.io/disable_cookies: "true"
+    spec:
+      host: ${NAME}-${ZONE}.${DOMAIN}
+      to:
+        kind: Service
+        name: ${NAME}-frontend-${ZONE}
+      port:
+        targetPort: http
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect

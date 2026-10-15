@@ -539,12 +539,13 @@ All workflows live in `.github/workflows/`.
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `pr-open.yml` | PR opened/updated | Builds backend + frontend images to GHCR, deploys a PR-specific OpenShift environment, runs the reusable test suite |
+| `pr-open.yml` | PR opened/updated | Builds backend + frontend images to GHCR, tests the release scripts, deploys a PR-specific OpenShift environment, runs the reusable test suite |
 | `pr-validate.yml` | PR opened/updated | Validates the PR title against Conventional Commits |
 | `analysis.yml` | Push, PR, schedule | Backend tests (Maven) and frontend tests, SonarCloud analysis for both, Trivy security scan with results uploaded as CodeQL SARIF |
 | `reusable-tests.yml` | Called by PR/merge | Backend integration tests, API integration tests (`common/tests/integration`), and the Playwright e2e suite, uploading reports as artifacts |
 | `reusable-deploy.yml` | Called by PR/merge | Deploys backend and frontend to a given OpenShift zone |
-| `merge.yml` | Push to `main` | Deploys to **test** → runs tests → deploys to **prod** → syncs Sysdig alerts → promotes images to the `prod` tag |
+| `merge.yml` | Push to `main` | Deploys **TEST**, runs tests, and records the tested image digests; does not deploy PROD |
+| `release-prod.yml` | Manual, tested tag | Deploys PROD by immutable image digest with the vanity route |
 | `pr-close.yml` | PR closed | Tears down the PR environment and promotes images |
 | `scheduled.yml` | Cron / manual | Closes stale branches and PRs, purges old PR deployments, regenerates SchemaSpy docs, runs OWASP ZAP full scans |
 
@@ -553,15 +554,63 @@ Sysdig alert definitions are version-controlled in `monitoring/alerts/` (`replic
 
 ## OpenShift deployment
 
-Deployments to OpenShift are fully automated through GitHub Actions — no manual steps are needed once the secrets and variables are configured.
+PR/TEST deployments run through GitHub Actions. PROD requires a manual tested-tag release.
 
 **Pipeline overview**
 
 | Event | What happens |
 |---|---|
 | PR opened | Images built, pushed to GHCR, deployed to a PR-specific environment — zone is the **PR number mod 50**, running lite (one replica, no HPA or PDB) |
-| Merged to `main` | Images deployed to **test**, integration tests run, then deployed to **prod** |
-| After prod deploy | Sysdig monitoring alerts synced; images tagged `prod` in GHCR |
+| Merged to `main` | Images deployed to **TEST**, acceptance tests run, and immutable release-candidate digests recorded |
+| Manual Release PROD | Tested images deployed by digest through the vanity route; Sysdig alerts synced |
+
+**PROD releases**
+
+PR images are built once and promoted by digest. Before merging a PR after `main` has moved,
+sync it with `main` and wait for its checks, so its images include every earlier merge.
+
+1. Wait for the commit's push-triggered **Merge** run to succeed, including TEST tests and
+   **Record tested release candidate**. If it fails, use **Re-run all jobs**; a partial rerun
+   cannot record a candidate, because TEST may have moved to another commit.
+2. Tag that exact commit, for example `v1.0.0`. Tagging does not deploy.
+3. Run **Actions → Release PROD → Run workflow** on branch `main` with the tag, and approve the
+   `prod` environment. The `prod` environment needs required reviewers and a deployment branch
+   rule that allows only `main`.
+4. Verify `https://<VANITY_HOST>`: certificate chain, HTTP-to-HTTPS redirect, sign-in, API
+   calls and full sign-out.
+
+To roll back, run **Release PROD** with an older tested tag. This works only while that tag's Merge
+run still has its release-candidate artifact (the repository's artifact retention period); a
+missing, expired or mismatched artifact stops the release. The older tag deploys its own templates
+through the current workflow, which ignores parameters those templates do not declare.
+
+**PROD vanity route**
+
+Release PROD serves the frontend only at `https://<VANITY_HOST>`, through the edge Route in
+`frontend/openshift.vanity-route.yml`; it creates no Gold-hostname PROD route. PR and TEST deploys
+keep the generated Gold hostname.
+Release PROD fails before deploying if `VANITY_HOST` or any `VANITY_TLS_*` secret is missing.
+To renew the certificate, replace the three `VANITY_TLS_*` secrets and rerun the latest
+**Release PROD** run (its tag's release-candidate artifact must still exist). Never commit
+certificate material.
+
+Before the first release, register these on the Cognito PROD app client through FAM:
+
+| Setting | Exact URL |
+|---|---|
+| Callback URL | `https://<VANITY_HOST>` (no trailing slash) |
+| Sign-out URL | `https://<VANITY_HOST>/logout` |
+
+**Cutover from the old PROD route.** The PROD route `nr-csp-frontend-prod` is live. Deploys use
+`oc apply`, which never prunes objects, so it keeps serving after the first release. Amplify keeps
+sign-in state per origin, so sessions do not move to the new host, and users of the old host keep
+using it until it is removed. Once the vanity host is verified, save and delete the old route, then
+remove the old host's Cognito URLs:
+
+```bash
+oc -n <license-plate>-prod get route nr-csp-frontend-prod -o yaml > nr-csp-frontend-prod.route.yaml
+oc -n <license-plate>-prod delete route nr-csp-frontend-prod
+```
 
 **Oracle init container**
 
@@ -570,6 +619,13 @@ The backend pod uses an init container (`ghcr.io/bcgov/nr-forest-client/common:p
 **GitHub Secrets & Variables**
 
 The following secrets and variables must be configured on the repository for the pipeline to work.
+
+> **Keep TEST and PROD values in their environments.** PR deploys attach no GitHub Environment,
+> so they read the repository secrets below. TEST and PROD read their environment's secrets, but
+> a secret missing from the environment silently falls back to the repository secret of the same
+> name. For `SPRING_DATASOURCE_*` that is the non-production database. Set every deployment
+> secret in the `prod` environment. The deploy jobs fail only when `OC_NAMESPACE` does not end in
+> `-<environment>`; no other fallback is detected.
 
 **Repository secrets**
 
@@ -584,17 +640,22 @@ The following secrets and variables must be configured on the repository for the
 | `JWT_JWKS_URI` | Cognito JWKS endpoint URL |
 | `JWT_ISSUER` | JWT issuer claim |
 | `JWT_AUDIENCE` | JWT audience claim |
-| `OC_NAMESPACE` | OpenShift namespace to deploy into |
+| `OC_NAMESPACE` | OpenShift namespace for PR deploys |
 | `OC_TOKEN` | OpenShift service account token (repo-level fallback) |
 | `SONAR_TOKEN_BACKEND` | SonarCloud token for backend analysis |
 | `SONAR_TOKEN_FRONTEND` | SonarCloud token for frontend analysis |
 | `SYSDIG_API_TOKEN` | Sysdig monitoring token |
 
-**Environment secrets** (scoped to `test` and `prod` — override the repo-level `OC_TOKEN`)
+**Environment secrets** (scoped to `test` and `prod`; each overrides the repository secret of the same name)
 
 | Secret | Description |
 |---|---|
+| `OC_NAMESPACE` | Environment namespace; must end in `-test` or `-prod` |
 | `OC_TOKEN` | Environment-specific OpenShift service account token |
+| `DATABASE_*`, `SPRING_DATASOURCE_*`, `KEYSTORE_SECRET`, `JWT_*` | `prod` must set its own values; see the warning above |
+| `VANITY_TLS_CERTIFICATE` | `prod` only — PEM leaf certificate for `VANITY_HOST` |
+| `VANITY_TLS_KEY` | `prod` only — matching unencrypted PEM private key |
+| `VANITY_TLS_CA_CERTIFICATE` | `prod` only — PEM issuer chain, in issuer order |
 
 **Variables**
 
@@ -616,6 +677,7 @@ in the frontend deploy template — see the note at `common/openshift.init.yml:5
 |---|---|---|
 | `OC_SERVER` | both | OpenShift API server URL |
 | `OPENSHIFT_APPS_DOMAIN` | both | Optional — cluster apps domain; defaults to `apps.gold.devops.gov.bc.ca` |
+| `VANITY_HOST` | both | `prod` environment only — PROD hostname without scheme or path, e.g. `csp.nrs.gov.bc.ca`. The deploy job reads it outside the matrix, so the environment value applies |
 | `app_env` | init | Environment label injected into the frontend config (`dev`, `test`, `prod`) |
 | `cognito_idp_name` | init | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
 | `cognito_region` | init | AWS region for Cognito (e.g. `ca-central-1`) |
@@ -633,9 +695,9 @@ in the frontend deploy template — see the note at `common/openshift.init.yml:5
 > `JWT_JWKS_URI` is declared optional in `reusable-deploy.yml`, but the backend will not start
 > without it.
 
-> The Cognito redirect URLs are **not** variables. `reusable-deploy.yml` derives them from the
-> repository name and apps domain (`https://<repo>-<zone>.<domain>` and `.../logout`), so each
-> PR, test, and prod environment gets its own pair. Both must be registered with FAM for the
+> The Cognito redirect URLs are **not** variables. `reusable-deploy.yml` derives them as
+> `https://<host>` and `https://<host>/logout`, where the host is `VANITY_HOST` in PROD and
+> `<repo>-<zone>.<domain>` for PR and TEST deploys. Both must be registered with FAM for the
 > environment or sign-in/sign-out will fail.
 
 > Every variable in this table feeds the `amplify-config` ConfigMap template in
