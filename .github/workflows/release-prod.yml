@@ -76,7 +76,6 @@ jobs:
     with:
       environment: prod
       target: prod
-      tag: ${{ inputs.release_tag }}
       backend_image: ${{ needs.prepare.outputs.backend_image }}
       frontend_image: ${{ needs.prepare.outputs.frontend_image }}
       source_ref: ${{ needs.prepare.outputs.sha }}
