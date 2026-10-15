@@ -93,3 +93,20 @@ jobs:
           name: release-candidate-${{ github.run_attempt }}
           path: ${{ runner.temp }}/release-candidate.json
           if-no-files-found: error
+      - name: Show how to release this commit
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "### Ready for PROD"
+            echo
+            echo "This commit passed TEST. To release it, tag it with the next version:"
+            echo
+            echo '```bash'
+            echo "git fetch origin && git tag v1.0.0 $RELEASE_SHA && git push origin v1.0.0"
+            echo '```'
+            echo
+            echo "Or use **Releases → Draft a new release**: type the new tag, set **Target** to this commit, and publish."
+            echo
+            echo "Then open **Actions → Release PROD → Run workflow**, keep branch \`main\`, and enter the tag."
+          } >> "$GITHUB_STEP_SUMMARY"

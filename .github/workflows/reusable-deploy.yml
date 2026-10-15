@@ -107,7 +107,7 @@ jobs:
     steps:
       # An environment secret replaces the caller's secret only when it exists. Without this
       # check, a missing environment secret would fall back to the repository-level value of the
-      # same name. PR deploys attach no environment and use the repository-level namespace.
+      # same name. PR deploys use the dev environment.
       - name: Validate OpenShift namespace
         if: ${{ inputs.environment != '' }}
         env:
@@ -119,10 +119,53 @@ jobs:
             exit 1
           fi
 
+      # Release PROD has already refused repository-level copies of the environment-specific values,
+      # so these can only come from the prod environment. Fail rather than deploy PROD without them.
+      - name: Require PROD values
+        if: ${{ inputs.target == 'prod' }}
+        env:
+          SPRING_DATASOURCE_URL: ${{ secrets.spring_datasource_url }}
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.spring_datasource_username }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.spring_datasource_password }}
+          KEYSTORE_SECRET: ${{ secrets.keystore_secret }}
+          DATABASE_HOST: ${{ secrets.database_host }}
+          DATABASE_SERVICE_NAME: ${{ secrets.database_service_name }}
+          JWT_JWKS_URI: ${{ secrets.jwt_jwks_uri }}
+          JWT_ISSUER: ${{ secrets.jwt_issuer }}
+          JWT_AUDIENCE: ${{ secrets.jwt_audience }}
+          APP_ENV: ${{ vars.app_env }}
+          COGNITO_IDP_NAME: ${{ vars.cognito_idp_name }}
+          COGNITO_USER_POOL_CLIENT_ID: ${{ vars.cognito_user_pool_client_id }}
+          COGNITO_USER_POOL_ID: ${{ vars.cognito_user_pool_id }}
+          COGNITO_DOMAIN: ${{ vars.cognito_domain }}
+          LOGOUT_KEYCLOAK_URL: ${{ vars.logout_keycloak_url }}
+          LOGOUT_SITEMINDER_URL: ${{ vars.logout_siteminder_url }}
+        run: |
+          set -euo pipefail
+          for name in SPRING_DATASOURCE_URL SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD KEYSTORE_SECRET \
+                      DATABASE_HOST DATABASE_SERVICE_NAME JWT_JWKS_URI JWT_ISSUER JWT_AUDIENCE \
+                      APP_ENV COGNITO_IDP_NAME COGNITO_USER_POOL_CLIENT_ID COGNITO_USER_POOL_ID COGNITO_DOMAIN \
+                      LOGOUT_KEYCLOAK_URL LOGOUT_SITEMINDER_URL; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::${name} must be set in the prod GitHub Environment"
+              exit 1
+            fi
+          done
+          if [[ "$APP_ENV" != prod ]]; then
+            echo "::error::APP_ENV must be prod in the prod GitHub Environment"
+            exit 1
+          fi
+          # The browser sends Cognito ID tokens, whose audience is the app client. Without this the
+          # backend would accept ID tokens issued to any client in the shared FAM user pool.
+          if [[ "$JWT_AUDIENCE" != "$COGNITO_USER_POOL_CLIENT_ID" ]]; then
+            echo "::error::JWT_AUDIENCE must equal the PROD Cognito app client ID (cognito_user_pool_client_id)"
+            exit 1
+          fi
+
       # Check both images before anything rolls out, so a bad frontend reference cannot leave
-      # a new backend running beside the old frontend. PR deploys use their head-SHA tags.
+      # a new backend running beside the old frontend. PR deploys (dev) use their head-SHA tags.
       - name: Validate release images
-        if: ${{ inputs.environment != '' }}
+        if: ${{ inputs.environment != '' && inputs.environment != 'dev' }}
         env:
           BACKEND_IMAGE: ${{ inputs.backend_image }}
           FRONTEND_IMAGE: ${{ inputs.frontend_image }}
