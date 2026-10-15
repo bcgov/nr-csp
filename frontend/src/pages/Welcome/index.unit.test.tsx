@@ -92,16 +92,17 @@ describe('WelcomePage', () => {
 
     await user.click(screen.getByRole('button', { name: /log in with idir/i }));
 
-    expect(await screen.findByText(/could not start the idir login/i)).toBeInTheDocument();
+    expect(await screen.findByText(/could not start sign-in/i)).toBeInTheDocument();
   });
 
-  it('says Business BCeID is not wired up yet instead of starting a sign-in', async () => {
+  // CSS signs a Business BCeID hint in with IDIR until Business BCeID is provisioned.
+  it('explains that Business BCeID is not available yet instead of starting a sign-in', async () => {
     const user = userEvent.setup();
     arrange();
 
     await user.click(screen.getByRole('button', { name: /log in with business bceid/i }));
 
-    expect(await screen.findByText(/business bceid login is not available yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/business bceid is not provisioned yet/i)).toBeInTheDocument();
     expect(signIn).not.toHaveBeenCalled();
   });
 
@@ -123,9 +124,8 @@ describe('WelcomePage', () => {
     expect(screen.queryByRole('heading', { name: 'Welcome to CSP' })).not.toBeInTheDocument();
   });
 
-  // Cognito redirects back to '/', and Amplify reports isLoading: false before
-  // the signedIn event lands — without the guard the welcome screen would flash
-  // at someone who has just authenticated.
+  // Authorization params on the URL may still be exchanged — without the guard
+  // the welcome screen would flash at someone who is mid-way through signing in.
   it('does not flash the sign-in choice mid-OAuth-callback', () => {
     vi.stubGlobal('location', { search: '?code=abc&state=xyz' });
 
@@ -148,9 +148,8 @@ describe('WelcomePage', () => {
     expect(screen.queryByText('Loading')).not.toBeInTheDocument();
   });
 
-  // Only Amplify's success path clears the params, so without a bounded wait a
-  // failed exchange would leave the loading screen up for good — and still up
-  // after a reload.
+  // Params that are never exchanged are never cleared, so without a bounded wait
+  // the loading screen would stay up for good — and still be up after a reload.
   it('falls back to the sign-in choice when the callback never completes', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('location', { search: '?code=abc&state=xyz', pathname: '/' });
@@ -223,9 +222,10 @@ describe('WelcomePage', () => {
       expect(await screen.findByText(/your session has expired/i)).toBeInTheDocument();
     });
 
-    // Reachable via the Cognito-only fallback sign-out: it clears local tokens
-    // without ending the upstream session, so ProtectedRoute re-authenticates
-    // silently and returns here — signed in, with the flag still set. A
+    // Reachable when a sign-out redirect is abandoned before CSS ends its
+    // session: local credentials are already gone, so ProtectedRoute
+    // re-authenticates silently and returns here — signed in, with the flag
+    // still set. A
     // persistent notice queued on the way past would render in the shell's
     // toast stack and never auto-close, stranding an "expired" toast over a
     // live session.

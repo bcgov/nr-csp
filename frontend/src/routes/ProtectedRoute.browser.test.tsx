@@ -34,7 +34,12 @@ describe('ProtectedRoute', () => {
   });
 
   it('renders children when authenticated', () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, isLoading: false, signIn: vi.fn() });
+    mockUseAuth.mockReturnValue({
+      user: { privileges: ['VIEW'] },
+      isAuthenticated: true,
+      isLoading: false,
+      signIn: vi.fn(),
+    });
 
     const { getByText } = render(
       <MemoryRouter initialEntries={['/private']}>

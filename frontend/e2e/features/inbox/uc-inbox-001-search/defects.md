@@ -33,7 +33,7 @@ pagination, sorting, no-match and navigation slices (S03–S10) have no scenario
 
 ### #3 — Authentication / provisioning preconditions not automatable as specified — OPEN
 **What's wrong:** the legacy Background requires "authenticated via WebADE" and "provisioned for
-inbox/Search". CSP replaced WebADE with Cognito groups, and locally `MockAuthProvider` grants a
+inbox/Search". CSP replaced WebADE with FAM roles, and locally `MockAuthProvider` grants a
 single role unconditionally — so the *provisioning* precondition cannot be varied in a local run.
 **Expected vs actual:** not a fault; the mechanism changed between the legacy and new app.
 **How caught:** re-grounding the Background against `frontend/src/context/auth/`.

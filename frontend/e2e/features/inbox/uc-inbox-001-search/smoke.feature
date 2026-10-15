@@ -7,7 +7,7 @@
 #   * date fields   "[id$='CalDate1'/'CalDate2']"  -> '#date-start' / '#date-end' (Carbon DatePicker)
 #   * auth          "authenticated via WebADE"     -> CSP mock auth (auto-authenticated as CSP_ADMIN;
 #                                                     see pages/common/authNav.ts)
-#   * provisioning  "provisioned for inbox/Search" -> not modelled: CSP gates on Cognito groups and
+#   * provisioning  "provisioned for inbox/Search" -> not modelled: CSP gates on FAM roles and
 #                                                     the mock provider grants ADMIN, so it is implicit
 #   * paginator     'Showing <count>'              -> not asserted here; row count is asserted directly
 #

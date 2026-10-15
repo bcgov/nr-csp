@@ -1,3 +1,4 @@
+import { Button } from '@carbon/react';
 import { type ReactNode, useEffect, useRef } from 'react';
 
 import { LoadingScreen } from '@/components/core/LoadingScreen';
@@ -9,16 +10,15 @@ interface Props {
 }
 
 export function ProtectedRoute({ children }: Props) {
-  const { isAuthenticated, isLoading, isSigningOut, signIn } = useAuth();
+  const { user, isAuthenticated, isLoading, isSigningOut, signIn, signOut } = useAuth();
   const isCallbackPending = useOauthCallbackPending();
   const loginAttempted = useRef(false);
 
   useEffect(() => {
-    // Don't trigger a login redirect during an OAuth callback — Amplify is
-    // still processing the code/state params and will fire a Hub signedIn
-    // event, which a second sign-in started here would abandon. The wait is
-    // bounded, so an exchange that never completes falls through to a fresh
-    // sign-in rather than leaving this stuck on the loading screen.
+    // Don't trigger a login redirect while OAuth code/state params are on the
+    // URL — a second sign-in started here would abandon an exchange in flight.
+    // The wait is bounded, so params that are never exchanged fall through to a
+    // fresh sign-in rather than leaving this stuck on the loading screen.
     if (isCallbackPending) return;
 
     if (!isLoading && !isAuthenticated && !isSigningOut && !loginAttempted.current) {
@@ -29,5 +29,13 @@ export function ProtectedRoute({ children }: Props) {
 
   if (isLoading || isSigningOut || !isAuthenticated) return <LoadingScreen />;
 
+  if (!user?.privileges.length)
+    return (
+      <main id="main-content">
+        <h1>No CSP access</h1>
+        <p>Your account has no CSP role. Contact your application administrator.</p>
+        <Button onClick={() => void signOut()}>Sign out</Button>
+      </main>
+    );
   return <>{children}</>;
 }

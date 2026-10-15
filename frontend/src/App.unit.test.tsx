@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
 
-// Force the mock auth path so the full provider tree renders without Cognito,
+// Force the mock auth path so the full provider tree renders without CSS,
 // then report an anonymous visitor — MockAuthProvider is always signed in, and
 // the welcome screen sends an authenticated visitor straight into the app.
 vi.mock('@/env', () => ({ env: { mockUser: true } }));

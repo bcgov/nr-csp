@@ -22,7 +22,7 @@ const h = vi.hoisted(() => {
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
     usePermission: vi.fn((_action: string) => true),
-    authUser: { username: 'cognito-id', idirUsername: 'TESTUSER' } as {
+    authUser: { username: 'keycloak-sub', idirUsername: 'TESTUSER' } as {
       username: string;
       idirUsername?: string;
     } | null,
@@ -191,7 +191,7 @@ beforeEach(() => {
   h.params.id = undefined;
   h.invoiceQuery = { data: undefined, isLoading: false };
   h.usePermission.mockReturnValue(true);
-  h.authUser = { username: 'cognito-id', idirUsername: 'TESTUSER' };
+  h.authUser = { username: 'keycloak-sub', idirUsername: 'TESTUSER' };
   h.getClientsByNumber.mockResolvedValue([CLIENT]);
   h.getClientsByName.mockResolvedValue([CLIENT]);
   Object.values(h.mutations).forEach((m) => {
@@ -230,10 +230,10 @@ describe('InvoicePage — rendering', () => {
     expect(screen.getByText('TESTUSER')).toBeInTheDocument();
   });
 
-  it('falls back to the Cognito username when no IDIR claim is present', () => {
-    h.authUser = { username: 'cognito-id' };
+  it('falls back to the Keycloak subject when no directory username claim is present', () => {
+    h.authUser = { username: 'keycloak-sub' };
     renderPage();
-    expect(screen.getByText('cognito-id')).toBeInTheDocument();
+    expect(screen.getByText('keycloak-sub')).toBeInTheDocument();
   });
 
   it('shows a dash for "Entered/Submitted by" when there is no signed-in user', () => {

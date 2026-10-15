@@ -27,9 +27,9 @@ const primaryRoleLabel = (privileges: Role[]): string | undefined => {
 export const HeaderPanelProfile: FC = () => {
   const { user, signOut } = useAuth();
 
-  // Never fall back to `username`: that is the raw Cognito id (e.g.
-  // "dev-idir_<uuid>@idir") — the exact unformatted identifier this panel is
-  // meant to hide. Prefer the display name, then the IDIR username, then the
+  // Never fall back to `username`: without a directory username that is the
+  // raw Keycloak subject (e.g. "<guid>@azureidir") — the exact unformatted
+  // identifier this panel is meant to hide. Prefer the display name, then the IDIR username, then the
   // local part of the email.
   const name = user?.displayName?.trim() || user?.idirUsername?.trim() || user?.email?.split('@')[0] || '';
   const roleLabel = user ? primaryRoleLabel(user.privileges) : undefined;
