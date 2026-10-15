@@ -85,6 +85,8 @@ jobs:
       jwt_issuer: ${{ secrets.jwt_issuer }}
       jwt_audience: ${{ secrets.jwt_audience }}
     with:
+      # PR previews read the dev environment, never repository-level deployment values.
+      environment: dev
       target: ${{ needs.init.outputs.zone }}
       tag: ${{ github.event.pull_request.head.sha }}
       triggers: ('backend/', 'frontend/', 'common/', '.github/workflows/', '.github/scripts/')

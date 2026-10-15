@@ -572,10 +572,10 @@ sync it with `main` and wait for its checks, so its images include every earlier
 1. Wait for the commit's push-triggered **Merge** run to succeed, including TEST tests and
    **Record tested release candidate**. If it fails, use **Re-run all jobs**; a partial rerun
    cannot record a candidate, because TEST may have moved to another commit.
-2. Tag that exact commit, for example `v1.0.0`. Tagging does not deploy.
-3. Run **Actions → Release PROD → Run workflow** on branch `main` with the tag, and approve the
-   `prod` environment. The `prod` environment needs required reviewers and a deployment branch
-   rule that allows only `main`.
+2. Tag that exact commit, for example `v1.0.0`; the Merge run's summary shows the command. Tagging
+   does not deploy.
+3. Run **Actions → Release PROD → Run workflow** on branch `main` with the tag. The `prod`
+   environment's deployment branch rule allows only `main`.
 4. Verify `https://<VANITY_HOST>`: certificate chain, HTTP-to-HTTPS redirect, sign-in, API
    calls and full sign-out.
 
@@ -620,39 +620,38 @@ The backend pod uses an init container (`ghcr.io/bcgov/nr-forest-client/common:p
 
 The following secrets and variables must be configured on the repository for the pipeline to work.
 
-> **Keep TEST and PROD values in their environments.** PR deploys attach no GitHub Environment,
-> so they read the repository secrets below. TEST and PROD read their environment's secrets, but
-> a secret missing from the environment silently falls back to the repository secret of the same
-> name. For `SPRING_DATASOURCE_*` that is the non-production database. Set every deployment
-> secret in the `prod` environment. The deploy jobs fail only when `OC_NAMESPACE` does not end in
-> `-<environment>`; no other fallback is detected.
+> **Deployment values live only in environments.** A secret or variable missing from an
+> environment silently falls back to the repository or organization value of the same name. The
+> database, JWT and environment-specific Cognito values are therefore set only in the `dev`, `test`
+> and `prod` environments, never at repository level; PR deploys use `dev`. Release PROD fails
+> before deploying if any of them exists at repository or organization level or `prod` lacks one,
+> and `JWT_AUDIENCE` must equal the PROD Cognito app client ID. Every deploy job also fails unless
+> `OC_NAMESPACE` ends in `-<environment>`.
 
 **Repository secrets**
 
 | Secret | Description |
 |---|---|
-| `DATABASE_HOST` | Oracle DB hostname |
-| `DATABASE_SERVICE_NAME` | Oracle service name |
+| `OC_NAMESPACE` | The `dev` namespace, ending in `-dev`; used by PR deploys, PR cleanup and scheduled jobs |
+| `OC_TOKEN` | Service account token for the `dev` namespace |
+| `SONAR_TOKEN_BACKEND` | SonarCloud token for backend analysis |
+| `SONAR_TOKEN_FRONTEND` | SonarCloud token for frontend analysis |
+
+**Environment secrets** (set in each of `dev`, `test` and `prod`; never at repository level)
+
+| Secret | Description |
+|---|---|
 | `SPRING_DATASOURCE_URL` | Full JDBC URL (TCPS descriptor form) |
 | `SPRING_DATASOURCE_USERNAME` | Oracle username |
 | `SPRING_DATASOURCE_PASSWORD` | Oracle password |
 | `KEYSTORE_SECRET` | Used by the init container to authenticate against the Oracle keystore |
+| `DATABASE_HOST` | Oracle DB hostname |
+| `DATABASE_SERVICE_NAME` | Oracle service name |
 | `JWT_JWKS_URI` | Cognito JWKS endpoint URL |
 | `JWT_ISSUER` | JWT issuer claim |
-| `JWT_AUDIENCE` | JWT audience claim |
-| `OC_NAMESPACE` | OpenShift namespace for PR deploys |
-| `OC_TOKEN` | OpenShift service account token (repo-level fallback) |
-| `SONAR_TOKEN_BACKEND` | SonarCloud token for backend analysis |
-| `SONAR_TOKEN_FRONTEND` | SonarCloud token for frontend analysis |
-| `SYSDIG_API_TOKEN` | Sysdig monitoring token |
-
-**Environment secrets** (scoped to `test` and `prod`; each overrides the repository secret of the same name)
-
-| Secret | Description |
-|---|---|
-| `OC_NAMESPACE` | Environment namespace; must end in `-test` or `-prod` |
-| `OC_TOKEN` | Environment-specific OpenShift service account token |
-| `DATABASE_*`, `SPRING_DATASOURCE_*`, `KEYSTORE_SECRET`, `JWT_*` | `prod` must set its own values; see the warning above |
+| `JWT_AUDIENCE` | JWT audience claim: the environment's Cognito app client ID |
+| `OC_NAMESPACE`, `OC_TOKEN` | `test` and `prod` only — that environment's namespace (ending in `-test` or `-prod`) and token |
+| `SYSDIG_API_TOKEN` | `prod` only, optional — Sysdig alert sync |
 | `VANITY_TLS_CERTIFICATE` | `prod` only — PEM leaf certificate for `VANITY_HOST` |
 | `VANITY_TLS_KEY` | `prod` only — matching unencrypted PEM private key |
 | `VANITY_TLS_CA_CERTIFICATE` | `prod` only — PEM issuer chain, in issuer order |
@@ -664,8 +663,8 @@ OpenShift template parameters, not variables.
 
 Scope depends on **which job reads the variable**, and this is a real trap:
 
-- The **init** job has `environment:` attached (`reusable-deploy.yml:12`), so variables it
-  reads may be scoped per environment, with a repo-level value as the fallback for PR deploys.
+- The **init** job has `environment:` attached, so variables it reads may be scoped per
+  environment. PR deploys use `dev`.
 - The **deploy** job reads its variables inside a `matrix`, which GitHub evaluates *before*
   the environment is attached. An environment-scoped value is **silently ignored** there, so
   those variables must be set at repo level.
@@ -678,22 +677,23 @@ in the frontend deploy template — see the note at `common/openshift.init.yml:5
 | `OC_SERVER` | both | OpenShift API server URL |
 | `OPENSHIFT_APPS_DOMAIN` | both | Optional — cluster apps domain; defaults to `apps.gold.devops.gov.bc.ca` |
 | `VANITY_HOST` | both | `prod` environment only — PROD hostname without scheme or path, e.g. `csp.nrs.gov.bc.ca`. The deploy job reads it outside the matrix, so the environment value applies |
-| `app_env` | init | Environment label injected into the frontend config (`dev`, `test`, `prod`) |
-| `cognito_idp_name` | init | Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
+| `app_env` | init | **Environment only.** Environment label injected into the frontend config (`dev`, `test`, `prod`) |
+| `cognito_idp_name` | init | **Environment only.** Cognito identity provider name (`DEV-IDIR`, `TEST-IDIR`, `PROD-IDIR`) |
 | `cognito_region` | init | AWS region for Cognito (e.g. `ca-central-1`) |
 | `cognito_user_pool_id` | init | Cognito User Pool ID |
-| `cognito_user_pool_client_id` | init | Cognito App Client ID — differs per environment |
+| `cognito_user_pool_client_id` | init | **Environment only.** Cognito App Client ID — differs per environment |
 | `cognito_domain` | init | Cognito hosted UI domain; also used in the Caddy CSP header |
 | `cognito_oauth_scopes` | init | OAuth scopes, comma-separated (e.g. `openid,profile,email`) |
 | `fam_client_id` | init | FAM application client ID for role-group mapping |
-| `logout_siteminder_url` | init | SiteMinder `logoff.cgi` URL — first hop of the sign-out chain |
-| `logout_keycloak_url` | init | Keycloak end-session endpoint — second hop of the sign-out chain |
+| `logout_siteminder_url` | init | **Environment only.** SiteMinder `logoff.cgi` URL — first hop of the sign-out chain |
+| `logout_keycloak_url` | init | **Environment only.** Keycloak end-session endpoint — second hop of the sign-out chain |
 | `logout_keycloak_client_id` | init | FAM's shared Keycloak client ID |
 | `frontend_log_level` | init | Optional — Caddy log level (default `INFO`) |
 | `backend_log_level`, `backend_root_log_level`, `backend_spring_log_level`, `backend_spring_security_log_level` | **deploy (matrix)** | Optional — backend log levels (defaults `INFO`, `INFO`, `INFO`, `WARN`). Must be repo-level |
 
-> `JWT_JWKS_URI` is declared optional in `reusable-deploy.yml`, but the backend will not start
-> without it.
+> The shared values (Cognito pool, domain, region, scopes, `fam_client_id`, the Keycloak client
+> and log levels) may stay at repository level. Values marked **Environment only** must not:
+> Release PROD refuses to run while a repository or organization copy exists.
 
 > The Cognito redirect URLs are **not** variables. `reusable-deploy.yml` derives them as
 > `https://<host>` and `https://<host>/logout`, where the host is `VANITY_HOST` in PROD and
