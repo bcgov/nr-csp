@@ -18,7 +18,7 @@ permissions: {}
 jobs:
   prepare:
     name: Verify tested release tag
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -130,7 +130,7 @@ jobs:
   monitor-prod:
     name: Sysdig Monitor (PROD)
     needs: [deploy-prod, prepare]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     environment:
       name: prod
       deployment: false
@@ -152,7 +152,7 @@ jobs:
     name: Record released commit
     needs: [prepare, deploy-prod]
     if: ${{ always() && needs.prepare.result == 'success' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     environment:
       name: prod

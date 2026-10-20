@@ -23,7 +23,7 @@ jobs:
   # invoking the failsafe goals directly.
   backend-integration-tests:
     name: Backend Integration
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -41,7 +41,7 @@ jobs:
 
   integration-tests:
     name: Integration
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
@@ -94,7 +94,7 @@ jobs:
         # rooted at frontend/ fails with "Requiring @playwright/test second time" and collects 0
         # tests. One install, one config, run from here.
         working-directory: frontend/e2e
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     strategy:
       matrix:
