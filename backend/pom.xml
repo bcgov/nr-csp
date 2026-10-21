@@ -23,7 +23,7 @@
         <jjwt.version>0.13.0</jjwt.version>
         <jwks-rsa.version>0.24.1</jwks-rsa.version>
         <ojdbc.version>23.26.3.0.0</ojdbc.version>
-        <jasperreports.version>7.0.8</jasperreports.version>
+        <jasperreports.version>7.1.0</jasperreports.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
         <sonar.coverage.exclusions>
