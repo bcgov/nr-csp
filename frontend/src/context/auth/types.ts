@@ -16,16 +16,22 @@ export interface AuthUser {
   /** `display_name`, then `name`, then `given_name` and `family_name`. */
   displayName?: string;
   email: string;
+  /** The `identity_provider` claim: "idir"/"azureidir" for staff, "bceidbusiness" for industry. */
+  identityProvider?: string;
   /**
-   * FAM role codes (e.g. "CSP_VIEW") from `client_roles`, falling back to
-   * `resource_access.<client>.roles`; trimmed, upper-cased, without `FAM:` roles.
+   * FAM role codes from `client_roles`, falling back to `resource_access.<client>.roles`;
+   * trimmed, upper-cased, without `FAM:` roles.
    */
   roles: string[];
   /**
-   * Derived app-level permissions extracted from {@link roles}.
-   * Values are uppercase role constants: "ADMIN" | "APPROVE" | "VIEW".
+   * App-level roles from `privilegesFromFamRoles`: ADMIN, APPROVE or VIEW for IDIR staff,
+   * SUBMITTER for Business BCeID. Empty means no CSP access.
    */
   privileges: Role[];
+  /**
+   * A SUBMITTER's forest clients. Empty for staff, who see every client.
+   */
+  forestClientNumbers: string[];
 }
 
 export interface AuthContextValue {

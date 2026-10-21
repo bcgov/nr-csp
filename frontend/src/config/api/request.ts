@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import { mockAuthHeaders } from '@/context/auth/mockUser';
 import { emitSessionExpired } from '@/context/auth/sessionExpiredSignal';
 import { env } from '@/env';
 import { getOidcUser, isSessionEnded } from '@/service/oidc-service';
@@ -10,7 +11,11 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
-  if (env.mockUser) return config;
+  if (env.mockUser) {
+    // Local mock auth: tell the backend's mock filter who the UI is signed in as.
+    for (const [name, value] of Object.entries(mockAuthHeaders())) config.headers.set(name, value);
+    return config;
+  }
   try {
     const user = await getOidcUser();
     if (user?.access_token) config.headers.Authorization = `Bearer ${user.access_token}`;

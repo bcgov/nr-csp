@@ -86,7 +86,11 @@ cd frontend && npm start
 `isAuthenticated: true` on first paint, with the role from `localStorage['csp.mockRole']` (default
 `ADMIN`). There is **no login button to click** and the session is **not** in-memory-only, so
 `page.goto()` to a protected route is safe. `pages/common/authNav.ts` is re-grounded accordingly:
-`signInAsMockUser()` seeds the role via `addInitScript` and performs no login dance.
+`signInAsMockUser()` seeds the role via `addInitScript` and performs no login dance. The browser
+sends that identity to the backend's mock filter with every API call, so the API enforces the
+same role. `signInAsMockUser(page, 'SUBMITTER', ['00012345'])` signs in a Business BCeID
+submitter for those forest clients (default `00000001`). API calls made outside the browser
+(fixtures, preflight) still run as `AUTH_MOCK_ROLES`.
 
 It also **injects mock auth per browser**, by intercepting the request for `/config.js` and
 setting `"mockUser": true` in the response. This is deliberate. That file is served to *every*

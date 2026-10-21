@@ -103,6 +103,29 @@ class JwtServiceTest {
         assertEquals("BUSINESS_USER", service.extractUsername(token(c)));
         assertTrue(authorities(token(c)).isEmpty());
     }
+    @Test void businessSubmitterGetsItsForestClientsOnly() {
+        var c = claims(); c.put("identity_provider", "bceidbusiness"); c.put("bceid_username", "BUSINESS_USER");
+        c.put("client_roles", List.of("CSP_SUBMITTER_FOREST_CLIENT-00000002", "CSP_SUBMITTER_FOREST_CLIENT-00000001",
+            "CSP_ADMIN", "FAM:EXPIRES:2099-01-01:CSP_SUBMITTER_FOREST_CLIENT-00000002"));
+        assertEquals(List.of("SUBMITTER", "FOREST_CLIENT-00000001", "FOREST_CLIENT-00000002"), authorities(token(c)));
+    }
+    @Test void businessSubmitterRolesAlsoComeFromResourceAccess() {
+        var c = claims(); c.put("identity_provider", "bceidbusiness"); c.put("bceid_username", "BUSINESS_USER");
+        c.put("resource_access", Map.of(CLIENT, Map.of("roles", List.of("CSP_SUBMITTER_FOREST_CLIENT-00000001"))));
+        assertEquals(List.of("SUBMITTER", "FOREST_CLIENT-00000001"), authorities(token(c)));
+    }
+    @Test void businessIdentityWithoutAClientScopedRoleGetsNothing() {
+        var c = claims(); c.put("identity_provider", "bceidbusiness"); c.put("bceid_username", "BUSINESS_USER");
+        c.put("client_roles", List.of("CSP_SUBMITTER", "CSP_SUBMITTER_DISTRICT-DCC"));
+        assertTrue(authorities(token(c)).isEmpty());
+    }
+    @Test void staffIdentityCannotUseTheIndustryRole() {
+        for (String idp : List.of("idir", "azureidir")) {
+            var c = claims(); c.put("identity_provider", idp);
+            c.put("client_roles", List.of("CSP_SUBMITTER_FOREST_CLIENT-00000001"));
+            assertTrue(authorities(token(c)).isEmpty(), idp);
+        }
+    }
     @Test void noAppRoleMeansNoAuthority() { assertTrue(authorities(token(claims())).isEmpty()); }
     @Test void alteredSignatureIsRejected() throws Exception {
         var other = KeyPairGenerator.getInstance("RSA").generateKeyPair();

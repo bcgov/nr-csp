@@ -82,4 +82,17 @@ class SecurityContextUtilsTest {
         assertThrows(AuthenticationCredentialsNotFoundException.class,
                 SecurityContextUtils::requireUsername);
     }
+    @Test
+    void currentClientScope_throwsUnauthenticated_whenNoAuthentication() {
+        assertThrows(AuthenticationCredentialsNotFoundException.class, SecurityContextUtils::currentClientScope);
+    }
+
+    @Test
+    void currentClientScope_readsTheAuthenticatedUsersScope() {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                "BUSINESS_USER", null,
+                List.of(new SimpleGrantedAuthority("SUBMITTER"), new SimpleGrantedAuthority("FOREST_CLIENT-00000001"))));
+
+        assertEquals(List.of("00000001"), SecurityContextUtils.currentClientScope().clientNumbers());
+    }
 }

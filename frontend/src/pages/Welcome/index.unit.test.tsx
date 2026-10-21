@@ -39,6 +39,7 @@ const tree = () => (
             </>
           }
         />
+        <Route path="/upload-submission" element={<div>Upload page</div>} />
       </Routes>
     </MemoryRouter>
   </NotificationProvider>
@@ -49,6 +50,8 @@ const arrange = () => render(tree());
 describe('WelcomePage', () => {
   beforeEach(() => {
     vi.stubGlobal('location', { search: '' });
+    // signIn returns a promise, which the page chains .catch() onto.
+    signIn.mockResolvedValue(undefined);
     mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
     sessionStorage.clear();
   });
@@ -113,6 +116,19 @@ describe('WelcomePage', () => {
 
     expect(screen.getByText('Search page')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Welcome to CSP' })).not.toBeInTheDocument();
+  });
+
+  it('sends an authenticated Business BCeID submitter to Upload Submission', () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      signIn,
+      user: { username: 'u', email: '', roles: [], privileges: ['SUBMITTER'], forestClientNumbers: ['00000001'] },
+    });
+
+    arrange();
+
+    expect(screen.getByText('Upload page')).toBeInTheDocument();
   });
 
   it('waits rather than showing the sign-in choice while the session is still loading', () => {

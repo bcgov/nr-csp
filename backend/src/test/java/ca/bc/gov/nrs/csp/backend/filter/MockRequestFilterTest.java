@@ -13,6 +13,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -39,7 +41,7 @@ class MockRequestFilterTest {
 
     @Test
     void noExistingAuthentication_injectsMockUserAndPassesThrough() throws Exception {
-        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "ADMIN");
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "idir", "ADMIN");
 
         filter.doFilter(request, response, filterChain);
 
@@ -53,7 +55,7 @@ class MockRequestFilterTest {
 
     @Test
     void multipleRoles_areSplitOnCommaAndTrimmed() throws Exception {
-        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "ADMIN, VIEW ,APPROVE");
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "idir", "ADMIN, VIEW ,APPROVE");
 
         filter.doFilter(request, response, filterChain);
 
@@ -67,8 +69,62 @@ class MockRequestFilterTest {
     }
 
     @Test
+    void famCodes_mapLikeARealToken() throws Exception {
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "idir", "CSP_VIEW,CSP_ADMIN_FOREST_CLIENT-00000001");
+
+        filter.doFilter(request, response, filterChain);
+
+        assertEquals(Set.of("VIEW"), authorities());
+    }
+
+    @Test
+    void bceidDefault_grantsSubmitterForItsForestClients() throws Exception {
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "bceidbusiness",
+                "CSP_SUBMITTER_FOREST_CLIENT-00000002,CSP_SUBMITTER_FOREST_CLIENT-00000001,ADMIN");
+
+        filter.doFilter(request, response, filterChain);
+
+        assertEquals(Set.of("SUBMITTER", "FOREST_CLIENT-00000001", "FOREST_CLIENT-00000002"), authorities());
+    }
+
+    @Test
+    void bceidWithoutAClientRole_getsNothing() throws Exception {
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "bceidbusiness", "CSP_SUBMITTER");
+
+        filter.doFilter(request, response, filterChain);
+
+        assertEquals(Set.of(), authorities());
+    }
+
+    @Test
+    void requestHeaders_overrideTheConfiguredUser() throws Exception {
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "idir", "ADMIN");
+        request.addHeader(MockRequestFilter.IDENTITY_PROVIDER_HEADER, "bceidbusiness");
+        request.addHeader(MockRequestFilter.ROLES_HEADER, "CSP_SUBMITTER_FOREST_CLIENT-00000001");
+
+        filter.doFilter(request, response, filterChain);
+
+        assertEquals(Set.of("SUBMITTER", "FOREST_CLIENT-00000001"), authorities());
+    }
+
+    @Test
+    void unknownIdentityProviderHeader_getsNothing() throws Exception {
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "idir", "ADMIN");
+        request.addHeader(MockRequestFilter.IDENTITY_PROVIDER_HEADER, "github");
+
+        filter.doFilter(request, response, filterChain);
+
+        assertEquals(Set.of(), authorities());
+    }
+
+    private static Set<String> authorities() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .map(a -> a.getAuthority()).collect(Collectors.toSet());
+    }
+
+    @Test
     void existingAuthentication_isNotOverwritten() throws Exception {
-        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "ADMIN");
+        MockRequestFilter filter = new MockRequestFilter("LOCALDEV", "idir", "ADMIN");
 
         var existingAuth = new UsernamePasswordAuthenticationToken("EXISTING", null, List.of());
         SecurityContextHolder.getContext().setAuthentication(existingAuth);

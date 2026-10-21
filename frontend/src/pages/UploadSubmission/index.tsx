@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router';
 import DataPreviewTable, { type DataPreviewColumn, type RowIssues } from '@/components/core/DataPreviewTable';
 import FileDropZone from '@/components/core/FileDropZone';
 import PageTitle from '@/components/core/PageTitle';
+import { useAuth } from '@/context/auth/useAuth';
 import useDebounce from '@/hooks/useDebounce';
 import { ROUTES } from '@/routes/routePaths';
 import {
@@ -145,6 +146,9 @@ const STATUS_BANNER: Record<InvoiceSeverity, { kind: 'success' | 'warning' | 'er
 
 export function UploadSubmissionPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // A submitter may only submit for their own clients; staff for any.
+  const allowedClientNumbers = user?.privileges.includes('SUBMITTER') ? user.forestClientNumbers : undefined;
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -209,12 +213,15 @@ export function UploadSubmissionPage() {
 
     // Client-side field checks first: on failure, mark the offending fields and
     // stay on the page (red inline errors) without calling the API.
-    const clientResult = validateSubmissionMetadata({
-      submissionClientNumber: fields.submissionClientNumber,
-      submissionClientLocnCode: fields.submissionClientLocnCode,
-      monthComplete: fields.monthComplete,
-      sellerSubmission: fields.sellerSubmission,
-    });
+    const clientResult = validateSubmissionMetadata(
+      {
+        submissionClientNumber: fields.submissionClientNumber,
+        submissionClientLocnCode: fields.submissionClientLocnCode,
+        monthComplete: fields.monthComplete,
+        sellerSubmission: fields.sellerSubmission,
+      },
+      allowedClientNumbers,
+    );
     const { fieldErrors } = splitMessages(clientResult.messages, SUBMISSION_METADATA_KEY_TO_FIELD);
     setClientFieldErrors(fieldErrors);
     if (clientResult.hasErrors()) return;
@@ -450,7 +457,7 @@ export function UploadSubmissionPage() {
     // scoping it this way also means the effect above can treat a standing client
     // error as "don't bother the server yet".
     const { fieldErrors } = splitMessages(
-      validateSubmissionMetadata(businessEdits(next)).messages,
+      validateSubmissionMetadata(businessEdits(next), allowedClientNumbers).messages,
       SUBMISSION_METADATA_KEY_TO_FIELD,
     );
     setClientFieldErrors((prev) => ({ ...prev, [key]: fieldErrors[key] ?? '' }));

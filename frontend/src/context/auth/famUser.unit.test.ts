@@ -68,4 +68,60 @@ describe('FAM access-token profile', () => {
     );
     expect(user).toMatchObject({ username: '', idirUsername: '', displayName: '', email: '' });
   });
+
+  it('trims and upper-cases role codes before matching', () => {
+    const user = famUserFromAccessToken(token({ client_roles: ['csp_view', ' CSP_ADMIN '] }));
+    expect(user).toMatchObject({ roles: ['CSP_VIEW', 'CSP_ADMIN'], privileges: ['ADMIN', 'VIEW'] });
+  });
+
+  it('gives a Business BCeID submitter its forest clients and no staff role', () => {
+    const user = famUserFromAccessToken(
+      token({
+        identity_provider: 'bceidbusiness',
+        idir_username: undefined,
+        bceid_username: 'ACME_USER',
+        client_roles: [
+          'CSP_SUBMITTER_FOREST_CLIENT-00000002',
+          'CSP_ADMIN',
+          'CSP_SUBMITTER_FOREST_CLIENT-00000001',
+          'FAM:EXPIRES:2026-09-30:CSP_SUBMITTER_FOREST_CLIENT-00000001',
+        ],
+      }),
+    );
+    expect(user).toMatchObject({
+      username: 'ACME_USER',
+      identityProvider: 'bceidbusiness',
+      privileges: ['SUBMITTER'],
+      forestClientNumbers: ['00000001', '00000002'],
+    });
+    expect(user.roles).not.toContain('FAM:EXPIRES:2026-09-30:CSP_SUBMITTER_FOREST_CLIENT-00000001');
+  });
+
+  it('gives an IDIR token no industry role', () => {
+    const user = famUserFromAccessToken(token({ client_roles: ['CSP_SUBMITTER_FOREST_CLIENT-00000001'] }));
+    expect(user).toMatchObject({ privileges: [], forestClientNumbers: [] });
+  });
+
+  it('gives a Business BCeID user without a client-scoped role nothing', () => {
+    const user = famUserFromAccessToken(
+      token({ identity_provider: 'bceidbusiness', bceid_username: 'ACME_USER', client_roles: ['CSP_SUBMITTER'] }),
+    );
+    expect(user).toMatchObject({ privileges: [], forestClientNumbers: [] });
+  });
+
+  it('gives another identity provider nothing', () => {
+    const user = famUserFromAccessToken(token({ identity_provider: 'github', client_roles: ['CSP_ADMIN'] }));
+    expect(user.privileges).toEqual([]);
+  });
+
+  it('gives a token for another client nothing', () => {
+    const user = famUserFromAccessToken(
+      token({
+        azp: 'other-client',
+        identity_provider: 'bceidbusiness',
+        client_roles: ['CSP_SUBMITTER_FOREST_CLIENT-00000001'],
+      }),
+    );
+    expect(user).toMatchObject({ privileges: [], forestClientNumbers: [] });
+  });
 });

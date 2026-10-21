@@ -25,7 +25,7 @@ vi.mock('@/context/layout/useLayout', () => ({
 vi.mock('@/context/auth/useAuth', () => ({
   useAuth: () => ({
     isAuthenticated: h.auth.isAuthenticated,
-    user: { username: 'mock-user', email: 'mock@test.com', roles: [], privileges: ['ADMIN'] },
+    user: { username: 'mock-user', email: 'mock@test.com', roles: [], privileges: ['ADMIN'], forestClientNumbers: [] },
     isLoading: false,
     signIn: vi.fn(),
     signOut: vi.fn(),

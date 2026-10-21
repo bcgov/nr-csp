@@ -66,7 +66,7 @@ static responses and proxied API responses.
 | Database | Oracle | `ojdbc11`, HikariCP, TCPS with an Oracle wallet |
 | Data access | Spring `JdbcTemplate` | **No JPA/Hibernate** — see below |
 | Logging | Log4j2 | Replaces Spring's default Logback starter throughout |
-| API docs | springdoc-openapi | Swagger UI at `/api/swagger-ui.html` |
+| API docs | springdoc-openapi | Swagger UI at `/api/swagger-ui.html`, local development only (`API_DOCS_ENABLED`) |
 | Auth | jjwt + `jwks-rsa` | CSS access-token validation against the configured realm's JWKS |
 | Caching | Caffeine | 11 reference-data caches, 12-hour TTL |
 | Mapping | MapStruct | DTO ↔ domain mapping |
@@ -117,8 +117,9 @@ testable without freezing system time, and don't shift with the container's time
 
 ### API surface
 
-Everything is under `/api`. The OpenAPI document is at `/api/v3/api-docs`, Swagger UI at
-`/api/swagger-ui/index.html`.
+Everything is under `/api`. With `API_DOCS_ENABLED=true` (local development only) the OpenAPI
+document is at `/api/v3/api-docs` and Swagger UI at `/api/swagger-ui/index.html`, for staff roles.
+Deployed environments don't serve either; `/api/health` is the only unauthenticated endpoint.
 
 | Area | Path | Notes |
 |---|---|---|
@@ -302,23 +303,33 @@ a stateless request). `JwtRequestFilter` and `JwtService` use `jwks-rsa` and jjw
 the CSS realm's RS256 signature, exact issuer and `azp`, `typ=Bearer`, expiry, supported
 identity provider, and directory username for auditing. Real auth requires
 `CSP_OIDC_ISSUER_URI` and `CSP_OIDC_CLIENT_ID`; the JWKS URI is derived from the issuer unless
-`CSP_OIDC_JWKS_URI` overrides it. `/api/health` and Swagger/OpenAPI paths are public; all other
-`/api/**` requests require an internal `ADMIN`, `APPROVE`, or `VIEW` authority.
+`CSP_OIDC_JWKS_URI` overrides it. `/api/health` is the only public path; the upload
+and submission-history endpoints admit an internal `ADMIN`, `APPROVE`, `VIEW` or `SUBMITTER`
+authority, and all other `/api/**` requests require `ADMIN`, `APPROVE`, or `VIEW`.
 
 **Mock auth.** `MockRequestFilter` is registered only when `auth.mock.enabled` is true and
-installs a synthetic authentication with the roles from `AUTH_MOCK_ROLES`. It is an
+installs a synthetic authentication from `AUTH_MOCK_IDENTITY_PROVIDER` and `AUTH_MOCK_ROLES`, or
+from the identity the local UI's mock role selector sends, mapped by the same `CspAuthorities` as
+real tokens. It is an
 `Optional<MockRequestFilter>` injection, so when mock auth is off the filter does not exist in
 the context at all.
 
-**Role and action checks.** Internal roles are `ADMIN`, `APPROVE`, and `VIEW`, held as plain
-authorities with no `ROLE_` prefix. CSS roles come from `client_roles`, falling back only to
-`resource_access.<configured client>.roles`. Exact, case-insensitive `CSP_ADMIN`, `CSP_APPROVE`,
-and `CSP_VIEW` codes grant the corresponding authority to IDIR/IDIR MFA identities. Bare roles,
-suffix aliases, foreign roles, and `FAM:` bookkeeping roles grant none. Backend `JwtService`
-and frontend `famUserFromAccessToken` implement this mapping; the API enforces it.
+**Role and action checks.** Internal roles are `ADMIN`, `APPROVE`, `VIEW`, and `SUBMITTER`, held
+as plain authorities with no `ROLE_` prefix; a submitter also holds one `FOREST_CLIENT-<number>`
+authority per client. CSS roles come from `client_roles`, falling back only to
+`resource_access.<configured client>.roles`, and match exactly but case-insensitively.
+`CSP_ADMIN`, `CSP_APPROVE`, and `CSP_VIEW` grant the staff authority to IDIR/IDIR MFA identities
+only.
+`CSP_SUBMITTER_FOREST_CLIENT-<8 digits>`, which FAM issues once per forest client for a
+forest-client-scoped role, grants `SUBMITTER` to Business BCeID identities only; it is parsed
+the way FAM's `CssRoleNaming.parse` does. Bare roles, suffix aliases, foreign roles, `FAM:`
+bookkeeping roles and other identity providers grant none. Backend `CspAuthorities` and frontend
+`famRoles.ts` implement this mapping; the API enforces it.
 
-Business BCeID can authenticate but receives no CSP staff capability. Industry XML submission
-and history need a separate approved industry role and forest-client/location scope contract.
+`ClientScope` is the forest-client boundary: every client for staff, the held clients for a
+submitter, and never an empty list. Submission validate/submit refuse with 403, before the
+business rules (which look up the submitting party's invoices), when the submission client or
+any invoice's submitting party is out of scope, and every submission-history query adds `sub.client_number IN (:clientNumbers)` for a submitter.
 
 Controllers declare a specific action string from the FAM permission matrix:
 
@@ -431,9 +442,10 @@ Things that are genuinely worth fixing or confirming:
 - **Role names in `.env.example` were wrong** (now fixed): it listed `CSP_VIEWER` /
   `CSP_SUBMITTER` / `CSP_APPROVER`, but the code matches `_VIEW`, `_APPROVE`, `_ADMIN`.
   Someone should still confirm which group names FAM actually issues.
-- **Page-level permissions are not enforced in the UI.** `context/auth/usePageAccess.ts`
-  exists but no application code calls it — only its own unit test. `ProtectedRoute` checks
-  authentication only, and the backend enforces permissions only on write endpoints.
+- **Read endpoints have no action-level check.** Staff read endpoints rely on the `/api/**`
+  staff-role rule; only write endpoints and the industry-capable submission endpoints declare an
+  action. In the UI, each route's page action (`routes/access.ts`) gates `ProtectedRoute` and the
+  side nav.
 - **Unused serving certificate.** The backend Service requests an OpenShift serving cert and
   mounts it at `/etc/tls-certs`, but the app serves plain HTTP on 8080 and never reads it.
 - **Java 21 compile, JRE 25 runtime.** `backend/Dockerfile` builds on Temurin 21 and runs on a

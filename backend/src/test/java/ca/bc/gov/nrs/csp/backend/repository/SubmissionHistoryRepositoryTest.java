@@ -4,6 +4,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionDeta
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionHistoryRowResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceCommentResponse;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
+import ca.bc.gov.nrs.csp.backend.security.ClientScope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -124,7 +125,7 @@ class SubmissionHistoryRepositoryTest {
                 .thenAnswer(inv -> List.of(rowMapperOf(inv).mapRow(rs, 0)));
         when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(25L);
 
-        Page<SubmissionHistoryRowResponse> page = repository.search(PageRequest.of(0, 10));
+        Page<SubmissionHistoryRowResponse> page = repository.search(PageRequest.of(0, 10), ClientScope.allClients());
 
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).submissionId()).isEqualTo("9001");
@@ -143,7 +144,7 @@ class SubmissionHistoryRepositoryTest {
                 .thenReturn(List.of());
         when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(null);
 
-        assertThat(repository.search(PageRequest.of(0, 10)).getTotalElements()).isZero();
+        assertThat(repository.search(PageRequest.of(0, 10), ClientScope.allClients()).getTotalElements()).isZero();
     }
 
     // ---------------------------------------------------------------
@@ -163,7 +164,7 @@ class SubmissionHistoryRepositoryTest {
         when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<Object>rowMapper()))
                 .thenAnswer(inv -> List.of(rowMapperOf(inv).mapRow(rs, 0)));
 
-        Optional<SubmissionDetailResponse> result = repository.findDetail(200456L);
+        Optional<SubmissionDetailResponse> result = repository.findDetail(200456L, ClientScope.allClients());
 
         assertThat(result).isPresent();
         assertThat(result.get().invoices()).hasSize(1);
@@ -182,7 +183,7 @@ class SubmissionHistoryRepositoryTest {
         when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<Object>rowMapper()))
                 .thenAnswer(inv -> List.of(rowMapperOf(inv).mapRow(rs, 0)));
 
-        repository.findDetail(9001L);
+        repository.findDetail(9001L, ClientScope.allClients());
 
         // Header: looked up by the business submission number, not the internal id.
         ArgumentCaptor<String> headerSql = ArgumentCaptor.forClass(String.class);
@@ -212,7 +213,7 @@ class SubmissionHistoryRepositoryTest {
         when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), this.<Object>rowMapper()))
                 .thenThrow(new EmptyResultDataAccessException(1));
 
-        assertThat(repository.findDetail(999L)).isEmpty();
+        assertThat(repository.findDetail(999L, ClientScope.allClients())).isEmpty();
     }
 
     // ---------------------------------------------------------------
@@ -229,11 +230,96 @@ class SubmissionHistoryRepositoryTest {
         when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<SubmissionInvoiceCommentResponse>rowMapper()))
                 .thenAnswer(inv -> List.of(rowMapperOf(inv).mapRow(rs, 0)));
 
-        List<SubmissionInvoiceCommentResponse> comments = repository.findInvoiceComments(200456L);
+        List<SubmissionInvoiceCommentResponse> comments = repository.findInvoiceComments(200456L, ClientScope.allClients());
 
         assertThat(comments).hasSize(1);
         assertThat(comments.get(0).invoiceNumber()).isEqualTo("WFP521046");
         assertThat(comments.get(0).comment()).isEqualTo("Looks good");
+    }
+
+    // ---------------------------------------------------------------
+    // Client scope
+    // ---------------------------------------------------------------
+
+    private static final ClientScope TWO_CLIENTS = ClientScope.of(List.of("00000002", "00000001"));
+
+    @Test
+    void search_unrestricted_hasNoClientFilter() {
+        when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<SubmissionHistoryRowResponse>rowMapper()))
+                .thenReturn(List.of());
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(0L);
+
+        repository.search(PageRequest.of(0, 10), ClientScope.allClients());
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc).query(sql.capture(), params.capture(), this.<SubmissionHistoryRowResponse>rowMapper());
+        assertThat(sql.getValue()).doesNotContain("client_number IN");
+        assertThat(params.getValue().hasValue("clientNumbers")).isFalse();
+    }
+
+    @Test
+    void search_restricted_filtersRowsAndCountToTheScopesClients() {
+        when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<SubmissionHistoryRowResponse>rowMapper()))
+                .thenReturn(List.of());
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(0L);
+
+        repository.search(PageRequest.of(0, 10), TWO_CLIENTS);
+
+        ArgumentCaptor<String> dataSql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc).query(dataSql.capture(), params.capture(), this.<SubmissionHistoryRowResponse>rowMapper());
+        ArgumentCaptor<String> countSql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).queryForObject(countSql.capture(), any(SqlParameterSource.class), eq(Long.class));
+        // The filter sits in the WHERE clause, before ORDER BY / paging, and the total counts only those rows.
+        assertThat(dataSql.getValue()).containsSubsequence("AND sub.client_number IN (:clientNumbers)", "ORDER BY");
+        assertThat(countSql.getValue()).contains("AND sub.client_number IN (:clientNumbers)");
+        assertThat(params.getValue().getValue("clientNumbers")).isEqualTo(List.of("00000001", "00000002"));
+    }
+
+    @Test
+    void findDetail_restricted_filtersTheHeaderLookup() {
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), this.<Object>rowMapper()))
+                .thenThrow(new EmptyResultDataAccessException(1));
+
+        // Another client's submission is simply not found.
+        assertThat(repository.findDetail(9001L, TWO_CLIENTS)).isEmpty();
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc).queryForObject(sql.capture(), params.capture(), this.<Object>rowMapper());
+        assertThat(sql.getValue()).containsSubsequence(
+                "sub.submission_id = :submissionId", "AND sub.client_number IN (:clientNumbers)",
+                "ORDER BY sub.csp_submission_id DESC");
+        assertThat(params.getValue().getValue("clientNumbers")).isEqualTo(List.of("00000001", "00000002"));
+    }
+
+    @Test
+    void findDetail_unrestricted_hasNoClientFilter() {
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), this.<Object>rowMapper()))
+                .thenThrow(new EmptyResultDataAccessException(1));
+
+        repository.findDetail(9001L, ClientScope.allClients());
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).queryForObject(sql.capture(), any(SqlParameterSource.class), this.<Object>rowMapper());
+        assertThat(sql.getValue()).doesNotContain("client_number IN");
+    }
+
+    @Test
+    void findInvoiceComments_restricted_joinsTheSubmissionAndFiltersItsClient() {
+        when(jdbc.query(anyString(), any(SqlParameterSource.class), this.<SubmissionInvoiceCommentResponse>rowMapper()))
+                .thenReturn(List.of());
+
+        assertThat(repository.findInvoiceComments(200456L, TWO_CLIENTS)).isEmpty();
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc).query(sql.capture(), params.capture(), this.<SubmissionInvoiceCommentResponse>rowMapper());
+        assertThat(sql.getValue()).containsSubsequence(
+                "INNER JOIN THE.csp_submission sub", "inv.csp_submission_id = :id",
+                "AND sub.client_number IN (:clientNumbers)", "ORDER BY inv.coastal_log_sale_id");
+        assertThat(params.getValue().getValue("clientNumbers")).isEqualTo(List.of("00000001", "00000002"));
     }
 
     // ---------------------------------------------------------------

@@ -2,7 +2,9 @@ import { SideNav, SideNavItems, SideNavLink } from '@carbon/react';
 import { type FC } from 'react';
 import { Link, useLocation } from 'react-router';
 
+import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
+import { visibleNavItems } from '@/routes/access';
 import { NAVIGATION_ITEMS } from '@/routes/navigation';
 
 import './index.scss';
@@ -26,6 +28,7 @@ const isNavGroup = (item: NavItem): item is NavGroup => 'children' in item;
 export const LayoutSideNav: FC = () => {
   const { isSideNavExpanded } = useLayout();
   const location = useLocation();
+  const { user } = useAuth();
 
   const renderNavLink = (item: NavLink) => (
     <SideNavLink
@@ -49,7 +52,9 @@ export const LayoutSideNav: FC = () => {
   return (
     <SideNav expanded={isSideNavExpanded} isPersistent={isSideNavExpanded} isChildOfHeader>
       <SideNavItems>
-        {(NAVIGATION_ITEMS as NavItem[]).map((item) => (isNavGroup(item) ? renderGroup(item) : renderNavLink(item)))}
+        {visibleNavItems(NAVIGATION_ITEMS as NavItem[], user).map((item) =>
+          isNavGroup(item) ? renderGroup(item) : renderNavLink(item),
+        )}
       </SideNavItems>
     </SideNav>
   );

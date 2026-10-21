@@ -19,6 +19,7 @@ describe('HeaderPanelProfile', () => {
     email: 'jane.doe@gov.bc.ca',
     roles: ['CSP_SUBMITTER'],
     privileges: ['ADMIN'],
+    forestClientNumbers: [],
   };
 
   const arrange = (user: AuthUser | null = baseUser) => {
@@ -47,6 +48,13 @@ describe('HeaderPanelProfile', () => {
   it('maps each role constant to its label', () => {
     arrange({ ...baseUser, privileges: ['APPROVE'] });
     expect(screen.getByText('Role: Approver')).toBeInTheDocument();
+  });
+
+  it('labels a Business BCeID submitter by their BCeID username', () => {
+    arrange({ ...baseUser, identityProvider: 'bceidbusiness', idirUsername: 'ACME_USER', privileges: ['SUBMITTER'] });
+    expect(screen.getByText('Role: Submitter')).toBeInTheDocument();
+    expect(screen.getByText('BCeID: ACME_USER')).toBeInTheDocument();
+    expect(screen.queryByText(/^IDIR:/)).not.toBeInTheDocument();
   });
 
   it('omits the Role line when the user has no privileges', () => {

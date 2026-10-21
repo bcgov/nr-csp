@@ -116,6 +116,20 @@ describe('OIDC session service', () => {
     });
   });
 
+  it('returns to the page the sign-in started from, query included', async () => {
+    // A signed-out deep link renders the welcome screen at that URL, so this is the deep link.
+    window.history.replaceState(null, '', '/submission-history/9001?tab=invoices');
+    try {
+      const { startOidcLogin } = await import('../oidc-service');
+      await startOidcLogin('idir');
+      expect(mocks.manager.signinRedirect).toHaveBeenLastCalledWith(
+        expect.objectContaining({ state: { returnTo: '/submission-history/9001?tab=invoices' } }),
+      );
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
   it('does not attempt iframe login for a signed-out visitor', async () => {
     mocks.manager.getUser.mockResolvedValue(null);
     const { getOidcUser } = await import('../oidc-service');

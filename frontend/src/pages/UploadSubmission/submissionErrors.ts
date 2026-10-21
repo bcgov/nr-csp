@@ -66,7 +66,7 @@ export const structuralIssuesToCsv = (rows: StructuralIssueRow[]): string =>
  * the supplementary detail fields — replaces/adjusts numbers, client location
  * codes — since those are the fields shown in the details card.)
  */
-export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
+const INVOICE_KEY_TO_FIELD: Record<string, string> = {
   // ── Summary fields (shown in the invoice row) ──────────────────────────────
   'invoice.date.required.error': 'invoiceDate',
   'invoice.date.in.future.error': 'invoiceDate',
@@ -120,7 +120,7 @@ export const INVOICE_KEY_TO_FIELD: Record<string, string> = {
 };
 
 /** Maps a business-validation message key to the line-item-table column. */
-export const LINE_KEY_TO_FIELD: Record<string, string> = {
+const LINE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.species.required.error': 'species',
   'invoice.species.grade.combination.error': 'species',
   'invoice.grade.invalid.required.error': 'grade',
@@ -143,8 +143,10 @@ export const LINE_KEY_TO_FIELD: Record<string, string> = {
  * carry the bare "submission" locator. Anything raised per invoice or per line
  * is attributed to that row instead, via INVOICE_KEY_TO_FIELD / LINE_KEY_TO_FIELD.
  */
-export const SUBMISSION_KEY_TO_FIELD: Record<string, string[]> = {
+const SUBMISSION_KEY_TO_FIELD: Record<string, string[]> = {
   'invoice.submitter.client.location.invalid.error': ['submissionClientNumber', 'submissionClientLocnCode'],
+  // The API's 403 for a client the submitter does not hold.
+  'submission.client.not.authorized.error': ['submissionClientNumber'],
 };
 
 /** The result of attributing every validation message to a row / field / form. */

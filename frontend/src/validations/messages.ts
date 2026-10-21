@@ -1,18 +1,18 @@
 // General, cross-page validation messages. Grouped so they can be reused by any
 // report or form rather than being duplicated per page.
 
-export const DATE_MESSAGES: Record<string, string> = {
+const DATE_MESSAGES: Record<string, string> = {
   'report.daterange.order.error': 'Start date must not be after end date.',
   'report.startdate.required.error': 'Start date is required.',
   'report.timeframe.numeric.error': 'Time frame must be numeric.',
 };
 
-export const NUMBER_MESSAGES: Record<string, string> = {
+const NUMBER_MESSAGES: Record<string, string> = {
   'report.submissionnumber.numeric.error': 'Submission number must be numeric.',
   'report.submissionnumber.notfound.error': 'No submission found for submission number: {0}',
 };
 
-export const CLIENT_MESSAGES: Record<string, string> = {
+const CLIENT_MESSAGES: Record<string, string> = {
   'report.client.number.notfound.error': 'No client found for {0} number: {1}',
   'report.client.name.notfound.error': 'No client found for {0} name: {1}',
   'report.client.name.nomatch.error': 'The Client Name ({0}) cannot be found for {1}.',
@@ -20,7 +20,7 @@ export const CLIENT_MESSAGES: Record<string, string> = {
 };
 
 // Page-specific messages that only apply to a single report.
-export const REPORT_MESSAGES: Record<string, string> = {
+const REPORT_MESSAGES: Record<string, string> = {
   'report.r06.startdate.required.error': 'Start date is required when no invoice numbers are provided.',
   'report.r06.enddate.required.error': 'End date is required when no invoice numbers are provided.',
   'report.r07.filter.required.error':
@@ -39,7 +39,7 @@ export const REPORT_MESSAGES: Record<string, string> = {
 
 // Invoice header — client-side structural checks that mirror the backend
 // request-DTO constraints (required / pattern), surfaced inline as the user types.
-export const INVOICE_MESSAGES: Record<string, string> = {
+const INVOICE_MESSAGES: Record<string, string> = {
   'invoice.client.invnumber.required.error': 'Invoice number is required.',
   'invoice.client.invnumber.pattern.error': 'Invoice number may only contain uppercase letters, digits and hyphens.',
   'invoice.client.invnumber.maxlength.error': 'Invoice number must be at most 15 characters.',
@@ -58,7 +58,7 @@ export const INVOICE_MESSAGES: Record<string, string> = {
 
 // Invoice line item (Add New Line Item) — client-side structural checks on the
 // free-text numeric inputs.
-export const INVOICE_LINE_ITEM_MESSAGES: Record<string, string> = {
+const INVOICE_LINE_ITEM_MESSAGES: Record<string, string> = {
   'invoice.client.pieces.integer.error': 'Number of pieces must be a whole number.',
   'invoice.client.pieces.positive.error': 'Number of pieces must be greater than zero.',
   'invoice.client.volume.numeric.error': 'Volume must be a valid number.',
@@ -69,9 +69,11 @@ export const INVOICE_LINE_ITEM_MESSAGES: Record<string, string> = {
 
 // CSP submission metadata (upload form) — client-side structural checks on the
 // editable header fields, surfaced inline the same way the report filters are.
-export const SUBMISSION_MESSAGES: Record<string, string> = {
+const SUBMISSION_MESSAGES: Record<string, string> = {
   'submission.client.clientnumber.required.error': 'Submission client number is required.',
   'submission.client.clientnumber.pattern.error': 'Submission client number must be exactly 8 digits.',
+  'submission.client.clientnumber.notauthorized.error':
+    'Submission client number must be one of your forest clients: {0}.',
   'submission.client.locationcode.required.error': 'Submission client location code is required.',
   'submission.client.locationcode.pattern.error': 'Submission client location code must be exactly 2 digits.',
   'submission.client.monthcomplete.required.error': 'Month complete is required.',
