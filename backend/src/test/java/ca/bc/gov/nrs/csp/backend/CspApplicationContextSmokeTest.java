@@ -8,8 +8,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Boots the full application context with the Oracle datasource stubbed out.
@@ -29,7 +36,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = {
         "security.jwt.jwks-uri=https://localhost/protocol/openid-connect/certs",
         "security.jwt.issuer=https://localhost/auth/realms/standard",
-        "security.jwt.client-id=csp-smoke"
+        "security.jwt.client-id=csp-smoke",
+        // As local development runs it, with the API docs on.
+        "API_DOCS_ENABLED=true"
 })
 class CspApplicationContextSmokeTest {
 
@@ -42,5 +51,17 @@ class CspApplicationContextSmokeTest {
     @Test
     void contextLoadsAndSwaggerConfigResolves() {
         assertThat(context.getBean(SwaggerWelcomeWebMvc.class)).isNotNull();
+    }
+
+    @Test
+    void enabledApiDocsAreServedToStaffOnly() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.webAppContextSetup((WebApplicationContext) context)
+                .apply(springSecurity()).build();
+
+        mockMvc.perform(get("/api/v3/api-docs")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v3/api-docs").with(user("JSMITH").authorities(() -> "SUBMITTER")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v3/api-docs").with(user("JSMITH").authorities(() -> "VIEW")))
+                .andExpect(status().isOk());
     }
 }

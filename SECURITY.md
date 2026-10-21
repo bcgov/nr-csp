@@ -46,15 +46,21 @@ you add one.
 - The backend requires `CSP_OIDC_ISSUER_URI` and `CSP_OIDC_CLIENT_ID` when real authentication
   is enabled. It validates the RS256 signature against the realm's JWKS (key selected by `kid`),
   exact issuer and `azp`, `typ=Bearer`, expiry, supported identity provider, and audit username.
-- Roles come from `client_roles`, falling back to `resource_access.<configured client>.roles`.
-  Only exact `CSP_VIEW`, `CSP_APPROVE`, and `CSP_ADMIN` codes, matched case-insensitively, grant
-  the internal `VIEW`, `APPROVE`, and `ADMIN` authorities to IDIR/IDIR MFA identities. Bare roles,
-  suffix aliases, foreign-app roles, and `FAM:` bookkeeping roles grant no access. Business BCeID
-  can authenticate but receives no staff capability; industry role/client scope remains separate.
-- All `/api/**` endpoints require one of those staff authorities, except the public `/api/health`
-  and Swagger/OpenAPI paths. Write endpoints also use `@PreAuthorize` through `PermissionService`
-  for action-level checks. The frontend's No CSP access screen is a UX gate; API checks enforce
-  authorization.
+- Roles come from `client_roles`, falling back to `resource_access.<configured client>.roles`,
+  and are matched case-insensitively (`CspAuthorities`). Only `CSP_VIEW`, `CSP_APPROVE`, and
+  `CSP_ADMIN` grant the internal `VIEW`, `APPROVE`, and `ADMIN` authorities, and only to IDIR/IDIR
+  MFA identities. Only `CSP_SUBMITTER_FOREST_CLIENT-<8 digits>` grants `SUBMITTER`, plus one
+  forest-client authority per client, and only to Business BCeID identities. Bare roles, suffix
+  aliases, foreign-app roles, `FAM:` bookkeeping roles and other identity providers grant no access.
+- All `/api/**` endpoints require a staff authority, except the public `/api/health` and the
+  seven upload and submission-history endpoints, which also admit `SUBMITTER`. Those check the
+  `submissionUpload`/`submissionHistory` action and the caller's `ClientScope`: a submitter can
+  validate, submit and read only their own clients' submissions, and a scope is never empty.
+  Write endpoints also use `@PreAuthorize` through `PermissionService` for action-level checks.
+  The frontend's route, navigation and No CSP access gates match these checks for usability; the
+  API enforces authorization.
+- Swagger UI and the OpenAPI document are not public. They are off unless `API_DOCS_ENABLED=true`,
+  which the OpenShift templates never pass, and even then need a staff authority.
 - Sessions are stateless: no cookie, no server-side session. CSRF protection is disabled
   deliberately, which is correct for bearer-token auth with no browser-automatable credential.
 - Signing out clears local OIDC credentials and redirects through SiteMinder and the configured
@@ -66,7 +72,9 @@ you add one.
 ### Mock authentication — local development only
 
 Mock auth bypasses CSS authentication and authenticates every request as `local-dev-user` with
-the roles in `AUTH_MOCK_ROLES`. Four independent things keep it out of deployed environments:
+the identity provider and roles in `AUTH_MOCK_IDENTITY_PROVIDER` and `AUTH_MOCK_ROLES`, or those
+the local UI sends in `X-Mock-Identity-Provider`/`X-Mock-Roles`. Only `MockRequestFilter` reads
+those headers, so they mean nothing when mock auth is off. Four independent things keep it out of deployed environments:
 
 1. `MockRequestFilter` is annotated `@ConditionalOnProperty(name = "auth.mock.enabled",
    havingValue = "true")`, so the filter bean does not exist unless explicitly enabled.

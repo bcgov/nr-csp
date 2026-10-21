@@ -7,6 +7,7 @@ import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -26,6 +27,17 @@ import java.util.Optional;
 public class SecurityConfig {
 
     private static final String API_PATH = "/api/**";
+    private static final String[] SUBMITTER_POST_PATHS = {
+            "/api/submissions/validate/structural",
+            "/api/submissions/parse",
+            "/api/submissions/validate/business",
+            "/api/submissions/submit"
+    };
+    private static final String[] SUBMITTER_GET_PATHS = {
+            "/api/submission-history",
+            "/api/submission-history/{submissionId}",
+            "/api/submission-history/{cspSubmissionId}/invoices"
+    };
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -51,11 +63,18 @@ public class SecurityConfig {
                         .authenticationEntryPoint((req, res, e) ->
                                 res.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/health",
-                                "/api/swagger-ui/**", "/api/swagger-ui.html",
-                                "/api/v3/api-docs/**"
-                        ).permitAll()
+                        // The only public path, for the liveness probe. Swagger UI and the OpenAPI
+                        // document are not public: they exist only where API_DOCS_ENABLED turns them
+                        // on (local development) and then need a staff role like the rest of /api.
+                        .requestMatchers("/api/health").permitAll()
+                        // The only endpoints a Business BCeID submitter may call, each named so a new
+                        // endpoint under these paths stays staff-only. The controllers also check the
+                        // action and the submitter's forest clients (ClientScope). Order matters: these
+                        // must precede the staff-only API_PATH rule.
+                        .requestMatchers(HttpMethod.POST, SUBMITTER_POST_PATHS)
+                        .hasAnyAuthority(Roles.ADMIN, Roles.APPROVE, Roles.VIEW, Roles.SUBMITTER)
+                        .requestMatchers(HttpMethod.GET, SUBMITTER_GET_PATHS)
+                        .hasAnyAuthority(Roles.ADMIN, Roles.APPROVE, Roles.VIEW, Roles.SUBMITTER)
                         .requestMatchers(API_PATH).hasAnyAuthority(Roles.ADMIN, Roles.APPROVE, Roles.VIEW)
                         .anyRequest().authenticated()
                 );
@@ -85,7 +104,7 @@ public class SecurityConfig {
                 //
                 // The content policies above stay: unlike HSTS they are per-response protections
                 // that make sense from whoever produced the body, including the backend-served
-                // Swagger UI, and they cost nothing behind the proxy.
+                // Swagger UI in local development, and they cost nothing behind the proxy.
                 .httpStrictTransportSecurity(HeadersConfigurer.HstsConfig::disable)
         );
 

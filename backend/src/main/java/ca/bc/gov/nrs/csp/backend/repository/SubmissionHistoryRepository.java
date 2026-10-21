@@ -6,6 +6,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvo
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionLineItemResponse;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
+import ca.bc.gov.nrs.csp.backend.security.ClientScope;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -41,6 +42,11 @@ import java.util.Optional;
  * {@code csp_submission} (captured at submit time), not from the client's
  * contact info in {@code client_location}. The admin comment is the first
  * non-null {@code reviewer_notes} across the submission's invoices.</p>
+ *
+ * <p>Every query takes a {@link ClientScope}. A restricted scope (a Business BCeID
+ * submitter) adds {@code sub.client_number IN (:clientNumbers)}, so rows for any
+ * other client do not exist for that caller; only the explicitly unrestricted
+ * scope (staff) omits the filter. A scope cannot be restricted to no clients.</p>
  */
 @Repository
 public class SubmissionHistoryRepository {
@@ -90,6 +96,9 @@ public class SubmissionHistoryRepository {
 
     private static final String DEFAULT_ORDER_BY = "entry_timestamp DESC";
 
+    // Appended to a query whose WHERE clause is open, for a restricted ClientScope.
+    private static final String CLIENT_SCOPE_CLAUSE = " AND sub.client_number IN (:clientNumbers)";
+
     private static final String DETAIL_QUERY = """
             SELECT sub.csp_submission_id                                                       AS csp_submission_id,
                    sub.submission_id                                                           AS submission_id,
@@ -128,6 +137,7 @@ public class SubmissionHistoryRepository {
             LEFT JOIN THE.V_CLIENT_PUBLIC fc
                     ON sub.client_number = fc.client_number
             WHERE  sub.submission_id = :submissionId
+            %s
             -- submission_id is not a primary key, so a duplicate has to resolve the
             -- same way every time: newest submission wins. Without the ORDER BY the
             -- FETCH would hand back whichever row Oracle happened to produce, and the
@@ -237,9 +247,12 @@ public class SubmissionHistoryRepository {
                    COALESCE(st.description, inv.log_sale_entry_status_code)  AS status,
                    inv.reviewer_notes                                       AS comment_text
             FROM   THE.coastal_log_sale inv
+            INNER JOIN THE.csp_submission sub
+                    ON inv.csp_submission_id = sub.csp_submission_id
             LEFT JOIN THE.log_sale_entry_status_code st
                     ON inv.log_sale_entry_status_code = st.log_sale_entry_status_code
             WHERE  inv.csp_submission_id = :id
+            %s
             ORDER BY inv.coastal_log_sale_id
             """;
 
@@ -268,18 +281,19 @@ public class SubmissionHistoryRepository {
         this.jdbc = jdbc;
     }
 
-    /** Paged list of submissions. */
-    public Page<SubmissionHistoryRowResponse> search(Pageable pageable) {
+    /** Paged list of the submissions in {@code scope}. */
+    public Page<SubmissionHistoryRowResponse> search(Pageable pageable, ClientScope scope) {
         MapSqlParameterSource params = new MapSqlParameterSource();
         String orderBy = buildOrderBy(pageable.getSort());
+        String listQuery = LIST_QUERY + scopeClause(scope, params);
 
-        String dataSql = LIST_QUERY
+        String dataSql = listQuery
                 + " ORDER BY " + orderBy
                 + " OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY";
         params.addValue("offset", pageable.getOffset());
         params.addValue("limit", pageable.getPageSize());
 
-        String countSql = "SELECT count(*) FROM (" + LIST_QUERY + ") cnt";
+        String countSql = "SELECT count(*) FROM (" + listQuery + ") cnt";
 
         // orderBy is composed only from the SORT_COLUMNS whitelist and hardcoded
         // ASC/DESC keywords (see buildOrderBy); offset/limit are bound parameters.
@@ -308,14 +322,16 @@ public class SubmissionHistoryRepository {
      * Submission History screens show and link by — not the internal
      * {@code csp_submission_id}. Manual submissions have no {@code submission_id}
      * and so have no detail page. The child queries still key on
-     * {@code csp_submission_id}, resolved from the header row.</p>
+     * {@code csp_submission_id}, resolved from the header row. A submission outside
+     * {@code scope} is not found.</p>
      */
-    public Optional<SubmissionDetailResponse> findDetail(Long submissionId) {
+    public Optional<SubmissionDetailResponse> findDetail(Long submissionId, ClientScope scope) {
         MapSqlParameterSource headerParams = new MapSqlParameterSource("submissionId", submissionId);
+        String detailSql = DETAIL_QUERY.formatted(scopeClause(scope, headerParams));
 
         SubmissionDetailHeader header;
         try {
-            header = jdbc.queryForObject(DETAIL_QUERY, headerParams, (rs, rowNum) -> new SubmissionDetailHeader(
+            header = jdbc.queryForObject(detailSql, headerParams, (rs, rowNum) -> new SubmissionDetailHeader(
                     RepositoryUtils.getLongNullable(rs, "csp_submission_id"),
                     rs.getString(COL_SUBMISSION_ID),
                     RepositoryUtils.getLocalDateNullable(rs, COL_ENTRY_TIMESTAMP),
@@ -399,15 +415,31 @@ public class SubmissionHistoryRepository {
         ));
     }
 
-    /** Per-invoice status + reviewer comment for a submission's expanded "Invoice comments" sub-table. */
-    public List<SubmissionInvoiceCommentResponse> findInvoiceComments(Long cspSubmissionId) {
+    /**
+     * Per-invoice status + reviewer comment for a submission's expanded "Invoice comments"
+     * sub-table. A submission outside {@code scope} has none, as a nonexistent one has none.
+     */
+    public List<SubmissionInvoiceCommentResponse> findInvoiceComments(Long cspSubmissionId, ClientScope scope) {
         MapSqlParameterSource params = new MapSqlParameterSource("id", cspSubmissionId);
-        return jdbc.query(INVOICE_COMMENTS_QUERY, params, (rs, rowNum) ->
+        String sql = INVOICE_COMMENTS_QUERY.formatted(scopeClause(scope, params));
+        return jdbc.query(sql, params, (rs, rowNum) ->
                 new SubmissionInvoiceCommentResponse(
                         rs.getString(COL_INVOICE_NUMBER),
                         rs.getString("status"),
                         rs.getString("comment_text")
                 ));
+    }
+
+    /**
+     * The client filter for a restricted scope, with its bind parameter added; empty only for the
+     * unrestricted scope. A restricted scope always has at least one client (see ClientScope).
+     */
+    static String scopeClause(ClientScope scope, MapSqlParameterSource params) {
+        if (scope.isUnrestricted()) {
+            return "";
+        }
+        params.addValue("clientNumbers", scope.clientNumbers());
+        return CLIENT_SCOPE_CLAUSE;
     }
 
     /** Formats a client number + location code pair as "number/locn", or null when absent. */

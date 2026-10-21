@@ -1,9 +1,8 @@
 import { renderHook } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
+import { describe, it, expect } from 'vitest';
 
 import { AuthContext } from './AuthContext';
-import type { AuthContextValue } from './types';
 import {
   type Role,
   TABLE_MAINTENANCE,
@@ -13,9 +12,14 @@ import {
   REPORTS,
   INVOICE_DETAILS_DELETE,
   INVOICE_DETAILS_SAVE,
+  SEARCH,
+  SUBMISSION_HISTORY,
+  SUBMISSION_UPLOAD,
 } from './permissions';
-import { usePermission } from './usePermission';
 import { usePageAccess } from './usePageAccess';
+import { usePermission } from './usePermission';
+
+import type { AuthContextValue } from './types';
 
 function makeWrapper(privileges: Role[]) {
   const value: AuthContextValue = {
@@ -24,6 +28,7 @@ function makeWrapper(privileges: Role[]) {
       email: 'test@example.com',
       roles: [],
       privileges,
+      forestClientNumbers: [],
     },
     isAuthenticated: true,
     isLoading: false,
@@ -157,6 +162,29 @@ describe('usePermission – VIEW role', () => {
 });
 
 // ── null / no user ────────────────────────────────────────────────────────────
+
+describe('usePermission – SUBMITTER role (Business BCeID)', () => {
+  it('grants upload and history only', () => {
+    for (const action of [SUBMISSION_UPLOAD, SUBMISSION_HISTORY]) {
+      const { result } = renderHook(() => usePermission(action), { wrapper: makeWrapper(['SUBMITTER']) });
+      expect(result.current).toBe(true);
+    }
+  });
+
+  it('denies every staff action', () => {
+    for (const action of [INBOX, INVOICE_DETAILS_APPROVE, INVOICE_DETAILS_SAVE, TABLE_MAINTENANCE, REPORTS, SEARCH]) {
+      const { result } = renderHook(() => usePermission(action), { wrapper: makeWrapper(['SUBMITTER']) });
+      expect(result.current, action).toBe(false);
+    }
+  });
+
+  it('staff roles keep upload and history', () => {
+    for (const role of ['ADMIN', 'APPROVE', 'VIEW'] as Role[]) {
+      const { result } = renderHook(() => usePermission(SUBMISSION_UPLOAD), { wrapper: makeWrapper([role]) });
+      expect(result.current, role).toBe(true);
+    }
+  });
+});
 
 describe('usePermission – no user', () => {
   it('returns false for TABLE_MAINTENANCE when user is null', () => {

@@ -8,6 +8,8 @@ import PageTitle from '@/components/core/PageTitle';
 import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
+import { INVOICE_DETAILS } from '@/context/auth/permissions';
+import { usePermission } from '@/context/auth/usePermission';
 import { ROUTES } from '@/routes/routePaths';
 import {
   type SubmissionInvoiceResponse,
@@ -35,6 +37,9 @@ export function ViewSubmissionPage() {
   // endpoint is keyed on — not the internal csp submission id.
   const { submissionId } = useParams<{ submissionId: string }>();
   const navigate = useNavigate();
+  // Industry submitters can read their submissions but not open the staff invoice page, so
+  // their invoice numbers are plain text; the expandable invoice panel still shows the details.
+  const canOpenInvoice = usePermission(INVOICE_DETAILS);
 
   const { data, isLoading, isError, error } = useSubmissionDetailQuery(submissionId);
 
@@ -229,7 +234,7 @@ export function ViewSubmissionPage() {
       key: 'invoiceNumber',
       header: 'Invoice #',
       renderCell: (row) =>
-        row.coastalLogSaleId == null ? (
+        row.coastalLogSaleId == null || !canOpenInvoice ? (
           (row.invoiceNumber ?? '—')
         ) : (
           <Link

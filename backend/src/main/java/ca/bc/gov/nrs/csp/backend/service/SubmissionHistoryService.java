@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionHist
 import ca.bc.gov.nrs.csp.backend.controller.dto.submissionhistory.SubmissionInvoiceCommentResponse;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.repository.SubmissionHistoryRepository;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -14,10 +15,12 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * Business logic for the Submission History screens. The list is unfiltered
- * (the UI shows every submission), so the service simply delegates to
- * {@link SubmissionHistoryRepository}; the detail lookup throws 404 when the
- * submission doesn't exist.
+ * Business logic for the Submission History screens. Staff see every
+ * submission; a Business BCeID submitter sees only the submissions of the
+ * forest clients they hold, across all of them in one list (as legacy ESF
+ * showed a business all its submissions). Every query is scoped to the
+ * caller's {@link ca.bc.gov.nrs.csp.backend.security.ClientScope}; the detail
+ * lookup throws 404 when the submission doesn't exist or is out of scope.
  */
 @Service
 public class SubmissionHistoryService {
@@ -31,7 +34,8 @@ public class SubmissionHistoryService {
     }
 
     public Page<SubmissionHistoryRowResponse> search(Pageable pageable) {
-        Page<SubmissionHistoryRowResponse> results = repository.search(pageable);
+        Page<SubmissionHistoryRowResponse> results =
+                repository.search(pageable, SecurityContextUtils.currentClientScope());
         log.debug("Submission history list returned {} of {} result(s)",
                 results.getNumberOfElements(), results.getTotalElements());
         return results;
@@ -44,13 +48,13 @@ public class SubmissionHistoryService {
      */
     public SubmissionDetailResponse getById(Long submissionId) {
         log.debug("Submission history detail requested for submissionId={}", submissionId);
-        return repository.findDetail(submissionId)
+        return repository.findDetail(submissionId, SecurityContextUtils.currentClientScope())
                 .orElseThrow(() -> new ResourceNotFoundException("Submission " + submissionId + " was not found."));
     }
 
     /** Per-invoice status + reviewer comments for a submission's expanded row. */
     public List<SubmissionInvoiceCommentResponse> getInvoiceComments(Long cspSubmissionId) {
         log.debug("Submission history invoice comments requested for id={}", cspSubmissionId);
-        return repository.findInvoiceComments(cspSubmissionId);
+        return repository.findInvoiceComments(cspSubmissionId, SecurityContextUtils.currentClientScope());
     }
 }

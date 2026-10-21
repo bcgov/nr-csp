@@ -7,12 +7,12 @@ package ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule;
  * when present): e.g. {@code "invoice #2 (INV-1)"}, or {@code "invoice #2"} when
  * the number is blank.
  */
-final class Locators {
+public final class Locators {
 
   private Locators() {}
 
   /** {@code "invoice #<position>"} plus {@code " (<number>)"} when the number is present. */
-  static String invoice(int invoiceIndex, String invoiceNumber) {
+  public static String invoice(int invoiceIndex, String invoiceNumber) {
     String label = "invoice #" + (invoiceIndex + 1);
     return (invoiceNumber == null || invoiceNumber.isBlank())
         ? label

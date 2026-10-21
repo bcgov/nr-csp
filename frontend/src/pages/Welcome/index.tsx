@@ -11,12 +11,12 @@ import { takeSignOutReason } from '@/context/auth/signOutReason';
 import { useAuth } from '@/context/auth/useAuth';
 import { useOauthCallbackPending } from '@/context/auth/useOauthCallbackPending';
 import { useNotification } from '@/context/notification/useNotification';
-import { ROUTES } from '@/routes/routePaths';
+import { homeRouteFor } from '@/routes/access';
 
 import './index.scss';
 
 export function WelcomePage() {
-  const { isAuthenticated, isLoading, signIn, loginError } = useAuth();
+  const { isAuthenticated, isLoading, signIn, loginError, user } = useAuth();
   const { addNotification } = useNotification();
   const isCallbackPending = useOauthCallbackPending();
 
@@ -59,8 +59,8 @@ export function WelcomePage() {
   // A live session settles it, whatever is on the URL: stale callback params
   // survive a reload, a back-button and a second tab, and waiting on an
   // exchange that has already happened would only stall someone who is
-  // signed in.
-  if (isAuthenticated) return <Navigate to={ROUTES.SEARCH} replace />;
+  // signed in. Staff land on Search, industry submitters on Upload Submission.
+  if (isAuthenticated) return <Navigate to={homeRouteFor(user)} replace />;
   if (isLoading || isCallbackPending) return <LoadingScreen />;
 
   const startLogin = (provider: 'idir' | 'business-bceid') =>

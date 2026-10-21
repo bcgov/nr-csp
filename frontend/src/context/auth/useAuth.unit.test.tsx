@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { AuthContext } from './AuthContext';
 import { useAuth } from './useAuth';
@@ -11,15 +11,18 @@ function HookConsumer() {
 
 describe('useAuth', () => {
   it('throws when used outside AuthProvider', () => {
-    const consoleError = console.error;
-    console.error = () => {};
-    expect(() => render(<HookConsumer />)).toThrow('useAuth must be used within AuthProvider');
-    console.error = consoleError;
+    // React logs the error a component throws; keep that expected noise out of the output.
+    const silenceReact = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(() => render(<HookConsumer />)).toThrow('useAuth must be used within AuthProvider');
+    } finally {
+      silenceReact.mockRestore();
+    }
   });
 
   it('returns context value when inside provider', () => {
     const value = {
-      user: { username: 'u', email: 'u@x.com', roles: [], privileges: [] },
+      user: { username: 'u', email: 'u@x.com', roles: [], privileges: [], forestClientNumbers: [] },
       isAuthenticated: true,
       isLoading: false,
       isSigningOut: false,

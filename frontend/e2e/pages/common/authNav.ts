@@ -25,20 +25,24 @@ import { type Page } from '@playwright/test';
 //     safe and clientSideNavigate() is optional (kept for parity/other apps).
 // ---------------------------------------------------------------------------
 
-/** localStorage key MockAuthProvider reads the role from (MOCK_ROLE_KEY in MockAuthProvider.tsx). */
+/** localStorage key the mock user's role is read from (MOCK_ROLE_KEY in src/context/auth/mockUser.ts). */
 const MOCK_ROLE_KEY = 'csp.mockRole';
+/** localStorage key a mock SUBMITTER's forest clients are read from (MOCK_FOREST_CLIENTS_KEY in mockUser.ts). */
+const MOCK_FOREST_CLIENTS_KEY = 'csp.mockForestClients';
 
 /**
  * Roles CSP's mock provider accepts. These are the EXACT members of `ROLES` in
- * frontend/src/context/auth/permissions.ts — `['ADMIN', 'APPROVE', 'VIEW']`. The provider maps `X`
- * to the CSS group `CSP_X`.
+ * frontend/src/context/auth/permissions.ts. The provider maps a staff role `X` to the IDIR code
+ * `CSP_X`, and SUBMITTER to a Business BCeID user holding `CSP_SUBMITTER_FOREST_CLIENT-<n>` for
+ * each mock forest client. The browser sends that identity to the backend's MockRequestFilter on
+ * every API call, so the API enforces the same role the UI shows.
  *
  * Getting this wrong is silent: `MockAuthProvider.getStoredRole()` falls back to 'ADMIN' for any
  * value not in that list, so a scenario asking for a role that does not exist runs with FULL ADMIN
  * rights and its permission assertions pass while proving nothing. `assertMockRole` below turns
  * that into a loud failure instead.
  */
-export const MOCK_ROLES = ['ADMIN', 'APPROVE', 'VIEW'] as const;
+export const MOCK_ROLES = ['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER'] as const;
 export type MockRole = (typeof MOCK_ROLES)[number];
 
 /** Fail loudly on a role the app does not define, rather than silently getting ADMIN. */
@@ -64,7 +68,12 @@ export const MOCK_USER_ROLE: MockRole = 'ADMIN';
  * context), so the very first render is already authenticated as `role` — no login step, and no
  * race against a redirect to the welcome screen. Call this before the first navigation.
  */
-export async function signInAsMockUser(page: Page, role: MockRole = MOCK_USER_ROLE): Promise<void> {
+export async function signInAsMockUser(
+  page: Page,
+  role: MockRole = MOCK_USER_ROLE,
+  /** The forest clients a SUBMITTER holds; ignored for staff roles. Defaults to the app's mock client. */
+  forestClients: readonly string[] = [],
+): Promise<void> {
   // Enable mock auth for THIS BROWSER ONLY, by rewriting the runtime config as it is served.
   //
   // An explicit `window.appConfig.mockUser` decides mock auth in src/env.ts, even when the
@@ -89,15 +98,17 @@ export async function signInAsMockUser(page: Page, role: MockRole = MOCK_USER_RO
   });
 
   await page.addInitScript(
-    ([key, value]) => {
+    ([roleKey, roleValue, clientsKey, clientsValue]) => {
       try {
-        window.localStorage.setItem(key, value);
+        window.localStorage.setItem(roleKey, roleValue);
+        if (clientsValue) window.localStorage.setItem(clientsKey, clientsValue);
+        else window.localStorage.removeItem(clientsKey);
       } catch {
         // Private mode / blocked storage: MockAuthProvider then falls back to ADMIN, which is the
         // default this helper asks for anyway. Never fail the scenario on a storage write.
       }
     },
-    [MOCK_ROLE_KEY, role] as const,
+    [MOCK_ROLE_KEY, role, MOCK_FOREST_CLIENTS_KEY, forestClients.join(',')] as const,
   );
 }
 
