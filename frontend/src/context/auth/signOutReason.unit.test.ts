@@ -29,7 +29,7 @@ describe('signOutReason', () => {
     setSignOutReason('timeout');
 
     // clearPersistedTableState() removes only the `csp.table.` namespace, and
-    // clearStoredTokens() only the Cognito prefix — neither may take this key.
+    // endOidcSession() only the oidc-client-ts user — neither may take this key.
     window.sessionStorage.setItem('csp.table.sortCode.v1.page', '3');
     for (const key of Object.keys({ ...window.sessionStorage })) {
       if (key.startsWith('csp.table.')) window.sessionStorage.removeItem(key);

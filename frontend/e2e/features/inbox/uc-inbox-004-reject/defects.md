@@ -63,8 +63,8 @@ Search.
 ### #4 — No VIEW-role scenario, and WebADE provisioning is not automatable — OPEN
 **What's wrong:** the scenario runs as `CSP_ADMIN`. Reject is permission-gated
 (`invoiceDetails/Reject`) and the `VIEW` arm is unexercised. Separately, the legacy Background's
-"authenticated and provisioned for invoiceDetails/Reject" has no equivalent — CSP uses Cognito
-groups and the local mock provider grants one role unconditionally.
+"authenticated and provisioned for invoiceDetails/Reject" has no equivalent — CSP uses FAM
+roles and the local mock provider grants one role unconditionally.
 **Expected vs actual:** not a fault; untested surface plus a changed mechanism.
 **Next:** author the VIEW arm with `Given I am signed in as a CSP VIEW`; drop WebADE provisioning
 from the spec.

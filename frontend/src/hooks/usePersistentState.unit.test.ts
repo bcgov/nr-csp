@@ -66,12 +66,12 @@ describe('clearPersistedTableState', () => {
   it('removes only csp.table.* keys and leaves others intact', () => {
     window.sessionStorage.setItem('csp.table.search.v1.page', '2');
     window.sessionStorage.setItem('csp.table.inbox.v1.keyword', '"abc"');
-    window.sessionStorage.setItem('amplify.foo', 'keep');
+    window.sessionStorage.setItem('oidc.foo', 'keep');
 
     clearPersistedTableState();
 
     expect(window.sessionStorage.getItem('csp.table.search.v1.page')).toBeNull();
     expect(window.sessionStorage.getItem('csp.table.inbox.v1.keyword')).toBeNull();
-    expect(window.sessionStorage.getItem('amplify.foo')).toBe('keep');
+    expect(window.sessionStorage.getItem('oidc.foo')).toBe('keep');
   });
 });

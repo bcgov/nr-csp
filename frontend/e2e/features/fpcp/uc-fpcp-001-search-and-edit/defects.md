@@ -69,7 +69,7 @@ concurrency behaviour is visible.
 ### #4 — No VIEW-role scenario, and WebADE provisioning is not automatable — OPEN
 **What's wrong:** the scenario runs as `CSP_ADMIN`. The Edit/Delete/Add controls are
 permission-gated and the `VIEW` arm is unexercised. Separately, the legacy Background's
-"prodFlatPriceConv/Edit and /Save permissions" has no direct equivalent — CSP uses Cognito groups,
+"prodFlatPriceConv/Edit and /Save permissions" has no direct equivalent — CSP uses FAM roles,
 and note the app has no separate *Save* permission for this screen; Edit covers the whole operation.
 **Expected vs actual:** untested surface plus a changed mechanism.
 **Next:** unlike the invoice Unapprove case, this one should **pass** today — the gating is wired

@@ -52,7 +52,7 @@ invoice path had no coverage anywhere; the review journey covers Inbox → submi
 | No Save / Approve / Reject / Submit / Delete / Cancel buttons | S01 `:36-41` | one shared Invoice screen, buttons gated by status | `journey` `@S01 @p0` (asserts each is **disabled**) | covered, re-grounded | **Spec gap #1** |
 | "Back" button visible | S01 `:42` | the "Invoice search" breadcrumb from `fromSearch` | `journey` `@S01 @p0` | covered, re-grounded | Spec gap #2 |
 | Every validation error on the record is shown | implied by "review … for audit" | `routeServerErrors` + Carbon's disabled-field behaviour | `journey` `@S01 @p0` — asserts **both** banner errors | covered (was BUG-001, now fixed) | BUG-001 (fixed) |
-| Background — WebADE auth + `search/Search`, `search/Clear`, `search/Details` | both Backgrounds | Cognito groups / `usePermission` | — | not-applicable | Coverage gap #3 |
+| Background — WebADE auth + `search/Search`, `search/Clear`, `search/Details` | both Backgrounds | FAM roles / `usePermission` | — | not-applicable | Coverage gap #3 |
 
 **Symmetry check.** One mirror matrix is in play, and it is deliberately lopsided:
 

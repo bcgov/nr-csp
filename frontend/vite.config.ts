@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         workbox: {
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+          // OpenShift mounts each environment's config.js at deploy time. Its precache
+          // revision would come from the unchanging placeholder, so a precached copy
+          // would never update; the browser must always fetch it from the server.
+          globIgnores: ['**/node_modules/**/*', 'config.js'],
           // Prevent the service worker from intercepting /api/* navigation
           // requests (e.g. Swagger UI). Without this, Workbox applies the
           // navigation fallback and serves the React shell on first load.
