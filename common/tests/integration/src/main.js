@@ -37,12 +37,14 @@ await check('GET /api/health returns 200 with status UP', async () => {
   expect(body.status === 'UP', `expected status UP, got ${JSON.stringify(body)}`);
 });
 
-await check('GET /api/v3/api-docs returns the OpenAPI document', async () => {
-  const res = await fetch(`${baseUrl}/api/v3/api-docs`);
-  expect(res.status === 200, `expected 200, got ${res.status}`);
-  const body = await res.json();
-  expect(typeof body.openapi === 'string', 'response is not an OpenAPI document');
-});
+// /api/health is the only public endpoint. The API docs are served only in local development
+// (API_DOCS_ENABLED), and need a staff role even there.
+for (const path of ['/api/v3/api-docs', '/api/swagger-ui.html', '/api/swagger-ui/index.html']) {
+  await check(`GET ${path} without a token is rejected with 401`, async () => {
+    const res = await fetch(`${baseUrl}${path}`);
+    expect(res.status === 401, `expected 401, got ${res.status}`);
+  });
+}
 
 await check('POST /api/R10 without a token is rejected with 401', async () => {
   const res = await fetch(`${baseUrl}/api/R10`, {

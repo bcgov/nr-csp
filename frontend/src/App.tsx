@@ -11,6 +11,7 @@ import { NotificationProvider } from '@/context/notification/NotificationProvide
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import { ThemeProvider } from '@/context/theme/ThemeProvider';
 import { WelcomePage } from '@/pages/Welcome';
+import { ROUTE_PAGES } from '@/routes/access';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { ROUTES } from '@/routes/routePaths';
 
@@ -93,7 +94,7 @@ export default function App() {
                       <Route
                         path={ROUTES.SEARCH}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.SEARCH]}>
                             <SearchPage />
                           </ProtectedRoute>
                         }
@@ -101,7 +102,7 @@ export default function App() {
                       <Route
                         path={ROUTES.SUBMISSION_HISTORY}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.SUBMISSION_HISTORY]}>
                             <SubmissionHistoryPage />
                           </ProtectedRoute>
                         }
@@ -109,7 +110,7 @@ export default function App() {
                       <Route
                         path={`${ROUTES.SUBMISSION_HISTORY}/:submissionId`}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.SUBMISSION_HISTORY]}>
                             <ViewSubmissionPage />
                           </ProtectedRoute>
                         }
@@ -117,7 +118,7 @@ export default function App() {
                       <Route
                         path={ROUTES.UPLOAD_SUBMISSION}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.UPLOAD_SUBMISSION]}>
                             <UploadSubmissionPage />
                           </ProtectedRoute>
                         }
@@ -125,7 +126,7 @@ export default function App() {
                       <Route
                         path={ROUTES.INBOX}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.INBOX]}>
                             <InboxPage />
                           </ProtectedRoute>
                         }
@@ -136,7 +137,7 @@ export default function App() {
                       <Route
                         path={ROUTES.INVOICE}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.INVOICE]}>
                             <InvoicePage />
                           </ProtectedRoute>
                         }
@@ -144,7 +145,7 @@ export default function App() {
                       <Route
                         path={`${ROUTES.INVOICE}/:id`}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.INVOICE]}>
                             <InvoicePage />
                           </ProtectedRoute>
                         }
@@ -152,7 +153,7 @@ export default function App() {
                       <Route
                         path={ROUTES.SORT_CODE}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.SORT_CODE]}>
                             <SortCodePage />
                           </ProtectedRoute>
                         }
@@ -160,7 +161,7 @@ export default function App() {
                       <Route
                         path={ROUTES.FLAT_PRICE_CONVERSION}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.FLAT_PRICE_CONVERSION]}>
                             <FlatPriceConversionPage />
                           </ProtectedRoute>
                         }
@@ -168,7 +169,7 @@ export default function App() {
                       <Route
                         path={ROUTES.R06_INVOICE_PRINT_OUT}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.R06_INVOICE_PRINT_OUT]}>
                             <R06InvoicePrintOutPage />
                           </ProtectedRoute>
                         }
@@ -176,7 +177,7 @@ export default function App() {
                       <Route
                         path={ROUTES.R07_RECONCILIATION}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.R07_RECONCILIATION]}>
                             <R07ReconciliationPage />
                           </ProtectedRoute>
                         }
@@ -184,7 +185,7 @@ export default function App() {
                       <Route
                         path={ROUTES.R08_INVOICE_AUDIT}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.R08_INVOICE_AUDIT]}>
                             <R08InvoiceAuditPage />
                           </ProtectedRoute>
                         }
@@ -192,7 +193,7 @@ export default function App() {
                       <Route
                         path={ROUTES.R10_LOG_SALES_SPECIES}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.R10_LOG_SALES_SPECIES]}>
                             <R10LogSalesSpeciesPage />
                           </ProtectedRoute>
                         }
@@ -200,7 +201,7 @@ export default function App() {
                       <Route
                         path={ROUTES.R11_AMV}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.R11_AMV]}>
                             <R11AverageMarketValuesPage />
                           </ProtectedRoute>
                         }
@@ -208,7 +209,7 @@ export default function App() {
                       <Route
                         path={ROUTES.R12_CFPA_EXTRACT}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.R12_CFPA_EXTRACT]}>
                             <R12CfpaExtractPage />
                           </ProtectedRoute>
                         }
@@ -216,7 +217,7 @@ export default function App() {
                       <Route
                         path={ROUTES.R13_AD_HOC}
                         element={
-                          <ProtectedRoute>
+                          <ProtectedRoute page={ROUTE_PAGES[ROUTES.R13_AD_HOC]}>
                             <R13AdHocReportingPage />
                           </ProtectedRoute>
                         }

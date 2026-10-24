@@ -68,6 +68,41 @@ describe('apiClient request interceptor', () => {
     expect(mockGetOidcUser).not.toHaveBeenCalled();
   });
 
+  describe('mock identity headers', () => {
+    const sentHeaders = async () => {
+      await sendRequest();
+      const { headers } = adapter.mock.calls[0][0];
+      return { idp: headers.get('X-Mock-Identity-Provider'), roles: headers.get('X-Mock-Roles') };
+    };
+
+    afterEach(() => localStorage.clear());
+
+    it('tells the mock backend which staff role the UI is signed in as', async () => {
+      (env as { mockUser: boolean }).mockUser = true;
+      localStorage.setItem('csp.mockRole', 'VIEW');
+
+      expect(await sentHeaders()).toEqual({ idp: 'idir', roles: 'CSP_VIEW' });
+    });
+
+    it('sends a mock submitter as Business BCeID with client-scoped roles', async () => {
+      (env as { mockUser: boolean }).mockUser = true;
+      localStorage.setItem('csp.mockRole', 'SUBMITTER');
+      localStorage.setItem('csp.mockForestClients', '00000001,00000002');
+
+      expect(await sentHeaders()).toEqual({
+        idp: 'bceidbusiness',
+        roles: 'CSP_SUBMITTER_FOREST_CLIENT-00000001,CSP_SUBMITTER_FOREST_CLIENT-00000002',
+      });
+    });
+
+    it('never sends mock headers with real authentication', async () => {
+      mockGetOidcUser.mockResolvedValue({ access_token: 'access-token' } as User);
+      localStorage.setItem('csp.mockRole', 'SUBMITTER');
+
+      expect(await sentHeaders()).toEqual({ idp: undefined, roles: undefined });
+    });
+  });
+
   it('ends the session and does not send the request when SSO rejects the renewal', async () => {
     const rejected = new ErrorResponse({ error: 'invalid_grant' });
     mockGetOidcUser.mockRejectedValue(rejected);

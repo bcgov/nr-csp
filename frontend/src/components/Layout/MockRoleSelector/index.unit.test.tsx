@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { MOCK_ROLE_KEY } from '@/context/auth/MockAuthProvider';
+import { MOCK_ROLE_KEY } from '@/context/auth/mockUser';
 
 import { MockRoleSelector } from './index';
 
@@ -12,12 +12,13 @@ beforeEach(() => {
 });
 
 describe('MockRoleSelector', () => {
-  it('renders a select with ADMIN, APPROVE and VIEW options', () => {
+  it('renders a select with the staff roles and the Business BCeID submitter', () => {
     render(<MockRoleSelector />);
     expect(screen.getByRole('combobox')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'ADMIN' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'APPROVE' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'VIEW' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'SUBMITTER (BCeID)' })).toHaveValue('SUBMITTER');
   });
 
   it('shows ADMIN as selected when localStorage is empty', () => {

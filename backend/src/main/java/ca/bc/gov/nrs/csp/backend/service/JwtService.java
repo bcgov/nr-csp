@@ -2,7 +2,7 @@ package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.config.JwtProperties;
 import ca.bc.gov.nrs.csp.backend.exception.JwtSigningKeyException;
-import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
+import ca.bc.gov.nrs.csp.backend.security.CspAuthorities;
 import com.auth0.jwk.JwkProvider;
 import com.auth0.jwk.JwkProviderBuilder;
 import io.jsonwebtoken.Claims;
@@ -13,19 +13,15 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.security.Key;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 
-/** Validates CSS access tokens and preserves CSP's existing staff permission contract. */
+/** Validates CSS access tokens and maps their FAM roles to CSP authorities. */
 @Service
 public class JwtService {
     private static final String IDENTITY_PROVIDER = "identity_provider";
-    private static final Set<String> STAFF_PROVIDERS = Set.of("idir", "azureidir");
     private final JwtProperties jwtProperties;
     private JwkProvider provider;
     @Value("${auth.mock.enabled:false}")
@@ -66,7 +62,8 @@ public class JwtService {
         Claims claims = parsed.getPayload();
         String idp = claims.get(IDENTITY_PROVIDER, String.class);
         if (!"RS256".equals(parsed.getHeader().getAlgorithm()) || claims.getExpiration() == null
-                || !(STAFF_PROVIDERS.contains(idp == null ? "" : idp) || "bceidbusiness".equals(idp))
+                || !(CspAuthorities.STAFF_PROVIDERS.contains(idp == null ? "" : idp)
+                        || CspAuthorities.BCEID_BUSINESS.equals(idp))
                 || auditUsername(claims).isBlank()) {
             throw new JwtException("A CSP user access token with an audit identity is required");
         }
@@ -76,30 +73,25 @@ public class JwtService {
     public String extractUsername(String token) { return auditUsername(extractAllClaims(token)); }
 
     private String auditUsername(Claims claims) {
-        String key = "bceidbusiness".equals(claims.get(IDENTITY_PROVIDER)) ? "bceid_username" : "idir_username";
+        String key = CspAuthorities.BCEID_BUSINESS.equals(claims.get(IDENTITY_PROVIDER)) ? "bceid_username" : "idir_username";
         Object value = claims.get(key);
         return value instanceof String username ? username.trim() : "";
     }
 
+    /** Staff roles for IDIR, forest-client-scoped submitter roles for Business BCeID; see {@link CspAuthorities}. */
     public List<GrantedAuthority> extractAuthorities(String token) {
         Claims claims = extractAllClaims(token);
-        // Business BCeID cannot inherit CSP staff capabilities. Industry client scope
-        // requires its own agreed role/capability contract before granting app access.
-        if (!STAFF_PROVIDERS.contains(claims.get(IDENTITY_PROVIDER, String.class))) return List.of();
         List<String> roles = stringRoles(claims.get("client_roles"));
         if (roles.isEmpty() && claims.get("resource_access") instanceof Map<?, ?> byClient
                 && byClient.get(jwtProperties.clientId()) instanceof Map<?, ?> client) {
             roles = stringRoles(client.get("roles"));
         }
-        List<String> clientRoles = roles;
-        return List.of(Roles.ADMIN, Roles.APPROVE, Roles.VIEW).stream()
-                .filter(role -> clientRoles.contains("CSP_" + role))
-                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role)).toList();
+        return CspAuthorities.fromFamRoles(claims.get(IDENTITY_PROVIDER, String.class), roles);
     }
 
     private static List<String> stringRoles(Object claim) {
-        return claim instanceof List<?> values ? values.stream().filter(String.class::isInstance)
-                .map(value -> ((String) value).trim().toUpperCase(Locale.ROOT))
-                .filter(role -> !role.isBlank()).toList() : List.of();
+        return claim instanceof List<?> values
+                ? values.stream().filter(String.class::isInstance).map(String.class::cast).toList()
+                : List.of();
     }
 }

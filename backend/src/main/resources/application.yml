@@ -43,14 +43,18 @@ csp:
       body-namespace: http://www.for.gov.bc.ca/schema/csp
       body-root: CSPSubmission
 
+# Swagger UI and the OpenAPI document are for local development only: off unless
+# API_DOCS_ENABLED=true, which the OpenShift templates never pass. Even then they need a
+# staff role, like every other /api path (SecurityConfig).
 springdoc:
   api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
     path: /api/v3/api-docs
   swagger-ui:
     path: /api/swagger-ui.html
     url: /api/v3/api-docs
     disable-swagger-default-url: true
-    enabled: true
+    enabled: ${API_DOCS_ENABLED:false}
 
 # ===================================================================
 # JWT / JWKS Configuration
@@ -96,6 +100,7 @@ auth:
   mock:
     enabled: ${AUTH_MOCK_ENABLED:true}
     username: local-dev-user
+    identity-provider: ${AUTH_MOCK_IDENTITY_PROVIDER:idir}
     roles: ${AUTH_MOCK_ROLES:ADMIN}
 
 logging:

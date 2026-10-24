@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 
@@ -10,6 +10,13 @@ const useSubmissionDetailQuery = vi.fn();
 vi.mock('@/services/submissionHistory.service', () => ({
   useSubmissionDetailQuery: (id: string | undefined) => useSubmissionDetailQuery(id),
 }));
+
+const canOpenInvoice = vi.fn(() => true);
+vi.mock('@/context/auth/usePermission', () => ({ usePermission: () => canOpenInvoice() }));
+
+afterEach(() => {
+  canOpenInvoice.mockReturnValue(true);
+});
 
 import { ViewSubmissionPage } from './index';
 
@@ -165,6 +172,17 @@ describe('ViewSubmissionPage', () => {
     expect(screen.getByText('Rejected')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'INV-100' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'INV-101' })).toBeInTheDocument();
+  });
+
+  it('shows plain invoice numbers to a user who cannot open invoice details, such as a submitter', () => {
+    canOpenInvoice.mockReturnValue(false);
+    useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false });
+
+    renderPage();
+
+    expect(screen.getByText('INV-100')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'INV-100' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'INV-101' })).not.toBeInTheDocument();
   });
 
   it('strips the mailto: prefix from the email address', () => {

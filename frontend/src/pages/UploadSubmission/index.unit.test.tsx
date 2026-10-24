@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { useAuth } from '@/context/auth/useAuth';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
 import {
   parseSubmission,
@@ -14,6 +15,10 @@ import {
 } from '@/services/cspSubmission.service';
 import { type ValidationMessageResponse } from '@/services/invoice.service';
 import { downloadBlob } from '@/utils/report';
+
+import { UploadSubmissionPage } from './index';
+
+import type { Role } from '@/context/auth/permissions';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -30,12 +35,12 @@ vi.mock('@/services/cspSubmission.service', async (orig) => ({
   submitSubmission: vi.fn(),
 }));
 
+vi.mock('@/context/auth/useAuth', () => ({ useAuth: vi.fn() }));
+
 vi.mock('@/utils/report', async (orig) => ({
   ...(await orig<typeof import('@/utils/report')>()),
   downloadBlob: vi.fn(),
 }));
-
-import { UploadSubmissionPage } from './index';
 
 const mockParse = vi.mocked(parseSubmission);
 const mockValidate = vi.mocked(validateSubmissionBusiness);
@@ -169,8 +174,14 @@ async function uploadAndSettle() {
   return utils;
 }
 
+const signInAs = (privileges: Role[], forestClientNumbers: string[] = []) =>
+  vi.mocked(useAuth).mockReturnValue({
+    user: { username: 'u', email: '', roles: [], privileges, forestClientNumbers },
+  } as unknown as ReturnType<typeof useAuth>);
+
 beforeEach(() => {
   vi.clearAllMocks();
+  signInAs(['APPROVE']);
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -885,5 +896,67 @@ describe('UploadSubmissionPage', () => {
 
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Submission Details' })).not.toBeInTheDocument());
     expect(screen.getByText('No XML file uploaded.')).toBeInTheDocument();
+  });
+
+  describe('as a Business BCeID submitter', () => {
+    it("shows the API's refusal of another client on the client field and blocks Submit", async () => {
+      signInAs(['SUBMITTER'], ['00000001']);
+      mockParse.mockResolvedValue(makeParse());
+      mockValidate.mockRejectedValue(
+        envelopeError(
+          makeValidation({
+            valid: false,
+            code: 'CLIENT_NOT_AUTHORIZED',
+            message: 'Submission client is not one of your forest clients',
+            acceptedInvoices: [],
+            errors: [
+              msg(
+                'submission.client.not.authorized.error',
+                'submission: Submission client number 12345678 is not one of your forest clients.',
+              ),
+            ],
+          }),
+        ),
+      );
+
+      await uploadAndSettle();
+
+      expect(
+        await screen.findByText('Submission client number 12345678 is not one of your forest clients.'),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    });
+
+    it('refuses an edit to a client they do not hold without asking the server', async () => {
+      signInAs(['SUBMITTER'], ['00000001', '12345678']);
+      mockParse.mockResolvedValue(makeParse());
+      mockValidate.mockResolvedValue(makeValidation());
+
+      await uploadAndSettle();
+      await screen.findByText('sub.xml was uploaded with no issues found.');
+
+      fireEvent.change(screen.getByLabelText('Submission Client Number'), { target: { value: '00099999' } });
+
+      expect(
+        await screen.findByText('Submission client number must be one of your forest clients: 00000001, 12345678.'),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+      await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_SETTLE_MS));
+      expect(mockValidate).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-validates an edit to another of their own clients', async () => {
+      signInAs(['SUBMITTER'], ['00000001', '12345678']);
+      mockParse.mockResolvedValue(makeParse());
+      mockValidate.mockResolvedValue(makeValidation());
+
+      await uploadAndSettle();
+      await screen.findByText('sub.xml was uploaded with no issues found.');
+
+      fireEvent.change(screen.getByLabelText('Submission Client Number'), { target: { value: '00000001' } });
+
+      await waitFor(() => expect(mockValidate).toHaveBeenCalledTimes(2), { timeout: TIMEOUT });
+      expect(screen.queryByText(/must be one of your forest clients/)).not.toBeInTheDocument();
+    });
   });
 });

@@ -99,7 +99,7 @@ export interface LineItemFieldValues {
   invType: string;
 }
 
-export const INVTYPE_ADJUST = 'ADJ';
+const INVTYPE_ADJUST = 'ADJ';
 
 /**
  * A line item's `$Amount` preview — volume × price, rounded to 2dp.

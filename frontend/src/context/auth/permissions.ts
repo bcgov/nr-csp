@@ -7,218 +7,222 @@
  */
 
 // ── InvoiceSearch ─────────────────────────────────────────────────────────────
-export const INVOICE_SEARCH = 'InvoiceSearch';
-export const INVOICE_SEARCH_SEARCH = 'InvoiceSearch/Search';
+const INVOICE_SEARCH = 'InvoiceSearch';
+const INVOICE_SEARCH_SEARCH = 'InvoiceSearch/Search';
 
 // ── LogSourceCode ─────────────────────────────────────────────────────────────
-export const LOG_SOURCE_CODE = 'LogSourceCode';
+const LOG_SOURCE_CODE = 'LogSourceCode';
 
 // ── esfSubmit (ADMIN only) ────────────────────────────────────────────────────
 export const ESF_SUBMIT = 'esfSubmit';
 
 // ── inbox ─────────────────────────────────────────────────────────────────────
 export const INBOX = 'inbox';
-export const INBOX_BACK = 'inbox/Back';
-export const INBOX_CLEAR = 'inbox/Clear';
-export const INBOX_SEARCH = 'inbox/Search';
+const INBOX_BACK = 'inbox/Back';
+const INBOX_CLEAR = 'inbox/Clear';
+const INBOX_SEARCH = 'inbox/Search';
 
 // ── invoiceDetails ────────────────────────────────────────────────────────────
 export const INVOICE_DETAILS = 'invoiceDetails';
 export const INVOICE_DETAILS_APPROVE = 'invoiceDetails/Approve';
-export const INVOICE_DETAILS_BACK = 'invoiceDetails/Back';
-export const INVOICE_DETAILS_CSV = 'invoiceDetails/CSV';
+const INVOICE_DETAILS_BACK = 'invoiceDetails/Back';
+const INVOICE_DETAILS_CSV = 'invoiceDetails/CSV';
 export const INVOICE_DETAILS_CANCEL = 'invoiceDetails/Cancel';
 export const INVOICE_DETAILS_DELETE = 'invoiceDetails/Delete';
 export const INVOICE_DETAILS_DUPLICATE = 'invoiceDetails/Duplicate';
-export const INVOICE_DETAILS_NEW_LINE_ITEM = 'invoiceDetails/New Line Item';
-export const INVOICE_DETAILS_PDF = 'invoiceDetails/PDF';
-export const INVOICE_DETAILS_PRINTS = 'invoiceDetails/Prints';
+const INVOICE_DETAILS_NEW_LINE_ITEM = 'invoiceDetails/New Line Item';
+const INVOICE_DETAILS_PDF = 'invoiceDetails/PDF';
+const INVOICE_DETAILS_PRINTS = 'invoiceDetails/Prints';
 export const INVOICE_DETAILS_REJECT = 'invoiceDetails/Reject';
 export const INVOICE_DETAILS_SAVE = 'invoiceDetails/Save';
-export const INVOICE_DETAILS_SAVE_INVOICE = 'invoiceDetails/Save Invoice';
+const INVOICE_DETAILS_SAVE_INVOICE = 'invoiceDetails/Save Invoice';
 export const INVOICE_DETAILS_SUBMIT = 'invoiceDetails/Submit';
 export const INVOICE_DETAILS_UNAPPROVE = 'invoiceDetails/Unapprove';
-export const INVOICE_DETAILS_UPDATE_GROUP = 'invoiceDetails/Update Group';
-export const INVOICE_DETAILS_XLS = 'invoiceDetails/XLS';
+const INVOICE_DETAILS_UPDATE_GROUP = 'invoiceDetails/Update Group';
+const INVOICE_DETAILS_XLS = 'invoiceDetails/XLS';
 
 // ── modelFlatPriceConv ────────────────────────────────────────────────────────
-export const MODEL_FLAT_PRICE_CONV = 'modelFlatPriceConv';
-export const MODEL_FLAT_PRICE_CONV_ADD_NEW_ROW = 'modelFlatPriceConv/Add New Row';
-export const MODEL_FLAT_PRICE_CONV_BACK = 'modelFlatPriceConv/Back';
-export const MODEL_FLAT_PRICE_CONV_CSV = 'modelFlatPriceConv/CSV';
-export const MODEL_FLAT_PRICE_CONV_CANCEL = 'modelFlatPriceConv/Cancel';
-export const MODEL_FLAT_PRICE_CONV_CLEAR = 'modelFlatPriceConv/Clear';
-export const MODEL_FLAT_PRICE_CONV_CLEAR_ALL_CREATE_NEW = 'modelFlatPriceConv/Clear All/Create New';
-export const MODEL_FLAT_PRICE_CONV_CLEAR_FILTERS = 'modelFlatPriceConv/Clear Filters';
-export const MODEL_FLAT_PRICE_CONV_CLEAR_RESULTS = 'modelFlatPriceConv/Clear Results';
-export const MODEL_FLAT_PRICE_CONV_COPY_DATA = 'modelFlatPriceConv/Copy Data';
-export const MODEL_FLAT_PRICE_CONV_DELETE = 'modelFlatPriceConv/Delete';
-export const MODEL_FLAT_PRICE_CONV_EDIT = 'modelFlatPriceConv/Edit';
-export const MODEL_FLAT_PRICE_CONV_PDF = 'modelFlatPriceConv/PDF';
-export const MODEL_FLAT_PRICE_CONV_PRINT = 'modelFlatPriceConv/Print';
-export const MODEL_FLAT_PRICE_CONV_SAVE = 'modelFlatPriceConv/Save';
-export const MODEL_FLAT_PRICE_CONV_SAVE_NEW_ROW = 'modelFlatPriceConv/Save New Row';
-export const MODEL_FLAT_PRICE_CONV_SEARCH = 'modelFlatPriceConv/Search';
-export const MODEL_FLAT_PRICE_CONV_XLS = 'modelFlatPriceConv/XLS';
+const MODEL_FLAT_PRICE_CONV = 'modelFlatPriceConv';
+const MODEL_FLAT_PRICE_CONV_ADD_NEW_ROW = 'modelFlatPriceConv/Add New Row';
+const MODEL_FLAT_PRICE_CONV_BACK = 'modelFlatPriceConv/Back';
+const MODEL_FLAT_PRICE_CONV_CSV = 'modelFlatPriceConv/CSV';
+const MODEL_FLAT_PRICE_CONV_CANCEL = 'modelFlatPriceConv/Cancel';
+const MODEL_FLAT_PRICE_CONV_CLEAR = 'modelFlatPriceConv/Clear';
+const MODEL_FLAT_PRICE_CONV_CLEAR_ALL_CREATE_NEW = 'modelFlatPriceConv/Clear All/Create New';
+const MODEL_FLAT_PRICE_CONV_CLEAR_FILTERS = 'modelFlatPriceConv/Clear Filters';
+const MODEL_FLAT_PRICE_CONV_CLEAR_RESULTS = 'modelFlatPriceConv/Clear Results';
+const MODEL_FLAT_PRICE_CONV_COPY_DATA = 'modelFlatPriceConv/Copy Data';
+const MODEL_FLAT_PRICE_CONV_DELETE = 'modelFlatPriceConv/Delete';
+const MODEL_FLAT_PRICE_CONV_EDIT = 'modelFlatPriceConv/Edit';
+const MODEL_FLAT_PRICE_CONV_PDF = 'modelFlatPriceConv/PDF';
+const MODEL_FLAT_PRICE_CONV_PRINT = 'modelFlatPriceConv/Print';
+const MODEL_FLAT_PRICE_CONV_SAVE = 'modelFlatPriceConv/Save';
+const MODEL_FLAT_PRICE_CONV_SAVE_NEW_ROW = 'modelFlatPriceConv/Save New Row';
+const MODEL_FLAT_PRICE_CONV_SEARCH = 'modelFlatPriceConv/Search';
+const MODEL_FLAT_PRICE_CONV_XLS = 'modelFlatPriceConv/XLS';
 
 // ── modelMPSConv ──────────────────────────────────────────────────────────────
-export const MODEL_MPS_CONV = 'modelMPSConv';
-export const MODEL_MPS_CONV_ADD_NEW_ROW = 'modelMPSConv/Add New Row';
-export const MODEL_MPS_CONV_BACK = 'modelMPSConv/Back';
-export const MODEL_MPS_CONV_CSV = 'modelMPSConv/CSV';
-export const MODEL_MPS_CONV_CANCEL = 'modelMPSConv/Cancel';
-export const MODEL_MPS_CONV_CLEAR_ALL_CREATE_NEW = 'modelMPSConv/Clear All/Create New';
-export const MODEL_MPS_CONV_COPY_DATA = 'modelMPSConv/Copy Data';
-export const MODEL_MPS_CONV_DELETE = 'modelMPSConv/Delete';
-export const MODEL_MPS_CONV_EDIT = 'modelMPSConv/Edit';
-export const MODEL_MPS_CONV_PDF = 'modelMPSConv/PDF';
-export const MODEL_MPS_CONV_PRINT = 'modelMPSConv/Print';
-export const MODEL_MPS_CONV_SAVE = 'modelMPSConv/Save';
-export const MODEL_MPS_CONV_SAVE_NEW_ROW = 'modelMPSConv/Save New Row';
-export const MODEL_MPS_CONV_SEARCH = 'modelMPSConv/Search';
-export const MODEL_MPS_CONV_XLS = 'modelMPSConv/XLS';
+const MODEL_MPS_CONV = 'modelMPSConv';
+const MODEL_MPS_CONV_ADD_NEW_ROW = 'modelMPSConv/Add New Row';
+const MODEL_MPS_CONV_BACK = 'modelMPSConv/Back';
+const MODEL_MPS_CONV_CSV = 'modelMPSConv/CSV';
+const MODEL_MPS_CONV_CANCEL = 'modelMPSConv/Cancel';
+const MODEL_MPS_CONV_CLEAR_ALL_CREATE_NEW = 'modelMPSConv/Clear All/Create New';
+const MODEL_MPS_CONV_COPY_DATA = 'modelMPSConv/Copy Data';
+const MODEL_MPS_CONV_DELETE = 'modelMPSConv/Delete';
+const MODEL_MPS_CONV_EDIT = 'modelMPSConv/Edit';
+const MODEL_MPS_CONV_PDF = 'modelMPSConv/PDF';
+const MODEL_MPS_CONV_PRINT = 'modelMPSConv/Print';
+const MODEL_MPS_CONV_SAVE = 'modelMPSConv/Save';
+const MODEL_MPS_CONV_SAVE_NEW_ROW = 'modelMPSConv/Save New Row';
+const MODEL_MPS_CONV_SEARCH = 'modelMPSConv/Search';
+const MODEL_MPS_CONV_XLS = 'modelMPSConv/XLS';
 
 // ── prodFlatPriceConv ─────────────────────────────────────────────────────────
 export const PROD_FLAT_PRICE_CONV = 'prodFlatPriceConv';
 export const PROD_FLAT_PRICE_CONV_ADD_NEW_ROW = 'prodFlatPriceConv/Add New Row';
-export const PROD_FLAT_PRICE_CONV_BACK = 'prodFlatPriceConv/Back';
-export const PROD_FLAT_PRICE_CONV_CSV = 'prodFlatPriceConv/CSV';
-export const PROD_FLAT_PRICE_CONV_CANCEL = 'prodFlatPriceConv/Cancel';
-export const PROD_FLAT_PRICE_CONV_CLEAR = 'prodFlatPriceConv/Clear';
-export const PROD_FLAT_PRICE_CONV_CLEAR_FILTERS = 'prodFlatPriceConv/Clear Filters';
-export const PROD_FLAT_PRICE_CONV_CLEAR_RESULTS = 'prodFlatPriceConv/Clear Results';
+const PROD_FLAT_PRICE_CONV_BACK = 'prodFlatPriceConv/Back';
+const PROD_FLAT_PRICE_CONV_CSV = 'prodFlatPriceConv/CSV';
+const PROD_FLAT_PRICE_CONV_CANCEL = 'prodFlatPriceConv/Cancel';
+const PROD_FLAT_PRICE_CONV_CLEAR = 'prodFlatPriceConv/Clear';
+const PROD_FLAT_PRICE_CONV_CLEAR_FILTERS = 'prodFlatPriceConv/Clear Filters';
+const PROD_FLAT_PRICE_CONV_CLEAR_RESULTS = 'prodFlatPriceConv/Clear Results';
 export const PROD_FLAT_PRICE_CONV_DELETE = 'prodFlatPriceConv/Delete';
 export const PROD_FLAT_PRICE_CONV_EDIT = 'prodFlatPriceConv/Edit';
-export const PROD_FLAT_PRICE_CONV_PDF = 'prodFlatPriceConv/PDF';
-export const PROD_FLAT_PRICE_CONV_PRINT = 'prodFlatPriceConv/Print';
-export const PROD_FLAT_PRICE_CONV_SAVE = 'prodFlatPriceConv/Save';
-export const PROD_FLAT_PRICE_CONV_SAVE_NEW_ROW = 'prodFlatPriceConv/Save New Row';
-export const PROD_FLAT_PRICE_CONV_SEARCH = 'prodFlatPriceConv/Search';
-export const PROD_FLAT_PRICE_CONV_XLS = 'prodFlatPriceConv/XLS';
+const PROD_FLAT_PRICE_CONV_PDF = 'prodFlatPriceConv/PDF';
+const PROD_FLAT_PRICE_CONV_PRINT = 'prodFlatPriceConv/Print';
+const PROD_FLAT_PRICE_CONV_SAVE = 'prodFlatPriceConv/Save';
+const PROD_FLAT_PRICE_CONV_SAVE_NEW_ROW = 'prodFlatPriceConv/Save New Row';
+const PROD_FLAT_PRICE_CONV_SEARCH = 'prodFlatPriceConv/Search';
+const PROD_FLAT_PRICE_CONV_XLS = 'prodFlatPriceConv/XLS';
 
 // ── prodMPSConv ───────────────────────────────────────────────────────────────
-export const PROD_MPS_CONV = 'prodMPSConv';
-export const PROD_MPS_CONV_ADD_NEW_ROW = 'prodMPSConv/Add New Row';
-export const PROD_MPS_CONV_BACK = 'prodMPSConv/Back';
-export const PROD_MPS_CONV_CSV = 'prodMPSConv/CSV';
-export const PROD_MPS_CONV_CANCEL = 'prodMPSConv/Cancel';
-export const PROD_MPS_CONV_DELETE = 'prodMPSConv/Delete';
-export const PROD_MPS_CONV_EDIT = 'prodMPSConv/Edit';
-export const PROD_MPS_CONV_PDF = 'prodMPSConv/PDF';
-export const PROD_MPS_CONV_PRINT = 'prodMPSConv/Print';
-export const PROD_MPS_CONV_SAVE = 'prodMPSConv/Save';
-export const PROD_MPS_CONV_SAVE_NEW_ROW = 'prodMPSConv/Save New Row';
-export const PROD_MPS_CONV_SEARCH = 'prodMPSConv/Search';
-export const PROD_MPS_CONV_XLS = 'prodMPSConv/XLS';
+const PROD_MPS_CONV = 'prodMPSConv';
+const PROD_MPS_CONV_ADD_NEW_ROW = 'prodMPSConv/Add New Row';
+const PROD_MPS_CONV_BACK = 'prodMPSConv/Back';
+const PROD_MPS_CONV_CSV = 'prodMPSConv/CSV';
+const PROD_MPS_CONV_CANCEL = 'prodMPSConv/Cancel';
+const PROD_MPS_CONV_DELETE = 'prodMPSConv/Delete';
+const PROD_MPS_CONV_EDIT = 'prodMPSConv/Edit';
+const PROD_MPS_CONV_PDF = 'prodMPSConv/PDF';
+const PROD_MPS_CONV_PRINT = 'prodMPSConv/Print';
+const PROD_MPS_CONV_SAVE = 'prodMPSConv/Save';
+const PROD_MPS_CONV_SAVE_NEW_ROW = 'prodMPSConv/Save New Row';
+const PROD_MPS_CONV_SEARCH = 'prodMPSConv/Search';
+const PROD_MPS_CONV_XLS = 'prodMPSConv/XLS';
 
 // ── prodSortCode ──────────────────────────────────────────────────────────────
 export const PROD_SORT_CODE = 'prodSortCode';
 export const PROD_SORT_CODE_ADD_NEW_ROW = 'prodSortCode/Add New Row';
-export const PROD_SORT_CODE_BACK = 'prodSortCode/Back';
-export const PROD_SORT_CODE_CSV = 'prodSortCode/CSV';
-export const PROD_SORT_CODE_CANCEL = 'prodSortCode/Cancel';
+const PROD_SORT_CODE_BACK = 'prodSortCode/Back';
+const PROD_SORT_CODE_CSV = 'prodSortCode/CSV';
+const PROD_SORT_CODE_CANCEL = 'prodSortCode/Cancel';
 export const PROD_SORT_CODE_DELETE = 'prodSortCode/Delete';
-export const PROD_SORT_CODE_PDF = 'prodSortCode/PDF';
-export const PROD_SORT_CODE_PRINT = 'prodSortCode/Print';
-export const PROD_SORT_CODE_SAVE = 'prodSortCode/Save';
-export const PROD_SORT_CODE_SAVE_NEW_ROW = 'prodSortCode/Save New Row';
-export const PROD_SORT_CODE_SEARCH = 'prodSortCode/Search';
-export const PROD_SORT_CODE_XLS = 'prodSortCode/XLS';
+const PROD_SORT_CODE_PDF = 'prodSortCode/PDF';
+const PROD_SORT_CODE_PRINT = 'prodSortCode/Print';
+const PROD_SORT_CODE_SAVE = 'prodSortCode/Save';
+const PROD_SORT_CODE_SAVE_NEW_ROW = 'prodSortCode/Save New Row';
+const PROD_SORT_CODE_SEARCH = 'prodSortCode/Search';
+const PROD_SORT_CODE_XLS = 'prodSortCode/XLS';
 
 // ── r06 ───────────────────────────────────────────────────────────────────────
 export const R06 = 'r06';
-export const R06_ADD = 'r06/Add';
-export const R06_BACK = 'r06/Back';
-export const R06_CSV = 'r06/CSV';
-export const R06_CLEAR = 'r06/Clear';
-export const R06_GENERATE_REPORT = 'r06/Generate Report';
-export const R06_PDF = 'r06/PDF';
-export const R06_XLS = 'r06/XLS';
-export const R06_REPORT = 'r06/r06Report';
+const R06_ADD = 'r06/Add';
+const R06_BACK = 'r06/Back';
+const R06_CSV = 'r06/CSV';
+const R06_CLEAR = 'r06/Clear';
+const R06_GENERATE_REPORT = 'r06/Generate Report';
+const R06_PDF = 'r06/PDF';
+const R06_XLS = 'r06/XLS';
+const R06_REPORT = 'r06/r06Report';
 
 // ── r07 ───────────────────────────────────────────────────────────────────────
 export const R07 = 'r07';
-export const R07_BACK = 'r07/Back';
-export const R07_CSV = 'r07/CSV';
-export const R07_CLEAR = 'r07/Clear';
-export const R07_GENERATE_REPORT = 'r07/Generate Report';
-export const R07_PDF = 'r07/PDF';
-export const R07_XLS = 'r07/XLS';
-export const R07_REPORT = 'r07/r07Report';
+const R07_BACK = 'r07/Back';
+const R07_CSV = 'r07/CSV';
+const R07_CLEAR = 'r07/Clear';
+const R07_GENERATE_REPORT = 'r07/Generate Report';
+const R07_PDF = 'r07/PDF';
+const R07_XLS = 'r07/XLS';
+const R07_REPORT = 'r07/r07Report';
 
 // ── r08 ───────────────────────────────────────────────────────────────────────
 export const R08 = 'r08';
-export const R08_BACK = 'r08/Back';
-export const R08_CSV = 'r08/CSV';
-export const R08_CLEAR = 'r08/Clear';
-export const R08_GENERATE_REPORT = 'r08/Generate Report';
-export const R08_PDF = 'r08/PDF';
-export const R08_XLS = 'r08/XLS';
-export const R08_REPORT = 'r08/r08Report';
+const R08_BACK = 'r08/Back';
+const R08_CSV = 'r08/CSV';
+const R08_CLEAR = 'r08/Clear';
+const R08_GENERATE_REPORT = 'r08/Generate Report';
+const R08_PDF = 'r08/PDF';
+const R08_XLS = 'r08/XLS';
+const R08_REPORT = 'r08/r08Report';
 
 // ── r10 ───────────────────────────────────────────────────────────────────────
 export const R10 = 'r10';
-export const R10_BACK = 'r10/Back';
-export const R10_CSV = 'r10/CSV';
-export const R10_CLEAR = 'r10/Clear';
-export const R10_GENERATE_REPORT = 'r10/Generate Report';
-export const R10_PDF = 'r10/PDF';
-export const R10_XLS = 'r10/XLS';
-export const R10_REPORT = 'r10/r10Report';
+const R10_BACK = 'r10/Back';
+const R10_CSV = 'r10/CSV';
+const R10_CLEAR = 'r10/Clear';
+const R10_GENERATE_REPORT = 'r10/Generate Report';
+const R10_PDF = 'r10/PDF';
+const R10_XLS = 'r10/XLS';
+const R10_REPORT = 'r10/r10Report';
 
 // ── r11 ───────────────────────────────────────────────────────────────────────
 export const R11 = 'r11';
-export const R11_BACK = 'r11/Back';
-export const R11_CSV = 'r11/CSV';
-export const R11_CLEAR = 'r11/Clear';
-export const R11_GENERATE_REPORT = 'r11/Generate Report';
-export const R11_PDF = 'r11/PDF';
-export const R11_XLS = 'r11/XLS';
-export const R11_REPORT = 'r11/r11Report';
+const R11_BACK = 'r11/Back';
+const R11_CSV = 'r11/CSV';
+const R11_CLEAR = 'r11/Clear';
+const R11_GENERATE_REPORT = 'r11/Generate Report';
+const R11_PDF = 'r11/PDF';
+const R11_XLS = 'r11/XLS';
+const R11_REPORT = 'r11/r11Report';
 
 // ── r12 ───────────────────────────────────────────────────────────────────────
 export const R12 = 'r12';
-export const R12_BACK = 'r12/Back';
-export const R12_CSV = 'r12/CSV';
-export const R12_CLEAR = 'r12/Clear';
-export const R12_GENERATE_REPORT = 'r12/Generate Report';
-export const R12_PDF = 'r12/PDF';
-export const R12_XLS = 'r12/XLS';
-export const R12_REPORT = 'r12/r12Report';
+const R12_BACK = 'r12/Back';
+const R12_CSV = 'r12/CSV';
+const R12_CLEAR = 'r12/Clear';
+const R12_GENERATE_REPORT = 'r12/Generate Report';
+const R12_PDF = 'r12/PDF';
+const R12_XLS = 'r12/XLS';
+const R12_REPORT = 'r12/r12Report';
 
 // ── r13 ───────────────────────────────────────────────────────────────────────
 export const R13 = 'r13';
-export const R13_BACK = 'r13/Back';
-export const R13_CSV = 'r13/CSV';
-export const R13_CLEAR = 'r13/Clear';
-export const R13_GENERATE_REPORT = 'r13/Generate Report';
-export const R13_PDF = 'r13/PDF';
-export const R13_XLS = 'r13/XLS';
-export const R13_REPORT = 'r13/r13Report';
+const R13_BACK = 'r13/Back';
+const R13_CSV = 'r13/CSV';
+const R13_CLEAR = 'r13/Clear';
+const R13_GENERATE_REPORT = 'r13/Generate Report';
+const R13_PDF = 'r13/PDF';
+const R13_XLS = 'r13/XLS';
+const R13_REPORT = 'r13/r13Report';
 
 // ── r14 ───────────────────────────────────────────────────────────────────────
-export const R14 = 'r14';
-export const R14_BACK = 'r14/Back';
-export const R14_CSV = 'r14/CSV';
-export const R14_CLEAR = 'r14/Clear';
-export const R14_GENERATE_REPORT = 'r14/Generate Report';
-export const R14_PDF = 'r14/PDF';
-export const R14_SEARCH = 'r14/Search';
-export const R14_XLS = 'r14/XLS';
-export const R14_REPORT = 'r14/r14Report';
+const R14 = 'r14';
+const R14_BACK = 'r14/Back';
+const R14_CSV = 'r14/CSV';
+const R14_CLEAR = 'r14/Clear';
+const R14_GENERATE_REPORT = 'r14/Generate Report';
+const R14_PDF = 'r14/PDF';
+const R14_SEARCH = 'r14/Search';
+const R14_XLS = 'r14/XLS';
+const R14_REPORT = 'r14/r14Report';
 
 // ── reports ───────────────────────────────────────────────────────────────────
 export const REPORTS = 'reports';
 
 // ── search ────────────────────────────────────────────────────────────────────
 export const SEARCH = 'search';
-export const SEARCH_BACK = 'search/Back';
-export const SEARCH_CLEAR = 'search/Clear';
-export const SEARCH_DETAILS = 'search/Details';
-export const SEARCH_SEARCH = 'search/Search';
+const SEARCH_BACK = 'search/Back';
+const SEARCH_CLEAR = 'search/Clear';
+const SEARCH_DETAILS = 'search/Details';
+const SEARCH_SEARCH = 'search/Search';
 
 // ── tableMaintenance (ADMIN only) ─────────────────────────────────────────────
 export const TABLE_MAINTENANCE = 'tableMaintenance';
+
+// ── XML submissions (not in the legacy matrix: legacy industry used ESF) ──────
+export const SUBMISSION_UPLOAD = 'submissionUpload';
+export const SUBMISSION_HISTORY = 'submissionHistory';
 
 // ── Role permission sets ──────────────────────────────────────────────────────
 
@@ -395,6 +399,8 @@ const ADMIN_ACTIONS = new Set([
   SEARCH_DETAILS,
   SEARCH_SEARCH,
   TABLE_MAINTENANCE,
+  SUBMISSION_UPLOAD,
+  SUBMISSION_HISTORY,
 ]);
 
 const APPROVE_ACTIONS = new Set([
@@ -526,6 +532,8 @@ const APPROVE_ACTIONS = new Set([
   SEARCH_CLEAR,
   SEARCH_DETAILS,
   SEARCH_SEARCH,
+  SUBMISSION_UPLOAD,
+  SUBMISSION_HISTORY,
 ]);
 
 const VIEW_ACTIONS = new Set([
@@ -646,15 +654,27 @@ const VIEW_ACTIONS = new Set([
   SEARCH_CLEAR,
   SEARCH_DETAILS,
   SEARCH_SEARCH,
+  SUBMISSION_UPLOAD,
+  SUBMISSION_HISTORY,
 ]);
 
-/** The three CSP role constants. Must match backend {@code Roles.java}. */
-export const ROLES = ['ADMIN', 'APPROVE', 'VIEW'] as const;
-export type Role = (typeof ROLES)[number]; // 'ADMIN' | 'APPROVE' | 'VIEW'
+/**
+ * SUBMITTER is the Business BCeID industry role: upload XML submissions and see
+ * their history, nothing else, and only for the forest clients it holds.
+ */
+const SUBMITTER_ACTIONS = new Set([SUBMISSION_UPLOAD, SUBMISSION_HISTORY]);
+
+/** The CSP role constants. Must match backend {@code Roles.java}. */
+export const ROLES = ['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER'] as const;
+export type Role = (typeof ROLES)[number]; // 'ADMIN' | 'APPROVE' | 'VIEW' | 'SUBMITTER'
+
+/** The IDIR staff roles; SUBMITTER is the only industry role. */
+export const STAFF_ROLES: readonly Role[] = ['ADMIN', 'APPROVE', 'VIEW'];
 
 /** Maps a role constant to its permitted action strings. */
 export const ROLE_PERMISSIONS: Record<Role, Set<string>> = {
   ADMIN: ADMIN_ACTIONS,
   APPROVE: APPROVE_ACTIONS,
   VIEW: VIEW_ACTIONS,
+  SUBMITTER: SUBMITTER_ACTIONS,
 };

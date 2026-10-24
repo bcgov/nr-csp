@@ -205,6 +205,10 @@ describe('CSS AuthProvider', () => {
   });
   describe('activity renewal', () => {
     async function renderWatched() {
+      // The watcher starts listening in a passive effect once the signed-in render commits.
+      // Seeing the signed-in DOM does not mean that effect has run: on a busy runner a keydown
+      // dispatched straight away reached no listener. So wait for the listener itself.
+      const listen = vi.spyOn(window, 'addEventListener');
       render(
         <RealAuthProvider>
           <IdleTimeoutWatcher />
@@ -212,6 +216,8 @@ describe('CSS AuthProvider', () => {
         </RealAuthProvider>,
       );
       await waitFor(() => expect(screen.getByTestId('privileges')).toHaveTextContent('VIEW'));
+      await waitFor(() => expect(listen).toHaveBeenCalledWith('keydown', expect.any(Function), expect.anything()));
+      listen.mockRestore();
     }
     it('keeps the access token fresh while the user is active', async () => {
       await renderWatched();

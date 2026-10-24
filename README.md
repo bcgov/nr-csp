@@ -128,7 +128,9 @@ Open `.env` and fill in the values:
 | `CSP_OIDC_ISSUER_URI` | real auth | CSS environment issuer |
 | `CSP_OIDC_CLIENT_ID` | real auth | Public CSS client ID |
 | `AUTH_MOCK_ENABLED` | for local dev | `true` enables backend mock auth — see [Authentication](#authentication) |
-| `AUTH_MOCK_ROLES` | no | Roles for the mock user: `ADMIN`, `APPROVE`, `VIEW` (comma-separated). Default `ADMIN` |
+| `AUTH_MOCK_IDENTITY_PROVIDER` | no | Mock user's identity provider: `idir` (default) or `bceidbusiness` |
+| `AUTH_MOCK_ROLES` | no | Mock user's FAM codes, comma-separated (`ADMIN`, `APPROVE`, `VIEW` are shorthand for `CSP_*`). Default `ADMIN` |
+| `API_DOCS_ENABLED` | for local dev | `true` serves Swagger UI and the OpenAPI document. Off by default, and never set in deployed environments |
 | `JAVA_OPTS` | no | JVM flags for the backend container; defaults to container-aware heap sizing |
 
 > Use single quotes if a value contains special characters: `PASSWORD='p@ss!'`
@@ -178,7 +180,7 @@ podman compose up --build
 | Service | URL |
 |---|---|
 | Frontend (dev server) | http://localhost:3000 |
-| Swagger UI | http://localhost:3000/api/swagger-ui/index.html |
+| Swagger UI (with `API_DOCS_ENABLED=true`, as a staff user) | http://localhost:3000/api/swagger-ui/index.html |
 
 > The backend is not exposed directly. All `/api/*` traffic is proxied through the frontend container to the backend.
 
@@ -266,17 +268,33 @@ issuer/client in the frontend configuration.
 
 ## Roles and permissions
 
-CSP retains three IDIR staff roles from the approved CSP client:
+Nobody gets into CSP without signing in with IDIR or Business BCeID **and** holding a CSP role
+for that identity provider. Everything else is denied, by the API and, to match it, the UI.
 
-| FAM code | Internal role | Existing permission set |
-| --- | --- | --- |
-| `CSP_ADMIN` | `ADMIN` | Existing admin permissions |
-| `CSP_APPROVE` | `APPROVE` | Existing entry and review permissions |
-| `CSP_VIEW` | `VIEW` | Existing read/export permissions |
+| Identity provider | FAM code in the token | Internal role | Can do |
+| --- | --- | --- | --- |
+| IDIR / IDIR MFA | `CSP_ADMIN` | `ADMIN` | Existing admin permissions |
+| IDIR / IDIR MFA | `CSP_APPROVE` | `APPROVE` | Existing entry and review permissions |
+| IDIR / IDIR MFA | `CSP_VIEW` | `VIEW` | Existing read/export permissions |
+| Business BCeID | `CSP_SUBMITTER_FOREST_CLIENT-<8 digits>`, one per client | `SUBMITTER` | Upload XML submissions and see submission history, for those clients only |
 
-Role codes must match exactly (case-insensitive). Bare or foreign-app roles grant no CSP
-access. Business BCeID industry capabilities/client scope remain a separate authorization
-work package and do not inherit these staff permissions.
+- Role codes must match exactly (case-insensitive). FAM `FAM:` bookkeeping roles, bare or
+  foreign-app roles, and any other identity provider grant nothing.
+- Staff codes never apply to a Business BCeID token, and `CSP_SUBMITTER` never applies to an IDIR
+  token.
+- `CSP_SUBMITTER` must exist in FAM as a **forest-client-scoped** role. FAM then issues
+  `CSP_SUBMITTER_FOREST_CLIENT-00012345` for each client granted, never the bare code. CSP parses
+  it as FAM's `CssRoleNaming.parse` does (suffixes stripped from the right), and accepts only that
+  exact base, a single forest-client scope and an 8-digit client number. A Business BCeID user
+  without one gets **No CSP access**.
+- A submitter may call only the four `/api/submissions/*` endpoints and the three
+  `/api/submission-history` reads (`SecurityConfig`); every other endpoint and page stays staff-only.
+  Validating or submitting XML returns 403 (`CLIENT_NOT_AUTHORIZED`), before any business rule
+  runs, when its submission client or any invoice's submitting party is a client they do not
+  hold. History lists every submission of all their clients together,
+  as legacy ESF showed a business all its submissions; another client's submission is not found.
+  `ClientScope` has no empty form, so a submitter whose clients are missing is denied rather
+  than shown everything.
 
 Authorization is **action-level, not role-level**. Controllers declare the specific action they
 need and a role→action map decides:
@@ -286,12 +304,21 @@ need and a role→action map decides:
 ```
 
 Action strings use the exact names from the FAM permission matrix — a page (`invoiceDetails`)
-or a page sub-action (`invoiceDetails/Approve`). The catalogue and the role→action map live in
-`backend/.../util/constants/PermissionConstants.java`, and the frontend keeps a mirrored copy
-in `permissions.ts` to drive button visibility. **The two must be kept in sync.**
+or a page sub-action (`invoiceDetails/Approve`). `submissionUpload` and `submissionHistory` are
+CSP's own, because legacy industry submitted through ESF. The catalogue and the role→action map
+live in `backend/.../util/constants/PermissionConstants.java`, and the frontend keeps a mirrored
+copy in `permissions.ts` to drive routes, navigation and button visibility. **The two must be kept
+in sync.** The FAM-code mapping is mirrored the same way: `CspAuthorities.java` in the backend and
+`famRoles.ts` in the frontend. Each route names its page action in `routes/access.ts`.
 
-Locally, `AUTH_MOCK_ROLES` sets the mock user's roles, and the UI's mock role selector
-(`components/Layout/MockRoleSelector`) switches between them without a restart.
+Locally, `AUTH_MOCK_IDENTITY_PROVIDER` and `AUTH_MOCK_ROLES` set the backend's default mock user;
+FAM codes are mapped exactly as a real token's are, and `ADMIN`, `APPROVE` and `VIEW` are
+shorthand for the staff codes. The UI's mock role selector (`components/Layout/MockRoleSelector`)
+switches between the staff roles and `SUBMITTER (BCeID)` without a restart, and sends the chosen
+identity to the backend with each request, so the API enforces what the UI shows. A mock
+submitter holds forest client `00000001`; set `localStorage['csp.mockForestClients']`
+(comma-separated) for others. Real Business BCeID sign-in needs Business BCeID enabled on the CSS
+client.
 
 ## Testing
 
@@ -617,8 +644,10 @@ has the environment, rather than in the frontend deploy template.
 | [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
 | [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Contributor code of conduct |
 
-API documentation is generated from the code and served by the running app at
-`http://localhost:3000/api/swagger-ui/index.html` (OpenAPI JSON at `/api/v3/api-docs`).
+API documentation is generated from the code and served locally at
+`http://localhost:3000/api/swagger-ui/index.html` (OpenAPI JSON at `/api/v3/api-docs`) when
+`API_DOCS_ENABLED=true`. Like the rest of `/api` it needs a staff role, which the default mock user
+has. Deployed environments don't serve it at all: `/api/health` is the only public endpoint.
 
 ## Contributing
 

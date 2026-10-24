@@ -3,6 +3,7 @@ package ca.bc.gov.nrs.csp.backend.controller;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionValidationResponse;
 import ca.bc.gov.nrs.csp.backend.exception.GlobalApiExceptionHandler;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.SubmissionValidationService;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.SubmitterResolver;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceDetailsType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
@@ -16,6 +17,7 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidat
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.SubmissionValidationProperties;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.parser.SubmissionEnvelopeStripper;
 import ca.bc.gov.nrs.csp.backend.service.CspSubmissionPersistenceService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.support.StaticMessageSource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.multipart.MultipartFile;
@@ -70,11 +75,29 @@ class CspSubmissionControllerTest {
 
     @BeforeEach
     void setUp() {
+        signIn("ADMIN");
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new CspSubmissionController(
-                        validationService, envelopeStripper, persistenceService, messageSource))
+                        validationService, envelopeStripper, persistenceService, new SubmitterResolver(), messageSource))
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private static void signIn(String... authorities) {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                "user", null, java.util.Arrays.stream(authorities).map(SimpleGrantedAuthority::new).toList()));
+    }
+
+    /** A Business BCeID submitter holding the given forest clients. */
+    private static void signInSubmitter(String... clients) {
+        List<String> authorities = new java.util.ArrayList<>(List.of("SUBMITTER"));
+        for (String client : clients) authorities.add("FOREST_CLIENT-" + client);
+        signIn(authorities.toArray(String[]::new));
     }
 
     private static MockMultipartFile file(String name, byte[] content) {
@@ -161,7 +184,7 @@ class CspSubmissionControllerTest {
         given(file.getBytes()).willThrow(new IOException("boom"));
 
         ResponseEntity<SubmissionValidationResponse> resp =
-                new CspSubmissionController(validationService, envelopeStripper, persistenceService, messageSource)
+                new CspSubmissionController(validationService, envelopeStripper, persistenceService, new SubmitterResolver(), messageSource)
                         .validateStructural(file);
 
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
@@ -517,6 +540,208 @@ class CspSubmissionControllerTest {
                 .andExpect(jsonPath("$.code").value("UPLOAD_MISSING"));
     }
 
+    // ---------- forest-client scope (Business BCeID submitters) ----------
+    // sampleSubmission() is for client 00012345.
+
+    @Test
+    void business_submitterForTheirOwnClient_validates() throws Exception {
+        signInSubmitter("00000001", "00012345");
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true));
+    }
+
+    @Test
+    void business_submitterForAnotherClient_is403OnTheClientField_andSkipsTheRules() throws Exception {
+        signInSubmitter("00000001");
+        givenParsedSubmission();
+        messageSource.addMessage("submission.client.not.authorized.error", java.util.Locale.getDefault(),
+                "Submission client number {0} is not one of your forest clients.");
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("CLIENT_NOT_AUTHORIZED"))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("submission.client.not.authorized.error"))
+                .andExpect(jsonPath("$.errors[0].type").value("ERROR"))
+                // The "submission" locator routes the message to the client field in the UI.
+                .andExpect(jsonPath("$.errors[0].message")
+                        .value("submission: Submission client number 00012345 is not one of your forest clients."));
+
+        // No business rule (and so no reference-data lookup) runs for another client.
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+    }
+
+    @Test
+    void business_submitterEditingTheClientToAnother_isRefused() throws Exception {
+        signInSubmitter("00012345");
+        givenParsedSubmission();
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes()))
+                        .param("submissionClientNumber", "00999999"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CLIENT_NOT_AUTHORIZED"));
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+    }
+
+    @Test
+    void business_submitterEditingTheClientToTheirOwn_isCheckedOnTheEditedValue() throws Exception {
+        // The file names another client in its header; the form corrects it to theirs.
+        signInSubmitter("00000001");
+        CSPSubmissionType submission = sampleSubmission();
+        submission.getCSPSubmitter().setSubmissionClientNumber("00099999");
+        submission.getCSPInvoice().getFirst().setSellerClientNumber("00000001");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), submission));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes()))
+                        .param("submissionClientNumber", "00000001"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void business_staffMayValidateForAnyClient() throws Exception {
+        signIn("VIEW");
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void business_submitterWithoutAClient_isDenied() throws Exception {
+        signIn("SUBMITTER");
+        givenParsedSubmission();
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+    }
+
+    @Test
+    void business_submitterNamingAnotherClientAsAnInvoicesSubmittingParty_is403OnThatInvoice() throws Exception {
+        // The header client is theirs, but the invoice's seller (the submitting party of a
+        // seller submission) is not. Business rules would look up that client's invoices
+        // (replaces/adjusts), so nothing may run.
+        signInSubmitter("00012345");
+        CSPSubmissionType submission = sampleSubmission();
+        submission.getCSPInvoice().getFirst().setSellerClientNumber("00099999");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), submission));
+        messageSource.addMessage("invoice.submitter.client.not.authorized.error", java.util.Locale.getDefault(),
+                "The submitting party''s client number {0} is not one of your forest clients.");
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CLIENT_NOT_AUTHORIZED"))
+                .andExpect(jsonPath("$.errors.length()").value(1))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.submitter.client.not.authorized.error"))
+                .andExpect(jsonPath("$.errors[0].message").value(
+                        "invoice #1 (INV-1): The submitting party's client number 00099999 is not one of your forest clients."));
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+    }
+
+    @Test
+    void business_buyerSubmissionChecksTheBuyerAsTheSubmittingParty() throws Exception {
+        // In a buyer submission the buyer submits: the seller is just the other party.
+        signInSubmitter("00012345");
+        CSPSubmissionType submission = sampleSubmission();
+        submission.getCSPSubmitter().setSellerSubmission(SellerSubmissionType.N);
+        submission.getCSPInvoice().getFirst().setBuyerClientNumber("00012345");
+        submission.getCSPInvoice().getFirst().setSellerClientNumber("00099999");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), submission));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void submit_submitterNamingAnotherClientOnAnInvoice_is403AndNeverPersists() throws Exception {
+        signInSubmitter("00012345");
+        CSPSubmissionType submission = sampleSubmission();
+        submission.getCSPInvoice().getFirst().setSellerClientNumber("00099999");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), submission));
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CLIENT_NOT_AUTHORIZED"));
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+        verify(persistenceService, never()).persist(any(), any(), any());
+    }
+
+    @Test
+    void business_staffAreNotLimitedByTheInvoicesClients() throws Exception {
+        signIn("APPROVE");
+        CSPSubmissionType submission = sampleSubmission();
+        submission.getCSPInvoice().getFirst().setSellerClientNumber("00099999");
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(SubmissionValidationResult.ok(), submission));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(SubmissionValidationResult.ok());
+
+        mockMvc.perform(multipart("/api/submissions/validate/business")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void submit_submitterForAnotherClient_is403AndNeverPersists() throws Exception {
+        signInSubmitter("00000001");
+        givenParsedSubmission();
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("CLIENT_NOT_AUTHORIZED"))
+                .andExpect(jsonPath("$.errors[0].messageKey").value("submission.client.not.authorized.error"));
+
+        verify(validationService, never()).validateBusiness(any(CSPSubmissionType.class));
+        verify(persistenceService, never()).persist(any(), any(), any());
+    }
+
+    @Test
+    void submit_submitterForTheirOwnClient_persists() throws Exception {
+        signInSubmitter("00012345");
+        givenParsedSubmission();
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(SubmissionValidationResult.ok());
+        given(persistenceService.persist(any(), any(), any())).willReturn(persisted(7L));
+
+        mockMvc.perform(multipart("/api/submissions/submit")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true));
+        verify(persistenceService).persist(any(), any(), any());
+    }
+
+    @Test
+    void parse_submitterMayReadAnyFileTheyUpload() throws Exception {
+        // Parsing reads only the uploaded file; scope is checked once a client is chosen.
+        signInSubmitter("00000001");
+        givenParsedSubmission();
+
+        mockMvc.perform(multipart("/api/submissions/parse")
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isOk());
+    }
+
     // ---------- submit endpoint ----------
 
     @Test
@@ -701,7 +926,7 @@ class CspSubmissionControllerTest {
 
     private CspSubmissionController controller() {
         return new CspSubmissionController(
-                validationService, envelopeStripper, persistenceService, messageSource);
+                validationService, envelopeStripper, persistenceService, new SubmitterResolver(), messageSource);
     }
 
     @Test

@@ -14,6 +14,7 @@ import { LayoutSideNav } from '@/components/Layout/LayoutSideNav';
 import { ThemeToggle } from '@/components/Layout/ThemeToggle';
 import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
+import { homeRouteFor } from '@/routes/access';
 import { ROUTES } from '@/routes/routePaths';
 
 import LayoutHeaderGlobalBar from './LayoutHeaderGlobalBar';
@@ -24,7 +25,7 @@ const APP_NAME = 'Coast Selling Application (CSP)';
 
 export const LayoutHeader: FC = () => {
   const { isSideNavExpanded, toggleSideNav } = useLayout();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   return (
     <Header aria-label={APP_NAME} className="bc-header">
@@ -37,7 +38,7 @@ export const LayoutHeader: FC = () => {
           onClick={toggleSideNav}
         />
       )}
-      <HeaderName as={Link} to={isAuthenticated ? ROUTES.SEARCH : ROUTES.LANDING} prefix="">
+      <HeaderName as={Link} to={isAuthenticated ? homeRouteFor(user) : ROUTES.LANDING} prefix="">
         {APP_NAME}
       </HeaderName>
       <HeaderGlobalBar>

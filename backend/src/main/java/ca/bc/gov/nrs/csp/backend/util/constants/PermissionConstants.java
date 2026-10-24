@@ -232,6 +232,10 @@ public final class PermissionConstants {
     // ── tableMaintenance (ADMIN only) ─────────────────────────────────────────
     public static final String TABLE_MAINTENANCE   = "tableMaintenance";
 
+    // ── XML submissions (not in the legacy matrix: legacy industry used ESF) ──
+    public static final String SUBMISSION_UPLOAD   = "submissionUpload";
+    public static final String SUBMISSION_HISTORY  = "submissionHistory";
+
     // ── Role permission sets ──────────────────────────────────────────────────
 
     public static final Set<String> ADMIN_ACTIONS = Set.of(
@@ -279,7 +283,8 @@ public final class PermissionConstants {
             R14, R14_BACK, R14_CSV, R14_CLEAR, R14_GENERATE_REPORT, R14_PDF, R14_SEARCH, R14_XLS, R14_REPORT,
             REPORTS,
             SEARCH, SEARCH_BACK, SEARCH_CLEAR, SEARCH_DETAILS, SEARCH_SEARCH,
-            TABLE_MAINTENANCE
+            TABLE_MAINTENANCE,
+            SUBMISSION_UPLOAD, SUBMISSION_HISTORY
     );
 
     /**
@@ -325,7 +330,8 @@ public final class PermissionConstants {
             R13, R13_BACK, R13_CSV, R13_CLEAR, R13_GENERATE_REPORT, R13_PDF, R13_XLS, R13_REPORT,
             R14, R14_BACK, R14_CSV, R14_GENERATE_REPORT, R14_PDF, R14_XLS, R14_REPORT,
             REPORTS,
-            SEARCH, SEARCH_BACK, SEARCH_CLEAR, SEARCH_DETAILS, SEARCH_SEARCH
+            SEARCH, SEARCH_BACK, SEARCH_CLEAR, SEARCH_DETAILS, SEARCH_SEARCH,
+            SUBMISSION_UPLOAD, SUBMISSION_HISTORY
     );
 
     /**
@@ -362,13 +368,23 @@ public final class PermissionConstants {
             R13, R13_BACK, R13_CSV, R13_CLEAR, R13_GENERATE_REPORT, R13_PDF, R13_XLS, R13_REPORT,
             R14, R14_BACK, R14_CSV, R14_GENERATE_REPORT, R14_PDF, R14_XLS, R14_REPORT,
             REPORTS,
-            SEARCH, SEARCH_BACK, SEARCH_CLEAR, SEARCH_DETAILS, SEARCH_SEARCH
+            SEARCH, SEARCH_BACK, SEARCH_CLEAR, SEARCH_DETAILS, SEARCH_SEARCH,
+            SUBMISSION_UPLOAD, SUBMISSION_HISTORY
+    );
+
+    /**
+     * SUBMITTER is the Business BCeID industry role: upload XML submissions and see their history,
+     * nothing else, and only for the forest clients it holds (see {@code ClientScope}).
+     */
+    public static final Set<String> SUBMITTER_ACTIONS = Set.of(
+            SUBMISSION_UPLOAD, SUBMISSION_HISTORY
     );
 
     /** Maps a role constant to its permitted action strings. */
     public static final Map<String, Set<String>> ROLE_PERMISSIONS = Map.of(
-            Roles.ADMIN,   ADMIN_ACTIONS,
-            Roles.APPROVE, APPROVE_ACTIONS,
-            Roles.VIEW,    VIEW_ACTIONS
+            Roles.ADMIN,     ADMIN_ACTIONS,
+            Roles.APPROVE,   APPROVE_ACTIONS,
+            Roles.VIEW,      VIEW_ACTIONS,
+            Roles.SUBMITTER, SUBMITTER_ACTIONS
     );
 }

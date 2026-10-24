@@ -15,6 +15,7 @@ const mockUser: AuthUser = {
   email: 'jane@example.com',
   roles: ['CSP_ADMIN'],
   privileges: ['ADMIN'],
+  forestClientNumbers: [],
 };
 
 const makeAuthValue = (user: AuthUser): AuthContextValue => ({
@@ -60,7 +61,13 @@ describe('HeaderPanelProfile', () => {
 
   it('falls back to the email local part, never the raw username, when displayName is absent', () => {
     vi.mocked(useAuth).mockReturnValue(
-      makeAuthValue({ username: 'dev-idir_abc@idir', email: 'jsmith@gov.bc.ca', roles: [], privileges: [] }),
+      makeAuthValue({
+        username: 'dev-idir_abc@idir',
+        email: 'jsmith@gov.bc.ca',
+        roles: [],
+        privileges: [],
+        forestClientNumbers: [],
+      }),
     );
     render(<HeaderPanelProfile />);
     expect(screen.getByText('jsmith')).toBeInTheDocument();

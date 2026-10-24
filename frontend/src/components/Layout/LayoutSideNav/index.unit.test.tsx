@@ -2,15 +2,22 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
 import { ROUTES } from '@/routes/routePaths';
 
 import { LayoutSideNav } from './index';
 
+import type { Role } from '@/context/auth/permissions';
+
+vi.mock('@/context/auth/useAuth', () => ({ useAuth: vi.fn() }));
 vi.mock('@/context/layout/useLayout', () => ({ useLayout: vi.fn() }));
 
 describe('LayoutSideNav', () => {
-  const arrange = (initialPath = '/') => {
+  const arrange = (initialPath = '/', privileges: Role[] = ['ADMIN']) => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { username: 'u', email: '', roles: [], privileges, forestClientNumbers: [] },
+    } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useLayout).mockReturnValue({ isSideNavExpanded: true, toggleSideNav: vi.fn() } as unknown as ReturnType<
       typeof useLayout
     >);
@@ -50,5 +57,34 @@ describe('LayoutSideNav', () => {
     // Carbon's SideNavLink signals the active item via its --current modifier class.
     expect(screen.getByRole('link', { name: 'Search' })).toHaveClass('cds--side-nav__link--current');
     expect(screen.getByRole('link', { name: 'Inbox' })).not.toHaveClass('cds--side-nav__link--current');
+  });
+
+  it.each(['ADMIN', 'APPROVE', 'VIEW'] as Role[])('shows %s every page, as before', (role) => {
+    arrange('/', [role]);
+
+    for (const name of ['Search', 'Inbox', 'Invoice', 'Flat price conversion', 'Sort code', 'Upload Submission']) {
+      expect(screen.getByRole('link', { name })).toBeInTheDocument();
+    }
+    expect(screen.getByText('Reports')).toBeInTheDocument();
+    expect(screen.getByText('Table maintenance')).toBeInTheDocument();
+  });
+
+  it('shows a Business BCeID submitter only Upload Submission and Submission History', () => {
+    arrange('/', ['SUBMITTER']);
+
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Upload Submission',
+      'Submission History',
+    ]);
+    // Groups left with nothing the user may open are dropped.
+    expect(screen.queryByText('Reports')).not.toBeInTheDocument();
+    expect(screen.queryByText('Table maintenance')).not.toBeInTheDocument();
+    expect(screen.getByText('Submissions')).toBeInTheDocument();
+  });
+
+  it('shows nothing to a user without a CSP role', () => {
+    arrange('/', []);
+
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
   });
 });
