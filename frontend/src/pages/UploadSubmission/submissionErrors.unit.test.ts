@@ -197,6 +197,14 @@ describe('mapSubmissionIssues', () => {
     expect(result.hasErrors).toBe(true);
   });
 
+  it("routes the API's not-your-client refusal to the submission client field", () => {
+    const clean = 'Submission client number 00099999 is not one of your forest clients.';
+    const result = mapSubmissionIssues([msg('submission.client.not.authorized.error', `submission: ${clean}`)]);
+    expect(result.submissionFields.submissionClientNumber).toEqual([{ message: clean, type: 'ERROR' }]);
+    expect(result.formIssues).toEqual([]);
+    expect(result.hasErrors).toBe(true);
+  });
+
   it('routes an unmapped submission-level key to formIssues', () => {
     const result = mapSubmissionIssues([msg('some.other.submission.error', 'submission: Something went wrong.')]);
     expect(result.formIssues).toEqual([{ message: 'Something went wrong.', type: 'ERROR' }]);

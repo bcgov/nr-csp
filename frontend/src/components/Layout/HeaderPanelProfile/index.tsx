@@ -2,6 +2,7 @@ import { Logout } from '@carbon/icons-react';
 import { type FC } from 'react';
 
 import AvatarImage from '@/components/Layout/AvatarImage';
+import { BCEID_BUSINESS } from '@/context/auth/famRoles';
 import { useAuth } from '@/context/auth/useAuth';
 
 import type { Role } from '@/context/auth/permissions';
@@ -13,11 +14,12 @@ const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Admin',
   APPROVE: 'Approver',
   VIEW: 'Viewer',
+  SUBMITTER: 'Submitter',
 };
 
 // A user can hold several privileges; show the highest one, matching the single
 // "Role: …" line in the design.
-const ROLE_PRECEDENCE: Role[] = ['ADMIN', 'APPROVE', 'VIEW'];
+const ROLE_PRECEDENCE: Role[] = ['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER'];
 
 const primaryRoleLabel = (privileges: Role[]): string | undefined => {
   const role = ROLE_PRECEDENCE.find((r) => privileges.includes(r));
@@ -41,7 +43,11 @@ export const HeaderPanelProfile: FC = () => {
         <div className="header-panel-profile-details">
           <p className="header-panel-profile-name">{name}</p>
           {roleLabel && <p className="header-panel-profile-meta">Role: {roleLabel}</p>}
-          {user?.idirUsername && <p className="header-panel-profile-meta">IDIR: {user.idirUsername}</p>}
+          {user?.idirUsername && (
+            <p className="header-panel-profile-meta">
+              {user.identityProvider === BCEID_BUSINESS ? 'BCeID' : 'IDIR'}: {user.idirUsername}
+            </p>
+          )}
           {user?.email && <p className="header-panel-profile-meta header-panel-profile-email">{user.email}</p>}
         </div>
       </div>

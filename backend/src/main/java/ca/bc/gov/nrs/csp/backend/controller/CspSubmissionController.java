@@ -6,6 +6,8 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionParseRespon
 import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionSubmitResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.submission.SubmissionValidationResponse;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.SubmissionValidationService;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.Locators;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.business.support.SubmitterResolver;
 import ca.bc.gov.nrs.csp.backend.service.CspSubmissionPersistenceService;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceDetailsType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPInvoiceType;
@@ -13,16 +15,20 @@ import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPLineItemType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmissionType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.CSPSubmitterType;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.generated.SellerSubmissionType;
+import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.Severity;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationError;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.shared.SubmissionValidationResult;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.StructuralValidationService;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.structural.parser.SubmissionEnvelopeStripper;
+import ca.bc.gov.nrs.csp.backend.security.ClientScope;
+import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -50,7 +56,8 @@ import java.util.function.Function;
  *
  * <p>Each returns 200 with {@code valid: true} on success, 422 with the
  * collected messages on failure, and 400 when the file part is missing or
- * unreadable.
+ * unreadable. Business validation and submit return 403 for a client the caller
+ * may not act for.
  */
 @RestController
 public class CspSubmissionController implements CspSubmissionApi {
@@ -60,6 +67,8 @@ public class CspSubmissionController implements CspSubmissionApi {
     private static final String CODE_UPLOAD_MISSING = "UPLOAD_MISSING";
     private static final String CODE_UPLOAD_UNREADABLE = "UPLOAD_UNREADABLE";
     private static final String CODE_VALIDATION_ERROR = "VALIDATION_ERROR";
+    private static final String CODE_CLIENT_NOT_AUTHORIZED = "CLIENT_NOT_AUTHORIZED";
+    private static final String MSG_CLIENT_NOT_AUTHORIZED = "Submission client is not one of your forest clients";
     private static final String MSG_UPLOAD_MISSING = "file part 'file' is missing or empty";
     private static final String MSG_UPLOAD_UNREADABLE = "uploaded file could not be read";
     private static final String LOG_UPLOAD_UNREADABLE = "Could not read uploaded submission file: {}";
@@ -67,23 +76,28 @@ public class CspSubmissionController implements CspSubmissionApi {
     private final SubmissionValidationService validationService;
     private final SubmissionEnvelopeStripper envelopeStripper;
     private final CspSubmissionPersistenceService persistenceService;
+    private final SubmitterResolver submitterResolver;
     private final MessageSource messageSource;
 
     public CspSubmissionController(SubmissionValidationService validationService,
             SubmissionEnvelopeStripper envelopeStripper,
-            CspSubmissionPersistenceService persistenceService, MessageSource messageSource) {
+            CspSubmissionPersistenceService persistenceService, SubmitterResolver submitterResolver,
+            MessageSource messageSource) {
         this.validationService = validationService;
         this.envelopeStripper = envelopeStripper;
         this.persistenceService = persistenceService;
+        this.submitterResolver = submitterResolver;
         this.messageSource = messageSource;
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'submissionUpload')")
     public ResponseEntity<SubmissionValidationResponse> validateStructural(MultipartFile file) {
         return handle("structural", file, validationService::validateStructural);
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'submissionUpload')")
     public ResponseEntity<SubmissionValidationResponse> validateBusiness(MultipartFile file,
             String submissionClientNumber, String submissionClientLocnCode,
             String monthComplete, String sellerSubmission) {
@@ -118,6 +132,11 @@ public class CspSubmissionController implements CspSubmissionApi {
         CSPSubmissionType submission = (CSPSubmissionType) outcome.submission();
         applyMetadataEdits(submission, submissionClientNumber, submissionClientLocnCode,
                 monthComplete, sellerSubmission);
+        List<ValidationMessageResponse> scopeErrors = clientScopeErrors(submission);
+        if (!scopeErrors.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new SubmissionValidationResponse(
+                    false, CODE_CLIENT_NOT_AUTHORIZED, MSG_CLIENT_NOT_AUTHORIZED, List.of(), List.of(), scopeErrors));
+        }
 
         SubmissionValidationResult result = validationService.validateBusiness(submission);
         HttpStatus status = result.valid() ? HttpStatus.OK : HttpStatus.UNPROCESSABLE_ENTITY;
@@ -125,6 +144,7 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'submissionUpload')")
     public ResponseEntity<SubmissionParseResponse> parse(MultipartFile file) {
         log.info("POST /api/submissions/parse received file part: present={} size={}",
                 file != null && !file.isEmpty(),
@@ -166,6 +186,7 @@ public class CspSubmissionController implements CspSubmissionApi {
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'submissionUpload')")
     public ResponseEntity<SubmissionSubmitResponse> submit(MultipartFile file,
             String submissionClientNumber, String submissionClientLocnCode,
             String monthComplete, String sellerSubmission, String email, String telephone) {
@@ -203,6 +224,12 @@ public class CspSubmissionController implements CspSubmissionApi {
         CSPSubmissionType submission = (CSPSubmissionType) outcome.submission();
         applyMetadataEdits(submission, submissionClientNumber, submissionClientLocnCode,
                 monthComplete, sellerSubmission);
+        List<ValidationMessageResponse> scopeErrors = clientScopeErrors(submission);
+        if (!scopeErrors.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new SubmissionSubmitResponse(
+                    false, CODE_CLIENT_NOT_AUTHORIZED, MSG_CLIENT_NOT_AUTHORIZED, null, null,
+                    List.of(), List.of(), scopeErrors));
+        }
 
         // Gate on business validation: only a fully accepted submission (no rejected
         // invoices) is persisted. A "partial acceptance" reports result.valid()==true
@@ -259,6 +286,41 @@ public class CspSubmissionController implements CspSubmissionApi {
                 submitter.setSellerSubmission(SellerSubmissionType.fromValue(normalized));
             }
         }
+    }
+
+    /**
+     * The submission client and every invoice's submitting party must be in the caller's scope.
+     * Checked before the business rules, which look up the submitting party's invoices.
+     */
+    private List<ValidationMessageResponse> clientScopeErrors(CSPSubmissionType submission) {
+        ClientScope scope = SecurityContextUtils.currentClientScope();
+        if (scope.isUnrestricted()) {
+            return List.of();
+        }
+        CSPSubmitterType submitter = submission.getCSPSubmitter();
+        String clientNumber = submitter == null ? null : submitter.getSubmissionClientNumber();
+        List<SubmissionValidationError> refused = new ArrayList<>();
+        if (!scope.permits(clientNumber)) {
+            refused.add(new SubmissionValidationError("submission",
+                    "submission.client.not.authorized.error", new Object[] {clientNumber}, Severity.ERROR));
+        }
+        if (submitter != null) {
+            List<CSPInvoiceType> invoices = submission.getCSPInvoice();
+            for (int i = 0; i < invoices.size(); i++) {
+                CSPInvoiceType invoice = invoices.get(i);
+                String partyClient = submitterResolver.resolve(submission, invoice).submitterClientNumber();
+                if (!scope.permits(partyClient)) {
+                    refused.add(new SubmissionValidationError(Locators.invoice(i, invoice.getInvoiceNumber()),
+                            "invoice.submitter.client.not.authorized.error", new Object[] {partyClient},
+                            Severity.ERROR));
+                }
+            }
+        }
+        if (refused.isEmpty()) {
+            return List.of();
+        }
+        log.warn("Submission refused: {} client(s) on it are not the caller's forest clients", refused.size());
+        return refused.stream().map(this::toMessageResponse).toList();
     }
 
     private static boolean hasText(String s) {

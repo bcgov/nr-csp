@@ -1,8 +1,9 @@
 import { renderHook } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
 import { createElement } from 'react';
+import { describe, it, expect, beforeEach } from 'vitest';
 
-import { MockAuthProvider, MOCK_ROLE_KEY } from './MockAuthProvider';
+import { MockAuthProvider } from './MockAuthProvider';
+import { MOCK_FOREST_CLIENTS_KEY, MOCK_ROLE_KEY } from './mockUser';
 import { useAuth } from './useAuth';
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -37,5 +38,37 @@ describe('MockAuthProvider – role from localStorage', () => {
     localStorage.setItem(MOCK_ROLE_KEY, 'SUPERUSER');
     const { result } = renderHook(() => useAuth(), { wrapper });
     expect(result.current.user?.privileges).toEqual(['ADMIN']);
+  });
+});
+
+describe('MockAuthProvider – Business BCeID submitter', () => {
+  it('maps SUBMITTER to client-scoped FAM roles for the default mock client', () => {
+    localStorage.setItem(MOCK_ROLE_KEY, 'SUBMITTER');
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user).toMatchObject({
+      identityProvider: 'bceidbusiness',
+      roles: ['CSP_SUBMITTER_FOREST_CLIENT-00000001'],
+      privileges: ['SUBMITTER'],
+      forestClientNumbers: ['00000001'],
+    });
+  });
+
+  it('uses the forest clients stored for the mock submitter', () => {
+    localStorage.setItem(MOCK_ROLE_KEY, 'SUBMITTER');
+    localStorage.setItem(MOCK_FOREST_CLIENTS_KEY, '00000002, 00000001');
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user?.forestClientNumbers).toEqual(['00000001', '00000002']);
+  });
+
+  it('gives no access when the stored clients are malformed, as the API would', () => {
+    localStorage.setItem(MOCK_ROLE_KEY, 'SUBMITTER');
+    localStorage.setItem(MOCK_FOREST_CLIENTS_KEY, '123');
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user?.privileges).toEqual([]);
+  });
+
+  it('keeps staff mock users on IDIR with no forest clients', () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user).toMatchObject({ identityProvider: 'idir', forestClientNumbers: [] });
   });
 });

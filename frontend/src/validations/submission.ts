@@ -16,6 +16,7 @@ export interface SubmissionMetadataValues {
 export const SUBMISSION_METADATA_KEY_TO_FIELD: Record<string, string> = {
   'submission.client.clientnumber.required.error': 'submissionClientNumber',
   'submission.client.clientnumber.pattern.error': 'submissionClientNumber',
+  'submission.client.clientnumber.notauthorized.error': 'submissionClientNumber',
   'submission.client.locationcode.required.error': 'submissionClientLocnCode',
   'submission.client.locationcode.pattern.error': 'submissionClientLocnCode',
   'submission.client.monthcomplete.required.error': 'monthComplete',
@@ -29,8 +30,12 @@ export const SUBMISSION_METADATA_KEY_TO_FIELD: Record<string, string> = {
  * run on submit so an offending field surfaces an inline error (the same
  * required/pattern approach the report filters use). Backend business rules
  * (client existence, seller/submitter matching, …) still run server-side.
+ * `allowedClientNumbers` is a submitter's forest clients; omit it for staff.
  */
-export function validateSubmissionMetadata(values: SubmissionMetadataValues): ValidationResult {
+export function validateSubmissionMetadata(
+  values: SubmissionMetadataValues,
+  allowedClientNumbers?: readonly string[],
+): ValidationResult {
   const messages = new MessageCollector();
 
   const clientNumber = values.submissionClientNumber.trim();
@@ -38,6 +43,8 @@ export function validateSubmissionMetadata(values: SubmissionMetadataValues): Va
     messages.addError('submission.client.clientnumber.required.error');
   } else if (!/^\d{8}$/.test(clientNumber)) {
     messages.addError('submission.client.clientnumber.pattern.error');
+  } else if (allowedClientNumbers && !allowedClientNumbers.includes(clientNumber)) {
+    messages.addError('submission.client.clientnumber.notauthorized.error', [allowedClientNumbers.join(', ')]);
   }
 
   const locnCode = values.submissionClientLocnCode.trim();

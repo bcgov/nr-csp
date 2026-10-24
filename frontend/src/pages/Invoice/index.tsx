@@ -2554,5 +2554,3 @@ function InvoiceFormSkeleton() {
     </Accordion>
   );
 }
-
-export default InvoicePage;

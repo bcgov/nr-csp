@@ -44,6 +44,32 @@ describe('validateSubmissionMetadata', () => {
     });
   });
 
+  describe("a Business BCeID submitter's forest clients", () => {
+    it('accepts one of their own clients', () => {
+      const result = validateSubmissionMetadata(valid(), ['00000001', '00126920']);
+      expect(result.hasErrors()).toBe(false);
+    });
+
+    it('refuses any other client, naming the ones they may use', () => {
+      const result = validateSubmissionMetadata(valid(), ['00000001', '00000002']);
+      expect(keys(result)).toEqual(['submission.client.clientnumber.notauthorized.error']);
+      expect(result.messages[0].message).toBe(
+        'Submission client number must be one of your forest clients: 00000001, 00000002.',
+      );
+    });
+
+    it('reports a malformed number as a pattern error first', () => {
+      const result = validateSubmissionMetadata({ ...valid(), submissionClientNumber: '123' }, ['00000001']);
+      expect(keys(result)).toEqual(['submission.client.clientnumber.pattern.error']);
+    });
+
+    it('refuses everything when the submitter holds no client', () => {
+      expect(keys(validateSubmissionMetadata(valid(), []))).toEqual([
+        'submission.client.clientnumber.notauthorized.error',
+      ]);
+    });
+  });
+
   describe('submissionClientLocnCode (^\\d{2}$)', () => {
     it('required error when blank/whitespace', () => {
       const result = validateSubmissionMetadata({ ...valid(), submissionClientLocnCode: '' });

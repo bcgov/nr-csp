@@ -1,7 +1,7 @@
 import { ChevronDown } from '@carbon/icons-react';
 import { type ChangeEvent } from 'react';
 
-import { MOCK_ROLE_KEY, getStoredRole } from '@/context/auth/MockAuthProvider';
+import { MOCK_ROLE_KEY, getStoredRole } from '@/context/auth/mockUser';
 import { ROLES } from '@/context/auth/permissions';
 
 import './index.scss';
@@ -19,7 +19,7 @@ export function MockRoleSelector() {
       <select aria-label="Mock user role" value={currentRole} onChange={handleChange}>
         {ROLES.map((role) => (
           <option key={role} value={role}>
-            {role}
+            {role === 'SUBMITTER' ? 'SUBMITTER (BCeID)' : role}
           </option>
         ))}
       </select>

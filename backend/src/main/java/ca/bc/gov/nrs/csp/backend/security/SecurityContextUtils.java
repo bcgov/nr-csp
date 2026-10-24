@@ -33,6 +33,16 @@ public final class SecurityContextUtils {
                 .toList();
     }
 
+    /** The current user's forest-client scope; throws a 403 for a user without one. */
+    public static ClientScope currentClientScope() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException(
+                    "No authenticated user in the current security context.");
+        }
+        return ClientScope.from(auth.getAuthorities());
+    }
+
     /**
      * Returns the current username or throws if no authenticated user is present.
      * Use in service methods where an authenticated user is required by contract.

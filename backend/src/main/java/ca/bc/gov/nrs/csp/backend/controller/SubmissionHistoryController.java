@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,6 +25,7 @@ public class SubmissionHistoryController implements SubmissionHistoryApi {
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'submissionHistory')")
     public ResponseEntity<Page<SubmissionHistoryRowResponse>> listSubmissionHistory(Pageable pageable) {
         log.info("GET /api/submission-history page={} size={} sort={}",
                 pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
@@ -31,12 +33,14 @@ public class SubmissionHistoryController implements SubmissionHistoryApi {
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'submissionHistory')")
     public ResponseEntity<SubmissionDetailResponse> getSubmissionDetail(Long submissionId) {
         log.info("GET /api/submission-history/{}", submissionId);
         return ResponseEntity.ok(submissionHistoryService.getById(submissionId));
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'submissionHistory')")
     public ResponseEntity<java.util.List<SubmissionInvoiceCommentResponse>> getSubmissionInvoiceComments(
             Long cspSubmissionId) {
         log.info("GET /api/submission-history/{}/invoices", cspSubmissionId);

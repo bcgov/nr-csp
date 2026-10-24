@@ -127,6 +127,36 @@ class PermissionServiceTest {
         assertTrue(service.hasPermission(auth(Roles.VIEW), R13_CLEAR));
     }
 
+    // ── SUBMITTER (Business BCeID industry) ──────────────────────────────────
+
+    @Test
+    void submitter_has_only_upload_and_history() {
+        assertEquals(java.util.Set.of(SUBMISSION_UPLOAD, SUBMISSION_HISTORY), SUBMITTER_ACTIONS);
+        assertTrue(service.hasPermission(auth(Roles.SUBMITTER), SUBMISSION_UPLOAD));
+        assertTrue(service.hasPermission(auth(Roles.SUBMITTER), SUBMISSION_HISTORY));
+    }
+
+    @Test
+    void submitter_has_no_staff_action() {
+        for (String action : ADMIN_ACTIONS) {
+            if (SUBMITTER_ACTIONS.contains(action)) continue;
+            assertFalse(service.hasPermission(auth(Roles.SUBMITTER), action), action);
+        }
+    }
+
+    @Test
+    void every_staff_role_keeps_upload_and_history() {
+        for (String role : List.of(Roles.ADMIN, Roles.APPROVE, Roles.VIEW)) {
+            assertTrue(service.hasPermission(auth(role), SUBMISSION_UPLOAD), role);
+            assertTrue(service.hasPermission(auth(role), SUBMISSION_HISTORY), role);
+        }
+    }
+
+    @Test
+    void forest_client_authority_grants_no_action() {
+        assertFalse(service.hasPermission(auth(Roles.FOREST_CLIENT_PREFIX + "00000001"), SUBMISSION_UPLOAD));
+    }
+
     // ── Edge cases ────────────────────────────────────────────────────────────
 
     @Test

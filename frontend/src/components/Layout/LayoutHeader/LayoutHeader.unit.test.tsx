@@ -28,8 +28,11 @@ vi.mock('./LayoutHeaderGlobalBar', () => ({
 describe('LayoutHeader', () => {
   const toggleSideNav = vi.fn();
 
-  const arrange = ({ isAuthenticated = true, isSideNavExpanded = false } = {}) => {
-    vi.mocked(useAuth).mockReturnValue({ isAuthenticated } as unknown as ReturnType<typeof useAuth>);
+  const arrange = ({ isAuthenticated = true, isSideNavExpanded = false, privileges = ['VIEW'] } = {}) => {
+    vi.mocked(useAuth).mockReturnValue({
+      isAuthenticated,
+      user: isAuthenticated ? { username: 'u', email: '', roles: [], privileges, forestClientNumbers: [] } : null,
+    } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useLayout).mockReturnValue({ isSideNavExpanded, toggleSideNav } as unknown as ReturnType<
       typeof useLayout
     >);
@@ -52,6 +55,12 @@ describe('LayoutHeader', () => {
     arrange({ isAuthenticated: true });
 
     expect(appNameLink()).toHaveAttribute('href', '/search');
+  });
+
+  it("points the app name at a Business BCeID submitter's home, Upload Submission", () => {
+    arrange({ isAuthenticated: true, privileges: ['SUBMITTER'] });
+
+    expect(appNameLink()).toHaveAttribute('href', '/upload-submission');
   });
 
   it('points the app name at the welcome screen for a visitor without a session', () => {
