@@ -1,5 +1,5 @@
 # Stage 1: Build the React app using Node 24
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN npm run build
 # tree is bind-mounted over /app and an anonymous volume preserves this image's
 # node_modules; file watching uses polling (VITE_USE_POLLING=true) so edits made
 # on the host are detected inside the container across the Docker boundary.
-FROM node:24-alpine AS dev
+FROM node:26-alpine AS dev
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps --no-audit --no-fund
