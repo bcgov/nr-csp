@@ -26,13 +26,14 @@ day-to-day commands see [README.md](README.md); for security reporting and contr
 
 ```mermaid
 flowchart LR
-    Staff["Ministry staff<br/>IDIR"] --> Route["OpenShift route"]
-    Industry["Industry submitters<br/>Business BCeID"] --> Route
-    Route --> Frontend["Caddy frontend pod<br/>React SPA, security headers,<br/>proxies /api/*"]
-    Frontend -->|"Code + PKCE sign-in,<br/>refresh and logout"| Css["BC Gov SSO (CSS)<br/>Keycloak standard realm"]
+    Staff["Ministry staff<br/>IDIR"] --> Browser["Browser<br/>React SPA"]
+    Industry["Industry submitters<br/>Business BCeID"] --> Browser
+    Browser -->|"Code + PKCE sign-in,<br/>refresh and logout"| Css["BC Gov SSO (CSS)<br/>Keycloak standard realm"]
     Css -->|Federated sign-in| Idp["IDIR (Azure) /<br/>Business BCeID (SiteMinder)"]
     Fam["FAM (nr-fam)"] -->|CSP client role grants| Css
-    Frontend -->|"/api/* with CSS access token"| Backend["Spring Boot API pod<br/>1-N replicas"]
+    Browser -->|"SPA assets, and /api/*<br/>with CSS access token"| Route["OpenShift route"]
+    Route --> Frontend["Caddy frontend pod<br/>serves the SPA, security headers,<br/>proxies /api/*"]
+    Frontend -->|/api/*| Backend["Spring Boot API pod<br/>1-N replicas"]
     Backend -.->|JWKS signing keys| Css
     Backend -->|"JDBC over TCPS<br/>(Oracle wallet)"| Oracle[("Shared Oracle THE schema<br/>tables + CSP_SP_RPT_* packages")]
 ```
@@ -559,8 +560,9 @@ flowchart LR
     Release -->|"Same digests,<br/>vanity route + TLS"| Prod["PROD"]
 ```
 
-`Release PROD` refuses a tag whose commit has no successful TEST run. Markdown-only merges skip
-the Merge workflow, so documentation changes never redeploy TEST.
+`Release PROD` refuses a tag whose commit has no successful TEST run. The Merge workflow ignores
+root-level Markdown files (`*.md`) and `.github/graphics/**`, so a merge that changes only those
+doesn't redeploy TEST. Markdown under `docs/` or elsewhere still does.
 
 ## Testing strategy
 
