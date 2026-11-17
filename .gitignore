@@ -40,7 +40,6 @@ playbooks/collections/
 .claude
 .worktrees
 
-.github
 # Stray local notes/scratch markdown is ignored by default; the repo's own
 # documentation is un-ignored explicitly. Already-tracked files (CONTRIBUTING.md,
 # docs/**, frontend/e2e/**) are unaffected by this rule, but a NEW doc at the root
