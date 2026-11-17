@@ -203,6 +203,9 @@ public class InvoiceService {
     @Transactional
     public InvoiceResponse update(Long id, String expectedVersion, UpdateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
+        // Read before the version check, so these are the lines the caller saw. Legacy line adds don't
+        // lock the header, so one can commit after the check; it must be kept, not deleted as dropped.
+        Set<Long> existingLineIds = new HashSet<>(lineItemRepo.findIdsByInvoiceId(id));
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
@@ -235,7 +238,7 @@ public class InvoiceService {
                 plan.newIds().buyerId(), plan.newIds().sellerId(), user);
         plan.orphans().forEach(participantRepo::delete);
 
-        reconcileLineItems(id, lines, user);
+        reconcileLineItems(id, lines, existingLineIds, user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
@@ -529,8 +532,9 @@ public class InvoiceService {
      */
     private void cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
         if (replacedId == null || replacedId.equals(replacementId)) return;
-        LoadedInvoice replaced = invoiceRepo.findById(replacedId).orElse(null);
-        if (replaced == null) return;
+        // Lock it before reading its status, so a concurrent change to it can't land in between.
+        if (invoiceRepo.lockVersion(replacedId).isEmpty()) return;
+        LoadedInvoice replaced = loadInvoiceOrThrow(replacedId);
         String previousStatus = replaced.details().invStatus();
         if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
 
@@ -823,8 +827,7 @@ public class InvoiceService {
 
     private record ParticipantPlan(ParticipantIds newIds, List<Long> orphans) {}
 
-    private void reconcileLineItems(Long invoiceId, List<LineItem> incoming, String user) {
-        Set<Long> existingIds = new HashSet<>(lineItemRepo.findIdsByInvoiceId(invoiceId));
+    private void reconcileLineItems(Long invoiceId, List<LineItem> incoming, Set<Long> existingIds, String user) {
         Set<Long> retainedIds = new HashSet<>();
         for (LineItem line : incoming) {
             if (line.lineItemID() != null && existingIds.contains(line.lineItemID())) {

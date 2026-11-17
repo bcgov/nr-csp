@@ -215,6 +215,8 @@ sequenceDiagram
 
 - The row lock holds until the transaction commits, so two changes sent at the same moment can't
   both pass the check.
+- Legacy line adds don't take the header lock. A save reads the invoice's line ids before the
+  check and only deletes lines from that set, so a line legacy adds mid-save is kept.
 - `GET` reads the version in the same statement as the header, before the lines, so a later
   commit can only make it stale (a 409), never newer than the data it travels with.
 - A line or group editor on the Invoice page keeps the version it opened at, so a background

@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -47,6 +48,7 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,6 +59,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -450,6 +453,27 @@ class InvoiceServiceTest {
     }
 
     @Test
+    void update_keepsALineAddedAfterTheVersionCheck() {
+        // Legacy CSP's line adds don't lock the header, so line 3 can commit after the check passes.
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null)));
+        AtomicBoolean versionChecked = new AtomicBoolean();
+        given(invoiceRepo.lockVersion(1L)).willAnswer(invocation -> {
+            versionChecked.set(true);
+            return Optional.of(CURRENT_VERSION);
+        });
+        given(lineItemRepo.findIdsByInvoiceId(1L))
+                .willAnswer(invocation -> versionChecked.get() ? List.of(1L, 3L) : List.of(1L));
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        verify(lineItemRepo).updateLineItem(eq(1L), any(), eq(USER));
+        verify(lineItemRepo, never()).deleteLineItem(anyLong());
+    }
+
+    @Test
     void update_noSubmission_doesNotTouchSubmissionStatus() {
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), null, null, null)));
@@ -586,6 +610,31 @@ class InvoiceServiceTest {
 
         verify(invoiceRepo).updateStatus(900L, "CAN", USER);
         verify(submissionRepo, never()).updateSubmissionStatus(eq(20L), any(), any());
+    }
+
+    @Test
+    void create_replacesInvoice_locksItBeforeReadingItsStatus() {
+        CreateInvoiceRequest req = createReplacing("REP", 900L);
+        given(invoiceRepo.findById(900L))
+                .willReturn(Optional.of(loaded(details(900L, "PRO", "5678", null, "Seller"), 20L, null, null)));
+
+        service.create(req);
+
+        InOrder order = inOrder(invoiceRepo);
+        order.verify(invoiceRepo).lockVersion(900L);
+        order.verify(invoiceRepo).findById(900L);
+        order.verify(invoiceRepo).updateStatus(900L, "CAN", USER);
+    }
+
+    @Test
+    void create_replacesMissingInvoice_skipsIt() {
+        CreateInvoiceRequest req = createReplacing("REP", 900L);
+        given(invoiceRepo.lockVersion(900L)).willReturn(Optional.empty());
+
+        service.create(req);
+
+        verify(invoiceRepo, never()).findById(900L);
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
 
     @Test
