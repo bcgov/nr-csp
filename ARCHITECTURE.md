@@ -216,19 +216,20 @@ JAXB context path, envelope and body namespaces and root elements) and defaulted
 
 ### XML upload pipeline
 
-The Upload Submission page walks a file through the `/api/submissions` endpoints. `submit`
-re-parses the file rather than trusting earlier steps, so what was validated is what gets saved.
+The Upload Submission page walks a file through the `/api/submissions` endpoints. `parse`
+runs the structural checks itself, so the page never calls the standalone `validate/structural`.
+`submit` re-parses the file rather than trusting earlier steps, so what was validated is what
+gets saved.
 
 ```mermaid
 sequenceDiagram
     participant U as Upload page
     participant B as CSP API
     participant O as Oracle
-    U->>B: POST validate/structural (XML file)
-    B->>B: Strip the ESF envelope, check the XSD
-    U->>B: POST parse
-    B-->>U: Submission preview for review and edits
-    U->>B: POST validate/business
+    U->>B: POST parse (XML file)
+    B->>B: Strip the ESF envelope, check the XSD, parse
+    B-->>U: Submission preview, or structural errors
+    U->>B: POST validate/business (again after each edit)
     B->>O: Reference data and the submitter's existing invoices
     B-->>U: Accepted and rejected invoices, errors, warnings
     U->>B: POST submit (file + edited metadata)
@@ -301,17 +302,26 @@ stateDiagram-v2
     end note
 ```
 
-Each invoice belongs to a `CSP_SUBMISSION`, whose status follows its invoices:
+Each invoice belongs to a `CSP_SUBMISSION`. Invoice actions set the submission's status
+directly; it is not recalculated from its invoices otherwise:
 
 ```mermaid
 stateDiagram-v2
     [*] --> LOB: Manual invoice created
     [*] --> INB: XML submission saved
-    LOB --> INB: An invoice is submitted
-    INB --> LOB: An invoice is saved
-    INB --> COM: No PRO invoices left, at least one APP
-    INB --> REJ: No PRO invoices left, none APP
+    LOB --> INB: Submit an invoice
+    INB --> LOB: Save an invoice
+    INB --> COM: Decide the last PRO invoice, any APP
+    INB --> REJ: Decide the last PRO invoice, none APP
+    COM --> INB: Resubmit an invoice
+    REJ --> INB: Resubmit an invoice
+    COM --> LOB: Save an invoice
+    REJ --> LOB: Save an invoice
 ```
+
+Save, or a line-item change on an invoice that isn't DFT, sets LOB. Submit sets INB. Approve,
+Reject and Cancel ("decide") set COM or REJ once no PRO invoices remain, and otherwise leave the
+submission alone. Unapprove and Duplicate never change it.
 
 Reject, Cancel and Unapprove need a changed reviewer comment, and the user who entered an
 invoice can't approve it.
@@ -406,8 +416,10 @@ sequenceDiagram
     B->>B: Map client_roles to ADMIN / APPROVE / VIEW, or SUBMITTER + FOREST_CLIENT-n
     B-->>U: Response limited to the caller's ClientScope
     Note over U,S: Near expiry, one shared refresh renews the tokens
-    U->>I: Logout through SiteMinder
-    I-->>U: Redirect to CSS end-session
+    opt VITE_OIDC_SITEMINDER_LOGOUT_URL is configured
+        U->>I: Log off SiteMinder (ends the Business BCeID session)
+        I-->>U: Redirect to CSS end-session
+    end
     U->>S: End session with id_token_hint
     S-->>U: Return to the CSP welcome page
 ```
@@ -465,8 +477,9 @@ sync**; the backend is the enforcement point and the frontend is only a UX affor
 
 **Session lifecycle.** `service/oidc-service.ts` shares one refresh operation between API
 requests and user activity, avoiding concurrent use of a rotating refresh token. Logout reads
-the ID-token hint before clearing local credentials, then redirects through SiteMinder and
-the configured CSS realm back to `/`. There is no legacy broker popup. The app retains its
+the ID-token hint before clearing local credentials, then redirects through the configured CSS
+realm back to `/`. When `VITE_OIDC_SITEMINDER_LOGOUT_URL` is set it logs off SiteMinder first,
+because ending the Keycloak session doesn't end the SiteMinder session behind Business BCeID. There is no legacy broker popup. The app retains its
 30-minute inactivity limit and cross-tab activity/logout messages; temporary SSO/network
 renewal failures preserve the session, while expired/revoked refresh tokens end it.
 
