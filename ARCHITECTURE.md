@@ -24,29 +24,23 @@ day-to-day commands see [README.md](README.md); for security reporting and contr
 
 ## System overview
 
+```mermaid
+flowchart LR
+    Staff["Ministry staff<br/>IDIR"] --> Route["OpenShift route"]
+    Industry["Industry submitters<br/>Business BCeID"] --> Route
+    Route --> Frontend["Caddy frontend pod<br/>React SPA, security headers,<br/>proxies /api/*"]
+    Frontend -->|"Code + PKCE sign-in,<br/>refresh and logout"| Css["BC Gov SSO (CSS)<br/>Keycloak standard realm"]
+    Css -->|Federated sign-in| Idp["IDIR (Azure) /<br/>Business BCeID (SiteMinder)"]
+    Fam["FAM (nr-fam)"] -->|CSP client role grants| Css
+    Frontend -->|"/api/* with CSS access token"| Backend["Spring Boot API pod<br/>1-N replicas"]
+    Backend -.->|JWKS signing keys| Css
+    Backend -->|"JDBC over TCPS<br/>(Oracle wallet)"| Oracle[("Shared Oracle THE schema<br/>tables + CSP_SP_RPT_* packages")]
 ```
-                 ┌─────────────────────────────────────────────┐
-  IDIR user ───► │  Caddy (frontend pod)                       │
-                 │   • serves the built React SPA              │
-                 │   • reverse-proxies /api/* to the backend   │
-                 │   • sets CSP / HSTS / frame-ancestors       │
-                 └──────────────────┬──────────────────────────┘
-                                    │ /api/*
-                 ┌──────────────────▼──────────────────────────┐
-                 │  Spring Boot 4 (backend pod)                │
-                 │   • stateless JWT auth (CSS/FAM)            │
-                 │   • action-level @PreAuthorize              │
-                 │   • invoice domain: ESF XML + manual        │
-                 │   • JasperReports → PDF / CSV / XLS         │
-                 │   • Caffeine reference-data caches          │
-                 └──────────────────┬──────────────────────────┘
-                                    │ JDBC (TCPS + Oracle wallet)
-                 ┌──────────────────▼──────────────────────────┐
-                 │  Oracle                                     │
-                 │   • tables + PL/SQL packages (REF CURSORs)  │
-                 │   • ESF submission queue                    │
-                 └─────────────────────────────────────────────┘
-```
+
+The backend validates CSS tokens statelessly, enforces action-level `@PreAuthorize` rules, runs
+the invoice domain (XML uploads and manual entry), fills JasperReports designs as PDF, CSV or
+XLS, and caches reference data in Caffeine. Legacy CSP uses the same Oracle schema; see
+[Legacy and modern XML intake](#legacy-and-modern-xml-intake).
 
 The backend is **never exposed directly**. In OpenShift and in local compose alike, all traffic
 enters through the frontend, which proxies `/api/*`. There is one consequence worth knowing:
@@ -188,7 +182,7 @@ Invoices arrive through two channels, deliberately kept as separate orchestrator
 
 ```
 invoice/
-  submission/        Electronic (ESF XML from the Oracle queue)
+  submission/        Electronic (uploaded ESF-format XML)
     structural/      Parsing and XSD schema validation
       parser/        SubmissionXmlParser
       schema/        SchemaValidator (schemas/csp/mof-csp.xsd)
@@ -219,6 +213,108 @@ JAXB context path, envelope and body namespaces and root elements) and defaulted
 > [`docs/refactor-shared-invoice-rules.md`](docs/refactor-shared-invoice-rules.md). The full
 > rulebook ported from the legacy app is in
 > [`docs/submission-validation-business-rules.md`](docs/submission-validation-business-rules.md).
+
+### XML upload pipeline
+
+The Upload Submission page walks a file through the `/api/submissions` endpoints. `submit`
+re-parses the file rather than trusting earlier steps, so what was validated is what gets saved.
+
+```mermaid
+sequenceDiagram
+    participant U as Upload page
+    participant B as CSP API
+    participant O as Oracle
+    U->>B: POST validate/structural (XML file)
+    B->>B: Strip the ESF envelope, check the XSD
+    U->>B: POST parse
+    B-->>U: Submission preview for review and edits
+    U->>B: POST validate/business
+    B->>O: Reference data and the submitter's existing invoices
+    B-->>U: Accepted and rejected invoices, errors, warnings
+    U->>B: POST submit (file + edited metadata)
+    B->>B: Re-parse, apply edits, check ClientScope (403 if out of scope)
+    B->>B: Re-run business validation, refuse unless every invoice is accepted
+    B->>O: One transaction: submission (INB) and its invoices (DFT)
+    B-->>U: Submission number
+```
+
+### Legacy and modern XML intake
+
+Legacy CSP pulls industry XML from ESF through an Oracle queue and reports status back to ESF.
+Modern CSP has no queue reader: submitters upload the same ESF-format XML in the app and
+follow it in Submission History. Both apps write the same tables, so legacy keeps importing
+ESF submissions for as long as it runs.
+
+```mermaid
+flowchart LR
+    Sub["Industry submitter"]
+
+    subgraph Legacy["Legacy CSP"]
+        E[ESF]
+        Q["Oracle submission queue"]
+        A["CSPQueueAgent<br/>parse, validate, persist"]
+        S["CSPStatusAgent"]
+        E --> Q --> A
+        A --> S -->|Accepted or rejected status| E
+    end
+
+    subgraph Modern["Modern CSP (this repo)"]
+        UI["Upload Submission page<br/>Business BCeID or staff"]
+        API["/api/submissions"]
+        UI --> API
+    end
+
+    D[("Shared Oracle THE schema<br/>CSP_SUBMISSION, COASTAL_LOG_SALE*")]
+
+    Sub -->|Legacy XML submission| E
+    Sub -.->|After cutover: same XML, uploaded| UI
+    A -->|Invoices start in PRO| D
+    API -->|Invoices start in DFT| D
+```
+
+### Invoice and submission status
+
+An invoice's status decides which actions the Invoice page offers. Codes are the
+`INVENTRYSTATUS_*` constants.
+
+```mermaid
+stateDiagram-v2
+    [*] --> DFT: Create, duplicate or XML submit
+    DFT --> PRO: Submit
+    UNA --> PRO: Submit
+    PRO --> APP: Approve
+    UNA --> APP: Approve
+    PRO --> REJ: Reject
+    UNA --> REJ: Reject
+    PRO --> CAN: Cancel
+    UNA --> CAN: Cancel
+    APP --> UNA: Unapprove
+    PRO --> DFT: Save
+    UNA --> DFT: Save
+    DFT --> [*]: Delete
+    PRO --> [*]: Delete
+    note right of DFT
+        Any line-item add, edit or delete also returns
+        the invoice to DFT (adding is blocked on APP).
+        Saving a replacement invoice cancels the
+        invoices it replaces.
+    end note
+```
+
+Each invoice belongs to a `CSP_SUBMISSION`, whose status follows its invoices:
+
+```mermaid
+stateDiagram-v2
+    [*] --> LOB: Manual invoice created
+    [*] --> INB: XML submission saved
+    LOB --> INB: An invoice is submitted
+    INB --> LOB: An invoice is saved
+    INB --> COM: No PRO invoices left, at least one APP
+    INB --> REJ: No PRO invoices left, none APP
+```
+
+Reject, Cancel and Unapprove need a changed reviewer comment, and the user who entered an
+invoice can't approve it.
 
 ## Reporting pipeline
 
@@ -290,6 +386,31 @@ applies the SPA navigation fallback to API navigations and serves the React shel
 Swagger UI.
 
 ## Authentication and authorization
+
+```mermaid
+sequenceDiagram
+    participant F as FAM (nr-fam)
+    participant U as Browser (React)
+    participant S as CSS (Keycloak)
+    participant I as IDIR / Business BCeID
+    participant B as CSP API
+    F->>S: Grant CSP_ADMIN / CSP_APPROVE / CSP_VIEW, or CSP_SUBMITTER per forest client
+    U->>S: Authorization request with PKCE and a provider hint
+    S->>I: Federated sign-in
+    I-->>S: Authenticated identity
+    S-->>U: Redirect to /authCallback with code
+    U->>S: Exchange code and PKCE verifier
+    S-->>U: Access, ID and refresh tokens
+    U->>B: /api request with bearer access token
+    B->>B: Validate signature (JWKS), issuer, azp, typ, expiry and identity provider
+    B->>B: Map client_roles to ADMIN / APPROVE / VIEW, or SUBMITTER + FOREST_CLIENT-n
+    B-->>U: Response limited to the caller's ClientScope
+    Note over U,S: Near expiry, one shared refresh renews the tokens
+    U->>I: Logout through SiteMinder
+    I-->>U: Redirect to CSS end-session
+    U->>S: End session with id_token_hint
+    S-->>U: Return to the CSP welcome page
+```
 
 **Sign-in.** `oidc-client-ts` uses authorization code with PKCE against a public CSS Keycloak
 client, with roles managed in FAM. OIDC user/state data lives in tab-scoped `sessionStorage`.
@@ -410,6 +531,24 @@ every push changes the pod spec and forces a rollout. Test and prod use the muta
 tag, where `oc apply` would see an unchanged Deployment and keep serving a stale image despite
 `imagePullPolicy: Always` — so a commit stamp on the pod template forces the rollout instead.
 
+### Release flow
+
+PROD never builds its own images. It promotes the exact image digests that passed TEST.
+
+```mermaid
+flowchart LR
+    PR["Pull request"] -->|"PR workflow: build images,<br/>deploy zone = PR number mod 50"| Zone["PR zone<br/>(dev environment)"]
+    PR -->|Merge to main| Merge["Merge workflow"]
+    Merge -->|"Deploy the PR's images,<br/>run tests"| Test["TEST"]
+    Merge -->|"Record image digests<br/>(release-candidate artifact)"| Candidate[("Tested candidate")]
+    Tag["Tag the tested main commit<br/>vX.Y.Z"] --> Release["Release PROD<br/>(manual dispatch)"]
+    Candidate --> Release
+    Release -->|"Same digests,<br/>vanity route + TLS"| Prod["PROD"]
+```
+
+`Release PROD` refuses a tag whose commit has no successful TEST run. Markdown-only merges skip
+the Merge workflow, so documentation changes never redeploy TEST.
+
 ## Testing strategy
 
 | Layer | Tool | Scope |
@@ -450,6 +589,11 @@ Things that are genuinely worth fixing or confirming:
   mounts it at `/etc/tls-certs`, but the app serves plain HTTP on 8080 and never reads it.
 - **Java 21 compile, JRE 25 runtime.** `backend/Dockerfile` builds on Temurin 21 and runs on a
   JRE 25 base; bytecode targets 21.
+- **Invoice status rules live only in the UI.** The API accepts Approve, Reject, Cancel and
+  Unapprove from any status, and Delete from any status but APP. Only the Invoice page limits
+  them to the transitions in [Invoice and submission status](#invoice-and-submission-status).
+- **Uploaded XML invoices start in DFT.** Legacy ESF intake started them in PRO, ready for
+  review. Which one the business wants is still open.
 - **`/api/health` doesn't check anything.** It returns a hardcoded `UP` and is wired as the
   liveness probe, so a pod with an unreachable database still reports healthy.
 - **Stale comments and template leftovers:**
