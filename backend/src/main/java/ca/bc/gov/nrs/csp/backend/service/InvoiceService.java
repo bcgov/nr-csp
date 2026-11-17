@@ -135,7 +135,7 @@ public class InvoiceService {
         }
 
         return mapper.toResponse(loaded.details(), loaded.submissionId(), loaded.submissionNumber(), lines, validation,
-                invoiceRepo.findRevisionCount(id));
+                loaded.revisionCount());
     }
 
     // ---------------------------------------------------------------

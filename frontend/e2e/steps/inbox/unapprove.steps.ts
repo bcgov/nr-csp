@@ -27,7 +27,14 @@ Given('that invoice has already been approved', async ({ request, world }) => {
   // `reviewComments: null` is deliberate: the service skips the note write when it is null, so this
   // arrange leaves the invoice's seeded reviewer note untouched. That matters, because the point of
   // a later assertion is that UNAPPROVING is what replaced it.
+  const current = await request.get(`/api/invoices/${world.reviewInvoiceId}`);
+  expect(
+    current.ok(),
+    `[arrange] could not read invoice ${world.reviewInvoiceId}: HTTP ${current.status()}`,
+  ).toBeTruthy();
+  const { revisionCount } = (await current.json()) as { revisionCount: number };
   const res = await request.patch(`/api/invoices/${world.reviewInvoiceId}/status`, {
+    params: { expectedRevisionCount: revisionCount },
     data: { status: invoiceStatus.approved, reviewComments: null },
   });
   expect(

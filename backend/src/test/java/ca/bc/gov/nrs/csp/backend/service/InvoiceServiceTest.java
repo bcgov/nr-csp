@@ -151,7 +151,7 @@ class InvoiceServiceTest {
     }
 
     private LoadedInvoice loaded(InvoiceDetails d, Long submissionId, Long buyerPid, Long sellerPid) {
-        return new LoadedInvoice(d, submissionId, buyerPid, sellerPid, submissionId);
+        return new LoadedInvoice(d, submissionId, buyerPid, sellerPid, submissionId, CURRENT_REVISION);
     }
 
     /**
@@ -159,7 +159,7 @@ class InvoiceServiceTest {
      * the service tells manual entry from an ESF submission.
      */
     private LoadedInvoice loadedManual(InvoiceDetails d, Long submissionId) {
-        return new LoadedInvoice(d, submissionId, null, null, null);
+        return new LoadedInvoice(d, submissionId, null, null, null, CURRENT_REVISION);
     }
 
     private LineItem line(Long id, BigDecimal converted) {
@@ -1262,13 +1262,14 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void getById_returnsCurrentRevision() {
+    void getById_returnsRevisionReadWithTheHeader() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
-        given(invoiceRepo.findRevisionCount(1L)).willReturn(CURRENT_REVISION);
 
         service.getById(1L);
 
+        // Not re-read afterwards: a later read could pair older data with a newer revision.
         verify(mapper).toResponse(any(), any(), any(), any(), any(), eq(CURRENT_REVISION));
+        verify(invoiceRepo, never()).findRevisionCount(anyLong());
         verify(invoiceRepo, never()).lockRevisionCount(anyLong());
     }
 }

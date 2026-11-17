@@ -60,8 +60,9 @@ export const submTest = base.extend<SubmFixtures>({
   //
   // DELETE /api/invoices/{id} is valid in every status this journey can reach — the service only
   // refuses an APPROVED invoice — so a scenario that failed after submitting still cleans up.
-  // 404 is idempotent-OK (a delete-invoice scenario got there first). All ids are attempted before
-  // throwing, so one bad id cannot hide the others.
+  // 404 is idempotent-OK (a delete-invoice scenario got there first). The delete must carry the
+  // invoice's current revision, so each id is read first. All ids are attempted before throwing,
+  // so one bad id cannot hide the others.
   //
   // KNOWN RESIDUE: `InvoiceService.create` also inserts a `csp_submission` row, and `delete` does
   // NOT remove it, so each created invoice leaves one orphan submission behind. It is invisible to
@@ -75,7 +76,14 @@ export const submTest = base.extend<SubmFixtures>({
     for (const id of ids) {
       let status: number;
       try {
-        const res = await request.delete(`/api/invoices/${id}`);
+        const current = await request.get(`/api/invoices/${id}`);
+        if (current.status() === 404) continue;
+        if (!current.ok()) {
+          residue.push(`${id} -> read HTTP ${current.status()}`);
+          continue;
+        }
+        const { revisionCount } = (await current.json()) as { revisionCount: number };
+        const res = await request.delete(`/api/invoices/${id}`, { params: { expectedRevisionCount: revisionCount } });
         status = res.status();
         if (res.ok() || status === 404) continue;
       } catch (err) {

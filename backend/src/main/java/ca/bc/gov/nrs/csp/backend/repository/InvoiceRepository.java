@@ -230,7 +230,10 @@ public class InvoiceRepository {
             // to the user as "Submission ID". Distinct from `submissionId`, which is
             // the surrogate PK (csp_submission_id) used as the join/update key.
             // Null for manually-entered submissions (insertSubmission doesn't set it).
-            Long submissionNumber
+            Long submissionNumber,
+            // Read in the header query, before the log sources and lines, so a later commit can
+            // only make it stale (a 409), never newer than the data it travels with.
+            Integer revisionCount
     ) {}
 
     public Optional<LoadedInvoice> findById(Long id) {
@@ -252,6 +255,7 @@ public class InvoiceRepository {
                        cls.reviewer_notes AS review_comments,
                        cls.submitter_notes AS submit_comments,
                        cls.entry_userid AS entry_userid,
+                       cls.revision_count AS revision_count,
                        cls.csp_submission_id AS submission_id,
                        sub.submission_id AS submission_number,
                        cls.buyer_log_sale_participant_id AS buyer_participant_id,
@@ -347,7 +351,8 @@ public class InvoiceRepository {
                 rs.getString("submit_comments"),
                 rs.getString("entry_userid")
         );
-        return new LoadedInvoice(details, submissionId, buyerParticipantId, sellerParticipantId, submissionNumber);
+        return new LoadedInvoice(details, submissionId, buyerParticipantId, sellerParticipantId, submissionNumber,
+                rs.getObject("revision_count", Integer.class));
     }
 
     /**

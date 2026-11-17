@@ -431,6 +431,7 @@ class InvoiceRepositoryTest {
         given(rs.getString("review_comments")).willReturn("review it");
         given(rs.getString("submit_comments")).willReturn("submitted via UI");
         given(rs.getString("entry_userid")).willReturn("user123");
+        given(rs.getObject("revision_count", Integer.class)).willReturn(6);
         stubNestedLookups();
         stubQueryWithResultSet(rs);
 
@@ -443,8 +444,10 @@ class InvoiceRepositoryTest {
                         InvoiceRepository.LoadedInvoice::submissionId,
                         InvoiceRepository.LoadedInvoice::submissionNumber,
                         InvoiceRepository.LoadedInvoice::buyerParticipantId,
-                        InvoiceRepository.LoadedInvoice::sellerParticipantId)
-                .containsExactly(500L, 9001L, 61L, 62L);
+                        InvoiceRepository.LoadedInvoice::sellerParticipantId,
+                        InvoiceRepository.LoadedInvoice::revisionCount)
+                .containsExactly(500L, 9001L, 61L, 62L, 6);
+        assertThat(captureQuerySql()).contains("cls.revision_count AS revision_count");
 
         InvoiceDetails d = loaded.details();
         assertThat(d)
