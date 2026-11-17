@@ -830,6 +830,44 @@ class InvoiceRepositoryTest {
     // ---------------------------------------------------------------
 
     @Test
+    void lockRevisionCount_locksRowAndReturnsRevision() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
+                .willReturn(List.of(4));
+
+        assertThat(repo.lockRevisionCount(10L)).contains(4);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).queryForList(sqlCaptor.capture(), paramsCaptor.capture(), eq(Integer.class));
+        assertThat(sqlCaptor.getValue())
+                .contains("SELECT revision_count FROM THE.coastal_log_sale")
+                .contains("WHERE coastal_log_sale_id = :id")
+                .endsWith("FOR UPDATE");
+        assertThat(paramsCaptor.getValue().getValue("id")).isEqualTo(10L);
+    }
+
+    @Test
+    void lockRevisionCount_missingInvoice_returnsEmpty() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
+                .willReturn(List.of());
+
+        assertThat(repo.lockRevisionCount(99L)).isEmpty();
+    }
+
+    @Test
+    void incrementRevisionCount_bumpsRevisionAndAuditColumns() {
+        repo.incrementRevisionCount(10L, "user123");
+
+        assertThat(captureUpdateSql())
+                .contains("revision_count = revision_count + 1")
+                .contains("update_userid = :userId")
+                .contains("WHERE coastal_log_sale_id = :id");
+        MapSqlParameterSource params = captureUpdateParams();
+        assertThat(params.getValue("id")).isEqualTo(10L);
+        assertThat(params.getValue("userId")).isEqualTo("user123");
+    }
+
+    @Test
     void updateStatus_bindsStatusUserIdAndId() {
         repo.updateStatus(10L, "APP", "user123");
 

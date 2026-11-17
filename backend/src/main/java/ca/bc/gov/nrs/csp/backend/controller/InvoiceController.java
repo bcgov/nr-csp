@@ -45,24 +45,24 @@ public class InvoiceController implements InvoiceApi {
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Save')")
-    public ResponseEntity<InvoiceResponse> update(Long id, UpdateInvoiceRequest request) {
+    public ResponseEntity<InvoiceResponse> update(Long id, Integer expectedRevisionCount, UpdateInvoiceRequest request) {
         log.info("PUT /api/invoices/{} invNumber={} invType={}", id, request.invNumber(), request.invType());
-        return ResponseEntity.ok(invoiceService.update(id, request));
+        return ResponseEntity.ok(invoiceService.update(id, expectedRevisionCount, request));
     }
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Delete')")
-    public ResponseEntity<Void> delete(Long id) {
+    public ResponseEntity<Void> delete(Long id, Integer expectedRevisionCount) {
         log.info("DELETE /api/invoices/{}", id);
-        invoiceService.delete(id);
+        invoiceService.delete(id, expectedRevisionCount);
         return ResponseEntity.noContent().build();
     }
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Submit')")
-    public ResponseEntity<InvoiceResponse> submit(Long id) {
+    public ResponseEntity<InvoiceResponse> submit(Long id, Integer expectedRevisionCount) {
         log.info("POST /api/invoices/{}/submit", id);
-        return ResponseEntity.ok(invoiceService.submit(id));
+        return ResponseEntity.ok(invoiceService.submit(id, expectedRevisionCount));
     }
 
     @Override
@@ -74,30 +74,30 @@ public class InvoiceController implements InvoiceApi {
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Approve') or @permissionService.hasPermission(authentication, 'invoiceDetails/Reject') or @permissionService.hasPermission(authentication, 'invoiceDetails/Cancel') or @permissionService.hasPermission(authentication, 'invoiceDetails/Unapprove')")
-    public ResponseEntity<InvoiceResponse> changeStatus(Long id, ChangeStatusRequest request) {
+    public ResponseEntity<InvoiceResponse> changeStatus(Long id, Integer expectedRevisionCount, ChangeStatusRequest request) {
         log.info("PATCH /api/invoices/{}/status status={}", id, request.status());
-        return ResponseEntity.ok(invoiceService.changeStatus(id, request));
+        return ResponseEntity.ok(invoiceService.changeStatus(id, expectedRevisionCount, request));
     }
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/New Line Item')")
-    public ResponseEntity<InvoiceResponse> addLineItem(Long id, LineItemRequest request) {
+    public ResponseEntity<InvoiceResponse> addLineItem(Long id, Integer expectedRevisionCount, LineItemRequest request) {
         log.info("POST /api/invoices/{}/line-items secondSort={} species={} grade={}", id, request.secondSort(), request.species(), request.grade());
-        return ResponseEntity.ok(invoiceService.addLineItem(id, request));
+        return ResponseEntity.ok(invoiceService.addLineItem(id, expectedRevisionCount, request));
     }
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Update Group')")
-    public ResponseEntity<InvoiceResponse> updateLineItem(Long id, Long lineId, LineItemRequest request) {
+    public ResponseEntity<InvoiceResponse> updateLineItem(Long id, Long lineId, Integer expectedRevisionCount, LineItemRequest request) {
         log.info("PATCH /api/invoices/{}/line-items/{} secondSort={} species={} grade={}", id, lineId, request.secondSort(), request.species(), request.grade());
-        return ResponseEntity.ok(invoiceService.updateLineItem(id, lineId, request));
+        return ResponseEntity.ok(invoiceService.updateLineItem(id, lineId, expectedRevisionCount, request));
     }
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Delete')")
-    public ResponseEntity<InvoiceResponse> deleteLineItem(Long id, Long lineId) {
+    public ResponseEntity<InvoiceResponse> deleteLineItem(Long id, Long lineId, Integer expectedRevisionCount) {
         log.info("DELETE /api/invoices/{}/line-items/{}", id, lineId);
-        return ResponseEntity.ok(invoiceService.deleteLineItem(id, lineId));
+        return ResponseEntity.ok(invoiceService.deleteLineItem(id, lineId, expectedRevisionCount));
     }
 
     @Override

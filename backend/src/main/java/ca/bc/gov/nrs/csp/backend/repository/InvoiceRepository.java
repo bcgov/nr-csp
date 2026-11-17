@@ -173,6 +173,38 @@ public class InvoiceRepository {
         return count == null ? 0 : count;
     }
 
+    // ---------------------------------------------------------------
+    // Revision count: the invoice's version for concurrent edits
+    // ---------------------------------------------------------------
+
+    /** Locks the invoice row until the transaction ends and returns its revision count; empty if missing. */
+    public Optional<Integer> lockRevisionCount(Long id) {
+        String sql = "SELECT revision_count FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id FOR UPDATE";
+        List<Integer> results = jdbc.queryForList(sql, new MapSqlParameterSource("id", id), Integer.class);
+        return results.isEmpty() ? Optional.empty() : Optional.ofNullable(results.get(0));
+    }
+
+    public Integer findRevisionCount(Long id) {
+        String sql = "SELECT revision_count FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id";
+        List<Integer> results = jdbc.queryForList(sql, new MapSqlParameterSource("id", id), Integer.class);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    /** Marks the invoice as changed when only its line items were written. */
+    public void incrementRevisionCount(Long id, String userId) {
+        String sql = """
+                UPDATE THE.coastal_log_sale SET
+                    revision_count = revision_count + 1,
+                    update_userid = :userId,
+                    update_timestamp = SYSDATE
+                WHERE coastal_log_sale_id = :id
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("userId", userId);
+        jdbc.update(sql, params);
+    }
+
     public String findReviewCommentsById(Long coastalLogSaleId) {
         if (coastalLogSaleId == null) return null;
         String sql = "SELECT reviewer_notes FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id";

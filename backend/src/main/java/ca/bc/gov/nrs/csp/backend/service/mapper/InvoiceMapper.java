@@ -195,7 +195,8 @@ public class InvoiceMapper {
         return result.errors().stream().map(this::toMessageResponse).toList();
     }
 
-    public InvoiceResponse toResponse(InvoiceDetails details, Long submissionId, Long submissionNumber, List<LineItem> lineItems, ValidationResult validationSource) {
+    public InvoiceResponse toResponse(InvoiceDetails details, Long submissionId, Long submissionNumber, List<LineItem> lineItems,
+                                      ValidationResult validationSource, Integer revisionCount) {
         return new InvoiceResponse(
                 details.invID(),
                 submissionId,
@@ -229,6 +230,7 @@ public class InvoiceMapper {
                 details.reviewComments(),
                 details.submitComments(),
                 details.entryUserID(),
+                revisionCount,
                 toLineItemResponses(lineItems),
                 toWarningResponses(validationSource),
                 toErrorResponses(validationSource)

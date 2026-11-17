@@ -182,6 +182,36 @@ Most report templates call the Oracle stored procedures `CSP_SP_RPT_*` directly 
 `<query language="plsql">{call …}`. **R13 (ad hoc) is the exception** — it uses plain SQL and
 adjusts its columns at runtime with dom4j.
 
+### Concurrent invoice edits
+
+Without JPA there is no `@Version`, so invoices use the existing `revision_count` column as a
+hand-rolled optimistic lock, matching legacy CSP. It versions the whole invoice: every header,
+status and line-item write bumps it. Every change to an existing invoice sends the revision the
+page loaded as `?expectedRevisionCount=`.
+
+```mermaid
+sequenceDiagram
+    participant A as User A
+    participant B as User B
+    participant API as CSP API
+    participant O as Oracle
+    A->>API: GET /api/invoices/42
+    API-->>A: revisionCount 3
+    B->>API: GET /api/invoices/42
+    API-->>B: revisionCount 3
+    B->>API: PUT /api/invoices/42?expectedRevisionCount=3
+    API->>O: SELECT revision_count ... FOR UPDATE (3 matches)
+    API->>O: Write the invoice, revision becomes 4
+    API-->>B: 200, revisionCount 4
+    A->>API: PUT /api/invoices/42?expectedRevisionCount=3
+    API->>O: SELECT revision_count ... FOR UPDATE (4, not 3)
+    API-->>A: 409, refresh to see the other user's changes
+```
+
+The row lock holds until the transaction commits, so two changes sent at the same moment can't
+both pass the check. A multi-line group edit or delete sends one request per line, each carrying
+the revision the previous response returned.
+
 ## Invoice domain
 
 Invoices arrive through two channels, deliberately kept as separate orchestrators:

@@ -57,6 +57,7 @@ import {
   type CreateInvoiceRequest,
   type LineItemRequest,
   type LineItemResponse,
+  type InvoiceResponse,
   type ValidationMessageResponse,
   extractApiErrorMessage,
   extractValidationErrors,
@@ -945,7 +946,7 @@ export function InvoicePage() {
 
   const handleSaveNewLineItem = () => {
     if (!isAddLineItemValid) return;
-    if (!invoiceId) {
+    if (!invoiceId || !loadedInvoice) {
       addNotification({ kind: 'warning', title: 'Save the invoice before adding line items.' });
       return;
     }
@@ -961,7 +962,7 @@ export function InvoicePage() {
     };
     clearErrors();
     addLineItemMutation.mutate(
-      { invoiceId, body },
+      { invoiceId, expectedRevisionCount: loadedInvoice.revisionCount, body },
       {
         onSuccess: (data) => {
           // Hydrate from the server response so the table + totals reflect
@@ -1283,14 +1284,16 @@ export function InvoicePage() {
 
   // Deleting a group removes each of its line items
   const performGroupDelete = async (group: GroupRow) => {
-    if (!invoiceId) return;
+    if (!invoiceId || !loadedInvoice) return;
     clearErrors();
     const ids = group.lineItems.map((l) => l.lineItemID).filter((id) => id > 0);
-    let lastResponse: typeof loadedInvoice = undefined;
+    let lastResponse: InvoiceResponse | undefined;
     for (const lineId of ids) {
+      // Each delete bumps the revision, so the next one sends the revision the last one returned.
+      const expectedRevisionCount = lastResponse?.revisionCount ?? loadedInvoice.revisionCount;
       try {
         // eslint-disable-next-line no-await-in-loop
-        lastResponse = await deleteLineItemMutation.mutateAsync({ invoiceId, lineId });
+        lastResponse = await deleteLineItemMutation.mutateAsync({ invoiceId, lineId, expectedRevisionCount });
       } catch (err) {
         setDeleteConfirm(null);
         handleMutationError(err, 'Failed to delete group.');
@@ -1414,8 +1417,9 @@ export function InvoicePage() {
     clearErrors();
     const body = buildRequestBody();
     if (isExisting && invoiceId) {
+      if (!loadedInvoice) return;
       updateMutation.mutate(
-        { id: invoiceId, body },
+        { id: invoiceId, expectedRevisionCount: loadedInvoice.revisionCount, body },
         {
           onSuccess: (data) => {
             setSaveWarnings(data.warnings ?? []);
@@ -1441,22 +1445,25 @@ export function InvoicePage() {
   };
 
   const handleSubmit = () => {
-    if (!invoiceId) {
+    if (!invoiceId || !loadedInvoice) {
       addNotification({ kind: 'warning', title: 'Save the invoice before submitting.' });
       return;
     }
     clearErrors();
-    submitMutation.mutate(invoiceId, {
-      onSuccess: (data) => {
-        setWarnings(data.warnings ?? []);
-        addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' submitted.` });
+    submitMutation.mutate(
+      { id: invoiceId, expectedRevisionCount: loadedInvoice.revisionCount },
+      {
+        onSuccess: (data) => {
+          setWarnings(data.warnings ?? []);
+          addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' submitted.` });
+        },
+        onError: (err) => handleMutationError(err, 'Failed to submit invoice.'),
       },
-      onError: (err) => handleMutationError(err, 'Failed to submit invoice.'),
-    });
+    );
   };
 
   const runStatusChange = (status: 'APP' | 'REJ' | 'CAN' | 'UNA', requiresComment: boolean) => {
-    if (!invoiceId) return;
+    if (!invoiceId || !loadedInvoice) return;
     if (requiresComment && reviewerComment.trim() === '') {
       setReviewerCommentError('Reviewer comment is required for this action.');
       return;
@@ -1464,7 +1471,11 @@ export function InvoicePage() {
     setReviewerCommentError('');
     clearErrors();
     changeStatusMutation.mutate(
-      { id: invoiceId, body: { status, reviewComments: reviewerComment || null } },
+      {
+        id: invoiceId,
+        expectedRevisionCount: loadedInvoice.revisionCount,
+        body: { status, reviewComments: reviewerComment || null },
+      },
       {
         onSuccess: (data) => {
           setWarnings(data.warnings ?? []);
@@ -1503,19 +1514,22 @@ export function InvoicePage() {
   };
 
   const handleDelete = () => {
-    if (!invoiceId) return;
-    deleteMutation.mutate(invoiceId, {
-      onSuccess: () => {
-        // Navigate to the base "new invoice" screen.
-        setDeleteConfirm(null);
-        addNotification({ kind: 'success', title: 'Invoice deleted.' });
-        void navigate('/invoice', { replace: true });
+    if (!invoiceId || !loadedInvoice) return;
+    deleteMutation.mutate(
+      { id: invoiceId, expectedRevisionCount: loadedInvoice.revisionCount },
+      {
+        onSuccess: () => {
+          // Navigate to the base "new invoice" screen.
+          setDeleteConfirm(null);
+          addNotification({ kind: 'success', title: 'Invoice deleted.' });
+          void navigate('/invoice', { replace: true });
+        },
+        onError: (err) => {
+          setDeleteConfirm(null);
+          handleMutationError(err, 'Failed to delete invoice.');
+        },
       },
-      onError: (err) => {
-        setDeleteConfirm(null);
-        handleMutationError(err, 'Failed to delete invoice.');
-      },
-    });
+    );
   };
 
   const requestDeleteInvoice = () =>
@@ -1533,12 +1547,12 @@ export function InvoicePage() {
     });
 
   const handleDeleteLineItem = (_groupId: string, lineId: string) => {
-    if (!invoiceId) return;
+    if (!invoiceId || !loadedInvoice) return;
     const numeric = Number(lineId);
     if (Number.isNaN(numeric)) return;
     clearErrors();
     deleteLineItemMutation.mutate(
-      { invoiceId, lineId: numeric },
+      { invoiceId, lineId: numeric, expectedRevisionCount: loadedInvoice.revisionCount },
       {
         onSuccess: (data) => {
           setLineItems(data.lineItems ?? []);
@@ -1580,7 +1594,7 @@ export function InvoicePage() {
   };
 
   const handleSaveLineEdit = () => {
-    if (!invoiceId || !editLineDraft) return;
+    if (!invoiceId || !editLineDraft || !loadedInvoice) return;
     if (Object.keys(clientEditLineErrors).length > 0) return;
     const lineItemID = Number(editLineDraft.id);
     const body: LineItemRequest = {
@@ -1596,7 +1610,7 @@ export function InvoicePage() {
     };
     clearErrors();
     updateLineItemMutation.mutate(
-      { invoiceId, lineId: lineItemID, body },
+      { invoiceId, lineId: lineItemID, expectedRevisionCount: loadedInvoice.revisionCount, body },
       {
         onSuccess: (data) => {
           const nextLines = data.lineItems ?? [];
@@ -1633,7 +1647,7 @@ export function InvoicePage() {
   };
 
   const handleSaveGroupEdit = async () => {
-    if (!invoiceId || !editGroupDraft) return;
+    if (!invoiceId || !editGroupDraft || !loadedInvoice) return;
     const { lineItemIds, secondSort, species } = editGroupDraft;
     if (!secondSort || !species) {
       setEditGroupFieldErrors({
@@ -1643,7 +1657,7 @@ export function InvoicePage() {
       return;
     }
     clearErrors();
-    let lastResponse: typeof loadedInvoice = undefined;
+    let lastResponse: InvoiceResponse | undefined;
     for (const lineId of lineItemIds) {
       const sourceLines = lastResponse?.lineItems ?? lineItems;
       const existing = sourceLines.find((l) => l.lineItemID === lineId);
@@ -1659,9 +1673,11 @@ export function InvoicePage() {
         volume: existing.volume,
         convertedPrice: existing.convertedPrice ?? null,
       };
+      // Each update bumps the revision, so the next one sends the revision the last one returned.
+      const expectedRevisionCount = lastResponse?.revisionCount ?? loadedInvoice.revisionCount;
       try {
         // eslint-disable-next-line no-await-in-loop
-        lastResponse = await updateLineItemMutation.mutateAsync({ invoiceId, lineId, body });
+        lastResponse = await updateLineItemMutation.mutateAsync({ invoiceId, lineId, expectedRevisionCount, body });
       } catch (err) {
         const errors = extractValidationErrors(err);
         if (errors.length > 0) {
