@@ -116,18 +116,11 @@ describe('OIDC session service', () => {
     });
   });
 
-  it('returns to the page the sign-in started from, query included', async () => {
-    // A signed-out deep link renders the welcome screen at that URL, so this is the deep link.
-    window.history.replaceState(null, '', '/submission-history/9001?tab=invoices');
-    try {
-      const { startOidcLogin } = await import('../oidc-service');
-      await startOidcLogin('idir');
-      expect(mocks.manager.signinRedirect).toHaveBeenLastCalledWith(
-        expect.objectContaining({ state: { returnTo: '/submission-history/9001?tab=invoices' } }),
-      );
-    } finally {
-      window.history.replaceState(null, '', '/');
-    }
+  it('carries the requested deep link through provider sign-in from the welcome page', async () => {
+    const { startOidcLogin } = await import('../oidc-service');
+    const returnTo = '/submission-history/9001?tab=invoices#details';
+    await startOidcLogin('business-bceid', returnTo);
+    expect(mocks.manager.signinRedirect).toHaveBeenCalledWith(expect.objectContaining({ state: { returnTo } }));
   });
 
   it('does not attempt iframe login for a signed-out visitor', async () => {
@@ -317,7 +310,12 @@ describe('OIDC session service', () => {
   it('restores only a route on this app origin from OIDC state', async () => {
     const { getOidcReturnPath } = await import('../oidc-service');
     expect(getOidcReturnPath({ state: { returnTo: '/search?year=2025' } } as User)).toBe('/search?year=2025');
-    for (const returnTo of ['https://other.example.test/', '//other.example.test/', '/authCallback?code=spent']) {
+    for (const returnTo of [
+      'https://other.example.test/',
+      '//other.example.test/',
+      '/authCallback?code=spent',
+      '/authCallback#details',
+    ]) {
       expect(getOidcReturnPath({ state: { returnTo } } as User)).toBe('/');
     }
   });

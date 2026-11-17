@@ -1,5 +1,5 @@
-import { act, render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { act, render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { vi, describe, afterEach, it, expect } from 'vitest';
 
 import * as useAuthModule from '@/context/auth/useAuth';
@@ -23,10 +23,7 @@ describe('ProtectedRoute — OAuth callback guard', () => {
     vi.unstubAllGlobals();
   });
 
-  // Params that are never exchanged are never cleared, so without a bounded
-  // wait this would sit on the loading screen for good: the effect returns
-  // early every time and none of its deps could ever change.
-  it('falls through to a fresh sign-in when the callback never completes', async () => {
+  it('redirects to the welcome page when the callback wait expires', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('location', { search: '?code=abc&state=xyz', pathname: '/search' });
     vi.stubGlobal('history', { replaceState: vi.fn() });
@@ -36,19 +33,28 @@ describe('ProtectedRoute — OAuth callback guard', () => {
 
     try {
       render(
-        <MemoryRouter>
-          <ProtectedRoute>
-            <div>Private Content</div>
-          </ProtectedRoute>
+        <MemoryRouter initialEntries={['/search']}>
+          <Routes>
+            <Route path="/" element={<div>Welcome</div>} />
+            <Route
+              path="/search"
+              element={
+                <ProtectedRoute>
+                  <div>Private Content</div>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
         </MemoryRouter>,
       );
-      expect(signIn).not.toHaveBeenCalled();
+      expect(screen.getByText('Loading')).toBeInTheDocument();
 
       await act(async () => {
         vi.advanceTimersByTime(OAUTH_CALLBACK_TIMEOUT_MS);
       });
 
-      expect(signIn).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Welcome')).toBeInTheDocument();
+      expect(signIn).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

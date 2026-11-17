@@ -25,9 +25,9 @@ const signIn = vi.fn();
  * past the redirect shows up here instead of vanishing into context with
  * nothing to render it.
  */
-const tree = () => (
+const tree = (returnTo?: string) => (
   <NotificationProvider>
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[{ pathname: '/', state: { returnTo } }]}>
       <Routes>
         <Route path="/" element={<WelcomePage />} />
         <Route
@@ -84,11 +84,12 @@ describe('WelcomePage', () => {
     ['Log in with Business BCeID', 'business-bceid'],
   ])('starts the selected provider when clicking "%s"', async (buttonName, provider) => {
     const user = userEvent.setup();
-    arrange();
+    const returnTo = '/submission-history/9001?tab=invoices#details';
+    render(tree(returnTo));
 
     await user.click(screen.getByRole('button', { name: buttonName }));
 
-    expect(signIn).toHaveBeenCalledExactlyOnceWith(provider);
+    expect(signIn).toHaveBeenCalledExactlyOnceWith(provider, returnTo);
   });
 
   it('reports a sign-in that fails before it leaves the page', async () => {
@@ -231,9 +232,7 @@ describe('WelcomePage', () => {
     });
 
     // Reachable when a sign-out redirect is abandoned before CSS ends its
-    // session: local credentials are already gone, so ProtectedRoute
-    // re-authenticates silently and returns here — signed in, with the flag
-    // still set. A
+    // session: a later sign-in can return with the flag still set. A
     // persistent notice queued on the way past would render in the shell's
     // toast stack and never auto-close, stranding an "expired" toast over a
     // live session.

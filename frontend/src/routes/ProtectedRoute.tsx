@@ -1,13 +1,13 @@
 import { Button } from '@carbon/react';
-import { type ReactNode, useEffect, useRef } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { type ReactNode } from 'react';
+import { createPath, Navigate } from 'react-router';
 
 import { LoadingScreen } from '@/components/core/LoadingScreen';
 import { useAuth } from '@/context/auth/useAuth';
 import { useOauthCallbackPending } from '@/context/auth/useOauthCallbackPending';
-import { WelcomePage } from '@/pages/Welcome';
 
-import { canAccess, homeRouteFor, isIndustryPath } from './access';
+import { canAccess, homeRouteFor } from './access';
+import { ROUTES } from './routePaths';
 
 interface Props {
   children: ReactNode;
@@ -16,29 +16,12 @@ interface Props {
 }
 
 export function ProtectedRoute({ children, page }: Props) {
-  const { user, isAuthenticated, isLoading, isSigningOut, signIn, signOut } = useAuth();
+  const { user, isAuthenticated, isLoading, isSigningOut, signOut } = useAuth();
   const isCallbackPending = useOauthCallbackPending();
-  const { pathname } = useLocation();
-  // On pages industry users open too, a signed-out visitor chooses a provider on the welcome
-  // screen, shown at this URL so sign-in returns here.
-  const choosesProvider = isIndustryPath(pathname);
-  const loginAttempted = useRef(false);
 
-  useEffect(() => {
-    // Don't trigger a login redirect while OAuth code/state params are on the
-    // URL — a second sign-in started here would abandon an exchange in flight.
-    // The wait is bounded, so params that are never exchanged fall through to a
-    // fresh sign-in rather than leaving this stuck on the loading screen.
-    if (isCallbackPending || choosesProvider) return;
-
-    if (!isLoading && !isAuthenticated && !isSigningOut && !loginAttempted.current) {
-      loginAttempted.current = true;
-      void signIn();
-    }
-  }, [isCallbackPending, choosesProvider, isLoading, isAuthenticated, isSigningOut, signIn]);
-
-  if (isLoading || isSigningOut) return <LoadingScreen />;
-  if (!isAuthenticated) return choosesProvider && !isCallbackPending ? <WelcomePage /> : <LoadingScreen />;
+  if (isLoading || isSigningOut || (!isAuthenticated && isCallbackPending)) return <LoadingScreen />;
+  if (!isAuthenticated)
+    return <Navigate to={ROUTES.LANDING} replace state={{ returnTo: createPath(window.location) }} />;
 
   if (!user?.privileges.length)
     return (

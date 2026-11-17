@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as useAuthModule from '@/context/auth/useAuth';
@@ -12,10 +12,6 @@ import type { Role } from '@/context/auth/permissions';
 
 vi.mock('@/context/auth/useAuth', () => ({
   useAuth: vi.fn(),
-}));
-
-vi.mock('@/pages/Welcome', () => ({
-  WelcomePage: () => <div>Welcome page in place</div>,
 }));
 
 vi.mock('@/components/core/LoadingScreen', () => ({
@@ -77,32 +73,6 @@ describe('ProtectedRoute — auth states', () => {
     expect(signIn).not.toHaveBeenCalled();
   });
 
-  it('triggers signIn once when unauthenticated and keeps showing the loading screen', () => {
-    const signIn = vi.fn().mockResolvedValue(undefined);
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: false,
-      isLoading: false,
-      isSigningOut: false,
-      signIn,
-    });
-
-    const { rerender } = renderRoute();
-
-    expect(signIn).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('loading')).toBeInTheDocument();
-    expect(screen.queryByText('Private Content')).not.toBeInTheDocument();
-
-    // The loginAttempted ref must prevent a second redirect on re-render.
-    rerender(
-      <MemoryRouter>
-        <ProtectedRoute>
-          <div>Private Content</div>
-        </ProtectedRoute>
-      </MemoryRouter>,
-    );
-    expect(signIn).toHaveBeenCalledTimes(1);
-  });
-
   it('renders children when authenticated with a CSP capability', () => {
     const signIn = vi.fn();
     mockUseAuth.mockReturnValue({
@@ -134,6 +104,10 @@ describe('ProtectedRoute — auth states', () => {
   });
 });
 
+function LoginDestination() {
+  return <div>{useLocation().state?.returnTo}</div>;
+}
+
 /** Renders `path` behind the real route guard, with stand-in pages. */
 function renderAt(path: string) {
   const guarded = (route: keyof typeof ROUTE_PAGES) => (
@@ -144,7 +118,15 @@ function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path={ROUTES.LANDING} element={<div>Landing route</div>} />
+        <Route path={ROUTES.LANDING} element={<LoginDestination />} />
+        <Route
+          path="*"
+          element={
+            <ProtectedRoute>
+              <div>Not found</div>
+            </ProtectedRoute>
+          }
+        />
         {(Object.keys(ROUTE_PAGES) as (keyof typeof ROUTE_PAGES)[]).map((route) => (
           <Route key={route} path={route} element={guarded(route)} />
         ))}
@@ -165,10 +147,6 @@ const signedInAs = (privileges: Role[]) =>
   });
 
 describe('ProtectedRoute — page access', () => {
-  beforeEach(() => {
-    vi.stubGlobal('location', { search: '' });
-  });
-
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
@@ -209,21 +187,19 @@ describe('ProtectedRoute — page access', () => {
     expect(screen.getByRole('heading', { name: 'No CSP access' })).toBeInTheDocument();
   });
 
-  it('shows a signed-out visitor to an industry page the welcome screen at that URL', () => {
-    // Staying on the requested URL is what lets sign-in return there.
-    const signIn = vi.fn();
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, isSigningOut: false, signIn });
-    renderAt(`${ROUTES.SUBMISSION_HISTORY}/9001?tab=invoices`);
-    expect(screen.getByText('Welcome page in place')).toBeInTheDocument();
-    expect(screen.queryByText('Landing route')).not.toBeInTheDocument();
-    expect(signIn).not.toHaveBeenCalled();
-  });
-
-  it('still starts IDIR sign-in for a signed-out visitor to a staff page', () => {
-    const signIn = vi.fn().mockResolvedValue(undefined);
-    mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, isSigningOut: false, signIn });
-    renderAt(ROUTES.INBOX);
-    expect(signIn).toHaveBeenCalledWith();
-    expect(screen.getByTestId('loading')).toBeInTheDocument();
-  });
+  it.each([ROUTES.INBOX, '/home', '/submission-history/9001?tab=invoices#details'])(
+    'redirects a signed-out visitor at %s to the welcome route with the requested destination',
+    (path) => {
+      const signIn = vi.fn();
+      mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, isSigningOut: false, signIn });
+      window.history.replaceState(null, '', path);
+      try {
+        renderAt(path);
+        expect(screen.getByText(path)).toBeInTheDocument();
+        expect(signIn).not.toHaveBeenCalled();
+      } finally {
+        window.history.replaceState(null, '', '/');
+      }
+    },
+  );
 });

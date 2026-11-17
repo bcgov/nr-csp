@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ROLES, type Role } from '@/context/auth/permissions';
 
-import { ROUTE_PAGES, canAccess, homeRouteFor, isIndustryPath } from './access';
+import { ROUTE_PAGES, canAccess, homeRouteFor } from './access';
 import { ROUTES } from './routePaths';
 
 import type { AuthUser } from '@/context/auth/types';
@@ -61,20 +61,4 @@ describe('homeRouteFor', () => {
     expect(homeRouteFor(userWith([]))).toBe(ROUTES.SEARCH);
     expect(homeRouteFor(null)).toBe(ROUTES.SEARCH);
   });
-});
-
-describe('isIndustryPath', () => {
-  it.each([ROUTES.UPLOAD_SUBMISSION, ROUTES.SUBMISSION_HISTORY, `${ROUTES.SUBMISSION_HISTORY}/9001`])(
-    'is true for %s',
-    (path) => expect(isIndustryPath(path)).toBe(true),
-  );
-
-  it.each([
-    ROUTES.SEARCH,
-    ROUTES.INBOX,
-    `${ROUTES.INVOICE}/1`,
-    '/submission-historyx',
-    '/',
-    ROUTES.R06_INVOICE_PRINT_OUT,
-  ])('is false for %s', (path) => expect(isIndustryPath(path)).toBe(false));
 });
