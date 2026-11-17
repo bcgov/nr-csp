@@ -89,22 +89,12 @@ export function WelcomePage() {
           >
             Log in with IDIR
           </Button>
-          {/* Business BCeID is not provisioned on CSP's CSS clients yet, and CSS answers a
-              bceidbusiness hint by signing the user in with IDIR. Restore
-              startLogin('business-bceid') here once it is provisioned. */}
           <Button
             kind="tertiary"
             size="lg"
             renderIcon={Login}
             className="welcome-page__action"
-            onClick={() =>
-              addNotification({
-                kind: 'info',
-                title: 'Business BCeID is not provisioned yet',
-                subtitle:
-                  "BCeID infra is set up, but not provisioned in CSS yet. Once it's provisioned, enable this button. -Alex",
-              })
-            }
+            onClick={() => startLogin('business-bceid')}
           >
             Log in with Business BCeID
           </Button>

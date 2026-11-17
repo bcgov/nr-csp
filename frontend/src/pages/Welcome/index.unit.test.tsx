@@ -79,13 +79,16 @@ describe('WelcomePage', () => {
     expect(container.querySelector('.welcome-page__photo img')).toHaveAttribute('alt', '');
   });
 
-  it('starts the IDIR sign-in when the primary button is pressed', async () => {
+  it.each([
+    ['Log in with IDIR', 'idir'],
+    ['Log in with Business BCeID', 'business-bceid'],
+  ])('starts the selected provider when clicking "%s"', async (buttonName, provider) => {
     const user = userEvent.setup();
     arrange();
 
-    await user.click(screen.getByRole('button', { name: /log in with idir/i }));
+    await user.click(screen.getByRole('button', { name: buttonName }));
 
-    expect(signIn).toHaveBeenCalledTimes(1);
+    expect(signIn).toHaveBeenCalledExactlyOnceWith(provider);
   });
 
   it('reports a sign-in that fails before it leaves the page', async () => {
@@ -96,17 +99,6 @@ describe('WelcomePage', () => {
     await user.click(screen.getByRole('button', { name: /log in with idir/i }));
 
     expect(await screen.findByText(/could not start sign-in/i)).toBeInTheDocument();
-  });
-
-  // CSS signs a Business BCeID hint in with IDIR until Business BCeID is provisioned.
-  it('explains that Business BCeID is not available yet instead of starting a sign-in', async () => {
-    const user = userEvent.setup();
-    arrange();
-
-    await user.click(screen.getByRole('button', { name: /log in with business bceid/i }));
-
-    expect(await screen.findByText(/business bceid is not provisioned yet/i)).toBeInTheDocument();
-    expect(signIn).not.toHaveBeenCalled();
   });
 
   it('sends an already-authenticated visitor into the app', () => {
