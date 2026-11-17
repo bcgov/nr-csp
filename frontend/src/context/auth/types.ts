@@ -40,7 +40,7 @@ export interface AuthContextValue {
   isLoading: boolean;
   isSigningOut: boolean;
   loginError?: string;
-  signIn: (provider?: LoginProvider) => Promise<void>;
+  signIn: (provider: LoginProvider, returnTo?: string) => Promise<void>;
   /** A `'timeout'` reason makes the welcome screen say the session expired; defaults to a deliberate sign-out. */
   signOut: (reason?: SignOutReason) => Promise<void>;
 }
