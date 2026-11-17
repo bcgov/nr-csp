@@ -96,7 +96,7 @@ export const restoreOidcUser = async (): Promise<User | null> => {
   }
 };
 
-export const startOidcLogin = async (provider?: LoginProvider): Promise<void> => {
+export const startOidcLogin = async (provider: LoginProvider, returnTo = '/'): Promise<void> => {
   if (!isOidcConfigured) throw new Error('CSP login is not configured.');
   // Finish discarding any renewal from the previous session before another
   // login can write credentials to the same store.
@@ -104,18 +104,13 @@ export const startOidcLogin = async (provider?: LoginProvider): Promise<void> =>
   signedOut = false;
   logout = undefined;
   await getUserManager().signinRedirect({
-    state: {
-      returnTo:
-        window.location.pathname === AUTH_CALLBACK_PATH ? '/' : window.location.pathname + window.location.search,
+    state: { returnTo },
+    extraQueryParams: {
+      kc_idp_hint:
+        provider === 'business-bceid'
+          ? env.VITE_OIDC_BCEID_HINT?.trim() || 'bceidbusiness'
+          : env.VITE_OIDC_IDIR_HINT?.trim() || 'azureidir',
     },
-    extraQueryParams: provider
-      ? {
-          kc_idp_hint:
-            provider === 'business-bceid'
-              ? env.VITE_OIDC_BCEID_HINT?.trim() || 'bceidbusiness'
-              : env.VITE_OIDC_IDIR_HINT?.trim() || 'azureidir',
-        }
-      : undefined,
   });
 };
 
@@ -188,7 +183,7 @@ export const getOidcReturnPath = (user: User, fallback = '/'): string => {
     path.startsWith('/') &&
     !path.startsWith('//') &&
     !path.includes('\\') &&
-    path.split('?')[0] !== AUTH_CALLBACK_PATH
+    path.split(/[?#]/, 1)[0] !== AUTH_CALLBACK_PATH
     ? path
     : fallback;
 };

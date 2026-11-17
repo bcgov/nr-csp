@@ -90,7 +90,7 @@ export function RealAuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     isSigningOut,
     loginError,
-    signIn: (provider = 'idir') => startOidcLogin(provider),
+    signIn: startOidcLogin,
     signOut: performSignOut,
   };
   if (window.location.pathname === AUTH_CALLBACK_PATH && isLoading) return <LoadingScreen />;

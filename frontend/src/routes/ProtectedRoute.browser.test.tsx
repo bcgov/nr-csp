@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { vi, describe, afterEach, it, expect } from 'vitest';
 
 import * as useAuthModule from '@/context/auth/useAuth';
@@ -17,20 +17,27 @@ describe('ProtectedRoute', () => {
     vi.clearAllMocks();
   });
 
-  it('calls signIn and shows loading screen when not authenticated', () => {
+  it('redirects an anonymous visitor to the landing route without starting sign-in', () => {
     const signIn = vi.fn();
     mockUseAuth.mockReturnValue({ isAuthenticated: false, isLoading: false, signIn });
-
-    const { container } = render(
-      <MemoryRouter initialEntries={['/private']}>
-        <ProtectedRoute>
-          <div>Private Content</div>
-        </ProtectedRoute>
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/home']}>
+        <Routes>
+          <Route path="/" element={<div>Choose a provider</div>} />
+          <Route
+            path="*"
+            element={
+              <ProtectedRoute>
+                <div>Private Content</div>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </MemoryRouter>,
     );
 
-    expect(signIn).toHaveBeenCalledOnce();
-    expect(container.textContent).not.toContain('Private Content');
+    expect(getByText('Choose a provider')).toBeTruthy();
+    expect(signIn).not.toHaveBeenCalled();
   });
 
   it('renders children when authenticated', () => {
