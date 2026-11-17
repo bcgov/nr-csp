@@ -1,7 +1,7 @@
 import { Login } from '@carbon/icons-react';
 import { Button } from '@carbon/react';
 import { useEffect } from 'react';
-import { Navigate } from 'react-router';
+import { Navigate, useLocation } from 'react-router';
 
 import bcGovLogo from '@/assets/img/bc-gov-logo.png';
 import forestPhoto from '@/assets/img/welcome-forest.webp';
@@ -17,6 +17,7 @@ import './index.scss';
 
 export function WelcomePage() {
   const { isAuthenticated, isLoading, signIn, loginError, user } = useAuth();
+  const { state } = useLocation();
   const { addNotification } = useNotification();
   const isCallbackPending = useOauthCallbackPending();
 
@@ -30,10 +31,8 @@ export function WelcomePage() {
   // in the shell's toast stack and never auto-close — an "expired" toast stuck
   // over a live session. That is reachable: sign-out clears local credentials
   // before redirecting, so if the redirect is abandoned before CSS ends its
-  // session (an error page, the Back button), ProtectedRoute re-authenticates
-  // silently and can return to this page — authenticated, with the flag still
-  // set. Gating on `isAuthenticated` alone would not be enough, since it is
-  // still false here while `isLoading` is true.
+  // session, a later sign-in can return here with the flag still set. The
+  // session check must settle before `isAuthenticated` can be trusted.
   //
   // The reason is consumed either way, so it cannot go stale and surface on
   // some later visit. A re-run reads 'user' and adds nothing, which is also
@@ -64,7 +63,7 @@ export function WelcomePage() {
   if (isLoading || isCallbackPending) return <LoadingScreen />;
 
   const startLogin = (provider: 'idir' | 'business-bceid') =>
-    void signIn(provider).catch(() =>
+    void signIn(provider, state?.returnTo).catch(() =>
       addNotification({
         kind: 'error',
         title: 'Could not start sign-in',
@@ -89,22 +88,12 @@ export function WelcomePage() {
           >
             Log in with IDIR
           </Button>
-          {/* Business BCeID is not provisioned on CSP's CSS clients yet, and CSS answers a
-              bceidbusiness hint by signing the user in with IDIR. Restore
-              startLogin('business-bceid') here once it is provisioned. */}
           <Button
             kind="tertiary"
             size="lg"
             renderIcon={Login}
             className="welcome-page__action"
-            onClick={() =>
-              addNotification({
-                kind: 'info',
-                title: 'Business BCeID is not provisioned yet',
-                subtitle:
-                  "BCeID infra is set up, but not provisioned in CSS yet. Once it's provisioned, enable this button. -Alex",
-              })
-            }
+            onClick={() => startLogin('business-bceid')}
           >
             Log in with Business BCeID
           </Button>

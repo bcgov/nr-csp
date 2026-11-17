@@ -434,6 +434,25 @@ IDIR MFA and Business BCeID use provider hints; login alone does not grant appli
 The SPA handles `/authCallback`, restores a same-origin application route, and sends the access
 token as a bearer token on every `/api` call.
 
+**Signed-out deep links.** `ProtectedRoute` redirects a signed-out visitor to the welcome page
+at `/`, passing the requested path, query and hash as `returnTo` in router state. The chosen
+provider button starts sign-in with that `returnTo` saved in local OIDC state, and
+`getOidcReturnPath` restores it on `/authCallback` only when it is a same-origin route.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant SPA as CSP SPA
+    participant CSS as CSS Keycloak
+    Browser->>SPA: open /submission-history/9001 signed out
+    SPA->>Browser: ProtectedRoute redirects to / with returnTo
+    Browser->>SPA: click IDIR or Business BCeID
+    SPA->>CSS: authorize with kc_idp_hint, returnTo kept in OIDC state
+    CSS->>SPA: /authCallback?code&state
+    SPA->>CSS: exchange code (PKCE)
+    SPA->>Browser: replace URL with returnTo
+```
+
 **Token validation.** The backend is stateless — no sessions, no CSRF token (there is no
 browser-automatable credential to exploit, since the credential is an `Authorization` header on
 a stateless request). `JwtRequestFilter` and `JwtService` use `jwks-rsa` and jjwt to validate

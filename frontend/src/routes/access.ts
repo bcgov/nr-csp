@@ -48,12 +48,6 @@ export const canAccess = (user: AuthUser | null | undefined, page: string): bool
 export const homeRouteFor = (user: AuthUser | null | undefined): AppRoute =>
   canAccess(user, SUBMISSION_UPLOAD) && !canAccess(user, SEARCH) ? ROUTES.UPLOAD_SUBMISSION : ROUTES.SEARCH;
 
-/** Whether Business BCeID users can open this path. */
-export const isIndustryPath = (pathname: string): boolean =>
-  (Object.entries(ROUTE_PAGES) as [ProtectedPath, string][]).some(
-    ([path, page]) => ROLE_PERMISSIONS.SUBMITTER.has(page) && (pathname === path || pathname.startsWith(`${path}/`)),
-  );
-
 type NavEntry = { path?: string; children?: NavEntry[] };
 
 /** The nav entries this user may open, dropping groups left empty. */

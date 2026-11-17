@@ -1,10 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-// Smoke-level e2e against the deployed environment. Everything past the public
-// welcome route redirects into the OAuth sign-in, so these tests pin what an
-// anonymous visitor can prove: the SPA is served (title from index.html), the
-// welcome screen at '/' offers the sign-in choice, and the fixed post-sign-out
-// landing at /logout redirects onto it.
 test.describe('anonymous smoke', () => {
   test('serves the SPA with the expected title', async ({ page }) => {
     await page.goto('/');
@@ -16,6 +11,18 @@ test.describe('anonymous smoke', () => {
     await expect(page.getByRole('heading', { name: 'Welcome to CSP' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Log in with IDIR' })).toBeVisible();
   });
+
+  for (const path of ['/home', '/inbox', '/submission-history/9001?tab=invoices']) {
+    test(`offers both sign-in providers on the welcome page when opening ${path} signed out`, async ({
+      page,
+      baseURL,
+    }) => {
+      await page.goto(path);
+      await expect(page).toHaveURL(new URL('/', baseURL).href);
+      await expect(page.getByRole('button', { name: 'Log in with IDIR' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Log in with Business BCeID' })).toBeVisible();
+    });
+  }
 
   test('redirects the post-sign-out landing to the welcome screen', async ({ page }) => {
     await page.goto('/logout');
