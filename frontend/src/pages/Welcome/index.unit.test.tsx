@@ -27,7 +27,7 @@ const signIn = vi.fn();
  */
 const tree = (returnTo?: string) => (
   <NotificationProvider>
-    <MemoryRouter initialEntries={[{ pathname: '/', state: { returnTo } }]}>
+    <MemoryRouter initialEntries={[returnTo ? { pathname: '/', state: { returnTo } } : '/']}>
       <Routes>
         <Route path="/" element={<WelcomePage />} />
         <Route
@@ -90,6 +90,15 @@ describe('WelcomePage', () => {
     await user.click(screen.getByRole('button', { name: buttonName }));
 
     expect(signIn).toHaveBeenCalledExactlyOnceWith(provider, returnTo);
+  });
+
+  it('starts sign-in with no destination on a direct visit', async () => {
+    const user = userEvent.setup();
+    arrange();
+
+    await user.click(screen.getByRole('button', { name: 'Log in with IDIR' }));
+
+    expect(signIn).toHaveBeenCalledExactlyOnceWith('idir', undefined);
   });
 
   it('reports a sign-in that fails before it leaves the page', async () => {

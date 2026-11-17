@@ -31,8 +31,8 @@ export function WelcomePage() {
   // in the shell's toast stack and never auto-close — an "expired" toast stuck
   // over a live session. That is reachable: sign-out clears local credentials
   // before redirecting, so if the redirect is abandoned before CSS ends its
-  // session, a later sign-in can return here with the flag still set. The session check must settle
-  // before `isAuthenticated` can be trusted.
+  // session, a later sign-in can return here with the flag still set. The
+  // session check must settle before `isAuthenticated` can be trusted.
   //
   // The reason is consumed either way, so it cannot go stale and surface on
   // some later visit. A re-run reads 'user' and adds nothing, which is also

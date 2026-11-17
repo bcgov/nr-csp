@@ -20,6 +20,7 @@ export function ProtectedRoute({ children, page }: Props) {
   const isCallbackPending = useOauthCallbackPending();
 
   if (isLoading || isSigningOut || (!isAuthenticated && isCallbackPending)) return <LoadingScreen />;
+  // window.location, not useLocation(): useOauthCallbackPending strips expired ?code&state outside the router.
   if (!isAuthenticated)
     return <Navigate to={ROUTES.LANDING} replace state={{ returnTo: createPath(window.location) }} />;
 

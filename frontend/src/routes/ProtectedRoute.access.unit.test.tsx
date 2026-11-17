@@ -149,7 +149,6 @@ const signedInAs = (privileges: Role[]) =>
 describe('ProtectedRoute — page access', () => {
   afterEach(() => {
     vi.clearAllMocks();
-    vi.unstubAllGlobals();
   });
 
   const staffOnly = (Object.keys(ROUTE_PAGES) as string[]).filter(

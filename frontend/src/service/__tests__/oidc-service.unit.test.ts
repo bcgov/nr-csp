@@ -100,18 +100,18 @@ describe('OIDC session service', () => {
     const { startOidcLogin } = await import('../oidc-service');
     await startOidcLogin('idir');
     expect(mocks.manager.signinRedirect).toHaveBeenLastCalledWith({
-      state: expect.objectContaining({ returnTo: expect.any(String) }),
+      state: { returnTo: '/' },
       extraQueryParams: { kc_idp_hint: 'azureidir' },
     });
     await startOidcLogin('business-bceid');
     expect(mocks.manager.signinRedirect).toHaveBeenLastCalledWith({
-      state: expect.objectContaining({ returnTo: expect.any(String) }),
+      state: { returnTo: '/' },
       extraQueryParams: { kc_idp_hint: 'bceidbusiness' },
     });
     vi.stubEnv('VITE_OIDC_IDIR_HINT', 'idir');
     await startOidcLogin('idir');
     expect(mocks.manager.signinRedirect).toHaveBeenLastCalledWith({
-      state: expect.objectContaining({ returnTo: expect.any(String) }),
+      state: { returnTo: '/' },
       extraQueryParams: { kc_idp_hint: 'idir' },
     });
   });
