@@ -73,8 +73,8 @@ public record InvoiceResponse(
         String submitComments,
         @Schema(description = "User id that entered the invoice")
         String entryUserID,
-        @Schema(description = "Current revision count. Send it back as expectedRevisionCount on the next change to this invoice.", example = "3")
-        Integer revisionCount,
+        @Schema(description = "Opaque version of the invoice and its line items. Send it back as expectedVersion on the next change to this invoice.", example = "3.20261117141623.4.6")
+        String version,
         @Schema(description = "Line items belonging to the invoice")
         List<LineItemResponse> lineItems,
         @ArraySchema(

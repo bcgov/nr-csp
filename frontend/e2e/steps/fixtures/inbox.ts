@@ -81,7 +81,7 @@ export const inboxTest = base.extend<InboxFixtures>({
         `[borrowedInvoice] invoice ${invoice.invoiceId} is ${asFound.invStatus}, expected ` +
           `${invoiceStatus.unapproved}. A previous run most likely failed to restore it. Reset with ` +
           `./scripts/reset-db.sh, or PATCH it back: ` +
-          `curl -X PATCH '.../api/invoices/${invoice.invoiceId}/status?expectedRevisionCount=<revisionCount from GET>' ` +
+          `curl -X PATCH '.../api/invoices/${invoice.invoiceId}/status?expectedVersion=<version from GET>' ` +
           `-d '{"status":"UNA"}'`,
       );
     }
@@ -113,18 +113,18 @@ export const inboxTest = base.extend<InboxFixtures>({
     //     would be refused with "Please enter the changes in the Reviewer Comment field below!".
     //     Restoring the STATUS there still needs a comment change, so it takes two steps: a
     //     transient marker to carry the status change, then the original note over the top.
-    // Every PATCH must carry the invoice's current revision, so the restore reads it first and
-    // passes each response's revision on to the next PATCH.
+    // Every PATCH must carry the invoice's current version, so the restore reads it first and
+    // passes each response's version on to the next PATCH.
     const currentRes = await request.get(`/api/invoices/${invoice.invoiceId}`);
     const current = currentRes.ok()
-      ? ((await currentRes.json()) as { invStatus: string; reviewComments: string | null; revisionCount: number })
+      ? ((await currentRes.json()) as { invStatus: string; reviewComments: string | null; version: string })
       : null;
     const noteAlreadyCorrect = current?.reviewComments === asFound.reviewComments;
     const statusAlreadyCorrect = current?.invStatus === asFound.invStatus;
 
-    const patch = (reviewComments: string | null, expectedRevisionCount: number | undefined) =>
+    const patch = (reviewComments: string | null, expectedVersion: string | undefined) =>
       request.patch(`/api/invoices/${invoice.invoiceId}/status`, {
-        params: expectedRevisionCount === undefined ? undefined : { expectedRevisionCount },
+        params: expectedVersion === undefined ? undefined : { expectedVersion },
         data: { status: asFound.invStatus, reviewComments },
       });
 
@@ -138,13 +138,13 @@ export const inboxTest = base.extend<InboxFixtures>({
     };
 
     if (!noteAlreadyCorrect) {
-      const res = await patch(asFound.reviewComments, current?.revisionCount);
+      const res = await patch(asFound.reviewComments, current?.version);
       if (!res.ok()) await failRestore(res);
     } else if (!statusAlreadyCorrect) {
       // The note is right but the status is not, and moving the status needs a comment change.
-      const marker = await patch(`e2e teardown ${Date.now()}`, current?.revisionCount);
+      const marker = await patch(`e2e teardown ${Date.now()}`, current?.version);
       if (!marker.ok()) await failRestore(marker);
-      const { revisionCount: afterMarker } = (await marker.json()) as { revisionCount: number };
+      const { version: afterMarker } = (await marker.json()) as { version: string };
       const res = await patch(asFound.reviewComments, afterMarker);
       if (!res.ok()) await failRestore(res);
     }

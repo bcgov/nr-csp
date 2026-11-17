@@ -79,23 +79,23 @@ describe('invoice endpoint fetchers', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/invoices', CREATE_BODY);
   });
 
-  it('updateInvoice PUTs the body to /invoices/{id} with the expected revision', async () => {
+  it('updateInvoice PUTs the body to /invoices/{id} with the expected version', async () => {
     vi.mocked(apiClient.put).mockResolvedValue({ data: INVOICE });
-    await expect(updateInvoice(7, 4, CREATE_BODY)).resolves.toEqual(INVOICE);
-    expect(apiClient.put).toHaveBeenCalledWith('/invoices/7', CREATE_BODY, { params: { expectedRevisionCount: 4 } });
+    await expect(updateInvoice(7, 'v4', CREATE_BODY)).resolves.toEqual(INVOICE);
+    expect(apiClient.put).toHaveBeenCalledWith('/invoices/7', CREATE_BODY, { params: { expectedVersion: 'v4' } });
   });
 
   it('deleteInvoice DELETEs /invoices/{id} and resolves to undefined', async () => {
     vi.mocked(apiClient.delete).mockResolvedValue({});
-    await expect(deleteInvoice(7, 4)).resolves.toBeUndefined();
-    expect(apiClient.delete).toHaveBeenCalledWith('/invoices/7', { params: { expectedRevisionCount: 4 } });
+    await expect(deleteInvoice(7, 'v4')).resolves.toBeUndefined();
+    expect(apiClient.delete).toHaveBeenCalledWith('/invoices/7', { params: { expectedVersion: 'v4' } });
   });
 
   it('submitInvoice POSTs to /invoices/{id}/submit', async () => {
     vi.mocked(apiClient.post).mockResolvedValue({ data: INVOICE });
-    await expect(submitInvoice(7, 4)).resolves.toEqual(INVOICE);
+    await expect(submitInvoice(7, 'v4')).resolves.toEqual(INVOICE);
     expect(apiClient.post).toHaveBeenCalledWith('/invoices/7/submit', undefined, {
-      params: { expectedRevisionCount: 4 },
+      params: { expectedVersion: 'v4' },
     });
   });
 
@@ -107,11 +107,11 @@ describe('invoice endpoint fetchers', () => {
 
   it('changeInvoiceStatus PATCHes /invoices/{id}/status', async () => {
     vi.mocked(apiClient.patch).mockResolvedValue({ data: INVOICE });
-    await expect(changeInvoiceStatus(7, 4, { status: 'APP' })).resolves.toEqual(INVOICE);
+    await expect(changeInvoiceStatus(7, 'v4', { status: 'APP' })).resolves.toEqual(INVOICE);
     expect(apiClient.patch).toHaveBeenCalledWith(
       '/invoices/7/status',
       { status: 'APP' },
-      { params: { expectedRevisionCount: 4 } },
+      { params: { expectedVersion: 'v4' } },
     );
   });
 
@@ -120,22 +120,22 @@ describe('invoice endpoint fetchers', () => {
     vi.mocked(apiClient.patch).mockResolvedValue({ data: INVOICE });
     vi.mocked(apiClient.delete).mockResolvedValue({ data: INVOICE });
 
-    await expect(addInvoiceLineItem(7, 4, { species: 'FI' })).resolves.toEqual(INVOICE);
+    await expect(addInvoiceLineItem(7, 'v4', { species: 'FI' })).resolves.toEqual(INVOICE);
     expect(apiClient.post).toHaveBeenCalledWith(
       '/invoices/7/line-items',
       { species: 'FI' },
-      { params: { expectedRevisionCount: 4 } },
+      { params: { expectedVersion: 'v4' } },
     );
 
-    await expect(updateInvoiceLineItem(7, 3, 4, { species: 'FI' })).resolves.toEqual(INVOICE);
+    await expect(updateInvoiceLineItem(7, 3, 'v4', { species: 'FI' })).resolves.toEqual(INVOICE);
     expect(apiClient.patch).toHaveBeenCalledWith(
       '/invoices/7/line-items/3',
       { species: 'FI' },
-      { params: { expectedRevisionCount: 4 } },
+      { params: { expectedVersion: 'v4' } },
     );
 
-    await expect(deleteInvoiceLineItem(7, 3, 4)).resolves.toEqual(INVOICE);
-    expect(apiClient.delete).toHaveBeenCalledWith('/invoices/7/line-items/3', { params: { expectedRevisionCount: 4 } });
+    await expect(deleteInvoiceLineItem(7, 3, 'v4')).resolves.toEqual(INVOICE);
+    expect(apiClient.delete).toHaveBeenCalledWith('/invoices/7/line-items/3', { params: { expectedVersion: 'v4' } });
   });
 });
 
@@ -183,7 +183,7 @@ describe('invoice mutation hooks', () => {
 
     const { result } = renderHook(() => useSubmitInvoiceMutation(), { wrapper });
     act(() => {
-      result.current.mutate({ id: 7, expectedRevisionCount: 4 });
+      result.current.mutate({ id: 7, expectedVersion: 'v4' });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -196,7 +196,7 @@ describe('invoice mutation hooks', () => {
 
     const { result } = renderHook(() => useChangeInvoiceStatusMutation(), { wrapper });
     act(() => {
-      result.current.mutate({ id: 7, expectedRevisionCount: 4, body: { status: 'REJ', reviewComments: 'nope' } });
+      result.current.mutate({ id: 7, expectedVersion: 'v4', body: { status: 'REJ', reviewComments: 'nope' } });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -208,7 +208,7 @@ describe('invoice mutation hooks', () => {
       label: 'Update',
       useHook: useUpdateInvoiceMutation,
       arrange: () => vi.mocked(apiClient.put).mockResolvedValue({ data: INVOICE }),
-      variables: { id: 7, expectedRevisionCount: 4, body: CREATE_BODY },
+      variables: { id: 7, expectedVersion: 'v4', body: CREATE_BODY },
     },
     {
       label: 'Duplicate',
@@ -220,19 +220,19 @@ describe('invoice mutation hooks', () => {
       label: 'AddLineItem',
       useHook: useAddInvoiceLineItemMutation,
       arrange: () => vi.mocked(apiClient.post).mockResolvedValue({ data: INVOICE }),
-      variables: { invoiceId: 7, expectedRevisionCount: 4, body: { species: 'FI' } },
+      variables: { invoiceId: 7, expectedVersion: 'v4', body: { species: 'FI' } },
     },
     {
       label: 'UpdateLineItem',
       useHook: useUpdateInvoiceLineItemMutation,
       arrange: () => vi.mocked(apiClient.patch).mockResolvedValue({ data: INVOICE }),
-      variables: { invoiceId: 7, lineId: 3, expectedRevisionCount: 4, body: { species: 'FI' } },
+      variables: { invoiceId: 7, lineId: 3, expectedVersion: 'v4', body: { species: 'FI' } },
     },
     {
       label: 'DeleteLineItem',
       useHook: useDeleteInvoiceLineItemMutation,
       arrange: () => vi.mocked(apiClient.delete).mockResolvedValue({ data: INVOICE }),
-      variables: { invoiceId: 7, lineId: 3, expectedRevisionCount: 4 },
+      variables: { invoiceId: 7, lineId: 3, expectedVersion: 'v4' },
     },
   ])('use$label mutation refreshes the cached invoice from the response', async ({ useHook, arrange, variables }) => {
     arrange();
@@ -268,7 +268,7 @@ describe('invoice mutation hooks', () => {
 
     const { result } = renderHook(() => useDeleteInvoiceMutation(), { wrapper });
     act(() => {
-      result.current.mutate({ id: 7, expectedRevisionCount: 4 });
+      result.current.mutate({ id: 7, expectedVersion: 'v4' });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -300,31 +300,31 @@ describe('invoice mutations invalidate the submission-history cache', () => {
       label: 'Update',
       useHook: useUpdateInvoiceMutation,
       arrange: () => vi.mocked(apiClient.put).mockResolvedValue({ data: INVOICE }),
-      variables: { id: 7, expectedRevisionCount: 4, body: { ...CREATE_BODY, reviewComments: 'Needs a boom number' } },
+      variables: { id: 7, expectedVersion: 'v4', body: { ...CREATE_BODY, reviewComments: 'Needs a boom number' } },
     },
     {
       label: 'ChangeStatus',
       useHook: useChangeInvoiceStatusMutation,
       arrange: () => vi.mocked(apiClient.patch).mockResolvedValue({ data: INVOICE }),
-      variables: { id: 7, expectedRevisionCount: 4, body: { status: 'REJ', reviewComments: 'nope' } },
+      variables: { id: 7, expectedVersion: 'v4', body: { status: 'REJ', reviewComments: 'nope' } },
     },
     {
       label: 'Submit',
       useHook: useSubmitInvoiceMutation,
       arrange: () => vi.mocked(apiClient.post).mockResolvedValue({ data: INVOICE }),
-      variables: { id: 7, expectedRevisionCount: 4 },
+      variables: { id: 7, expectedVersion: 'v4' },
     },
     {
       label: 'Delete',
       useHook: useDeleteInvoiceMutation,
       arrange: () => vi.mocked(apiClient.delete).mockResolvedValue({}),
-      variables: { id: 7, expectedRevisionCount: 4 },
+      variables: { id: 7, expectedVersion: 'v4' },
     },
     {
       label: 'AddLineItem',
       useHook: useAddInvoiceLineItemMutation,
       arrange: () => vi.mocked(apiClient.post).mockResolvedValue({ data: INVOICE }),
-      variables: { invoiceId: 7, expectedRevisionCount: 4, body: { species: 'FI' } },
+      variables: { invoiceId: 7, expectedVersion: 'v4', body: { species: 'FI' } },
     },
   ])('use$label mutation invalidates the cached submission-history rows', async ({ useHook, arrange, variables }) => {
     arrange();

@@ -68,7 +68,7 @@ class InvoiceControllerTest {
                 "1234", "00", "Seller", "1234", "00",
                 "5678", "00", "ABC Logging", "Nanaimo", "BC",
                 List.of(), List.of(), List.of(),
-                null, null, null, null, "user1", 4,
+                null, null, null, null, "user1", "v4",
                 List.of(), List.of(), List.of());
     }
 
@@ -145,9 +145,9 @@ class InvoiceControllerTest {
 
     @Test
     void update_validRequest_returns200() throws Exception {
-        given(invoiceService.update(eq(1L), eq(3), any())).willReturn(sampleResponse());
+        given(invoiceService.update(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
 
-        mockMvc.perform(put("/api/invoices/1?expectedRevisionCount=3")
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_CREATE_BODY))
                 .andExpect(status().isOk())
@@ -156,7 +156,7 @@ class InvoiceControllerTest {
 
     @Test
     void update_invalidBody_returns400() throws Exception {
-        mockMvc.perform(put("/api/invoices/1?expectedRevisionCount=3")
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(BLANK_CREATE_BODY))
                 .andExpect(status().isBadRequest());
@@ -164,9 +164,9 @@ class InvoiceControllerTest {
 
     @Test
     void update_notFound_returns404() throws Exception {
-        given(invoiceService.update(eq(99L), eq(3), any())).willThrow(new ResourceNotFoundException("not found"));
+        given(invoiceService.update(eq(99L), eq("v3"), any())).willThrow(new ResourceNotFoundException("not found"));
 
-        mockMvc.perform(put("/api/invoices/99?expectedRevisionCount=3")
+        mockMvc.perform(put("/api/invoices/99?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_CREATE_BODY))
                 .andExpect(status().isNotFound())
@@ -175,9 +175,9 @@ class InvoiceControllerTest {
 
     @Test
     void update_approvedInvoice_returns409() throws Exception {
-        given(invoiceService.update(eq(1L), eq(3), any())).willThrow(new ConflictException("approved"));
+        given(invoiceService.update(eq(1L), eq("v3"), any())).willThrow(new ConflictException("approved"));
 
-        mockMvc.perform(put("/api/invoices/1?expectedRevisionCount=3")
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_CREATE_BODY))
                 .andExpect(status().isConflict())
@@ -185,11 +185,11 @@ class InvoiceControllerTest {
     }
 
     @Test
-    void update_staleRevision_returns409WithReloadMessage() throws Exception {
-        given(invoiceService.update(eq(1L), eq(2), any()))
+    void update_staleVersion_returns409WithReloadMessage() throws Exception {
+        given(invoiceService.update(eq(1L), eq("v2"), any()))
                 .willThrow(new ConflictException(InvoiceService.STALE_INVOICE_MESSAGE));
 
-        mockMvc.perform(put("/api/invoices/1?expectedRevisionCount=2")
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v2")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_CREATE_BODY))
                 .andExpect(status().isConflict())
@@ -197,7 +197,7 @@ class InvoiceControllerTest {
     }
 
     @Test
-    void writesWithoutExpectedRevisionCount_return400() throws Exception {
+    void writesWithoutExpectedVersion_return400() throws Exception {
         mockMvc.perform(put("/api/invoices/1").contentType(MediaType.APPLICATION_JSON).content(VALID_CREATE_BODY))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(delete("/api/invoices/1")).andExpect(status().isBadRequest());
@@ -208,25 +208,25 @@ class InvoiceControllerTest {
 
     @Test
     void delete_returns204() throws Exception {
-        willDoNothing().given(invoiceService).delete(any(), eq(3));
+        willDoNothing().given(invoiceService).delete(any(), eq("v3"));
 
-        mockMvc.perform(delete("/api/invoices/1?expectedRevisionCount=3"))
+        mockMvc.perform(delete("/api/invoices/1?expectedVersion=v3"))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void delete_notFound_returns404() throws Exception {
-        willThrow(new ResourceNotFoundException("not found")).given(invoiceService).delete(99L, 3);
+        willThrow(new ResourceNotFoundException("not found")).given(invoiceService).delete(99L, "v3");
 
-        mockMvc.perform(delete("/api/invoices/99?expectedRevisionCount=3"))
+        mockMvc.perform(delete("/api/invoices/99?expectedVersion=v3"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void delete_approvedInvoice_returns409() throws Exception {
-        willThrow(new ConflictException("approved")).given(invoiceService).delete(1L, 3);
+        willThrow(new ConflictException("approved")).given(invoiceService).delete(1L, "v3");
 
-        mockMvc.perform(delete("/api/invoices/1?expectedRevisionCount=3"))
+        mockMvc.perform(delete("/api/invoices/1?expectedVersion=v3"))
                 .andExpect(status().isConflict());
     }
 
@@ -236,18 +236,18 @@ class InvoiceControllerTest {
 
     @Test
     void submit_returns200() throws Exception {
-        given(invoiceService.submit(1L, 3)).willReturn(sampleResponse());
+        given(invoiceService.submit(1L, "v3")).willReturn(sampleResponse());
 
-        mockMvc.perform(post("/api/invoices/1/submit?expectedRevisionCount=3"))
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.invID").value(1));
     }
 
     @Test
     void submit_notDraft_returns409() throws Exception {
-        given(invoiceService.submit(1L, 3)).willThrow(new ConflictException("not draft"));
+        given(invoiceService.submit(1L, "v3")).willThrow(new ConflictException("not draft"));
 
-        mockMvc.perform(post("/api/invoices/1/submit?expectedRevisionCount=3"))
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3"))
                 .andExpect(status().isConflict());
     }
 
@@ -278,9 +278,9 @@ class InvoiceControllerTest {
 
     @Test
     void changeStatus_validRequest_returns200() throws Exception {
-        given(invoiceService.changeStatus(eq(1L), eq(3), any())).willReturn(sampleResponse());
+        given(invoiceService.changeStatus(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
 
-        mockMvc.perform(patch("/api/invoices/1/status?expectedRevisionCount=3")
+        mockMvc.perform(patch("/api/invoices/1/status?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"APP\"}"))
                 .andExpect(status().isOk())
@@ -289,7 +289,7 @@ class InvoiceControllerTest {
 
     @Test
     void changeStatus_invalidStatusCode_returns400() throws Exception {
-        mockMvc.perform(patch("/api/invoices/1/status?expectedRevisionCount=3")
+        mockMvc.perform(patch("/api/invoices/1/status?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"XXX\"}"))
                 .andExpect(status().isBadRequest());
@@ -297,7 +297,7 @@ class InvoiceControllerTest {
 
     @Test
     void changeStatus_blankStatus_returns400() throws Exception {
-        mockMvc.perform(patch("/api/invoices/1/status?expectedRevisionCount=3")
+        mockMvc.perform(patch("/api/invoices/1/status?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"\"}"))
                 .andExpect(status().isBadRequest());
@@ -305,9 +305,9 @@ class InvoiceControllerTest {
 
     @Test
     void changeStatus_notFound_returns404() throws Exception {
-        given(invoiceService.changeStatus(eq(99L), eq(3), any())).willThrow(new ResourceNotFoundException("not found"));
+        given(invoiceService.changeStatus(eq(99L), eq("v3"), any())).willThrow(new ResourceNotFoundException("not found"));
 
-        mockMvc.perform(patch("/api/invoices/99/status?expectedRevisionCount=3")
+        mockMvc.perform(patch("/api/invoices/99/status?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"APP\"}"))
                 .andExpect(status().isNotFound());
@@ -319,9 +319,9 @@ class InvoiceControllerTest {
 
     @Test
     void addLineItem_validRequest_returns200() throws Exception {
-        given(invoiceService.addLineItem(eq(1L), eq(3), any())).willReturn(sampleResponse());
+        given(invoiceService.addLineItem(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
 
-        mockMvc.perform(post("/api/invoices/1/line-items?expectedRevisionCount=3")
+        mockMvc.perform(post("/api/invoices/1/line-items?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_LINE_ITEM_BODY))
                 .andExpect(status().isOk())
@@ -331,7 +331,7 @@ class InvoiceControllerTest {
     @Test
     void addLineItem_invalidPattern_returns400() throws Exception {
         // species violates ^[A-Z0-9]+$
-        mockMvc.perform(post("/api/invoices/1/line-items?expectedRevisionCount=3")
+        mockMvc.perform(post("/api/invoices/1/line-items?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"species\":\"sp 1!\"}"))
                 .andExpect(status().isBadRequest());
@@ -339,9 +339,9 @@ class InvoiceControllerTest {
 
     @Test
     void addLineItem_notDraft_returns409() throws Exception {
-        given(invoiceService.addLineItem(eq(1L), eq(3), any())).willThrow(new ConflictException("not draft"));
+        given(invoiceService.addLineItem(eq(1L), eq("v3"), any())).willThrow(new ConflictException("not draft"));
 
-        mockMvc.perform(post("/api/invoices/1/line-items?expectedRevisionCount=3")
+        mockMvc.perform(post("/api/invoices/1/line-items?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_LINE_ITEM_BODY))
                 .andExpect(status().isConflict());
@@ -349,9 +349,9 @@ class InvoiceControllerTest {
 
     @Test
     void updateLineItem_validRequest_returns200() throws Exception {
-        given(invoiceService.updateLineItem(eq(1L), eq(5L), eq(3), any())).willReturn(sampleResponse());
+        given(invoiceService.updateLineItem(eq(1L), eq(5L), eq("v3"), any())).willReturn(sampleResponse());
 
-        mockMvc.perform(patch("/api/invoices/1/line-items/5?expectedRevisionCount=3")
+        mockMvc.perform(patch("/api/invoices/1/line-items/5?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_LINE_ITEM_BODY))
                 .andExpect(status().isOk())
@@ -360,10 +360,10 @@ class InvoiceControllerTest {
 
     @Test
     void updateLineItem_lineNotFound_returns404() throws Exception {
-        given(invoiceService.updateLineItem(eq(1L), eq(99L), eq(3), any()))
+        given(invoiceService.updateLineItem(eq(1L), eq(99L), eq("v3"), any()))
                 .willThrow(new ResourceNotFoundException("line not found"));
 
-        mockMvc.perform(patch("/api/invoices/1/line-items/99?expectedRevisionCount=3")
+        mockMvc.perform(patch("/api/invoices/1/line-items/99?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_LINE_ITEM_BODY))
                 .andExpect(status().isNotFound());
@@ -371,9 +371,9 @@ class InvoiceControllerTest {
 
     @Test
     void updateLineItem_notDraft_returns409() throws Exception {
-        given(invoiceService.updateLineItem(eq(1L), eq(5L), eq(3), any())).willThrow(new ConflictException("not draft"));
+        given(invoiceService.updateLineItem(eq(1L), eq(5L), eq("v3"), any())).willThrow(new ConflictException("not draft"));
 
-        mockMvc.perform(patch("/api/invoices/1/line-items/5?expectedRevisionCount=3")
+        mockMvc.perform(patch("/api/invoices/1/line-items/5?expectedVersion=v3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_LINE_ITEM_BODY))
                 .andExpect(status().isConflict());
@@ -381,18 +381,18 @@ class InvoiceControllerTest {
 
     @Test
     void deleteLineItem_returns200() throws Exception {
-        given(invoiceService.deleteLineItem(1L, 5L, 3)).willReturn(sampleResponse());
+        given(invoiceService.deleteLineItem(1L, 5L, "v3")).willReturn(sampleResponse());
 
-        mockMvc.perform(delete("/api/invoices/1/line-items/5?expectedRevisionCount=3"))
+        mockMvc.perform(delete("/api/invoices/1/line-items/5?expectedVersion=v3"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.invID").value(1));
     }
 
     @Test
     void deleteLineItem_notFound_returns404() throws Exception {
-        given(invoiceService.deleteLineItem(1L, 99L, 3)).willThrow(new ResourceNotFoundException("line not found"));
+        given(invoiceService.deleteLineItem(1L, 99L, "v3")).willThrow(new ResourceNotFoundException("line not found"));
 
-        mockMvc.perform(delete("/api/invoices/1/line-items/99?expectedRevisionCount=3"))
+        mockMvc.perform(delete("/api/invoices/1/line-items/99?expectedVersion=v3"))
                 .andExpect(status().isNotFound());
     }
 

@@ -65,13 +65,13 @@ public interface InvoiceApi {
                     content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Invoice not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice is in a status that does not allow edits (e.g., APPROVED), or was changed by another user since expectedRevisionCount was read",
+            @ApiResponse(responseCode = "409", description = "Invoice is in a status that does not allow edits (e.g., APPROVED), or was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PutMapping("/{id}")
     ResponseEntity<InvoiceResponse> update(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
-            @Parameter(description = "Revision count from the last read of this invoice. A different current value returns 409.", example = "3") @RequestParam Integer expectedRevisionCount,
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
             @Valid @RequestBody UpdateInvoiceRequest request);
 
     @Operation(summary = "Delete an invoice")
@@ -79,13 +79,13 @@ public interface InvoiceApi {
             @ApiResponse(responseCode = "204", description = "Deleted"),
             @ApiResponse(responseCode = "404", description = "Invoice not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice is in a status that prevents deletion (e.g., APPROVED), or was changed by another user since expectedRevisionCount was read",
+            @ApiResponse(responseCode = "409", description = "Invoice is in a status that prevents deletion (e.g., APPROVED), or was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")
     ResponseEntity<Void> delete(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
-            @Parameter(description = "Revision count from the last read of this invoice. A different current value returns 409.", example = "3") @RequestParam Integer expectedRevisionCount);
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion);
 
     @Operation(summary = "Submit a DRAFT invoice",
             description = "Transitions a DRAFT invoice to PROCESSING. Runs a stricter validation (at least one line item required) and updates the parent submission status to INBOX.")
@@ -96,13 +96,13 @@ public interface InvoiceApi {
                     content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Invoice not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice is not in DRAFT status, or was changed by another user since expectedRevisionCount was read",
+            @ApiResponse(responseCode = "409", description = "Invoice is not in DRAFT status, or was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/{id}/submit")
     ResponseEntity<InvoiceResponse> submit(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
-            @Parameter(description = "Revision count from the last read of this invoice. A different current value returns 409.", example = "3") @RequestParam Integer expectedRevisionCount);
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion);
 
     @Operation(summary = "Duplicate an invoice",
             description = "Clones an existing invoice (header + lines + source-document references) as a brand-new DRAFT invoice under a new submission. The returned response describes the new invoice.")
@@ -125,13 +125,13 @@ public interface InvoiceApi {
                     content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Invoice not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice was changed by another user since expectedRevisionCount was read",
+            @ApiResponse(responseCode = "409", description = "Invoice was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/status")
     ResponseEntity<InvoiceResponse> changeStatus(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
-            @Parameter(description = "Revision count from the last read of this invoice. A different current value returns 409.", example = "3") @RequestParam Integer expectedRevisionCount,
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
             @Valid @RequestBody ChangeStatusRequest request);
 
     // -------------------------------------------------------------------
@@ -147,13 +147,13 @@ public interface InvoiceApi {
                     content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Invoice not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedRevisionCount was read",
+            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping("/{id}/line-items")
     ResponseEntity<InvoiceResponse> addLineItem(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
-            @Parameter(description = "Revision count from the last read of this invoice. A different current value returns 409.", example = "3") @RequestParam Integer expectedRevisionCount,
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
             @Valid @RequestBody LineItemRequest request);
 
     @Operation(summary = "Update a line item on a DRAFT invoice",
@@ -165,14 +165,14 @@ public interface InvoiceApi {
                     content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Invoice or line item not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedRevisionCount was read",
+            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/line-items/{lineId}")
     ResponseEntity<InvoiceResponse> updateLineItem(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
             @Parameter(description = "Line item id", example = "1") @PathVariable Long lineId,
-            @Parameter(description = "Revision count from the last read of this invoice. A different current value returns 409.", example = "3") @RequestParam Integer expectedRevisionCount,
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
             @Valid @RequestBody LineItemRequest request);
 
     @Operation(summary = "Delete a line item from a DRAFT invoice",
@@ -182,14 +182,14 @@ public interface InvoiceApi {
                     content = @Content(schema = @Schema(implementation = InvoiceResponse.class))),
             @ApiResponse(responseCode = "404", description = "Invoice or line item not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedRevisionCount was read",
+            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}/line-items/{lineId}")
     ResponseEntity<InvoiceResponse> deleteLineItem(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
             @Parameter(description = "Line item id", example = "1") @PathVariable Long lineId,
-            @Parameter(description = "Revision count from the last read of this invoice. A different current value returns 409.", example = "3") @RequestParam Integer expectedRevisionCount);
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion);
 
     @Operation(summary = "Export the displayed group-summary rows as CSV",
             description = "Formats the group rows sent in the body (exactly what's on screen) as a CSV download.")

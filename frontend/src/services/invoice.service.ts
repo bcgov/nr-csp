@@ -123,8 +123,9 @@ export interface InvoiceResponse {
   reviewComments: string | null;
   submitComments: string | null;
   entryUserID: string;
-  // Send back as expectedRevisionCount on the next change; a stale value gets a 409.
-  revisionCount: number;
+  // Opaque version of the invoice and its lines. Send it back as expectedVersion on the next
+  // change; a stale version gets a 409.
+  version: string;
   lineItems: LineItemResponse[];
   warnings: ValidationMessageResponse[];
   /**
@@ -157,23 +158,23 @@ export const getInvoice = (id: number): Promise<InvoiceResponse> =>
 export const createInvoice = (body: CreateInvoiceRequest): Promise<InvoiceResponse> =>
   apiClient.post<InvoiceResponse>(ROOT, body).then(({ data }) => data);
 
-// Every change to an existing invoice sends the revision it was read at, so the backend
+// Every change to an existing invoice sends the version it was read at, so the backend
 // can refuse it (409) when someone else changed the invoice in between.
-const revisionParams = (expectedRevisionCount: number) => ({ params: { expectedRevisionCount } });
+const versionParams = (expectedVersion: string) => ({ params: { expectedVersion } });
 
 export const updateInvoice = (
   id: number,
-  expectedRevisionCount: number,
+  expectedVersion: string,
   body: UpdateInvoiceRequest,
 ): Promise<InvoiceResponse> =>
-  apiClient.put<InvoiceResponse>(`${ROOT}/${id}`, body, revisionParams(expectedRevisionCount)).then(({ data }) => data);
+  apiClient.put<InvoiceResponse>(`${ROOT}/${id}`, body, versionParams(expectedVersion)).then(({ data }) => data);
 
-export const deleteInvoice = (id: number, expectedRevisionCount: number): Promise<void> =>
-  apiClient.delete(`${ROOT}/${id}`, revisionParams(expectedRevisionCount)).then(() => undefined);
+export const deleteInvoice = (id: number, expectedVersion: string): Promise<void> =>
+  apiClient.delete(`${ROOT}/${id}`, versionParams(expectedVersion)).then(() => undefined);
 
-export const submitInvoice = (id: number, expectedRevisionCount: number): Promise<InvoiceResponse> =>
+export const submitInvoice = (id: number, expectedVersion: string): Promise<InvoiceResponse> =>
   apiClient
-    .post<InvoiceResponse>(`${ROOT}/${id}/submit`, undefined, revisionParams(expectedRevisionCount))
+    .post<InvoiceResponse>(`${ROOT}/${id}/submit`, undefined, versionParams(expectedVersion))
     .then(({ data }) => data);
 
 export const duplicateInvoice = (id: number): Promise<InvoiceResponse> =>
@@ -181,11 +182,11 @@ export const duplicateInvoice = (id: number): Promise<InvoiceResponse> =>
 
 export const changeInvoiceStatus = (
   id: number,
-  expectedRevisionCount: number,
+  expectedVersion: string,
   body: ChangeStatusRequest,
 ): Promise<InvoiceResponse> =>
   apiClient
-    .patch<InvoiceResponse>(`${ROOT}/${id}/status`, body, revisionParams(expectedRevisionCount))
+    .patch<InvoiceResponse>(`${ROOT}/${id}/status`, body, versionParams(expectedVersion))
     .then(({ data }) => data);
 
 // ----------------------------------------------------------------------------
@@ -194,30 +195,30 @@ export const changeInvoiceStatus = (
 
 export const addInvoiceLineItem = (
   invoiceId: number,
-  expectedRevisionCount: number,
+  expectedVersion: string,
   body: LineItemRequest,
 ): Promise<InvoiceResponse> =>
   apiClient
-    .post<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items`, body, revisionParams(expectedRevisionCount))
+    .post<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items`, body, versionParams(expectedVersion))
     .then(({ data }) => data);
 
 export const updateInvoiceLineItem = (
   invoiceId: number,
   lineId: number,
-  expectedRevisionCount: number,
+  expectedVersion: string,
   body: LineItemRequest,
 ): Promise<InvoiceResponse> =>
   apiClient
-    .patch<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items/${lineId}`, body, revisionParams(expectedRevisionCount))
+    .patch<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items/${lineId}`, body, versionParams(expectedVersion))
     .then(({ data }) => data);
 
 export const deleteInvoiceLineItem = (
   invoiceId: number,
   lineId: number,
-  expectedRevisionCount: number,
+  expectedVersion: string,
 ): Promise<InvoiceResponse> =>
   apiClient
-    .delete<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items/${lineId}`, revisionParams(expectedRevisionCount))
+    .delete<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items/${lineId}`, versionParams(expectedVersion))
     .then(({ data }) => data);
 
 // ----------------------------------------------------------------------------
@@ -268,15 +269,8 @@ export const useCreateInvoiceMutation = () => {
 export const useUpdateInvoiceMutation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      expectedRevisionCount,
-      body,
-    }: {
-      id: number;
-      expectedRevisionCount: number;
-      body: UpdateInvoiceRequest;
-    }) => updateInvoice(id, expectedRevisionCount, body),
+    mutationFn: ({ id, expectedVersion, body }: { id: number; expectedVersion: string; body: UpdateInvoiceRequest }) =>
+      updateInvoice(id, expectedVersion, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);
@@ -287,8 +281,8 @@ export const useUpdateInvoiceMutation = () => {
 export const useDeleteInvoiceMutation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, expectedRevisionCount }: { id: number; expectedRevisionCount: number }) =>
-      deleteInvoice(id, expectedRevisionCount),
+    mutationFn: ({ id, expectedVersion }: { id: number; expectedVersion: string }) =>
+      deleteInvoice(id, expectedVersion),
     onSuccess: (_void, { id }) => {
       qc.removeQueries({ queryKey: [...QUERY_KEY, id] });
       invalidateSubmissionHistory(qc);
@@ -299,8 +293,8 @@ export const useDeleteInvoiceMutation = () => {
 export const useSubmitInvoiceMutation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, expectedRevisionCount }: { id: number; expectedRevisionCount: number }) =>
-      submitInvoice(id, expectedRevisionCount),
+    mutationFn: ({ id, expectedVersion }: { id: number; expectedVersion: string }) =>
+      submitInvoice(id, expectedVersion),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);
@@ -322,15 +316,8 @@ export const useDuplicateInvoiceMutation = () => {
 export const useChangeInvoiceStatusMutation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      expectedRevisionCount,
-      body,
-    }: {
-      id: number;
-      expectedRevisionCount: number;
-      body: ChangeStatusRequest;
-    }) => changeInvoiceStatus(id, expectedRevisionCount, body),
+    mutationFn: ({ id, expectedVersion, body }: { id: number; expectedVersion: string; body: ChangeStatusRequest }) =>
+      changeInvoiceStatus(id, expectedVersion, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);
@@ -343,13 +330,13 @@ export const useAddInvoiceLineItemMutation = () => {
   return useMutation({
     mutationFn: ({
       invoiceId,
-      expectedRevisionCount,
+      expectedVersion,
       body,
     }: {
       invoiceId: number;
-      expectedRevisionCount: number;
+      expectedVersion: string;
       body: LineItemRequest;
-    }) => addInvoiceLineItem(invoiceId, expectedRevisionCount, body),
+    }) => addInvoiceLineItem(invoiceId, expectedVersion, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);
@@ -363,14 +350,14 @@ export const useUpdateInvoiceLineItemMutation = () => {
     mutationFn: ({
       invoiceId,
       lineId,
-      expectedRevisionCount,
+      expectedVersion,
       body,
     }: {
       invoiceId: number;
       lineId: number;
-      expectedRevisionCount: number;
+      expectedVersion: string;
       body: LineItemRequest;
-    }) => updateInvoiceLineItem(invoiceId, lineId, expectedRevisionCount, body),
+    }) => updateInvoiceLineItem(invoiceId, lineId, expectedVersion, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);
@@ -384,12 +371,12 @@ export const useDeleteInvoiceLineItemMutation = () => {
     mutationFn: ({
       invoiceId,
       lineId,
-      expectedRevisionCount,
+      expectedVersion,
     }: {
       invoiceId: number;
       lineId: number;
-      expectedRevisionCount: number;
-    }) => deleteInvoiceLineItem(invoiceId, lineId, expectedRevisionCount),
+      expectedVersion: string;
+    }) => deleteInvoiceLineItem(invoiceId, lineId, expectedVersion),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);

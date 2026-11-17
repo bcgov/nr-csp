@@ -436,6 +436,22 @@ BEGIN
 END;
 /
 
+-- Minimal invoice header and line tables: only the columns InvoiceVersionIT reads and writes.
+CREATE TABLE the.coastal_log_sale (
+    coastal_log_sale_id NUMBER(18) PRIMARY KEY,
+    revision_count      NUMBER(5) NOT NULL,
+    update_userid       VARCHAR2(30),
+    update_timestamp    DATE NOT NULL
+)
+/
+
+CREATE TABLE the.coastal_log_sale_detail (
+    coastal_log_sale_detail_id NUMBER(18) PRIMARY KEY,
+    coastal_log_sale_id        NUMBER(18) NOT NULL,
+    revision_count             NUMBER(5) NOT NULL
+)
+/
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Grants + synonyms so the application user sees the same object names it
 -- does in production: THE.* tables via qualified SELECT, CSP_SP_RPT_* procs
@@ -443,6 +459,10 @@ END;
 -- ────────────────────────────────────────────────────────────────────────────
 
 GRANT SELECT ON the.log_sale_type_code TO ${APP_USER}
+/
+GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale TO ${APP_USER}
+/
+GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale_detail TO ${APP_USER}
 /
 GRANT SELECT ON the.csp_invoice_type_code TO ${APP_USER}
 /

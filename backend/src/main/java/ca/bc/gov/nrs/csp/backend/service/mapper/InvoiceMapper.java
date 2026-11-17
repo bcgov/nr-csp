@@ -196,7 +196,7 @@ public class InvoiceMapper {
     }
 
     public InvoiceResponse toResponse(InvoiceDetails details, Long submissionId, Long submissionNumber, List<LineItem> lineItems,
-                                      ValidationResult validationSource, Integer revisionCount) {
+                                      ValidationResult validationSource, String version) {
         return new InvoiceResponse(
                 details.invID(),
                 submissionId,
@@ -230,7 +230,7 @@ public class InvoiceMapper {
                 details.reviewComments(),
                 details.submitComments(),
                 details.entryUserID(),
-                revisionCount,
+                version,
                 toLineItemResponses(lineItems),
                 toWarningResponses(validationSource),
                 toErrorResponses(validationSource)

@@ -162,7 +162,7 @@ const makeInvoice = (overrides: Record<string, any> = {}) => ({
   reviewComments: '',
   submitComments: '',
   entryUserID: 'user1',
-  revisionCount: 4,
+  version: 'v4',
   lineItems: [{ ...LINE_ITEM }],
   warnings: [],
   errors: [],
@@ -426,17 +426,17 @@ describe('InvoicePage — action flows', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(h.mutations.update.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
-        expectedRevisionCount: 4,
+        expectedVersion: 'v4',
         body: expect.objectContaining({ primarySortCode: 'SORT01', clientPrimarySortCode: 'CLIENT-XYZ' }),
       }),
       expect.anything(),
     );
   });
 
-  it('Submit fires the submit mutation with the invoice id and loaded revision', async () => {
+  it('Submit fires the submit mutation with the invoice id and loaded version', async () => {
     await renderLoaded({ invStatus: 'DFT' });
     await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(h.mutations.submit.mutate).toHaveBeenCalledWith({ id: 1, expectedRevisionCount: 4 }, expect.anything());
+    expect(h.mutations.submit.mutate).toHaveBeenCalledWith({ id: 1, expectedVersion: 'v4' }, expect.anything());
   });
 
   it('Submit is disabled when there are no line items', async () => {
@@ -456,14 +456,14 @@ describe('InvoicePage — action flows', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/delete invoice/i)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
-    expect(h.mutations.del.mutate).toHaveBeenCalledWith({ id: 1, expectedRevisionCount: 4 }, expect.anything());
+    expect(h.mutations.del.mutate).toHaveBeenCalledWith({ id: 1, expectedVersion: 'v4' }, expect.anything());
   });
 
   it('Approve (PROCESSING) fires a status change to APP', async () => {
     await renderLoaded({ invStatus: 'PRO' });
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(h.mutations.changeStatus.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 1, expectedRevisionCount: 4, body: expect.objectContaining({ status: 'APP' }) }),
+      expect.objectContaining({ id: 1, expectedVersion: 'v4', body: expect.objectContaining({ status: 'APP' }) }),
       expect.anything(),
     );
   });

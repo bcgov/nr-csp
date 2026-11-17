@@ -32,9 +32,9 @@ Given('that invoice has already been approved', async ({ request, world }) => {
     current.ok(),
     `[arrange] could not read invoice ${world.reviewInvoiceId}: HTTP ${current.status()}`,
   ).toBeTruthy();
-  const { revisionCount } = (await current.json()) as { revisionCount: number };
+  const { version } = (await current.json()) as { version: string };
   const res = await request.patch(`/api/invoices/${world.reviewInvoiceId}/status`, {
-    params: { expectedRevisionCount: revisionCount },
+    params: { expectedVersion: version },
     data: { status: invoiceStatus.approved, reviewComments: null },
   });
   expect(

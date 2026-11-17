@@ -184,10 +184,15 @@ adjusts its columns at runtime with dom4j.
 
 ### Concurrent invoice edits
 
-Without JPA there is no `@Version`, so invoices use the existing `revision_count` column as a
-hand-rolled optimistic lock, matching legacy CSP. It versions the whole invoice: every header,
-status and line-item write bumps it. Every change to an existing invoice sends the revision the
-page loaded as `?expectedRevisionCount=`.
+Without JPA there is no `@Version`, so invoices carry a hand-rolled optimistic lock, matching
+legacy CSP. Every invoice response returns an opaque `version`, and every change to an existing
+invoice sends it back as `?expectedVersion=`. The version covers what either app changes:
+
+| Part | Changed by |
+|---|---|
+| Header `revision_count` | Every modern write; legacy header saves and status changes |
+| Header `update_timestamp` | Every modern write; legacy line edits and deletes, which skip `revision_count` |
+| Line count and summed line `revision_count` | Line writes from either app; legacy line adds, which touch no header column |
 
 ```mermaid
 sequenceDiagram
@@ -196,21 +201,26 @@ sequenceDiagram
     participant API as CSP API
     participant O as Oracle
     A->>API: GET /api/invoices/42
-    API-->>A: revisionCount 3
+    API-->>A: version v1
     B->>API: GET /api/invoices/42
-    API-->>B: revisionCount 3
-    B->>API: PUT /api/invoices/42?expectedRevisionCount=3
-    API->>O: SELECT revision_count ... FOR UPDATE (3 matches)
-    API->>O: Write the invoice, revision becomes 4
-    API-->>B: 200, revisionCount 4
-    A->>API: PUT /api/invoices/42?expectedRevisionCount=3
-    API->>O: SELECT revision_count ... FOR UPDATE (4, not 3)
+    API-->>B: version v1
+    B->>API: PUT /api/invoices/42?expectedVersion=v1
+    API->>O: Lock the invoice row (SELECT ... FOR UPDATE), then read its version
+    API->>O: v1 matches: write the invoice, the version becomes v2
+    API-->>B: 200, version v2
+    A->>API: PUT /api/invoices/42?expectedVersion=v1
+    API->>O: Lock the invoice row, then read its version (v2)
     API-->>A: 409, refresh to see the other user's changes
 ```
 
-The row lock holds until the transaction commits, so two changes sent at the same moment can't
-both pass the check. A multi-line group edit or delete sends one request per line, each carrying
-the revision the previous response returned.
+- The row lock holds until the transaction commits, so two changes sent at the same moment can't
+  both pass the check.
+- `GET` reads the version in the same statement as the header, before the lines, so a later
+  commit can only make it stale (a 409), never newer than the data it travels with.
+- A line or group editor on the Invoice page keeps the version it opened at, so a background
+  refetch can't pair its draft with a newer version. The user's own writes move it forward.
+- A multi-line group edit or delete sends one request per line, each carrying the version the
+  previous response returned.
 
 ## Invoice domain
 

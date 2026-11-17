@@ -88,7 +88,7 @@ class InvoiceServiceTest {
     private static final InvoiceResponse SENTINEL = new InvoiceResponse(
             1L, 10L, 67890L, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), "DFT", "SAL", "M", null, null, null,
             null, null, null, "1234", "00", "Seller", null, null, null, null, null, null, null,
-            List.of(), List.of(), List.of(), null, null, null, null, "system", 4,
+            List.of(), List.of(), List.of(), null, null, null, null, "system", "v4",
             List.of(), List.of(), List.of());
 
     private static final ValidationResult VALID = new ValidationResult(List.of());
@@ -98,7 +98,7 @@ class InvoiceServiceTest {
             new ValidationMessage("a.warning", null, MessageType.WARNING);
 
     private static final String USER = "system";
-    private static final Integer CURRENT_REVISION = 3;
+    private static final String CURRENT_VERSION = "3.20261117140000.1.1";
 
     @BeforeEach
     void setUp() {
@@ -116,7 +116,7 @@ class InvoiceServiceTest {
                 .thenReturn(new PriceConversionService.Result(List.of(), List.of()));
         lenient().when(mapper.toResponse(any(), any(), any(), any(), any(), any())).thenReturn(SENTINEL);
         lenient().when(lineItemRepo.findByInvoiceId(anyLong())).thenReturn(List.of());
-        lenient().when(invoiceRepo.lockRevisionCount(anyLong())).thenReturn(Optional.of(CURRENT_REVISION));
+        lenient().when(invoiceRepo.lockVersion(anyLong())).thenReturn(Optional.of(CURRENT_VERSION));
         lenient().when(lineItemRepo.findIdsByInvoiceId(anyLong())).thenReturn(List.of());
     }
 
@@ -151,7 +151,7 @@ class InvoiceServiceTest {
     }
 
     private LoadedInvoice loaded(InvoiceDetails d, Long submissionId, Long buyerPid, Long sellerPid) {
-        return new LoadedInvoice(d, submissionId, buyerPid, sellerPid, submissionId, CURRENT_REVISION);
+        return new LoadedInvoice(d, submissionId, buyerPid, sellerPid, submissionId, CURRENT_VERSION);
     }
 
     /**
@@ -159,7 +159,7 @@ class InvoiceServiceTest {
      * the service tells manual entry from an ESF submission.
      */
     private LoadedInvoice loadedManual(InvoiceDetails d, Long submissionId) {
-        return new LoadedInvoice(d, submissionId, null, null, null, CURRENT_REVISION);
+        return new LoadedInvoice(d, submissionId, null, null, null, CURRENT_VERSION);
     }
 
     private LineItem line(Long id, BigDecimal converted) {
@@ -387,7 +387,7 @@ class InvoiceServiceTest {
     void update_notFound_throws() {
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.update(99L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.update(99L, CURRENT_VERSION, req))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -396,7 +396,7 @@ class InvoiceServiceTest {
     void update_nonEditableStatus_throwsConflict(String status) {
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, status, "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.update(1L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, req))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -410,7 +410,7 @@ class InvoiceServiceTest {
         given(priceConversionService.apply(any(), any(), any()))
                 .willReturn(new PriceConversionService.Result(List.of(converted), List.of(A_WARNING)));
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(lineItemRepo).updateConvertedPrice(1L, new BigDecimal("12.34"), USER);
         ArgumentCaptor<ValidationResult> captor = ArgumentCaptor.forClass(ValidationResult.class);
@@ -426,7 +426,7 @@ class InvoiceServiceTest {
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
 
-        assertThatThrownBy(() -> service.update(1L, CURRENT_REVISION, req)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, req)).isInstanceOf(ValidationException.class);
         verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
     }
 
@@ -440,7 +440,7 @@ class InvoiceServiceTest {
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null), line(null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L, 2L));
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), isNull(), isNull(), eq(USER));
         verify(lineItemRepo).updateLineItem(eq(1L), any(), eq(USER)); // existing line updated
@@ -456,7 +456,7 @@ class InvoiceServiceTest {
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
@@ -469,7 +469,7 @@ class InvoiceServiceTest {
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", "5678", null, "Seller"));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), isNull(), isNull(), eq(USER));
         verify(participantRepo).delete(50L);
@@ -484,7 +484,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
         given(invoiceRepo.countByCspSubmissionId(10L)).willReturn(0);
 
-        service.delete(1L, CURRENT_REVISION);
+        service.delete(1L, CURRENT_VERSION);
 
         verify(submissionRepo).delete(10L);
     }
@@ -496,7 +496,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
         given(invoiceRepo.countByCspSubmissionId(10L)).willReturn(1);
 
-        service.delete(1L, CURRENT_REVISION);
+        service.delete(1L, CURRENT_VERSION);
 
         verify(submissionRepo, never()).delete(anyLong());
     }
@@ -510,7 +510,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
         lenient().when(invoiceRepo.countByCspSubmissionId(10L)).thenReturn(0);
 
-        service.delete(1L, CURRENT_REVISION);
+        service.delete(1L, CURRENT_VERSION);
 
         verify(submissionRepo, never()).delete(anyLong());
     }
@@ -522,7 +522,7 @@ class InvoiceServiceTest {
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", null, "ABC Logging", "Seller"));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(participantRepo).update(50L, "ABC Logging", "Nanaimo", "BC", USER);
         verify(participantRepo, never()).insert(any(), any(), any(), any());
@@ -538,7 +538,7 @@ class InvoiceServiceTest {
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
         given(participantRepo.insert(any(), any(), any(), any())).willReturn(99L);
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(participantRepo).insert(eq("ABC Logging"), any(), any(), eq(USER));
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), eq(99L), isNull(), eq(USER));
@@ -634,7 +634,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(900L))
                 .willReturn(Optional.of(loaded(details(900L, "UNA", "5678", null, "Seller"), 20L, null, null)));
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(invoiceRepo).updateStatus(900L, "CAN", USER);
         verify(submissionRepo).updateSubmissionStatus(20L, "REJ", USER);
@@ -652,7 +652,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.replaceRelatedInvoices(eq(1L), eq("REP"), any(), any(), any(), any()))
                 .willReturn(List.of(1L));
 
-        service.update(1L, CURRENT_REVISION, req);
+        service.update(1L, CURRENT_VERSION, req);
 
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
@@ -664,13 +664,13 @@ class InvoiceServiceTest {
     @Test
     void delete_notFound_throws() {
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.delete(99L, CURRENT_REVISION)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.delete(99L, CURRENT_VERSION)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void delete_approvedInvoice_throwsConflict() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "APP", "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.delete(1L, CURRENT_REVISION)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.delete(1L, CURRENT_VERSION)).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).deleteInvoice(anyLong());
     }
 
@@ -678,7 +678,7 @@ class InvoiceServiceTest {
     void delete_success_removesChildrenInvoiceAndParticipants() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
 
-        service.delete(1L, CURRENT_REVISION);
+        service.delete(1L, CURRENT_VERSION);
 
         verify(lineItemRepo).deleteAllByInvoiceId(1L);
         verify(invoiceRepo).deleteAllLogSources(1L);
@@ -696,13 +696,13 @@ class InvoiceServiceTest {
     @Test
     void submit_notFound_throws() {
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.submit(99L, CURRENT_REVISION)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void submit_notDraftOrUnapproved_throwsConflict() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_REVISION)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(ConflictException.class);
     }
 
     @Test
@@ -710,7 +710,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SUBMIT))).willReturn(WITH_ERROR);
 
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_REVISION)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(ValidationException.class);
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
 
@@ -722,7 +722,7 @@ class InvoiceServiceTest {
         given(priceConversionService.apply(any(), any(), any()))
                 .willReturn(new PriceConversionService.Result(List.of(converted), List.of(A_WARNING)));
 
-        service.submit(1L, CURRENT_REVISION);
+        service.submit(1L, CURRENT_VERSION);
 
         verify(lineItemRepo).updateConvertedPrice(1L, new BigDecimal("12.34"), USER);
         verify(invoiceRepo).updateStatus(1L, "PRO", USER);
@@ -737,7 +737,7 @@ class InvoiceServiceTest {
     void submit_unapprovedInvoice_isAllowed() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "UNA", "5678", null, "Seller"), 10L, null, null)));
 
-        service.submit(1L, CURRENT_REVISION);
+        service.submit(1L, CURRENT_VERSION);
 
         verify(invoiceRepo).updateStatus(1L, "PRO", USER);
     }
@@ -788,13 +788,13 @@ class InvoiceServiceTest {
 
     @Test
     void changeStatus_nullRequest_throwsBadRequest() {
-        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_REVISION, null)).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_VERSION, null)).isInstanceOf(BadRequestException.class);
     }
 
     @Test
     void changeStatus_nullStatus_throwsBadRequest() {
         ChangeStatusRequest req = new ChangeStatusRequest(null, "c");
-        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_VERSION, req))
                 .isInstanceOf(BadRequestException.class);
     }
 
@@ -802,7 +802,7 @@ class InvoiceServiceTest {
     void changeStatus_notFound_throws() {
         ChangeStatusRequest req = new ChangeStatusRequest("APP", null);
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.changeStatus(99L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.changeStatus(99L, CURRENT_VERSION, req))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -815,7 +815,7 @@ class InvoiceServiceTest {
         InvoiceDetails stored = details(1L, "APP", "5678", null, "Seller");
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(stored, 10L)));
 
-        service.changeStatus(1L, CURRENT_REVISION, req);
+        service.changeStatus(1L, CURRENT_VERSION, req);
 
         ArgumentCaptor<InvoiceDetails> captor = ArgumentCaptor.forClass(InvoiceDetails.class);
         verify(validator).validateForChangeStatus(captor.capture(), eq("UNA"), any());
@@ -828,7 +828,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
         given(validator.validateForChangeStatus(any(), any(), any())).willReturn(WITH_ERROR);
 
-        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_VERSION, req))
                 .isInstanceOf(ValidationException.class);
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
@@ -838,7 +838,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1); // others still processing
 
-        service.changeStatus(1L, CURRENT_REVISION, new ChangeStatusRequest("REJ", "Rejecting this"));
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("REJ", "Rejecting this"));
 
         verify(invoiceRepo).updateReviewerNotes(1L, "Rejecting this", USER);
         verify(invoiceRepo).updateStatus(1L, "REJ", USER);
@@ -850,7 +850,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1);
 
-        service.changeStatus(1L, CURRENT_REVISION, new ChangeStatusRequest("APP", null));
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
 
         verify(invoiceRepo, never()).updateReviewerNotes(any(), any(), any());
         verify(invoiceRepo).updateStatus(1L, "APP", USER);
@@ -860,7 +860,7 @@ class InvoiceServiceTest {
     void changeStatus_unapprove_neverChangesSubmission() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "APP", "5678", null, "Seller"), 10L, null, null)));
 
-        service.changeStatus(1L, CURRENT_REVISION, new ChangeStatusRequest("UNA", "reopen"));
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("UNA", "reopen"));
 
         verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
         // UNA short-circuits before counting processing invoices.
@@ -873,7 +873,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(0);
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "APP")).willReturn(1);
 
-        service.changeStatus(1L, CURRENT_REVISION, new ChangeStatusRequest("APP", null));
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
 
         verify(submissionRepo).updateSubmissionStatus(10L, "COM", USER);
     }
@@ -884,7 +884,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(0);
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "APP")).willReturn(0);
 
-        service.changeStatus(1L, CURRENT_REVISION, new ChangeStatusRequest("REJ", "no good"));
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("REJ", "no good"));
 
         verify(submissionRepo).updateSubmissionStatus(10L, "REJ", USER);
     }
@@ -893,7 +893,7 @@ class InvoiceServiceTest {
     void changeStatus_nullSubmission_skipsCascade() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), null, null, null)));
 
-        service.changeStatus(1L, CURRENT_REVISION, new ChangeStatusRequest("APP", null));
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
 
         verify(invoiceRepo, never()).countByCspSubmissionIdAndStatus(any(), any());
         verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
@@ -911,7 +911,7 @@ class InvoiceServiceTest {
     void addLineItem_notFound_throws() {
         LineItemRequest req = lineItemRequest();
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.addLineItem(99L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.addLineItem(99L, CURRENT_VERSION, req))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -919,7 +919,7 @@ class InvoiceServiceTest {
     void addLineItem_approvedInvoice_throwsConflict() {
         LineItemRequest req = lineItemRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "APP", "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.addLineItem(1L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.addLineItem(1L, CURRENT_VERSION, req))
                 .isInstanceOf(ConflictException.class);
     }
 
@@ -930,7 +930,7 @@ class InvoiceServiceTest {
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
 
-        assertThatThrownBy(() -> service.addLineItem(1L, CURRENT_REVISION, req)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.addLineItem(1L, CURRENT_VERSION, req)).isInstanceOf(ValidationException.class);
         verify(lineItemRepo, never()).insertLineItem(any(), any(), any());
     }
 
@@ -940,7 +940,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
-        service.addLineItem(1L, CURRENT_REVISION, req);
+        service.addLineItem(1L, CURRENT_VERSION, req);
 
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));
         verify(invoiceRepo, never()).updateStatus(any(), any(), any()); // already DRAFT
@@ -952,7 +952,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "UNA", "5678", null, "Seller"), 10L, null, null)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
-        service.addLineItem(1L, CURRENT_REVISION, req);
+        service.addLineItem(1L, CURRENT_VERSION, req);
 
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
@@ -973,7 +973,7 @@ class InvoiceServiceTest {
         // Empty before the insert, one line after it.
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(), List.of(line(5L, null)));
 
-        service.addLineItem(1L, CURRENT_REVISION, req);
+        service.addLineItem(1L, CURRENT_VERSION, req);
 
         verify(invoiceRepo).updateTotals(1L, 10, new BigDecimal("5.0"), new BigDecimal("50.00"), USER);
         // ...and the re-validation that produces the response's warnings sees
@@ -991,7 +991,7 @@ class InvoiceServiceTest {
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of()); // last line deleted
 
-        service.deleteLineItem(1L, 5L, CURRENT_REVISION);
+        service.deleteLineItem(1L, 5L, CURRENT_VERSION);
 
         verify(invoiceRepo).updateTotals(1L, 0, BigDecimal.ZERO, new BigDecimal("0.00"), USER);
     }
@@ -1007,7 +1007,7 @@ class InvoiceServiceTest {
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(5L, null)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(5L, null));
 
-        service.updateLineItem(1L, 5L, CURRENT_REVISION, req);
+        service.updateLineItem(1L, 5L, CURRENT_VERSION, req);
 
         verify(invoiceRepo, never()).updateTotals(any(), any(), any(), any(), any());
     }
@@ -1023,7 +1023,7 @@ class InvoiceServiceTest {
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(), List.of(line(5L, null)));
 
-        service.addLineItem(1L, CURRENT_REVISION, req);
+        service.addLineItem(1L, CURRENT_VERSION, req);
 
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));   // the line is still added
         verify(invoiceRepo, never()).updateTotals(any(), any(), any(), any(), any());
@@ -1041,7 +1041,7 @@ class InvoiceServiceTest {
     void updateLineItem_invoiceNotFound_throws() {
         LineItemRequest req = lineItemRequest();
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.updateLineItem(99L, 5L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.updateLineItem(99L, 5L, CURRENT_VERSION, req))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -1055,7 +1055,7 @@ class InvoiceServiceTest {
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(5L, null)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
-        service.updateLineItem(1L, 5L, CURRENT_REVISION, req);
+        service.updateLineItem(1L, 5L, CURRENT_VERSION, req);
 
         verify(lineItemRepo).updateLineItem(eq(5L), any(), eq(USER));
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
@@ -1066,7 +1066,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "CAN", "5678", null, "Seller"), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
 
-        service.deleteLineItem(1L, 5L, CURRENT_REVISION);
+        service.deleteLineItem(1L, 5L, CURRENT_VERSION);
 
         verify(lineItemRepo).deleteLineItem(5L);
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
@@ -1077,7 +1077,7 @@ class InvoiceServiceTest {
         LineItemRequest req = lineItemRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(7L)); // 5 not present
-        assertThatThrownBy(() -> service.updateLineItem(1L, 5L, CURRENT_REVISION, req))
+        assertThatThrownBy(() -> service.updateLineItem(1L, 5L, CURRENT_VERSION, req))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -1090,7 +1090,7 @@ class InvoiceServiceTest {
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(5L, null));
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
 
-        assertThatThrownBy(() -> service.updateLineItem(1L, 5L, CURRENT_REVISION, req)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.updateLineItem(1L, 5L, CURRENT_VERSION, req)).isInstanceOf(ValidationException.class);
         verify(lineItemRepo, never()).updateLineItem(anyLong(), any(), any());
     }
 
@@ -1102,7 +1102,7 @@ class InvoiceServiceTest {
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(5L, null)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
-        service.updateLineItem(1L, 5L, CURRENT_REVISION, req);
+        service.updateLineItem(1L, 5L, CURRENT_VERSION, req);
 
         verify(lineItemRepo).updateLineItem(eq(5L), any(), eq(USER));
     }
@@ -1114,7 +1114,7 @@ class InvoiceServiceTest {
     @Test
     void deleteLineItem_invoiceNotFound_throws() {
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.deleteLineItem(99L, 5L, CURRENT_REVISION))
+        assertThatThrownBy(() -> service.deleteLineItem(99L, 5L, CURRENT_VERSION))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -1122,7 +1122,7 @@ class InvoiceServiceTest {
     void deleteLineItem_lineNotOnInvoice_throws() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(7L));
-        assertThatThrownBy(() -> service.deleteLineItem(1L, 5L, CURRENT_REVISION))
+        assertThatThrownBy(() -> service.deleteLineItem(1L, 5L, CURRENT_VERSION))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -1131,7 +1131,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
 
-        service.deleteLineItem(1L, 5L, CURRENT_REVISION);
+        service.deleteLineItem(1L, 5L, CURRENT_VERSION);
 
         verify(lineItemRepo).deleteLineItem(5L);
     }
@@ -1191,16 +1191,17 @@ class InvoiceServiceTest {
     }
 
     // ===============================================================
-    // Stale-save check (expectedRevisionCount)
+    // Stale-save check (expectedVersion)
     // ===============================================================
 
-    private static final Integer STALE_REVISION = CURRENT_REVISION - 1;
+    private static final String STALE_VERSION = "2.20261117130000.1.1";
+    private static final String NEXT_VERSION = "4.20261117140500.0.0";
 
     @Test
-    void update_staleRevision_refusedBeforeAnyWrite() {
+    void update_staleVersion_refusedBeforeAnyWrite() {
         UpdateInvoiceRequest req = updateRequest();
 
-        assertThatThrownBy(() -> service.update(1L, STALE_REVISION, req))
+        assertThatThrownBy(() -> service.update(1L, STALE_VERSION, req))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage(InvoiceService.STALE_INVOICE_MESSAGE);
         verify(invoiceRepo, never()).updateInvoice(anyLong(), any(), any(), any(), any(), any());
@@ -1208,34 +1209,34 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void delete_staleRevision_refusedBeforeAnyWrite() {
-        assertThatThrownBy(() -> service.delete(1L, STALE_REVISION)).isInstanceOf(ConflictException.class);
+    void delete_staleVersion_refusedBeforeAnyWrite() {
+        assertThatThrownBy(() -> service.delete(1L, STALE_VERSION)).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).deleteInvoice(anyLong());
         verify(lineItemRepo, never()).deleteAllByInvoiceId(anyLong());
     }
 
     @Test
-    void submit_staleRevision_refusedBeforeAnyWrite() {
-        assertThatThrownBy(() -> service.submit(1L, STALE_REVISION)).isInstanceOf(ConflictException.class);
+    void submit_staleVersion_refusedBeforeAnyWrite() {
+        assertThatThrownBy(() -> service.submit(1L, STALE_VERSION)).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).updateStatus(anyLong(), any(), any());
     }
 
     @Test
-    void changeStatus_staleRevision_refusedBeforeAnyWrite() {
+    void changeStatus_staleVersion_refusedBeforeAnyWrite() {
         ChangeStatusRequest req = new ChangeStatusRequest("APP", null);
 
-        assertThatThrownBy(() -> service.changeStatus(1L, STALE_REVISION, req)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.changeStatus(1L, STALE_VERSION, req)).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).updateStatus(anyLong(), any(), any());
         verify(invoiceRepo, never()).updateReviewerNotes(anyLong(), any(), any());
     }
 
     @Test
-    void lineItemChanges_staleRevision_refusedBeforeAnyWrite() {
+    void lineItemChanges_staleVersion_refusedBeforeAnyWrite() {
         LineItemRequest req = lineItemRequest();
 
-        assertThatThrownBy(() -> service.addLineItem(1L, STALE_REVISION, req)).isInstanceOf(ConflictException.class);
-        assertThatThrownBy(() -> service.updateLineItem(1L, 5L, STALE_REVISION, req)).isInstanceOf(ConflictException.class);
-        assertThatThrownBy(() -> service.deleteLineItem(1L, 5L, STALE_REVISION)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.addLineItem(1L, STALE_VERSION, req)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.updateLineItem(1L, 5L, STALE_VERSION, req)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.deleteLineItem(1L, 5L, STALE_VERSION)).isInstanceOf(ConflictException.class);
         verify(lineItemRepo, never()).insertLineItem(anyLong(), any(), any());
         verify(lineItemRepo, never()).updateLineItem(anyLong(), any(), any());
         verify(lineItemRepo, never()).deleteLineItem(anyLong());
@@ -1244,32 +1245,32 @@ class InvoiceServiceTest {
 
     @Test
     void staleCheck_missingInvoice_isNotFound() {
-        given(invoiceRepo.lockRevisionCount(99L)).willReturn(Optional.empty());
+        given(invoiceRepo.lockVersion(99L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.submit(99L, CURRENT_REVISION)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void deleteLineItem_bumpsInvoiceRevisionAndReturnsIt() {
+    void deleteLineItem_bumpsInvoiceRevisionAndReturnsNewVersion() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
-        given(invoiceRepo.findRevisionCount(1L)).willReturn(CURRENT_REVISION + 1);
+        given(invoiceRepo.findVersion(1L)).willReturn(NEXT_VERSION);
 
-        service.deleteLineItem(1L, 5L, CURRENT_REVISION);
+        service.deleteLineItem(1L, 5L, CURRENT_VERSION);
 
         verify(invoiceRepo).incrementRevisionCount(1L, USER);
-        verify(mapper).toResponse(any(), any(), any(), any(), any(), eq(CURRENT_REVISION + 1));
+        verify(mapper).toResponse(any(), any(), any(), any(), any(), eq(NEXT_VERSION));
     }
 
     @Test
-    void getById_returnsRevisionReadWithTheHeader() {
+    void getById_returnsVersionReadWithTheHeader() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
 
         service.getById(1L);
 
         // Not re-read afterwards: a later read could pair older data with a newer revision.
-        verify(mapper).toResponse(any(), any(), any(), any(), any(), eq(CURRENT_REVISION));
-        verify(invoiceRepo, never()).findRevisionCount(anyLong());
-        verify(invoiceRepo, never()).lockRevisionCount(anyLong());
+        verify(mapper).toResponse(any(), any(), any(), any(), any(), eq(CURRENT_VERSION));
+        verify(invoiceRepo, never()).findVersion(anyLong());
+        verify(invoiceRepo, never()).lockVersion(anyLong());
     }
 }

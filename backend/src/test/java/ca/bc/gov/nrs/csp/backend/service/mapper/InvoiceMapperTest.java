@@ -476,13 +476,13 @@ class InvoiceMapperTest {
         ));
 
         InvoiceResponse response = mapper.toResponse(
-                invoiceDetails(), 67890L, 55555L, List.of(lineItem()), validation, 7);
+                invoiceDetails(), 67890L, 55555L, List.of(lineItem()), validation, "v7");
 
         assertThat(response)
                 .isNotNull()
                 .extracting(InvoiceResponse::invID, InvoiceResponse::submissionId, InvoiceResponse::submissionNumber,
-                        InvoiceResponse::revisionCount)
-                .containsExactly(12345L, 67890L, 55555L, 7);
+                        InvoiceResponse::version)
+                .containsExactly(12345L, 67890L, 55555L, "v7");
         assertThat(response.lineItems()).hasSize(1);
         assertThat(response.warnings()).hasSize(1);
         assertThat(response.errors()).hasSize(1);

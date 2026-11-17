@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -431,7 +432,7 @@ class InvoiceRepositoryTest {
         given(rs.getString("review_comments")).willReturn("review it");
         given(rs.getString("submit_comments")).willReturn("submitted via UI");
         given(rs.getString("entry_userid")).willReturn("user123");
-        given(rs.getObject("revision_count", Integer.class)).willReturn(6);
+        given(rs.getString("invoice_version")).willReturn("6.20261117141623.1.1");
         stubNestedLookups();
         stubQueryWithResultSet(rs);
 
@@ -445,9 +446,9 @@ class InvoiceRepositoryTest {
                         InvoiceRepository.LoadedInvoice::submissionNumber,
                         InvoiceRepository.LoadedInvoice::buyerParticipantId,
                         InvoiceRepository.LoadedInvoice::sellerParticipantId,
-                        InvoiceRepository.LoadedInvoice::revisionCount)
-                .containsExactly(500L, 9001L, 61L, 62L, 6);
-        assertThat(captureQuerySql()).contains("cls.revision_count AS revision_count");
+                        InvoiceRepository.LoadedInvoice::version)
+                .containsExactly(500L, 9001L, 61L, 62L, "6.20261117141623.1.1");
+        assertThat(captureQuerySql()).contains(InvoiceRepository.INVOICE_VERSION_SQL + " AS invoice_version");
 
         InvoiceDetails d = loaded.details();
         assertThat(d)
@@ -833,28 +834,44 @@ class InvoiceRepositoryTest {
     // ---------------------------------------------------------------
 
     @Test
-    void lockRevisionCount_locksRowAndReturnsRevision() {
-        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
-                .willReturn(List.of(4));
+    void lockVersion_locksRowThenReadsVersion() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
+                .willReturn(List.of(10L));
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(String.class)))
+                .willReturn(List.of("4.20261117141623.2.3"));
 
-        assertThat(repo.lockRevisionCount(10L)).contains(4);
+        assertThat(repo.lockVersion(10L)).contains("4.20261117141623.2.3");
 
-        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc).queryForList(sqlCaptor.capture(), paramsCaptor.capture(), eq(Integer.class));
-        assertThat(sqlCaptor.getValue())
-                .contains("SELECT revision_count FROM THE.coastal_log_sale")
-                .contains("WHERE coastal_log_sale_id = :id")
+        ArgumentCaptor<String> lockSql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> lockParams = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).queryForList(lockSql.capture(), lockParams.capture(), eq(Long.class));
+        assertThat(lockSql.getValue())
+                .contains("FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id")
                 .endsWith("FOR UPDATE");
-        assertThat(paramsCaptor.getValue().getValue("id")).isEqualTo(10L);
+        assertThat(lockParams.getValue().getValue("id")).isEqualTo(10L);
+
+        ArgumentCaptor<String> versionSql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).queryForList(versionSql.capture(), any(MapSqlParameterSource.class), eq(String.class));
+        assertThat(versionSql.getValue()).contains(InvoiceRepository.INVOICE_VERSION_SQL);
     }
 
     @Test
-    void lockRevisionCount_missingInvoice_returnsEmpty() {
-        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
+    void lockVersion_missingInvoice_returnsEmptyWithoutReadingVersion() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
                 .willReturn(List.of());
 
-        assertThat(repo.lockRevisionCount(99L)).isEmpty();
+        assertThat(repo.lockVersion(99L)).isEmpty();
+        verify(jdbc, never()).queryForList(anyString(), any(MapSqlParameterSource.class), eq(String.class));
+    }
+
+    @Test
+    void invoiceVersion_coversHeaderRevisionTimestampAndLines() {
+        assertThat(InvoiceRepository.INVOICE_VERSION_SQL)
+                .contains("cls.revision_count")
+                .contains("TO_CHAR(cls.update_timestamp, 'YYYYMMDDHH24MISS')")
+                .contains("COUNT(*)")
+                .contains("SUM(d.revision_count)")
+                .contains("FROM THE.coastal_log_sale_detail d");
     }
 
     @Test

@@ -135,7 +135,7 @@ public class InvoiceService {
         }
 
         return mapper.toResponse(loaded.details(), loaded.submissionId(), loaded.submissionNumber(), lines, validation,
-                loaded.revisionCount());
+                loaded.version());
     }
 
     // ---------------------------------------------------------------
@@ -193,7 +193,7 @@ public class InvoiceService {
         // A freshly-created submission has no business submission number yet
         // (insertSubmission only sets the surrogate csp_submission_id).
         return mapper.toResponse(saved, submissionId, null, lineItemRepo.findByInvoiceId(newInvoiceId), result,
-                invoiceRepo.findRevisionCount(newInvoiceId));
+                invoiceRepo.findVersion(newInvoiceId));
     }
 
     // ---------------------------------------------------------------
@@ -201,9 +201,9 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse update(Long id, Integer expectedRevisionCount, UpdateInvoiceRequest request) {
+    public InvoiceResponse update(Long id, String expectedVersion, UpdateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
-        requireCurrentRevision(id, expectedRevisionCount);
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String existingStatus = existing.details().invStatus();
@@ -260,7 +260,7 @@ public class InvoiceService {
 
         InvoiceDetails saved = withId(details, id, ConstantsCode.INVENTRYSTATUS_DRAFT);
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
-                withConversionWarnings(result, conversion), invoiceRepo.findRevisionCount(id));
+                withConversionWarnings(result, conversion), invoiceRepo.findVersion(id));
     }
 
     // ---------------------------------------------------------------
@@ -268,8 +268,8 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public void delete(Long id, Integer expectedRevisionCount) {
-        requireCurrentRevision(id, expectedRevisionCount);
+    public void delete(Long id, String expectedVersion) {
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(existing.details().invStatus())) {
@@ -333,9 +333,9 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse submit(Long id, Integer expectedRevisionCount) {
+    public InvoiceResponse submit(Long id, String expectedVersion) {
         String user = SecurityContextUtils.requireUsername();
-        requireCurrentRevision(id, expectedRevisionCount);
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String status = existing.details().invStatus();
@@ -367,7 +367,7 @@ public class InvoiceService {
 
         InvoiceDetails saved = withId(existing.details(), id, ConstantsCode.INVENTRYSTATUS_PROCESSING);
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lines, responseResult,
-                invoiceRepo.findRevisionCount(id));
+                invoiceRepo.findVersion(id));
     }
 
     // ---------------------------------------------------------------
@@ -425,7 +425,7 @@ public class InvoiceService {
 
         InvoiceDetails saved = withId(cloned, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
         return mapper.toResponse(saved, submissionId, existing.submissionNumber(), lineItemRepo.findByInvoiceId(newInvoiceId), null,
-                invoiceRepo.findRevisionCount(newInvoiceId));
+                invoiceRepo.findVersion(newInvoiceId));
     }
 
     // ---------------------------------------------------------------
@@ -433,12 +433,12 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse changeStatus(Long id, Integer expectedRevisionCount, ChangeStatusRequest request) {
+    public InvoiceResponse changeStatus(Long id, String expectedVersion, ChangeStatusRequest request) {
         if (request == null || request.status() == null) {
             throw new BadRequestException("Status is required.");
         }
         String user = SecurityContextUtils.requireUsername();
-        requireCurrentRevision(id, expectedRevisionCount);
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
 
@@ -468,7 +468,7 @@ public class InvoiceService {
 
         InvoiceDetails saved = withReviewCommentsAndStatus(existing.details(), request.reviewComments(), request.status());
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lineItemRepo.findByInvoiceId(id), result,
-                invoiceRepo.findRevisionCount(id));
+                invoiceRepo.findVersion(id));
     }
 
     /**
@@ -548,9 +548,9 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse addLineItem(Long invoiceId, Integer expectedRevisionCount, LineItemRequest request) {
+    public InvoiceResponse addLineItem(Long invoiceId, String expectedVersion, LineItemRequest request) {
         String user = SecurityContextUtils.requireUsername();
-        requireCurrentRevision(invoiceId, expectedRevisionCount);
+        requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         requireAddLineItemAllowed(existing);
         // Build the candidate set: every existing line plus the new one. Run
@@ -571,9 +571,9 @@ public class InvoiceService {
     }
 
     @Transactional
-    public InvoiceResponse updateLineItem(Long invoiceId, Long lineId, Integer expectedRevisionCount, LineItemRequest request) {
+    public InvoiceResponse updateLineItem(Long invoiceId, Long lineId, String expectedVersion, LineItemRequest request) {
         String user = SecurityContextUtils.requireUsername();
-        requireCurrentRevision(invoiceId, expectedRevisionCount);
+        requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -598,9 +598,9 @@ public class InvoiceService {
     }
 
     @Transactional
-    public InvoiceResponse deleteLineItem(Long invoiceId, Long lineId, Integer expectedRevisionCount) {
+    public InvoiceResponse deleteLineItem(Long invoiceId, Long lineId, String expectedVersion) {
         String user = SecurityContextUtils.requireUsername();
-        requireCurrentRevision(invoiceId, expectedRevisionCount);
+        requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -637,7 +637,7 @@ public class InvoiceService {
         }
         ValidationResult result = newValidator().validate(draftDetails, currentLines, manual, ActionType.OTHER);
         return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), currentLines, result,
-                invoiceRepo.findRevisionCount(invoiceId));
+                invoiceRepo.findVersion(invoiceId));
     }
 
     /**
@@ -684,12 +684,12 @@ public class InvoiceService {
      * Legacy parity: refuses a change made from an out-of-date copy of the invoice. The row lock
      * holds until the transaction ends, so two concurrent changes can't both pass the check.
      */
-    private void requireCurrentRevision(Long invoiceId, Integer expectedRevisionCount) {
-        Integer currentRevisionCount = invoiceRepo.lockRevisionCount(invoiceId)
+    private void requireCurrentVersion(Long invoiceId, String expectedVersion) {
+        String currentVersion = invoiceRepo.lockVersion(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + invoiceId + " was not found."));
-        if (!Objects.equals(currentRevisionCount, expectedRevisionCount)) {
-            log.info("Refused stale change to invoice id={} expectedRevision={} currentRevision={}",
-                    invoiceId, expectedRevisionCount, currentRevisionCount);
+        if (!Objects.equals(currentVersion, expectedVersion)) {
+            log.info("Refused stale change to invoice id={} expectedVersion={} currentVersion={}",
+                    invoiceId, expectedVersion, currentVersion);
             throw new ConflictException(STALE_INVOICE_MESSAGE);
         }
     }
