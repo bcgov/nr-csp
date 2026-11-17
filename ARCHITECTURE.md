@@ -311,6 +311,7 @@ stateDiagram-v2
     [*] --> LOB: Manual invoice created
     [*] --> INB: XML submission saved
     LOB --> INB: Submit an invoice
+    INB --> INB: Submit an invoice
     INB --> LOB: Save an invoice
     INB --> COM: Decide the last PRO invoice, any APP
     INB --> REJ: Decide the last PRO invoice, none APP
@@ -322,7 +323,9 @@ stateDiagram-v2
 
 Save, or a line-item change on an invoice that isn't DFT, sets LOB. Submit sets INB. Approve,
 Reject and Cancel ("decide") set COM or REJ once no PRO invoices remain, and otherwise leave the
-submission alone. Unapprove and Duplicate never change it.
+submission alone. Unapprove and Duplicate never change it. An uploaded submission starts in INB
+with every invoice still DFT, so each invoice is submitted (the submission stays INB) before any
+can be decided.
 
 Reject, Cancel and Unapprove need a changed reviewer comment, and the user who entered an
 invoice can't approve it.
