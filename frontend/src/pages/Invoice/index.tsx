@@ -51,7 +51,12 @@ import {
   INVOICE_DETAILS_CANCEL,
   INVOICE_DETAILS_REJECT,
   INVOICE_DETAILS_DELETE,
+  INVOICE_DETAILS_DELETE_LINE_ITEM,
+  INVOICE_DETAILS_NEW_LINE_ITEM,
   INVOICE_DETAILS_UNAPPROVE,
+  INVOICE_DETAILS_UPDATE_GROUP,
+  INVOICE_DETAILS_CSV,
+  INVOICE_DETAILS_PDF,
 } from '@/context/auth/permissions';
 import {
   type CreateInvoiceRequest,
@@ -871,31 +876,42 @@ export function InvoicePage() {
   const canCancelPerm = usePermission(INVOICE_DETAILS_CANCEL);
   const canRejectPerm = usePermission(INVOICE_DETAILS_REJECT);
   const canDeletePerm = usePermission(INVOICE_DETAILS_DELETE);
+  const canAddLineItemPerm = usePermission(INVOICE_DETAILS_NEW_LINE_ITEM);
+  const canUpdateGroupPerm = usePermission(INVOICE_DETAILS_UPDATE_GROUP);
+  const canDeleteLineItemPerm = usePermission(INVOICE_DETAILS_DELETE_LINE_ITEM);
+  const canExportCsv = usePermission(INVOICE_DETAILS_CSV);
+  const canExportPdf = usePermission(INVOICE_DETAILS_PDF);
   // Unapprove is permission-gated like every other decision. It previously checked nothing, so a
   // user without it — a VIEW role holds no invoice decision permission at all — saw a live-looking
   // button that failed with a 403 from `changeStatus`, which does enforce it.
   const canUnapprovePerm = usePermission(INVOICE_DETAILS_UNAPPROVE);
 
+  const isDataEntryOnly = currentUser?.privileges.includes('ENTRY') && !canApprovePerm;
+  const canChangeInvoice = !isDataEntryOnly || (isManual && SUBMITTABLE_STATUSES.has(currentStatus));
+
   // Brand-new invoice (no id) is editable; existing invoice is editable
-  // only after it has loaded AND has an editable status (DFT).
-  const canEdit = isExisting ? !!loadedInvoice && EDITABLE_STATUSES.has(currentStatus) : true;
+  // only after it has loaded and has an editable status.
+  const canEdit = canChangeInvoice && (!isExisting || (!!loadedInvoice && EDITABLE_STATUSES.has(currentStatus)));
   const canChangeStatus = STATUS_CHANGEABLE.has(currentStatus);
   // Unapprove reverts an APPROVED invoice back to UNAPPROVED — only offered in APP.
   const canUnapprove = isExisting && currentStatus === 'APP';
   // Submit is offered only on a saved invoice in DFT/UNA — a brand-new
   // (unsaved) invoice must be saved first, so NEW shows Save only.
-  const canSubmit = isExisting && SUBMITTABLE_STATUSES.has(currentStatus);
+  const canSubmit = canChangeInvoice && isExisting && SUBMITTABLE_STATUSES.has(currentStatus);
   // Duplicate operates on a saved invoice and is offered only in DFT/PRO/UNA.
   const canDuplicate = isExisting && DUPLICABLE_STATUSES.has(currentStatus);
   // Delete is offered on a saved invoice in DFT/PRO only (not UNA).
   const canDelete = isExisting && DELETABLE_STATUSES.has(currentStatus);
-  // Adding a line item needs the save permission (a viewer can't) plus a saved,
-  // non-APP invoice.
-  const canAddLineItem = canSavePerm && isExisting && !!loadedInvoice && currentStatus !== 'APP';
-  // Group-level edit/delete is allowed in DFT/APP/UNA — and needs save permission
-  // (this also gates the per-row edit/delete via `canEditLineRows`).
+  const canAddLineItem =
+    canChangeInvoice && canAddLineItemPerm && isExisting && !!loadedInvoice && currentStatus !== 'APP';
+  // The line and group controls offer both edit and delete.
   const canEditLineItems =
-    canSavePerm && isExisting && !!loadedInvoice && LINE_ITEM_EDITABLE_STATUSES.has(currentStatus);
+    canChangeInvoice &&
+    canUpdateGroupPerm &&
+    canDeleteLineItemPerm &&
+    isExisting &&
+    !!loadedInvoice &&
+    LINE_ITEM_EDITABLE_STATUSES.has(currentStatus);
   // Individual line-item rows are editable/deletable in the same statuses EXCEPT
   // APP — in APP only the group as a whole can be edited/deleted.
   const canEditLineRows = canEditLineItems && currentStatus !== 'APP';
@@ -2200,6 +2216,7 @@ export function InvoicePage() {
                       labelText="Reviewer comment"
                       value={reviewerComment}
                       onChange={(e) => setReviewerComment(e.target.value)}
+                      disabled={isDataEntryOnly}
                       rows={6}
                       invalid={!!reviewerCommentError || !!displayFieldErrors.reviewerComment}
                       invalidText={reviewerCommentError || displayFieldErrors.reviewerComment}
@@ -2237,10 +2254,16 @@ export function InvoicePage() {
                     <TableToolbar>
                       <h3 className="invoice-page__group-summary-heading">Details</h3>
                       <TableToolbarContent>
-                        <MenuButton label="Export table" kind="ghost" className="invoice-page__export-btn">
-                          <MenuItem label="Export to CSV" renderIcon={Download} onClick={handleExportCsv} />
-                          <MenuItem label="Export to PDF" renderIcon={Download} onClick={handleExportPdf} />
-                        </MenuButton>
+                        {canExportCsv || canExportPdf ? (
+                          <MenuButton label="Export table" kind="ghost" className="invoice-page__export-btn">
+                            {canExportCsv && (
+                              <MenuItem label="Export to CSV" renderIcon={Download} onClick={handleExportCsv} />
+                            )}
+                            {canExportPdf && (
+                              <MenuItem label="Export to PDF" renderIcon={Download} onClick={handleExportPdf} />
+                            )}
+                          </MenuButton>
+                        ) : null}
                         {canAddLineItem ? (
                           <Button
                             kind="primary"

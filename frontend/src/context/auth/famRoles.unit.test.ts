@@ -69,10 +69,12 @@ describe('privilegesFromFamRoles', () => {
   const none = { privileges: [], forestClientNumbers: [] };
 
   it.each(['idir', 'azureidir'])('gives %s staff their exact unscoped roles', (idp) => {
-    expect(privilegesFromFamRoles(idp, ['CSP_VIEW', 'CSP_ADMIN', 'ADMIN', 'OTHER_CSP_APPROVE'])).toEqual({
-      privileges: ['ADMIN', 'VIEW'],
-      forestClientNumbers: [],
-    });
+    expect(privilegesFromFamRoles(idp, ['CSP_VIEW', 'CSP_ADMIN', ' csp_entry ', 'ADMIN', 'OTHER_CSP_APPROVE'])).toEqual(
+      {
+        privileges: ['ADMIN', 'ENTRY', 'VIEW'],
+        forestClientNumbers: [],
+      },
+    );
   });
 
   it('ignores case and padding, as the backend does', () => {
@@ -87,7 +89,7 @@ describe('privilegesFromFamRoles', () => {
   });
 
   it('matches whole staff codes only', () => {
-    expect(privilegesFromFamRoles('idir', ['ADMIN', 'NRS_CSP_ADMIN', 'CSP_ADMINISTRATOR', ''])).toEqual(none);
+    expect(privilegesFromFamRoles('idir', ['ADMIN', 'NRS_CSP_ADMIN', 'CSP_ENTRY_DISTRICT-DCC', ''])).toEqual(none);
   });
 
   it('never gives staff the industry role', () => {
@@ -105,7 +107,7 @@ describe('privilegesFromFamRoles', () => {
   });
 
   it('never gives Business BCeID a staff role', () => {
-    expect(privilegesFromFamRoles('bceidbusiness', ['CSP_ADMIN', 'CSP_VIEW'])).toEqual(none);
+    expect(privilegesFromFamRoles('bceidbusiness', ['CSP_ADMIN', 'CSP_ENTRY', 'CSP_VIEW'])).toEqual(none);
   });
 
   it('gives Business BCeID nothing without a client-scoped grant', () => {

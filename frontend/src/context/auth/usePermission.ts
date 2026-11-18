@@ -5,8 +5,7 @@ import { ROLE_PERMISSIONS } from './permissions';
  * Returns true if the current user's role grants the given action string.
  * Returns false when no user is authenticated.
  *
- * Expects user.privileges to contain role names matching ROLE_PERMISSIONS keys:
- * 'ADMIN', 'APPROVE', or 'VIEW' (set by RealAuthProvider/MockAuthProvider).
+ * Expects user.privileges to contain role names matching ROLE_PERMISSIONS keys.
  */
 export function usePermission(action: string): boolean {
   const { user } = useAuth();

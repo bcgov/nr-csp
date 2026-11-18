@@ -180,6 +180,13 @@ describe('ProtectedRoute — page access', () => {
     }
   });
 
+  it.each(Object.keys(ROUTE_PAGES))('limits Data Entry navigation at %s to Search and Invoice', (route) => {
+    signedInAs(['ENTRY']);
+    renderAt(route);
+    const destination = route === ROUTES.INVOICE ? ROUTES.INVOICE : ROUTES.SEARCH;
+    expect(screen.getByText(`Page ${destination}`)).toBeInTheDocument();
+  });
+
   it('shows No CSP access, not a page, to an account without a CSP role', () => {
     signedInAs([]);
     renderAt(ROUTES.UPLOAD_SUBMISSION);

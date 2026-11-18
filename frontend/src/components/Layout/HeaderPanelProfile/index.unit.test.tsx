@@ -50,6 +50,11 @@ describe('HeaderPanelProfile', () => {
     expect(screen.getByText('Role: Approver')).toBeInTheDocument();
   });
 
+  it('shows Data Entry when the user also has Viewer', () => {
+    arrange({ ...baseUser, privileges: ['VIEW', 'ENTRY'] });
+    expect(screen.getByText('Role: Data Entry')).toBeInTheDocument();
+  });
+
   it('labels a Business BCeID submitter by their BCeID username', () => {
     arrange({ ...baseUser, identityProvider: 'bceidbusiness', idirUsername: 'ACME_USER', privileges: ['SUBMITTER'] });
     expect(screen.getByText('Role: Submitter')).toBeInTheDocument();

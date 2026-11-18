@@ -26,19 +26,20 @@ const INBOX_SEARCH = 'inbox/Search';
 export const INVOICE_DETAILS = 'invoiceDetails';
 export const INVOICE_DETAILS_APPROVE = 'invoiceDetails/Approve';
 const INVOICE_DETAILS_BACK = 'invoiceDetails/Back';
-const INVOICE_DETAILS_CSV = 'invoiceDetails/CSV';
+export const INVOICE_DETAILS_CSV = 'invoiceDetails/CSV';
 export const INVOICE_DETAILS_CANCEL = 'invoiceDetails/Cancel';
 export const INVOICE_DETAILS_DELETE = 'invoiceDetails/Delete';
+export const INVOICE_DETAILS_DELETE_LINE_ITEM = 'invoiceDetails/Delete Line Item';
 export const INVOICE_DETAILS_DUPLICATE = 'invoiceDetails/Duplicate';
-const INVOICE_DETAILS_NEW_LINE_ITEM = 'invoiceDetails/New Line Item';
-const INVOICE_DETAILS_PDF = 'invoiceDetails/PDF';
+export const INVOICE_DETAILS_NEW_LINE_ITEM = 'invoiceDetails/New Line Item';
+export const INVOICE_DETAILS_PDF = 'invoiceDetails/PDF';
 const INVOICE_DETAILS_PRINTS = 'invoiceDetails/Prints';
 export const INVOICE_DETAILS_REJECT = 'invoiceDetails/Reject';
 export const INVOICE_DETAILS_SAVE = 'invoiceDetails/Save';
 const INVOICE_DETAILS_SAVE_INVOICE = 'invoiceDetails/Save Invoice';
 export const INVOICE_DETAILS_SUBMIT = 'invoiceDetails/Submit';
 export const INVOICE_DETAILS_UNAPPROVE = 'invoiceDetails/Unapprove';
-const INVOICE_DETAILS_UPDATE_GROUP = 'invoiceDetails/Update Group';
+export const INVOICE_DETAILS_UPDATE_GROUP = 'invoiceDetails/Update Group';
 const INVOICE_DETAILS_XLS = 'invoiceDetails/XLS';
 
 // ── modelFlatPriceConv ────────────────────────────────────────────────────────
@@ -241,6 +242,7 @@ const ADMIN_ACTIONS = new Set([
   INVOICE_DETAILS_CSV,
   INVOICE_DETAILS_CANCEL,
   INVOICE_DETAILS_DELETE,
+  INVOICE_DETAILS_DELETE_LINE_ITEM,
   INVOICE_DETAILS_DUPLICATE,
   INVOICE_DETAILS_NEW_LINE_ITEM,
   INVOICE_DETAILS_PDF,
@@ -417,6 +419,7 @@ const APPROVE_ACTIONS = new Set([
   INVOICE_DETAILS_CSV,
   INVOICE_DETAILS_CANCEL,
   INVOICE_DETAILS_DELETE,
+  INVOICE_DETAILS_DELETE_LINE_ITEM,
   INVOICE_DETAILS_DUPLICATE,
   INVOICE_DETAILS_NEW_LINE_ITEM,
   INVOICE_DETAILS_PDF,
@@ -658,20 +661,36 @@ const VIEW_ACTIONS = new Set([
   SUBMISSION_HISTORY,
 ]);
 
+/** IDIR staff who enter industry invoices received outside ESF. */
+const ENTRY_ACTIONS = new Set([
+  SEARCH,
+  SEARCH_BACK,
+  SEARCH_CLEAR,
+  SEARCH_DETAILS,
+  SEARCH_SEARCH,
+  INVOICE_DETAILS,
+  INVOICE_DETAILS_BACK,
+  INVOICE_DETAILS_SAVE,
+  INVOICE_DETAILS_SAVE_INVOICE,
+  INVOICE_DETAILS_SUBMIT,
+  INVOICE_DETAILS_NEW_LINE_ITEM,
+  INVOICE_DETAILS_UPDATE_GROUP,
+  INVOICE_DETAILS_DELETE_LINE_ITEM,
+]);
+
 /** SUBMITTER (Business BCeID) may only upload XML and see submission history, for its own clients. */
 const SUBMITTER_ACTIONS = new Set([SUBMISSION_UPLOAD, SUBMISSION_HISTORY]);
 
 /** The CSP role constants. Must match backend Roles.java. */
-export const ROLES = ['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER'] as const;
-export type Role = (typeof ROLES)[number]; // 'ADMIN' | 'APPROVE' | 'VIEW' | 'SUBMITTER'
-
-/** The IDIR staff roles; SUBMITTER is the only industry role. */
-export const STAFF_ROLES: readonly Role[] = ['ADMIN', 'APPROVE', 'VIEW'];
+export const STAFF_ROLES = ['ADMIN', 'APPROVE', 'ENTRY', 'VIEW'] as const;
+export const ROLES = [...STAFF_ROLES, 'SUBMITTER'] as const;
+export type Role = (typeof ROLES)[number];
 
 /** Maps a role constant to its permitted action strings. */
 export const ROLE_PERMISSIONS: Record<Role, Set<string>> = {
   ADMIN: ADMIN_ACTIONS,
   APPROVE: APPROVE_ACTIONS,
+  ENTRY: ENTRY_ACTIONS,
   VIEW: VIEW_ACTIONS,
   SUBMITTER: SUBMITTER_ACTIONS,
 };

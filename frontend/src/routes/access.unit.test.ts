@@ -50,7 +50,7 @@ describe('ROUTE_PAGES', () => {
   });
 
   it('covers every role', () => {
-    expect([...ROLES]).toEqual(['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER']);
+    expect([...ROLES]).toEqual(['ADMIN', 'APPROVE', 'ENTRY', 'VIEW', 'SUBMITTER']);
   });
 });
 

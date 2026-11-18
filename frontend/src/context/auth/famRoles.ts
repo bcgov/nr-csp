@@ -2,7 +2,7 @@ import { STAFF_ROLES, type Role } from './permissions';
 
 /**
  * Maps an identity provider and its FAM role codes to CSP privileges, mirroring the backend's
- * CspAuthorities. IDIR gets ADMIN, APPROVE or VIEW; Business BCeID gets SUBMITTER and its
+ * CspAuthorities. IDIR gets staff roles; Business BCeID gets SUBMITTER and its
  * clients from CSP_SUBMITTER_FOREST_CLIENT-00012345 roles; anything else gets nothing.
  */
 

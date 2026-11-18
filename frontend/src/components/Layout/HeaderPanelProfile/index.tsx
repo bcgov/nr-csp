@@ -3,6 +3,7 @@ import { type FC } from 'react';
 
 import AvatarImage from '@/components/Layout/AvatarImage';
 import { BCEID_BUSINESS } from '@/context/auth/famRoles';
+import { ROLES } from '@/context/auth/permissions';
 import { useAuth } from '@/context/auth/useAuth';
 
 import type { Role } from '@/context/auth/permissions';
@@ -13,16 +14,15 @@ import './index.scss';
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Admin',
   APPROVE: 'Approver',
+  ENTRY: 'Data Entry',
   VIEW: 'Viewer',
   SUBMITTER: 'Submitter',
 };
 
 // A user can hold several privileges; show the highest one, matching the single
 // "Role: …" line in the design.
-const ROLE_PRECEDENCE: Role[] = ['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER'];
-
 const primaryRoleLabel = (privileges: Role[]): string | undefined => {
-  const role = ROLE_PRECEDENCE.find((r) => privileges.includes(r));
+  const role = ROLES.find((r) => privileges.includes(r));
   return role ? ROLE_LABELS[role] : undefined;
 };
 

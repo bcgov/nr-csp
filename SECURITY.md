@@ -47,9 +47,9 @@ you add one.
   is enabled. It validates the RS256 signature against the realm's JWKS (key selected by `kid`),
   exact issuer and `azp`, `typ=Bearer`, expiry, supported identity provider, and audit username.
 - Roles come from `client_roles`, falling back to `resource_access.<configured client>.roles`,
-  and are matched case-insensitively (`CspAuthorities`). Only `CSP_VIEW`, `CSP_APPROVE`, and
-  `CSP_ADMIN` grant the internal `VIEW`, `APPROVE`, and `ADMIN` authorities, and only to IDIR/IDIR
-  MFA identities. Only `CSP_SUBMITTER_FOREST_CLIENT-<8 digits>` grants `SUBMITTER`, plus one
+  and are matched case-insensitively (`CspAuthorities`). The unscoped codes `CSP_VIEW`, `CSP_ENTRY`,
+  `CSP_APPROVE` and `CSP_ADMIN` grant the corresponding staff authority to IDIR/IDIR MFA identities.
+  Only `CSP_SUBMITTER_FOREST_CLIENT-<8 digits>` grants `SUBMITTER`, plus one
   forest-client authority per client, and only to Business BCeID identities. Bare roles, suffix
   aliases, foreign-app roles, `FAM:` bookkeeping roles and other identity providers grant no access.
 - All `/api/**` endpoints require a staff authority, except the public `/api/health` and the
@@ -59,8 +59,11 @@ you add one.
   Write endpoints also use `@PreAuthorize` through `PermissionService` for action-level checks.
   The frontend's route, navigation and No CSP access gates match these checks for usability; the
   API enforces authorization.
+- `ENTRY` grants invoice search, detail reads and reference lookups. Its write permissions cover
+  manual invoice creation, draft or unapproved invoice and line-item changes, and submission for
+  review. Approval decisions and reviewer-note changes require the corresponding staff role.
 - Swagger UI and the OpenAPI document are not public. They are off unless `API_DOCS_ENABLED=true`,
-  which the OpenShift templates never pass, and even then need a staff authority.
+  which the OpenShift templates never pass, and even then need `ADMIN`, `APPROVE` or `VIEW`.
 - Sessions are stateless: no cookie, no server-side session. CSRF protection is disabled
   deliberately, which is correct for bearer-token auth with no browser-automatable credential.
 - Signing out clears local OIDC credentials and redirects through SiteMinder and the configured

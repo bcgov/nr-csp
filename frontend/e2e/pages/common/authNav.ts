@@ -41,7 +41,7 @@ const MOCK_FOREST_CLIENTS_KEY = 'csp.mockForestClients';
  * rights and its permission assertions pass while proving nothing. `assertMockRole` below turns
  * that into a loud failure instead.
  */
-export const MOCK_ROLES = ['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER'] as const;
+export const MOCK_ROLES = ['ADMIN', 'APPROVE', 'ENTRY', 'VIEW', 'SUBMITTER'] as const;
 export type MockRole = (typeof MOCK_ROLES)[number];
 
 /** Fail loudly on a role the app does not define, rather than silently getting ADMIN. */

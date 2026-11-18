@@ -21,7 +21,8 @@ class CspAuthoritiesTest {
     @ParameterizedTest
     @ValueSource(strings = {"idir", "azureidir"})
     void staffGetExactUnscopedStaffCodes(String idp) {
-        assertThat(grant(idp, "CSP_VIEW", "CSP_APPROVE", "CSP_ADMIN")).containsExactly("ADMIN", "APPROVE", "VIEW");
+        assertThat(grant(idp, "CSP_VIEW", "CSP_APPROVE", " csp_entry ", "CSP_ADMIN"))
+                .containsExactly("ADMIN", "APPROVE", "ENTRY", "VIEW");
     }
 
     @Test
@@ -45,7 +46,8 @@ class CspAuthoritiesTest {
     @Test
     void scopedStaffCodesAreNotStaffCodes() {
         // FAM never scopes CSP's staff roles; a scoped one is a different role and grants nothing.
-        assertThat(grant("idir", "CSP_ADMIN_FOREST_CLIENT-00012345", "CSP_VIEW_DISTRICT-DCC")).isEmpty();
+        assertThat(grant("idir", "CSP_ENTRY_FOREST_CLIENT-00012345", "CSP_ADMIN_FOREST_CLIENT-00012345",
+                "CSP_VIEW_DISTRICT-DCC")).isEmpty();
     }
 
     // ── Business BCeID industry ─────────────────────────────────────────────
@@ -60,8 +62,8 @@ class CspAuthoritiesTest {
 
     @Test
     void businessIdentityNeverGetsStaffRoles() {
-        assertThat(grant("bceidbusiness", "CSP_ADMIN", "CSP_APPROVE", "CSP_VIEW")).isEmpty();
-        assertThat(grant("bceidbusiness", "CSP_ADMIN", "CSP_SUBMITTER_FOREST_CLIENT-00012345"))
+        assertThat(grant("bceidbusiness", "CSP_ADMIN", "CSP_APPROVE", "CSP_ENTRY", "CSP_VIEW")).isEmpty();
+        assertThat(grant("bceidbusiness", "CSP_ENTRY", "CSP_SUBMITTER_FOREST_CLIENT-00012345"))
                 .containsExactly("SUBMITTER", "FOREST_CLIENT-00012345");
     }
 

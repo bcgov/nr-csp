@@ -27,6 +27,7 @@ import java.util.Optional;
 public class SecurityConfig {
 
     private static final String API_PATH = "/api/**";
+    private static final String[] STAFF_AUTHORITIES = Roles.STAFF_ROLES.toArray(String[]::new);
     private static final String[] SUBMITTER_POST_PATHS = {
             "/api/submissions/validate/structural",
             "/api/submissions/parse",
@@ -72,6 +73,17 @@ public class SecurityConfig {
                         .hasAnyAuthority(Roles.ADMIN, Roles.APPROVE, Roles.VIEW, Roles.SUBMITTER)
                         .requestMatchers(HttpMethod.GET, SUBMITTER_GET_PATHS)
                         .hasAnyAuthority(Roles.ADMIN, Roles.APPROVE, Roles.VIEW, Roles.SUBMITTER)
+                        // Data Entry gets the manual invoice form, search, and their supporting lookups.
+                        .requestMatchers(HttpMethod.GET, "/api/search", "/api/clients", "/api/lookup/**", "/api/invoices/{id}")
+                        .hasAnyAuthority(STAFF_AUTHORITIES)
+                        .requestMatchers(HttpMethod.POST, "/api/invoices", "/api/invoices/{id}/submit", "/api/invoices/{id}/line-items")
+                        .hasAnyAuthority(STAFF_AUTHORITIES)
+                        .requestMatchers(HttpMethod.PUT, "/api/invoices/{id}")
+                        .hasAnyAuthority(STAFF_AUTHORITIES)
+                        .requestMatchers(HttpMethod.PATCH, "/api/invoices/{id}/line-items/{lineId}")
+                        .hasAnyAuthority(STAFF_AUTHORITIES)
+                        .requestMatchers(HttpMethod.DELETE, "/api/invoices/{id}/line-items/{lineId}")
+                        .hasAnyAuthority(STAFF_AUTHORITIES)
                         .requestMatchers(API_PATH).hasAnyAuthority(Roles.ADMIN, Roles.APPROVE, Roles.VIEW)
                         .anyRequest().authenticated()
                 );

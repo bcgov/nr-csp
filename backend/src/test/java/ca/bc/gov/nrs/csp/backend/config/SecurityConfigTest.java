@@ -1,11 +1,20 @@
 package ca.bc.gov.nrs.csp.backend.config;
 
+import ca.bc.gov.nrs.csp.backend.controller.InvoiceController;
+import ca.bc.gov.nrs.csp.backend.service.InvoiceService;
 import ca.bc.gov.nrs.csp.backend.service.JwtService;
+import ca.bc.gov.nrs.csp.backend.service.PermissionService;
+import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -22,8 +31,11 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,12 +53,21 @@ class SecurityConfigTest {
     // No @Bean factory method needed — adding one would register it twice.
     @Configuration
     @EnableWebMvc
+    @Import(InvoiceController.class)
+    @ImportAutoConfiguration(AopAutoConfiguration.class)
     static class TestWebConfig {
+
+        @Bean
+        PermissionService permissionService() {
+            return new PermissionService();
+        }
 
         @RestController
         static class TestController {
             @GetMapping("/api/health") String health() { return "ok"; }
             @GetMapping("/api/some-endpoint") String endpoint() { return "ok"; }
+            @GetMapping({"/api/search", "/api/clients", "/api/lookup/species-grade-combinations"})
+            String invoiceLookup() { return "ok"; }
             @GetMapping("/api/swagger-ui/index.html") String swagger() { return "swagger"; }
             @GetMapping("/api/v3/api-docs") String apiDocs() { return "{}"; }
             @PostMapping({"/api/submissions/validate/structural", "/api/submissions/parse",
@@ -64,6 +85,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    private InvoiceService invoiceService;
 
     private MockMvc mockMvc;
 
@@ -106,11 +130,63 @@ class SecurityConfigTest {
             "/api/submission-history/200456/invoices"};
 
     @Test
+    @WithMockUser(authorities = Roles.ENTRY)
+    void dataEntryCanSearchAndUseInvoiceEntryEndpoints() throws Exception {
+        String invoiceBody = """
+                {"invNumber":"MANUAL-1","invoiceDate":"2026-01-15","invType":"SAL",
+                 "submitterClientNum":"00001234","submitterLocation":"00","submittedBy":"Seller","manual":true}
+                """;
+        String lineBody = """
+                {"secondSort":"SORT01","species":"SP1","grade":"G1","numOfPieces":1,"price":25.00,"volume":6.25}
+                """;
+        for (String path : new String[]{"/api/search", "/api/clients", "/api/lookup/species-grade-combinations",
+                "/api/invoices/1"}) {
+            mockMvc.perform(get(path)).andExpect(status().isOk());
+        }
+        mockMvc.perform(post("/api/invoices").contentType(MediaType.APPLICATION_JSON).content(invoiceBody))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v1")
+                        .contentType(MediaType.APPLICATION_JSON).content(invoiceBody))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/invoices/1/line-items?expectedVersion=v2")
+                        .contentType(MediaType.APPLICATION_JSON).content(lineBody))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/invoices/1/line-items/2?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON).content(lineBody))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/invoices/1/line-items/2?expectedVersion=v4")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v5")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(authorities = Roles.ENTRY)
+    void dataEntryCannotReviewInvoicesOrUseUnrelatedStaffEndpoints() throws Exception {
+        mockMvc.perform(patch("/api/invoices/1/status?expectedVersion=v1")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/invoices/1?expectedVersion=v1")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/invoices/1/duplicate")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/invoices/export/pdf")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/submissions/submit")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/submission-history")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/R06")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/inbox")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/flat-price-conversions")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = {Roles.ENTRY, Roles.VIEW})
+    void combiningEntryAndViewStillDoesNotGrantReviewActions() throws Exception {
+        mockMvc.perform(patch("/api/invoices/1/status?expectedVersion=v1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"APP\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(authorities = {"SUBMITTER", "FOREST_CLIENT-00000001"})
     void submitter_reachesOnlyUploadAndHistory() throws Exception {
         for (String path : SUBMITTER_POSTS) mockMvc.perform(post(path)).andExpect(status().isOk());
         for (String path : SUBMITTER_GETS) mockMvc.perform(get(path)).andExpect(status().isOk());
         mockMvc.perform(get("/api/some-endpoint")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/invoices")).andExpect(status().isForbidden());
     }
 
     @Test
