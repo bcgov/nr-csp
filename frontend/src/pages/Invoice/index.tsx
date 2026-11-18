@@ -57,6 +57,7 @@ import {
   type CreateInvoiceRequest,
   type LineItemRequest,
   type LineItemResponse,
+  type InvoiceResponse,
   type ValidationMessageResponse,
   extractApiErrorMessage,
   extractValidationErrors,
@@ -622,8 +623,21 @@ export function InvoicePage() {
     originalSpecies: string;
     secondSort: string;
     species: string;
+    openedAtVersion: string | undefined;
   };
   const [editGroupDraft, setEditGroupDraft] = useState<EditGroupDraft | null>(null);
+
+  // Editors keep the version they opened at, so a background refetch can't pair their draft
+  // values with a newer version. This user's own writes move an open editor's version forward.
+  const [editLineOpenedAtVersion, setEditLineOpenedAtVersion] = useState<string | undefined>(undefined);
+  const loadedVersionRef = useRef<string | undefined>(undefined);
+  loadedVersionRef.current = loadedInvoice?.version;
+  const advanceOpenEditors = (fromVersion: string, toVersion: string) => {
+    setEditLineOpenedAtVersion((version) => (version === fromVersion ? toVersion : version));
+    setEditGroupDraft((draft) =>
+      draft && draft.openedAtVersion === fromVersion ? { ...draft, openedAtVersion: toVersion } : draft,
+    );
+  };
   const [editGroupFieldErrors, setEditGroupFieldErrors] = useState<Record<string, string>>({});
   const [fobValidationError, setFobValidationError] = useState('');
 
@@ -739,6 +753,7 @@ export function InvoicePage() {
     setFobValidationError('');
     setNewLineFieldErrors({});
     setEditLineDraft(null);
+    setEditLineOpenedAtVersion(undefined);
     setEditLineFieldErrors({});
     setEditGroupDraft(null);
     setEditGroupFieldErrors({});
@@ -945,7 +960,7 @@ export function InvoicePage() {
 
   const handleSaveNewLineItem = () => {
     if (!isAddLineItemValid) return;
-    if (!invoiceId) {
+    if (!invoiceId || !loadedInvoice) {
       addNotification({ kind: 'warning', title: 'Save the invoice before adding line items.' });
       return;
     }
@@ -960,10 +975,12 @@ export function InvoicePage() {
       convertedPrice: null,
     };
     clearErrors();
+    const expectedVersion = loadedInvoice.version;
     addLineItemMutation.mutate(
-      { invoiceId, body },
+      { invoiceId, expectedVersion, body },
       {
         onSuccess: (data) => {
+          advanceOpenEditors(expectedVersion, data.version);
           // Hydrate from the server response so the table + totals reflect
           // the freshly-validated server state.
           const nextLines = data.lineItems ?? [];
@@ -1277,27 +1294,32 @@ export function InvoicePage() {
       originalSpecies: group.species,
       secondSort: group.secondarySort,
       species: group.species,
+      openedAtVersion: loadedVersionRef.current,
     });
     setEditGroupFieldErrors({});
   }, []);
 
   // Deleting a group removes each of its line items
-  const performGroupDelete = async (group: GroupRow) => {
-    if (!invoiceId) return;
+  const performGroupDelete = async (group: GroupRow, openedAtVersion: string | undefined) => {
+    if (!invoiceId || !openedAtVersion) return;
     clearErrors();
     const ids = group.lineItems.map((l) => l.lineItemID).filter((id) => id > 0);
-    let lastResponse: typeof loadedInvoice = undefined;
+    let lastResponse: InvoiceResponse | undefined;
     for (const lineId of ids) {
+      // Each delete changes the version, so the next one sends the version the last one returned.
+      const expectedVersion = lastResponse?.version ?? openedAtVersion;
       try {
         // eslint-disable-next-line no-await-in-loop
-        lastResponse = await deleteLineItemMutation.mutateAsync({ invoiceId, lineId });
+        lastResponse = await deleteLineItemMutation.mutateAsync({ invoiceId, lineId, expectedVersion });
       } catch (err) {
+        if (lastResponse) advanceOpenEditors(openedAtVersion, lastResponse.version);
         setDeleteConfirm(null);
         handleMutationError(err, 'Failed to delete group.');
         return;
       }
     }
     if (lastResponse) {
+      advanceOpenEditors(openedAtVersion, lastResponse.version);
       setLineItems(lastResponse.lineItems ?? []);
       setWarnings(lastResponse.warnings ?? []);
       applyServerErrors(lastResponse.errors ?? []);
@@ -1308,15 +1330,14 @@ export function InvoicePage() {
   const performGroupDeleteRef = useRef(performGroupDelete);
   performGroupDeleteRef.current = performGroupDelete;
 
-  const requestDeleteGroup = useCallback(
-    (group: GroupRow) =>
-      setDeleteConfirm({
-        title: 'Delete group',
-        message: 'Are you sure you want to delete all line items in this group?',
-        onConfirm: () => performGroupDeleteRef.current(group),
-      }),
-    [],
-  );
+  const requestDeleteGroup = useCallback((group: GroupRow) => {
+    const openedAtVersion = loadedVersionRef.current;
+    setDeleteConfirm({
+      title: 'Delete group',
+      message: 'Are you sure you want to delete all line items in this group?',
+      onConfirm: () => performGroupDeleteRef.current(group, openedAtVersion),
+    });
+  }, []);
 
   const groupColumns = useMemo<ResultsTableColumn<GroupRow>[]>(
     () => [
@@ -1414,10 +1435,13 @@ export function InvoicePage() {
     clearErrors();
     const body = buildRequestBody();
     if (isExisting && invoiceId) {
+      if (!loadedInvoice) return;
+      const expectedVersion = loadedInvoice.version;
       updateMutation.mutate(
-        { id: invoiceId, body },
+        { id: invoiceId, expectedVersion, body },
         {
           onSuccess: (data) => {
+            advanceOpenEditors(expectedVersion, data.version);
             setSaveWarnings(data.warnings ?? []);
             addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' saved.` });
           },
@@ -1441,32 +1465,43 @@ export function InvoicePage() {
   };
 
   const handleSubmit = () => {
-    if (!invoiceId) {
+    if (!invoiceId || !loadedInvoice) {
       addNotification({ kind: 'warning', title: 'Save the invoice before submitting.' });
       return;
     }
     clearErrors();
-    submitMutation.mutate(invoiceId, {
-      onSuccess: (data) => {
-        setWarnings(data.warnings ?? []);
-        addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' submitted.` });
+    const expectedVersion = loadedInvoice.version;
+    submitMutation.mutate(
+      { id: invoiceId, expectedVersion },
+      {
+        onSuccess: (data) => {
+          advanceOpenEditors(expectedVersion, data.version);
+          setWarnings(data.warnings ?? []);
+          addNotification({ kind: 'success', title: `Invoice '${data.invNumber}' submitted.` });
+        },
+        onError: (err) => handleMutationError(err, 'Failed to submit invoice.'),
       },
-      onError: (err) => handleMutationError(err, 'Failed to submit invoice.'),
-    });
+    );
   };
 
   const runStatusChange = (status: 'APP' | 'REJ' | 'CAN' | 'UNA', requiresComment: boolean) => {
-    if (!invoiceId) return;
+    if (!invoiceId || !loadedInvoice) return;
     if (requiresComment && reviewerComment.trim() === '') {
       setReviewerCommentError('Reviewer comment is required for this action.');
       return;
     }
     setReviewerCommentError('');
     clearErrors();
+    const expectedVersion = loadedInvoice.version;
     changeStatusMutation.mutate(
-      { id: invoiceId, body: { status, reviewComments: reviewerComment || null } },
+      {
+        id: invoiceId,
+        expectedVersion,
+        body: { status, reviewComments: reviewerComment || null },
+      },
       {
         onSuccess: (data) => {
+          advanceOpenEditors(expectedVersion, data.version);
           setWarnings(data.warnings ?? []);
           const verb =
             status === 'APP'
@@ -1503,19 +1538,22 @@ export function InvoicePage() {
   };
 
   const handleDelete = () => {
-    if (!invoiceId) return;
-    deleteMutation.mutate(invoiceId, {
-      onSuccess: () => {
-        // Navigate to the base "new invoice" screen.
-        setDeleteConfirm(null);
-        addNotification({ kind: 'success', title: 'Invoice deleted.' });
-        void navigate('/invoice', { replace: true });
+    if (!invoiceId || !loadedInvoice) return;
+    deleteMutation.mutate(
+      { id: invoiceId, expectedVersion: loadedInvoice.version },
+      {
+        onSuccess: () => {
+          // Navigate to the base "new invoice" screen.
+          setDeleteConfirm(null);
+          addNotification({ kind: 'success', title: 'Invoice deleted.' });
+          void navigate('/invoice', { replace: true });
+        },
+        onError: (err) => {
+          setDeleteConfirm(null);
+          handleMutationError(err, 'Failed to delete invoice.');
+        },
       },
-      onError: (err) => {
-        setDeleteConfirm(null);
-        handleMutationError(err, 'Failed to delete invoice.');
-      },
-    });
+    );
   };
 
   const requestDeleteInvoice = () =>
@@ -1533,14 +1571,16 @@ export function InvoicePage() {
     });
 
   const handleDeleteLineItem = (_groupId: string, lineId: string) => {
-    if (!invoiceId) return;
+    if (!invoiceId || !loadedInvoice) return;
     const numeric = Number(lineId);
     if (Number.isNaN(numeric)) return;
     clearErrors();
+    const expectedVersion = loadedInvoice.version;
     deleteLineItemMutation.mutate(
-      { invoiceId, lineId: numeric },
+      { invoiceId, lineId: numeric, expectedVersion },
       {
         onSuccess: (data) => {
+          advanceOpenEditors(expectedVersion, data.version);
           setLineItems(data.lineItems ?? []);
           setWarnings(data.warnings ?? []);
           applyServerErrors(data.errors ?? []);
@@ -1571,16 +1611,18 @@ export function InvoicePage() {
       price: String(line.price ?? ''),
       clientSecondarySort: line.clientSecondarySort ?? '',
     });
+    setEditLineOpenedAtVersion(loadedInvoice?.version);
     setEditLineFieldErrors({});
   };
 
   const handleCancelLineEdit = () => {
     setEditLineDraft(null);
+    setEditLineOpenedAtVersion(undefined);
     setEditLineFieldErrors({});
   };
 
   const handleSaveLineEdit = () => {
-    if (!invoiceId || !editLineDraft) return;
+    if (!invoiceId || !editLineDraft || !editLineOpenedAtVersion) return;
     if (Object.keys(clientEditLineErrors).length > 0) return;
     const lineItemID = Number(editLineDraft.id);
     const body: LineItemRequest = {
@@ -1595,16 +1637,19 @@ export function InvoicePage() {
       convertedPrice: null,
     };
     clearErrors();
+    const expectedVersion = editLineOpenedAtVersion;
     updateLineItemMutation.mutate(
-      { invoiceId, lineId: lineItemID, body },
+      { invoiceId, lineId: lineItemID, expectedVersion, body },
       {
         onSuccess: (data) => {
+          advanceOpenEditors(expectedVersion, data.version);
           const nextLines = data.lineItems ?? [];
           setLineItems(nextLines);
           keepGroupsExpandedForLines(nextLines, [lineItemID]);
           setWarnings(data.warnings ?? []);
           applyServerErrors(data.errors ?? []);
           setEditLineDraft(null);
+          setEditLineOpenedAtVersion(undefined);
           setEditLineFieldErrors({});
           addNotification({ kind: 'success', title: 'Line item updated.' });
         },
@@ -1633,8 +1678,8 @@ export function InvoicePage() {
   };
 
   const handleSaveGroupEdit = async () => {
-    if (!invoiceId || !editGroupDraft) return;
-    const { lineItemIds, secondSort, species } = editGroupDraft;
+    if (!invoiceId || !editGroupDraft?.openedAtVersion) return;
+    const { lineItemIds, secondSort, species, openedAtVersion } = editGroupDraft;
     if (!secondSort || !species) {
       setEditGroupFieldErrors({
         ...(secondSort ? {} : { secondSort: 'Secondary sort is required.' }),
@@ -1643,7 +1688,7 @@ export function InvoicePage() {
       return;
     }
     clearErrors();
-    let lastResponse: typeof loadedInvoice = undefined;
+    let lastResponse: InvoiceResponse | undefined;
     for (const lineId of lineItemIds) {
       const sourceLines = lastResponse?.lineItems ?? lineItems;
       const existing = sourceLines.find((l) => l.lineItemID === lineId);
@@ -1659,10 +1704,13 @@ export function InvoicePage() {
         volume: existing.volume,
         convertedPrice: existing.convertedPrice ?? null,
       };
+      // Each update changes the version, so the next one sends the version the last one returned.
+      const expectedVersion = lastResponse?.version ?? openedAtVersion;
       try {
         // eslint-disable-next-line no-await-in-loop
-        lastResponse = await updateLineItemMutation.mutateAsync({ invoiceId, lineId, body });
+        lastResponse = await updateLineItemMutation.mutateAsync({ invoiceId, lineId, expectedVersion, body });
       } catch (err) {
+        if (lastResponse) advanceOpenEditors(openedAtVersion, lastResponse.version);
         const errors = extractValidationErrors(err);
         if (errors.length > 0) {
           const inline: Record<string, string> = {};
@@ -1687,6 +1735,7 @@ export function InvoicePage() {
       }
     }
     if (lastResponse) {
+      advanceOpenEditors(openedAtVersion, lastResponse.version);
       const nextLines = lastResponse.lineItems ?? [];
       setLineItems(nextLines);
       // Keep the edited group open under its new (sort/species-derived) id.
