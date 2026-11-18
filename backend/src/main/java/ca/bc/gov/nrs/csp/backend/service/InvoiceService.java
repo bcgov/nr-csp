@@ -253,17 +253,18 @@ public class InvoiceService {
             submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_LOBBY, user);
         }
 
-        // Flat-price conversion: compute and persist each line's converted price on save
-        List<LineItem> savedLines = lineItemRepo.findByInvoiceId(id);
+        // Flat-price conversion: compute and persist each line's converted price on save.
+        // Converted-price writes leave the version alone, so the snapshot can come first.
+        ResponseSnapshot snapshot = readResponseSnapshot(id);
         PriceConversionService.Result conversion = priceConversionService.apply(
-                savedLines, details.maturity(), details.invoiceDate());
+                snapshot.lines(), details.maturity(), details.invoiceDate());
         for (LineItem line : conversion.lines()) {
             lineItemRepo.updateConvertedPrice(line.lineItemID(), line.convertedPrice(), user);
         }
 
         InvoiceDetails saved = withId(details, id, ConstantsCode.INVENTRYSTATUS_DRAFT);
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
-                withConversionWarnings(result, conversion), invoiceRepo.findVersion(id));
+                withConversionWarnings(result, conversion), snapshot.version());
     }
 
     // ---------------------------------------------------------------
@@ -351,26 +352,26 @@ public class InvoiceService {
         ValidationResult result = newValidator().validate(existing.details(), lines, /*manual*/ true, ActionType.SUBMIT);
         throwIfErrors(result, "Invoice failed validation on submit.");
 
+        invoiceRepo.updateStatus(id, ConstantsCode.INVENTRYSTATUS_PROCESSING, user);
+        submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_INBOX, user);
+        log.info("Submitted invoice id={} submissionId={}", id, existing.submissionId());
+
         // Flat-price conversion ("price spread"): compute each line's converted
-        // price and persist it.
+        // price and persist it. Converted-price writes leave the version alone.
+        ResponseSnapshot snapshot = readResponseSnapshot(id);
         PriceConversionService.Result conversion = priceConversionService.apply(
-                lines, existing.details().maturity(), existing.details().invoiceDate());
+                snapshot.lines(), existing.details().maturity(), existing.details().invoiceDate());
         for (LineItem line : conversion.lines()) {
             lineItemRepo.updateConvertedPrice(line.lineItemID(), line.convertedPrice(), user);
         }
-        lines = conversion.lines();
 
         // Surface the conversion warnings (factor-not-found / out-of-range)
         // alongside the validator's.
         ValidationResult responseResult = withConversionWarnings(result, conversion);
 
-        invoiceRepo.updateStatus(id, ConstantsCode.INVENTRYSTATUS_PROCESSING, user);
-        submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_INBOX, user);
-        log.info("Submitted invoice id={} submissionId={}", id, existing.submissionId());
-
         InvoiceDetails saved = withId(existing.details(), id, ConstantsCode.INVENTRYSTATUS_PROCESSING);
-        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lines, responseResult,
-                invoiceRepo.findVersion(id));
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
+                responseResult, snapshot.version());
     }
 
     // ---------------------------------------------------------------
@@ -470,8 +471,9 @@ public class InvoiceService {
         applySubmissionStatusOnStatusChange(existing.submissionId(), request.status(), user);
 
         InvoiceDetails saved = withReviewCommentsAndStatus(existing.details(), request.reviewComments(), request.status());
-        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lineItemRepo.findByInvoiceId(id), result,
-                invoiceRepo.findVersion(id));
+        ResponseSnapshot snapshot = readResponseSnapshot(id);
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), snapshot.lines(), result,
+                snapshot.version());
     }
 
     /**
@@ -639,9 +641,10 @@ public class InvoiceService {
         if (manual) {
             draftDetails = persistCalculatedTotals(draftDetails, currentLines, user);
         }
-        ValidationResult result = newValidator().validate(draftDetails, currentLines, manual, ActionType.OTHER);
-        return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), currentLines, result,
-                invoiceRepo.findVersion(invoiceId));
+        ResponseSnapshot snapshot = readResponseSnapshot(invoiceId);
+        ValidationResult result = newValidator().validate(draftDetails, snapshot.lines(), manual, ActionType.OTHER);
+        return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), snapshot.lines(), result,
+                snapshot.version());
     }
 
     /**
@@ -701,6 +704,15 @@ public class InvoiceService {
     private LoadedInvoice loadInvoiceOrThrow(Long invoiceId) {
         return invoiceRepo.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + invoiceId + " was not found."));
+    }
+
+    private record ResponseSnapshot(String version, List<LineItem> lines) {}
+
+    // Read after the last version-changing write. Version first: a legacy line add that commits
+    // before the lines read can only make the version stale, never count a line the response omits.
+    private ResponseSnapshot readResponseSnapshot(Long invoiceId) {
+        String version = invoiceRepo.findVersion(invoiceId);
+        return new ResponseSnapshot(version, lineItemRepo.findByInvoiceId(invoiceId));
     }
 
     // Add: allowed in every status except APPROVED. (A brand-new/unsaved invoice

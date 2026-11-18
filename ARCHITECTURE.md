@@ -218,7 +218,10 @@ sequenceDiagram
 - Legacy line adds don't take the header lock. A save reads the invoice's line ids before the
   check and only deletes lines from that set, so a line legacy adds mid-save is kept.
 - `GET` reads the version in the same statement as the header, before the lines, so a later
-  commit can only make it stale (a 409), never newer than the data it travels with.
+  commit can only make it stale (a 409), never newer than the data it travels with. Write
+  responses do the same: version after their last write, then the lines.
+- Converted-price writes (`GET` of a PRO invoice, Save, Submit) leave `revision_count` alone,
+  so they don't change the version.
 - A line or group editor on the Invoice page keeps the version it opened at, so a background
   refetch can't pair its draft with a newer version. The user's own writes move it forward.
 - A multi-line group edit or delete sends one request per line, each carrying the version the

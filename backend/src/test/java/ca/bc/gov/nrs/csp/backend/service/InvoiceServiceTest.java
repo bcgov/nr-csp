@@ -1311,6 +1311,76 @@ class InvoiceServiceTest {
         verify(mapper).toResponse(any(), any(), any(), any(), any(), eq(NEXT_VERSION));
     }
 
+    // Legacy line adds don't lock the header, so line 3 can commit between the response's reads.
+    // It shows up only after the version is read: the response must then carry it, never a version
+    // that counts a line the client didn't get.
+    private void legacyLineCommitsAfterTheVersionRead() {
+        AtomicBoolean versionRead = new AtomicBoolean();
+        given(invoiceRepo.findVersion(1L)).willAnswer(invocation -> {
+            versionRead.set(true);
+            return NEXT_VERSION;
+        });
+        given(lineItemRepo.findByInvoiceId(1L)).willAnswer(invocation -> versionRead.get()
+                ? List.of(line(1L, null), line(3L, null))
+                : List.of(line(1L, null)));
+        // Only Save and Submit convert prices.
+        lenient().when(priceConversionService.apply(any(), any(), any()))
+                .thenAnswer(invocation -> new PriceConversionService.Result(invocation.getArgument(0), List.of()));
+    }
+
+    private void assertResponseReadItsLinesAfterItsVersion() {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LineItem>> lines = ArgumentCaptor.forClass(List.class);
+        verify(mapper).toResponse(any(), any(), any(), lines.capture(), any(), eq(NEXT_VERSION));
+        assertThat(lines.getValue()).extracting(LineItem::lineItemID).containsExactly(1L, 3L);
+    }
+
+    @Test
+    void update_readsResponseLinesAfterItsVersion() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L));
+        legacyLineCommitsAfterTheVersionRead();
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        assertResponseReadItsLinesAfterItsVersion();
+    }
+
+    @Test
+    void submit_readsResponseLinesAfterItsVersion() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        legacyLineCommitsAfterTheVersionRead();
+
+        service.submit(1L, CURRENT_VERSION);
+
+        assertResponseReadItsLinesAfterItsVersion();
+    }
+
+    @Test
+    void changeStatus_readsResponseLinesAfterItsVersion() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1);
+        legacyLineCommitsAfterTheVersionRead();
+
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("REJ", "Rejecting this"));
+
+        assertResponseReadItsLinesAfterItsVersion();
+    }
+
+    @Test
+    void lineItemChange_readsResponseLinesAfterItsVersion() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
+        legacyLineCommitsAfterTheVersionRead();
+
+        service.deleteLineItem(1L, 5L, CURRENT_VERSION);
+
+        assertResponseReadItsLinesAfterItsVersion();
+    }
+
     @Test
     void getById_returnsVersionReadWithTheHeader() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
