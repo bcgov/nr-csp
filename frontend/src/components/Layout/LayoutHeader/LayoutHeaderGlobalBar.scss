@@ -3,6 +3,10 @@
 .bc-header .profile-action-button {
   color: colors.$white;
 
+  path {
+    fill: currentColor;
+  }
+
   &:hover,
   &.cds--header__action--active {
     color: colors.$white;

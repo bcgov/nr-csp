@@ -287,8 +287,8 @@ export function InboxPage() {
         isSortable
         serverSide
         hasSearched={hasSearched}
-        isLoading={isLoading}
-        isFetching={isPlaceholderData}
+        isLoading={hasSearched && isLoading}
+        isFetching={hasSearched && isPlaceholderData}
         page={currentPage}
         pageSize={pageSize}
         totalItems={totalElements}

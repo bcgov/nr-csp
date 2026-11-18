@@ -235,12 +235,17 @@ describe('InboxPage interactions', () => {
   });
 
   it('resets the results table to its pre-search state when Clear filters is clicked', () => {
-    mockUseInboxSearchQuery.mockReturnValue({
-      data: { content: [fullRow], totalElements: 1 },
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as never);
+    mockUseInboxSearchQuery.mockImplementation(
+      (_params, searchEnabled) =>
+        ({
+          data: { content: [fullRow], totalElements: 1 },
+          isLoading: false,
+          isError: false,
+          error: null,
+          // keepPreviousData can retain the filtered result after Clear disables the query.
+          isPlaceholderData: !searchEnabled,
+        }) as never,
+    );
     renderInboxPage();
 
     fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'ABC' } });

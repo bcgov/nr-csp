@@ -243,11 +243,16 @@ describe('SearchPage interactions', () => {
   });
 
   it('resets the results table to its pre-search state when Clear filters is clicked', () => {
-    mockUseSearchQuery.mockReturnValue({
-      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
-      isLoading: false,
-      isError: false,
-    } as never);
+    mockUseSearchQuery.mockImplementation(
+      (_params, searchEnabled) =>
+        ({
+          data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+          isLoading: false,
+          isError: false,
+          // keepPreviousData can retain the filtered result after Clear disables the query.
+          isPlaceholderData: !searchEnabled,
+        }) as never,
+    );
     renderSearchPage();
 
     fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'WFP*' } });
