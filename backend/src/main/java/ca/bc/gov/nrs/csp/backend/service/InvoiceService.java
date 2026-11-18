@@ -70,6 +70,9 @@ public class InvoiceService {
     private static final Set<String> REVIEW_QUEUE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_PROCESSING, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
+    public static final String STALE_INVOICE_MESSAGE =
+            "This invoice was changed by another user after you opened it. Refresh the page to see their changes, then try again.";
+
     private final InvoiceRepository invoiceRepo;
     private final LineItemRepository lineItemRepo;
     private final CspSubmissionRepository submissionRepo;
@@ -131,7 +134,8 @@ public class InvoiceService {
             validation = new ValidationResult(messages);
         }
 
-        return mapper.toResponse(loaded.details(), loaded.submissionId(), loaded.submissionNumber(), lines, validation);
+        return mapper.toResponse(loaded.details(), loaded.submissionId(), loaded.submissionNumber(), lines, validation,
+                loaded.version());
     }
 
     // ---------------------------------------------------------------
@@ -188,7 +192,8 @@ public class InvoiceService {
         InvoiceDetails saved = withId(details, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
         // A freshly-created submission has no business submission number yet
         // (insertSubmission only sets the surrogate csp_submission_id).
-        return mapper.toResponse(saved, submissionId, null, lineItemRepo.findByInvoiceId(newInvoiceId), result);
+        return mapper.toResponse(saved, submissionId, null, lineItemRepo.findByInvoiceId(newInvoiceId), result,
+                invoiceRepo.findVersion(newInvoiceId));
     }
 
     // ---------------------------------------------------------------
@@ -196,8 +201,12 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse update(Long id, UpdateInvoiceRequest request) {
+    public InvoiceResponse update(Long id, String expectedVersion, UpdateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
+        // Read before the version check, so these are the lines the caller saw. Legacy line adds don't
+        // lock the header, so one can commit after the check; it must be kept, not deleted as dropped.
+        Set<Long> existingLineIds = new HashSet<>(lineItemRepo.findIdsByInvoiceId(id));
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String existingStatus = existing.details().invStatus();
@@ -229,7 +238,7 @@ public class InvoiceService {
                 plan.newIds().buyerId(), plan.newIds().sellerId(), user);
         plan.orphans().forEach(participantRepo::delete);
 
-        reconcileLineItems(id, lines, user);
+        reconcileLineItems(id, lines, existingLineIds, user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
@@ -244,17 +253,18 @@ public class InvoiceService {
             submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_LOBBY, user);
         }
 
-        // Flat-price conversion: compute and persist each line's converted price on save
-        List<LineItem> savedLines = lineItemRepo.findByInvoiceId(id);
+        // Flat-price conversion: compute and persist each line's converted price on save.
+        // Converted-price writes leave the version alone, so the snapshot can come first.
+        ResponseSnapshot snapshot = readResponseSnapshot(id);
         PriceConversionService.Result conversion = priceConversionService.apply(
-                savedLines, details.maturity(), details.invoiceDate());
+                snapshot.lines(), details.maturity(), details.invoiceDate());
         for (LineItem line : conversion.lines()) {
             lineItemRepo.updateConvertedPrice(line.lineItemID(), line.convertedPrice(), user);
         }
 
         InvoiceDetails saved = withId(details, id, ConstantsCode.INVENTRYSTATUS_DRAFT);
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
-                withConversionWarnings(result, conversion));
+                withConversionWarnings(result, conversion), snapshot.version());
     }
 
     // ---------------------------------------------------------------
@@ -262,7 +272,8 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, String expectedVersion) {
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(existing.details().invStatus())) {
@@ -326,8 +337,9 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse submit(Long id) {
+    public InvoiceResponse submit(Long id, String expectedVersion) {
         String user = SecurityContextUtils.requireUsername();
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String status = existing.details().invStatus();
@@ -340,25 +352,26 @@ public class InvoiceService {
         ValidationResult result = newValidator().validate(existing.details(), lines, /*manual*/ true, ActionType.SUBMIT);
         throwIfErrors(result, "Invoice failed validation on submit.");
 
+        invoiceRepo.updateStatus(id, ConstantsCode.INVENTRYSTATUS_PROCESSING, user);
+        submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_INBOX, user);
+        log.info("Submitted invoice id={} submissionId={}", id, existing.submissionId());
+
         // Flat-price conversion ("price spread"): compute each line's converted
-        // price and persist it.
+        // price and persist it. Converted-price writes leave the version alone.
+        ResponseSnapshot snapshot = readResponseSnapshot(id);
         PriceConversionService.Result conversion = priceConversionService.apply(
-                lines, existing.details().maturity(), existing.details().invoiceDate());
+                snapshot.lines(), existing.details().maturity(), existing.details().invoiceDate());
         for (LineItem line : conversion.lines()) {
             lineItemRepo.updateConvertedPrice(line.lineItemID(), line.convertedPrice(), user);
         }
-        lines = conversion.lines();
 
         // Surface the conversion warnings (factor-not-found / out-of-range)
         // alongside the validator's.
         ValidationResult responseResult = withConversionWarnings(result, conversion);
 
-        invoiceRepo.updateStatus(id, ConstantsCode.INVENTRYSTATUS_PROCESSING, user);
-        submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_INBOX, user);
-        log.info("Submitted invoice id={} submissionId={}", id, existing.submissionId());
-
         InvoiceDetails saved = withId(existing.details(), id, ConstantsCode.INVENTRYSTATUS_PROCESSING);
-        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lines, responseResult);
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
+                responseResult, snapshot.version());
     }
 
     // ---------------------------------------------------------------
@@ -415,7 +428,8 @@ public class InvoiceService {
         log.info("Duplicated invoice id={} newId={}", id, newInvoiceId);
 
         InvoiceDetails saved = withId(cloned, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        return mapper.toResponse(saved, submissionId, existing.submissionNumber(), lineItemRepo.findByInvoiceId(newInvoiceId), null);
+        return mapper.toResponse(saved, submissionId, existing.submissionNumber(), lineItemRepo.findByInvoiceId(newInvoiceId), null,
+                invoiceRepo.findVersion(newInvoiceId));
     }
 
     // ---------------------------------------------------------------
@@ -423,11 +437,12 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse changeStatus(Long id, ChangeStatusRequest request) {
+    public InvoiceResponse changeStatus(Long id, String expectedVersion, ChangeStatusRequest request) {
         if (request == null || request.status() == null) {
             throw new BadRequestException("Status is required.");
         }
         String user = SecurityContextUtils.requireUsername();
+        requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
 
@@ -456,7 +471,9 @@ public class InvoiceService {
         applySubmissionStatusOnStatusChange(existing.submissionId(), request.status(), user);
 
         InvoiceDetails saved = withReviewCommentsAndStatus(existing.details(), request.reviewComments(), request.status());
-        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), lineItemRepo.findByInvoiceId(id), result);
+        ResponseSnapshot snapshot = readResponseSnapshot(id);
+        return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), snapshot.lines(), result,
+                snapshot.version());
     }
 
     /**
@@ -517,8 +534,9 @@ public class InvoiceService {
      */
     private void cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
         if (replacedId == null || replacedId.equals(replacementId)) return;
-        LoadedInvoice replaced = invoiceRepo.findById(replacedId).orElse(null);
-        if (replaced == null) return;
+        // Lock it before reading its status, so a concurrent change to it can't land in between.
+        if (invoiceRepo.lockVersion(replacedId).isEmpty()) return;
+        LoadedInvoice replaced = loadInvoiceOrThrow(replacedId);
         String previousStatus = replaced.details().invStatus();
         if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
 
@@ -536,8 +554,9 @@ public class InvoiceService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public InvoiceResponse addLineItem(Long invoiceId, LineItemRequest request) {
+    public InvoiceResponse addLineItem(Long invoiceId, String expectedVersion, LineItemRequest request) {
         String user = SecurityContextUtils.requireUsername();
+        requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         requireAddLineItemAllowed(existing);
         // Build the candidate set: every existing line plus the new one. Run
@@ -558,8 +577,9 @@ public class InvoiceService {
     }
 
     @Transactional
-    public InvoiceResponse updateLineItem(Long invoiceId, Long lineId, LineItemRequest request) {
+    public InvoiceResponse updateLineItem(Long invoiceId, Long lineId, String expectedVersion, LineItemRequest request) {
         String user = SecurityContextUtils.requireUsername();
+        requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -584,8 +604,9 @@ public class InvoiceService {
     }
 
     @Transactional
-    public InvoiceResponse deleteLineItem(Long invoiceId, Long lineId) {
+    public InvoiceResponse deleteLineItem(Long invoiceId, Long lineId, String expectedVersion) {
         String user = SecurityContextUtils.requireUsername();
+        requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
@@ -601,10 +622,12 @@ public class InvoiceService {
      * now-persisted lines, then re-validates the record with
      * {@link ActionType#OTHER} — the same action the passive GET uses — so the
      * response carries both warnings and any ERROR-type messages that still
-     * describe the saved record.
+     * describe the saved record. It also bumps the invoice's revision count, so
+     * a line-only change still stops anyone else's stale save.
      */
     private InvoiceResponse revertToDraftAndRespond(LoadedInvoice existing, String user) {
         Long invoiceId = existing.details().invID();
+        invoiceRepo.incrementRevisionCount(invoiceId, user);
         if (!ConstantsCode.INVENTRYSTATUS_DRAFT.equals(existing.details().invStatus())) {
             invoiceRepo.updateStatus(invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT, user);
             if (existing.submissionId() != null) {
@@ -618,8 +641,10 @@ public class InvoiceService {
         if (manual) {
             draftDetails = persistCalculatedTotals(draftDetails, currentLines, user);
         }
-        ValidationResult result = newValidator().validate(draftDetails, currentLines, manual, ActionType.OTHER);
-        return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), currentLines, result);
+        ResponseSnapshot snapshot = readResponseSnapshot(invoiceId);
+        ValidationResult result = newValidator().validate(draftDetails, snapshot.lines(), manual, ActionType.OTHER);
+        return mapper.toResponse(draftDetails, existing.submissionId(), existing.submissionNumber(), snapshot.lines(), result,
+                snapshot.version());
     }
 
     /**
@@ -662,9 +687,32 @@ public class InvoiceService {
         return a.compareTo(b) == 0;
     }
 
+    /**
+     * Legacy parity: refuses a change made from an out-of-date copy of the invoice. The row lock
+     * holds until the transaction ends, so two concurrent changes can't both pass the check.
+     */
+    private void requireCurrentVersion(Long invoiceId, String expectedVersion) {
+        String currentVersion = invoiceRepo.lockVersion(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice " + invoiceId + " was not found."));
+        if (!Objects.equals(currentVersion, expectedVersion)) {
+            log.info("Refused stale change to invoice id={} expectedVersion={} currentVersion={}",
+                    invoiceId, expectedVersion, currentVersion);
+            throw new ConflictException(STALE_INVOICE_MESSAGE);
+        }
+    }
+
     private LoadedInvoice loadInvoiceOrThrow(Long invoiceId) {
         return invoiceRepo.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + invoiceId + " was not found."));
+    }
+
+    private record ResponseSnapshot(String version, List<LineItem> lines) {}
+
+    // Read after the last version-changing write. Version first: a legacy line add that commits
+    // before the lines read can only make the version stale, never count a line the response omits.
+    private ResponseSnapshot readResponseSnapshot(Long invoiceId) {
+        String version = invoiceRepo.findVersion(invoiceId);
+        return new ResponseSnapshot(version, lineItemRepo.findByInvoiceId(invoiceId));
     }
 
     // Add: allowed in every status except APPROVED. (A brand-new/unsaved invoice
@@ -791,8 +839,7 @@ public class InvoiceService {
 
     private record ParticipantPlan(ParticipantIds newIds, List<Long> orphans) {}
 
-    private void reconcileLineItems(Long invoiceId, List<LineItem> incoming, String user) {
-        Set<Long> existingIds = new HashSet<>(lineItemRepo.findIdsByInvoiceId(invoiceId));
+    private void reconcileLineItems(Long invoiceId, List<LineItem> incoming, Set<Long> existingIds, String user) {
         Set<Long> retainedIds = new HashSet<>();
         for (LineItem line : incoming) {
             if (line.lineItemID() != null && existingIds.contains(line.lineItemID())) {

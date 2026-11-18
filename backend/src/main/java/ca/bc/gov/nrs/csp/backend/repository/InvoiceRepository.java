@@ -173,6 +173,47 @@ public class InvoiceRepository {
         return count == null ? 0 : count;
     }
 
+    // ---------------------------------------------------------------
+    // Version: detects concurrent edits, including legacy CSP's
+    // ---------------------------------------------------------------
+
+    // Legacy header saves bump revision_count, its line edits and deletes only touch the header's
+    // update_timestamp, and its line adds touch no header column, so the version covers all four.
+    static final String INVOICE_VERSION_SQL =
+            "cls.revision_count || '.' || TO_CHAR(cls.update_timestamp, 'YYYYMMDDHH24MISS') || '.' || "
+            + "(SELECT COUNT(*) || '.' || NVL(SUM(d.revision_count), 0) FROM THE.coastal_log_sale_detail d "
+            + "WHERE d.coastal_log_sale_id = cls.coastal_log_sale_id)";
+
+    /** Locks the invoice row until the transaction ends, then returns its version; empty if missing. */
+    public Optional<String> lockVersion(Long id) {
+        String lockSql = "SELECT coastal_log_sale_id FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id FOR UPDATE";
+        if (jdbc.queryForList(lockSql, new MapSqlParameterSource("id", id), Long.class).isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(findVersion(id));
+    }
+
+    public String findVersion(Long id) {
+        String sql = "SELECT " + INVOICE_VERSION_SQL + " FROM THE.coastal_log_sale cls WHERE cls.coastal_log_sale_id = :id";
+        List<String> results = jdbc.queryForList(sql, new MapSqlParameterSource("id", id), String.class);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    /** Marks the invoice as changed when only its line items were written. */
+    public void incrementRevisionCount(Long id, String userId) {
+        String sql = """
+                UPDATE THE.coastal_log_sale SET
+                    revision_count = revision_count + 1,
+                    update_userid = :userId,
+                    update_timestamp = SYSDATE
+                WHERE coastal_log_sale_id = :id
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("userId", userId);
+        jdbc.update(sql, params);
+    }
+
     public String findReviewCommentsById(Long coastalLogSaleId) {
         if (coastalLogSaleId == null) return null;
         String sql = "SELECT reviewer_notes FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id";
@@ -198,7 +239,10 @@ public class InvoiceRepository {
             // to the user as "Submission ID". Distinct from `submissionId`, which is
             // the surrogate PK (csp_submission_id) used as the join/update key.
             // Null for manually-entered submissions (insertSubmission doesn't set it).
-            Long submissionNumber
+            Long submissionNumber,
+            // Read in the header query, before the log sources and lines, so a later commit can
+            // only make it stale (a 409), never newer than the data it travels with.
+            String version
     ) {}
 
     public Optional<LoadedInvoice> findById(Long id) {
@@ -220,6 +264,7 @@ public class InvoiceRepository {
                        cls.reviewer_notes AS review_comments,
                        cls.submitter_notes AS submit_comments,
                        cls.entry_userid AS entry_userid,
+                       %s AS invoice_version,
                        cls.csp_submission_id AS submission_id,
                        sub.submission_id AS submission_number,
                        cls.buyer_log_sale_participant_id AS buyer_participant_id,
@@ -241,7 +286,7 @@ public class InvoiceRepository {
                 LEFT JOIN THE.log_sale_participant buyer_part ON cls.buyer_log_sale_participant_id = buyer_part.log_sale_participant_id
                 LEFT JOIN THE.log_sale_participant seller_part ON cls.seller_log_sale_participant_id = seller_part.log_sale_participant_id
                 WHERE cls.coastal_log_sale_id = :id
-                """;
+                """.formatted(INVOICE_VERSION_SQL);
         MapSqlParameterSource params = new MapSqlParameterSource("id", id);
         List<LoadedInvoice> rows = jdbc.query(sql, params, (rs, rowNum) -> mapLoadedInvoice(rs, id));
         if (rows.isEmpty()) return Optional.empty();
@@ -315,7 +360,8 @@ public class InvoiceRepository {
                 rs.getString("submit_comments"),
                 rs.getString("entry_userid")
         );
-        return new LoadedInvoice(details, submissionId, buyerParticipantId, sellerParticipantId, submissionNumber);
+        return new LoadedInvoice(details, submissionId, buyerParticipantId, sellerParticipantId, submissionNumber,
+                rs.getString("invoice_version"));
     }
 
     /**

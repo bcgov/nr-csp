@@ -177,6 +177,51 @@ Most report templates call the Oracle stored procedures `CSP_SP_RPT_*` directly 
 `<query language="plsql">{call …}`. **R13 (ad hoc) is the exception** — it uses plain SQL and
 adjusts its columns at runtime with dom4j.
 
+### Concurrent invoice edits
+
+Without JPA there is no `@Version`, so invoices carry a hand-rolled optimistic lock, matching
+legacy CSP. Every invoice response returns an opaque `version`, and every change to an existing
+invoice sends it back as `?expectedVersion=`. The version covers what either app changes:
+
+| Part | Changed by |
+|---|---|
+| Header `revision_count` | Every modern write; legacy header saves and status changes |
+| Header `update_timestamp` | Every modern write; legacy line edits and deletes, which skip `revision_count` |
+| Line count and summed line `revision_count` | Line writes from either app; legacy line adds, which touch no header column |
+
+```mermaid
+sequenceDiagram
+    participant A as User A
+    participant B as User B
+    participant API as CSP API
+    participant O as Oracle
+    A->>API: GET /api/invoices/42
+    API-->>A: version v1
+    B->>API: GET /api/invoices/42
+    API-->>B: version v1
+    B->>API: PUT /api/invoices/42?expectedVersion=v1
+    API->>O: Lock the invoice row (SELECT ... FOR UPDATE), then read its version
+    API->>O: v1 matches: write the invoice, the version becomes v2
+    API-->>B: 200, version v2
+    A->>API: PUT /api/invoices/42?expectedVersion=v1
+    API->>O: Lock the invoice row, then read its version (v2)
+    API-->>A: 409, refresh to see the other user's changes
+```
+
+- The row lock holds until the transaction commits, so two changes sent at the same moment can't
+  both pass the check.
+- Legacy line adds don't take the header lock. A save reads the invoice's line ids before the
+  check and only deletes lines from that set, so a line legacy adds mid-save is kept.
+- `GET` reads the version in the same statement as the header, before the lines, so a later
+  commit can only make it stale (a 409), never newer than the data it travels with. Write
+  responses do the same: version after their last write, then the lines.
+- Converted-price writes (`GET` of a PRO invoice, Save, Submit) leave `revision_count` alone,
+  so they don't change the version.
+- A line or group editor on the Invoice page keeps the version it opened at, so a background
+  refetch can't pair its draft with a newer version. The user's own writes move it forward.
+- A multi-line group edit or delete sends one request per line, each carrying the version the
+  previous response returned.
+
 ## Invoice domain
 
 Invoices arrive through two channels, deliberately kept as separate orchestrators:

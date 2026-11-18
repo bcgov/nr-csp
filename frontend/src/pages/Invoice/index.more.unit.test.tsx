@@ -179,6 +179,7 @@ const makeInvoice = (overrides: Record<string, any> = {}) => ({
   reviewComments: '',
   submitComments: '',
   entryUserID: 'user1',
+  version: 'v4',
   lineItems: [{ ...LINE_ITEM }],
   warnings: [],
   errors: [],
@@ -711,10 +712,55 @@ describe('InvoicePage — line item row edit & delete', () => {
     fireEvent.change(container.querySelector('#edit-1-price') as HTMLElement, { target: { value: '123' } });
     await userEvent.click(iconButton(document.body, 'Save line item'));
     expect(h.mutations.updateLine.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ invoiceId: 1, lineId: 1, body: expect.objectContaining({ price: 123 }) }),
+      expect.objectContaining({
+        invoiceId: 1,
+        lineId: 1,
+        expectedVersion: 'v4',
+        body: expect.objectContaining({ price: 123 }),
+      }),
       expect.anything(),
     );
     expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Line item updated.' }));
+  });
+
+  it('a row edit sends the version it opened at, even after a background refetch', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={qc}>
+        <InvoicePage />
+      </QueryClientProvider>
+    );
+    h.params.id = '1';
+    h.invoiceQuery = { data: makeInvoice({ invStatus: 'DFT' }), isLoading: false };
+    const { container, rerender } = render(tree());
+    await screen.findByRole('button', { name: 'Save' }, { timeout: 5000 });
+    await userEvent.click(iconButton(document.body, 'Edit line item'));
+    fireEvent.change(container.querySelector('#edit-1-price') as HTMLElement, { target: { value: '123' } });
+
+    // Another user's change arrives through the window-focus refetch while the row is open.
+    h.invoiceQuery = { data: makeInvoice({ invStatus: 'DFT', version: 'v5' }), isLoading: false };
+    rerender(tree());
+    await userEvent.click(iconButton(document.body, 'Save line item'));
+
+    expect(h.mutations.updateLine.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ lineId: 1, expectedVersion: 'v4' }),
+      expect.anything(),
+    );
+  });
+
+  it("a row edit follows this user's own writes made while it is open", async () => {
+    h.mutations.update.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onSuccess?.(makeInvoice({ invStatus: 'DFT', version: 'v5' }));
+    });
+    await renderLoaded({ invStatus: 'DFT' });
+    await userEvent.click(iconButton(document.body, 'Edit line item'));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(iconButton(document.body, 'Save line item'));
+
+    expect(h.mutations.updateLine.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ lineId: 1, expectedVersion: 'v5' }),
+      expect.anything(),
+    );
   });
 
   it('row-edit validation errors light up the inline field', async () => {
@@ -752,7 +798,7 @@ describe('InvoicePage — line item row edit & delete', () => {
     expect(within(dialog).getByText(/delete this line item/i)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
     expect(h.mutations.delLine.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ invoiceId: 1, lineId: 1 }),
+      expect.objectContaining({ invoiceId: 1, lineId: 1, expectedVersion: 'v4' }),
       expect.anything(),
     );
     expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Line item deleted.' }));
@@ -814,6 +860,7 @@ describe('InvoicePage — group edit & delete', () => {
       expect.objectContaining({
         invoiceId: 1,
         lineId: 1,
+        expectedVersion: 'v4',
         body: expect.objectContaining({ secondSort: 'SORT02', species: 'SPR' }),
       }),
     );
@@ -854,7 +901,30 @@ describe('InvoicePage — group edit & delete', () => {
     await waitFor(() =>
       expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Group deleted.' })),
     );
-    expect(h.mutations.delLine.mutateAsync).toHaveBeenCalledWith({ invoiceId: 1, lineId: 1 });
+    expect(h.mutations.delLine.mutateAsync).toHaveBeenCalledWith({ invoiceId: 1, lineId: 1, expectedVersion: 'v4' });
+  });
+
+  it('deleting a multi-line group sends each delete the version the previous one returned', async () => {
+    h.mutations.delLine.mutateAsync
+      .mockResolvedValueOnce(makeInvoice({ version: 'v5', lineItems: [{ ...LINE_ITEM, lineItemID: 2 }] }))
+      .mockResolvedValueOnce(makeInvoice({ version: 'v6', lineItems: [] }));
+    await renderLoaded({ invStatus: 'DFT', lineItems: [{ ...LINE_ITEM }, { ...LINE_ITEM, lineItemID: 2 }] });
+    await userEvent.click(iconButton(document.body, 'Delete group'));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
+    await waitFor(() =>
+      expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Group deleted.' })),
+    );
+    expect(h.mutations.delLine.mutateAsync).toHaveBeenNthCalledWith(1, {
+      invoiceId: 1,
+      lineId: 1,
+      expectedVersion: 'v4',
+    });
+    expect(h.mutations.delLine.mutateAsync).toHaveBeenNthCalledWith(2, {
+      invoiceId: 1,
+      lineId: 2,
+      expectedVersion: 'v5',
+    });
   });
 
   it('group delete failure shows the group delete error toast', async () => {
@@ -907,6 +977,7 @@ describe('InvoicePage — add new line item', () => {
     expect(h.mutations.addLine.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
         invoiceId: 1,
+        expectedVersion: 'v4',
         body: expect.objectContaining({ secondSort: 'SORT01', species: 'FIR', grade: '1', numOfPieces: 5 }),
       }),
       expect.anything(),
