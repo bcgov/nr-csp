@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,9 +18,11 @@ describe('LayoutSideNav', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { username: 'u', email: '', roles: [], privileges, forestClientNumbers: [] },
     } as unknown as ReturnType<typeof useAuth>);
-    vi.mocked(useLayout).mockReturnValue({ isSideNavExpanded: true, toggleSideNav: vi.fn() } as unknown as ReturnType<
-      typeof useLayout
-    >);
+    vi.mocked(useLayout).mockReturnValue({
+      isSideNavExpanded: true,
+      toggleSideNav: vi.fn(),
+      closeMobileSideNav: vi.fn(),
+    } as unknown as ReturnType<typeof useLayout>);
     return render(
       <MemoryRouter initialEntries={[initialPath]}>
         <LayoutSideNav />
@@ -44,7 +46,9 @@ describe('LayoutSideNav', () => {
   it('renders grouped links under their group title', () => {
     arrange();
 
-    expect(screen.getByText('Submissions')).toBeInTheDocument();
+    const submissions = screen.getByRole('button', { name: 'Submissions', expanded: false });
+    fireEvent.click(submissions);
+    expect(submissions).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('link', { name: /submission history/i })).toHaveAttribute(
       'href',
       ROUTES.SUBMISSION_HISTORY,
@@ -54,14 +58,23 @@ describe('LayoutSideNav', () => {
   it('marks the link matching the current location as the current page', () => {
     arrange(ROUTES.SEARCH);
 
-    // Carbon's SideNavLink signals the active item via its --current modifier class.
-    expect(screen.getByRole('link', { name: 'Search' })).toHaveClass('cds--side-nav__link--current');
-    expect(screen.getByRole('link', { name: 'Inbox' })).not.toHaveClass('cds--side-nav__link--current');
+    expect(screen.getByRole('link', { name: 'Search' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Inbox' })).not.toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens the Submissions group for a submission detail deep link', () => {
+    arrange(`${ROUTES.SUBMISSION_HISTORY}/123`);
+    expect(screen.getByRole('button', { name: 'Submissions', expanded: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Submission History' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Reports', expanded: false })).toBeInTheDocument();
   });
 
   it.each(['ADMIN', 'APPROVE', 'VIEW'] as Role[])('shows %s every page, as before', (role) => {
     arrange('/', [role]);
 
+    for (const group of ['Table maintenance', 'Submissions']) {
+      fireEvent.click(screen.getByRole('button', { name: group }));
+    }
     for (const name of ['Search', 'Inbox', 'Invoice', 'Flat price conversion', 'Sort code', 'Upload Submission']) {
       expect(screen.getByRole('link', { name })).toBeInTheDocument();
     }
@@ -70,7 +83,8 @@ describe('LayoutSideNav', () => {
   });
 
   it('shows a Business BCeID submitter only Upload Submission and Submission History', () => {
-    arrange('/', ['SUBMITTER']);
+    arrange(ROUTES.UPLOAD_SUBMISSION, ['SUBMITTER']);
+    expect(screen.getByRole('button', { name: 'Submissions', expanded: true })).toBeInTheDocument();
 
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
       'Upload Submission',

@@ -191,6 +191,14 @@ describe('InboxPage interactions', () => {
     });
   });
 
+  it('keeps an invalid calendar date from running an unfiltered search', () => {
+    renderInboxPage();
+    setDate(/date start/i, '2026-02-31');
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(lastQueryEnabled()).toBe(false);
+    expect(screen.getByLabelText(/date start/i)).toHaveFocus();
+  });
+
   it('shows a range error when start date is after end date and blocks the search', () => {
     renderInboxPage();
     setDate(/date start/i, '2024-05-10');
@@ -444,7 +452,7 @@ describe('InboxPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /next page/i }));
     expect(lastQueryParams()).toMatchObject({ page: 1, size: 100 });
 
-    fireEvent.change(screen.getByLabelText('Invoice per page:'), { target: { value: '20' } });
+    fireEvent.change(screen.getByLabelText('Submissions per page:'), { target: { value: '20' } });
     expect(lastQueryParams()).toMatchObject({ size: 20 });
   });
 });

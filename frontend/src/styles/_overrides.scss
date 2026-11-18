@@ -406,7 +406,7 @@ a.#{variables.$bcgov-prefix}--header__name {
 
 .#{variables.$bcgov-prefix}--header ~ .#{variables.$bcgov-prefix}--content,
 div:has(.#{variables.$bcgov-prefix}--header) ~ .#{variables.$bcgov-prefix}--content {
-  margin-block-start: $layout-05;
+  margin-block-start: $spacing-09;
 }
 
 @include breakpoint(lg) {

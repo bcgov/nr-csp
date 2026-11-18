@@ -348,8 +348,7 @@ const ResultsTable = <T extends { id: string }>({
   // search-driven defaults.
   const resolvedEmptyTitle = emptyTitle ?? (hasSearched ? 'No results found' : 'Your search results will appear here.');
   const resolvedEmptyDescription =
-    emptyDescription ??
-    (hasSearched ? 'Try adjusting your search criteria.' : 'Enter at least one criteria to start the search.');
+    emptyDescription ?? (hasSearched ? 'Try adjusting your search criteria.' : 'Set your filters, then select Search.');
   const Pictogram = hasSearched ? UserSearch : Summit;
 
   return (

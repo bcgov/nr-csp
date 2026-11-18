@@ -110,7 +110,11 @@ describe('SearchPage interactions', () => {
       isError: false,
     } as never);
     renderSearchPage();
-    fireEvent.click(screen.getByRole('link', { name: 'WFP521046' }));
+    const invoiceLink = screen.getByRole('link', { name: 'WFP521046' });
+    expect(invoiceLink).toHaveAttribute('href', '/invoice/200456');
+    fireEvent.click(invoiceLink, { metaKey: true });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    fireEvent.click(invoiceLink);
     expect(mockNavigate).toHaveBeenCalledWith('/invoice/200456', { state: { fromSearch: true } });
   });
 
@@ -408,7 +412,7 @@ describe('SearchPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /next page/i }));
     expect(lastQueryParams()).toMatchObject({ page: 1, size: 100 });
 
-    fireEvent.change(screen.getByLabelText('Invoice per page:'), { target: { value: '40' } });
+    fireEvent.change(screen.getByLabelText('Invoices per page:'), { target: { value: '40' } });
     expect(lastQueryParams()).toMatchObject({ size: 40 });
   });
 });

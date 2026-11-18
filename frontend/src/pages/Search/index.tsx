@@ -1,16 +1,16 @@
-import { Search as SearchIcon } from '@carbon/icons-react';
-import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
+import { Link, TextInput } from '@carbon/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import PageTitle from '@/components/core/PageTitle';
 import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
 import AutoCompleteInput from '@/components/Form/AutoCompleteInput';
 import DateInput from '@/components/Form/DateInput';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import SingleSelect from '@/components/Form/SingleSelect';
+import SearchPageLayout from '@/components/Layout/SearchPageLayout';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useSearchTableState } from '@/hooks/useSearchTableState';
+import { ROUTES } from '@/routes/routePaths';
 import {
   type LookupItemResponse,
   useInvoiceStatusesQuery,
@@ -25,8 +25,7 @@ import {
   useSearchQuery,
 } from '@/services/search.service';
 import { formatIsoDate, formatDisplayDate } from '@/utils/format';
-
-import './index.scss';
+import { isModifiedClick } from '@/utils/link';
 
 type InvoiceRow = {
   id: string;
@@ -94,12 +93,11 @@ export function SearchPage() {
       header: 'Invoice number',
       renderCell: (row) => (
         <Link
-          href="#"
+          href={`${ROUTES.INVOICE}/${row.id}`}
           onClick={(e) => {
+            if (isModifiedClick(e)) return;
             e.preventDefault();
-            // `void`: react-router's `navigate` returns a Promise and nothing here waits on
-            // it — starting the transition is the whole job.
-            void navigate(`/invoice/${row.id}`, { state: { fromSearch: true } });
+            void navigate(`${ROUTES.INVOICE}/${row.id}`, { state: { fromSearch: true } });
           }}
         >
           {row.invoiceNumber}
@@ -126,7 +124,6 @@ export function SearchPage() {
     .filter((item) => item.description !== 'Export')
     .map((item) => (item.description === 'Cants / Export' ? { ...item, description: 'Cants' } : item));
 
-  // Row 1 filter inputs
   const [invoiceDateInput, setInvoiceDateInput] = usePersistentState(NS, 'invoiceDateInput', '');
   const [startDateInput, setStartDateInput] = usePersistentState(NS, 'startDateInput', '');
   const [endDateInput, setEndDateInput] = usePersistentState(NS, 'endDateInput', '');
@@ -134,7 +131,6 @@ export function SearchPage() {
   const [selectedStatus, setSelectedStatus] = usePersistentState<LookupItemResponse | null>(NS, 'selectedStatus', null);
   const [selectedType, setSelectedType] = usePersistentState<LookupItemResponse | null>(NS, 'selectedType', null);
 
-  // Row 2 filter inputs
   const [submitterClientNumInput, setSubmitterClientNumInput] = usePersistentState(NS, 'submitterClientNumInput', '');
   const [selectedSellerBuyer, setSelectedSellerBuyer] = usePersistentState<ClientLocationResponse | null>(
     NS,
@@ -212,202 +208,157 @@ export function SearchPage() {
   };
 
   return (
-    <div className="search-page">
-      <Grid fullWidth>
-        <PageTitle title="Invoice search" breadCrumbs={[{ name: 'Invoice search', path: '/search' }]} />
-
-        {/* Row 1: 6 equal-width filters */}
-        <Column lg={16} md={8} sm={4}>
-          <div className="search-page__filter-row">
-            <div className="search-page__filter-item">
-              <DateInput
-                key={`invoice-date-${dateKey}`}
-                id="invoice-date"
-                labelText="Invoice date"
-                value={invoiceDateInput || undefined}
-                onChange={(dates) => setInvoiceDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <DateInput
-                key={`start-date-${dateKey}`}
-                id="start-date"
-                labelText="Start date (invoice)"
-                value={startDateInput || undefined}
-                onChange={(dates) => {
-                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
-                  setStartDateInput(val);
-                  validateDateRange(val, endDateInput);
-                }}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <DateInput
-                key={`end-date-${dateKey}`}
-                id="end-date"
-                labelText="End date (invoice)"
-                value={endDateInput || undefined}
-                invalid={!!dateRangeError}
-                invalidText={dateRangeError ?? undefined}
-                onChange={(dates) => {
-                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
-                  setEndDateInput(val);
-                  validateDateRange(startDateInput, val);
-                }}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <TextInput
-                id="invoice-number"
-                labelText="Invoice number"
-                placeholder="Invoice number"
-                helperText="Use * or % (any) and ? (single) as wildcards"
-                value={invoiceNumberInput}
-                onChange={(e) => setInvoiceNumberInput(e.target.value)}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <SingleSelect
-                id="status-filter"
-                titleText="Status"
-                items={statusItems}
-                selectedItem={selectedStatus}
-                disabled={statusLoading}
-                itemToString={(item) => (item ? item.description : '')}
-                onChange={({ selectedItem }) => setSelectedStatus(selectedItem ?? null)}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <SingleSelect
-                id="type-filter"
-                titleText="Type"
-                items={typeItems}
-                selectedItem={selectedType}
-                disabled={typeLoading}
-                itemToString={(item) => (item ? item.description : '')}
-                onChange={({ selectedItem }) => setSelectedType(selectedItem ?? null)}
-              />
-            </div>
-          </div>
-        </Column>
-
-        {/* Row 2: equal-width inputs, seller/buyer double, button aligned to input level */}
-        <Column lg={16} md={8} sm={4}>
-          <div className="search-page__filter-row search-page__filter-row--with-btn">
-            <div className="search-page__filter-item">
-              <TextInput
-                id="submitter-client-number"
-                labelText="Submitter client number"
-                placeholder="Submitter client number"
-                value={submitterClientNumInput}
-                maxLength={8}
-                // Digits only, capped at 8. The field deliberately does NOT
-                // zero-pad what it holds: padding a short entry to the full 8
-                // made the field permanently full, so every later keystroke was
-                // truncated away and the field looked like it had stopped
-                // accepting input. SearchService zero-pads client numbers
-                // server-side, so "99" and "00000099" search identically.
-                onChange={(e) => setSubmitterClientNumInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
-              />
-            </div>
-            <div className="search-page__filter-item search-page__filter-item--double">
-              <AutoCompleteInput<ClientLocationResponse>
-                key={autoCompleteKey}
-                id="seller-buyer-name"
-                titleText="Seller or buyer name"
-                placeholder="Search by name..."
-                selectedItem={selectedSellerBuyer}
-                onAutoCompleteChange={(value) => getClientsByName(value)}
-                extractItems={(raw) => raw as ClientLocationResponse[]}
-                itemToString={(item) =>
-                  item ? `${item.clientName}${item.clientLocnName ? ` – ${item.clientLocnName}` : ''}` : ''
-                }
-                onSelect={(item) => setSelectedSellerBuyer(item ?? null)}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <SingleSelect
-                id="seller-submission"
-                titleText="Seller submission"
-                items={sellerSubmitterItems}
-                selectedItem={sellerSubmitterInput}
-                itemToString={(item) => (item ? item.label : '')}
-                onChange={({ selectedItem }) => setSellerSubmitterInput(selectedItem ?? null)}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <SingleSelect
-                id="maturity-filter"
-                titleText="Maturity"
-                items={maturityItems}
-                selectedItem={maturityInput}
-                disabled={maturityLoading}
-                itemToString={(item) => (item ? item.description : '')}
-                onChange={({ selectedItem }) => setMaturityInput(selectedItem ?? null)}
-              />
-            </div>
-            <div className="search-page__filter-item">
-              <Button
-                kind="primary"
-                size="md"
-                renderIcon={SearchIcon}
-                iconDescription="Search"
-                onClick={executeSearch}
-                disabled={!!dateRangeError}
-              >
-                Search
-              </Button>
-            </div>
-          </div>
-        </Column>
-
-        {/* Clear filters — always visible */}
-        <Column lg={16} md={8} sm={4} className="search-page__clear-col">
-          <Button kind="ghost" size="sm" onClick={handleClearFilters}>
-            Clear filters
-          </Button>
-        </Column>
-
-        {hasSearched && isError && (
-          <Column lg={16} md={8} sm={4} className="search-page__error-col">
-            <p className="search-page__error">Failed to load results. Please try again.</p>
-          </Column>
-        )}
-
-        <Column lg={16} md={8} sm={4} className="search-page__table-col">
-          <ResultsTable
-            key={tableKey}
-            rows={rows}
-            columns={invoiceColumns}
-            isSortable
-            serverSide
-            hasSearched={hasSearched}
-            isLoading={isLoading}
-            isFetching={isPlaceholderData}
-            page={currentPage}
-            pageSize={pageSize}
-            onSortChange={(sortKey, sortDir) => {
-              setSortParam(sortKey && sortDir !== 'NONE' ? `${sortKey},${sortDir.toLowerCase()}` : undefined);
-              setCurrentPage(1);
-            }}
-            searchKeyword={keyword}
-            onSearchKeywordChange={
-              hasSearched
-                ? (kw) => {
-                    setKeyword(kw);
-                    setCurrentPage(1);
-                  }
-                : undefined
-            }
-            totalItems={totalElements}
-            paginationItemsPerPageText="Invoice per page:"
-            onPaginationChange={({ page, pageSize: newPageSize }) => {
-              setCurrentPage(page);
-              setPageSize(newPageSize);
+    <SearchPageLayout
+      title="Invoice search"
+      subtitle="Find invoices by number, date, client or status."
+      onSearch={executeSearch}
+      onClear={handleClearFilters}
+      searchDisabled={!!dateRangeError}
+      error={hasSearched && isError ? 'Failed to load results. Please try again.' : null}
+      filters={
+        <>
+          <TextInput
+            id="invoice-number"
+            labelText="Invoice number"
+            placeholder="Invoice number"
+            helperText="Use * or % (any) and ? (single) as wildcards"
+            value={invoiceNumberInput}
+            onChange={(e) => setInvoiceNumberInput(e.target.value)}
+          />
+          <DateInput
+            key={`invoice-date-${dateKey}`}
+            id="invoice-date"
+            labelText="Invoice date"
+            value={invoiceDateInput || undefined}
+            onChange={(dates) => setInvoiceDateInput(dates[0] ? formatIsoDate(dates[0]) : '')}
+          />
+          <DateInput
+            key={`start-date-${dateKey}`}
+            id="start-date"
+            labelText="Start date (invoice)"
+            value={startDateInput || undefined}
+            onChange={(dates) => {
+              const val = dates[0] ? formatIsoDate(dates[0]) : '';
+              setStartDateInput(val);
+              validateDateRange(val, endDateInput);
             }}
           />
-        </Column>
-      </Grid>
-    </div>
+          <DateInput
+            key={`end-date-${dateKey}`}
+            id="end-date"
+            labelText="End date (invoice)"
+            value={endDateInput || undefined}
+            invalid={!!dateRangeError}
+            invalidText={dateRangeError ?? undefined}
+            onChange={(dates) => {
+              const val = dates[0] ? formatIsoDate(dates[0]) : '';
+              setEndDateInput(val);
+              validateDateRange(startDateInput, val);
+            }}
+          />
+          <SingleSelect
+            id="status-filter"
+            titleText="Status"
+            blankOptionLabel="All"
+            items={statusItems}
+            selectedItem={selectedStatus}
+            disabled={statusLoading}
+            itemToString={(item) => (item ? item.description : '')}
+            onChange={({ selectedItem }) => setSelectedStatus(selectedItem ?? null)}
+          />
+          <SingleSelect
+            id="type-filter"
+            titleText="Type"
+            blankOptionLabel="All"
+            items={typeItems}
+            selectedItem={selectedType}
+            disabled={typeLoading}
+            itemToString={(item) => (item ? item.description : '')}
+            onChange={({ selectedItem }) => setSelectedType(selectedItem ?? null)}
+          />
+          <SingleSelect
+            id="seller-submission"
+            titleText="Seller submission"
+            blankOptionLabel="All"
+            items={sellerSubmitterItems}
+            selectedItem={sellerSubmitterInput}
+            itemToString={(item) => (item ? item.label : '')}
+            onChange={({ selectedItem }) => setSellerSubmitterInput(selectedItem ?? null)}
+          />
+          <SingleSelect
+            id="maturity-filter"
+            titleText="Maturity"
+            blankOptionLabel="All"
+            items={maturityItems}
+            selectedItem={maturityInput}
+            disabled={maturityLoading}
+            itemToString={(item) => (item ? item.description : '')}
+            onChange={({ selectedItem }) => setMaturityInput(selectedItem ?? null)}
+          />
+          <TextInput
+            id="submitter-client-number"
+            labelText="Submitter client number"
+            placeholder="Submitter client number"
+            value={submitterClientNumInput}
+            maxLength={8}
+            // Digits only, capped at 8. The field deliberately does NOT
+            // zero-pad what it holds: padding a short entry to the full 8
+            // made the field permanently full, so every later keystroke was
+            // truncated away and the field looked like it had stopped
+            // accepting input. SearchService zero-pads client numbers
+            // server-side, so "99" and "00000099" search identically.
+            onChange={(e) => setSubmitterClientNumInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          />
+          <div className="search-page__wide-field">
+            <AutoCompleteInput<ClientLocationResponse>
+              key={autoCompleteKey}
+              id="seller-buyer-name"
+              titleText="Seller or buyer name"
+              placeholder="Search by name..."
+              selectedItem={selectedSellerBuyer}
+              onAutoCompleteChange={(value) => getClientsByName(value)}
+              extractItems={(raw) => raw as ClientLocationResponse[]}
+              itemToString={(item) =>
+                item ? `${item.clientName}${item.clientLocnName ? ` – ${item.clientLocnName}` : ''}` : ''
+              }
+              onSelect={(item) => setSelectedSellerBuyer(item ?? null)}
+            />
+          </div>
+        </>
+      }
+    >
+      <ResultsTable
+        key={tableKey}
+        rows={rows}
+        columns={invoiceColumns}
+        size="md"
+        isSortable
+        serverSide
+        hasSearched={hasSearched}
+        isLoading={isLoading}
+        isFetching={isPlaceholderData}
+        page={currentPage}
+        pageSize={pageSize}
+        onSortChange={(sortKey, sortDir) => {
+          setSortParam(sortKey && sortDir !== 'NONE' ? `${sortKey},${sortDir.toLowerCase()}` : undefined);
+          setCurrentPage(1);
+        }}
+        searchKeyword={keyword}
+        onSearchKeywordChange={
+          hasSearched
+            ? (kw) => {
+                setKeyword(kw);
+                setCurrentPage(1);
+              }
+            : undefined
+        }
+        totalItems={totalElements}
+        paginationItemsPerPageText="Invoices per page:"
+        onPaginationChange={({ page, pageSize: newPageSize }) => {
+          setCurrentPage(page);
+          setPageSize(newPageSize);
+        }}
+      />
+    </SearchPageLayout>
   );
 }

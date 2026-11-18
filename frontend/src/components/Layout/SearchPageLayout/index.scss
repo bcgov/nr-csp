@@ -1,0 +1,88 @@
+@use '@carbon/react/scss/spacing' as *;
+
+.search-page {
+  container-type: inline-size;
+  padding-block: $spacing-07;
+
+  .page-title-col,
+  form,
+  &__error {
+    padding-inline: $spacing-06;
+  }
+
+  .page-title-container {
+    row-gap: $spacing-02;
+  }
+
+  .subtitle-section {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  form {
+    margin-block: $spacing-08 $spacing-09;
+  }
+
+  &__filters {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: $spacing-05;
+    align-items: start;
+
+    > * {
+      min-inline-size: 0;
+    }
+
+    .cds--label {
+      display: block;
+      margin-block-end: $spacing-02;
+    }
+  }
+
+  &__wide-field {
+    grid-column: span 2;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: $spacing-04;
+    margin-block-start: $spacing-04;
+  }
+
+  &__actions .cds--btn--tertiary {
+    padding-inline: $spacing-05;
+  }
+
+  &__error {
+    color: var(--cds-text-error);
+    margin-block-end: $spacing-05;
+  }
+}
+
+@container (max-width: 55rem) {
+  .search-page__results {
+    overflow-x: auto;
+  }
+
+  .search-page__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 35rem) {
+  .search-page .page-title-col,
+  .search-page form,
+  .search-page__error {
+    padding-inline: $spacing-05;
+  }
+
+  .search-page__filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .search-page__wide-field {
+    grid-column: auto;
+  }
+}

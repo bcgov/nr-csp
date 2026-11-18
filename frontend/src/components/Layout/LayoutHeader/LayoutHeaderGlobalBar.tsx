@@ -23,6 +23,7 @@ const LayoutHeaderGlobalBar: FC = () => {
   return (
     <HeaderGlobalAction
       aria-label="User settings"
+      aria-expanded={isHeaderPanelOpen}
       tooltipAlignment="end"
       onClick={toggleHeaderPanel}
       isActive={isHeaderPanelOpen}

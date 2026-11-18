@@ -1,61 +1,90 @@
-import { SideNav, SideNavItems, SideNavLink } from '@carbon/react';
-import { type FC } from 'react';
-import { Link, useLocation } from 'react-router';
+import { SideNav, SideNavItems, SideNavLink, SideNavMenu, SideNavMenuItem } from '@carbon/react';
+import { Link, matchPath, useLocation } from 'react-router';
 
 import { useAuth } from '@/context/auth/useAuth';
 import { useLayout } from '@/context/layout/useLayout';
 import { visibleNavItems } from '@/routes/access';
 import { NAVIGATION_ITEMS } from '@/routes/navigation';
+import { isModifiedClick } from '@/utils/link';
+
+import type { MouseEvent } from 'react';
 
 import './index.scss';
 
-type NavLink = {
-  name: string;
-  path: string;
-  icon?: React.ComponentType<{ size?: number | string }>;
-};
-
-type NavGroup = {
-  name: string;
-  icon?: React.ComponentType<{ size?: number | string }>;
-  children: Array<NavLink | NavGroup>;
-};
-
-type NavItem = NavLink | NavGroup;
-
-const isNavGroup = (item: NavItem): item is NavGroup => 'children' in item;
-
-export const LayoutSideNav: FC = () => {
-  const { isSideNavExpanded } = useLayout();
-  const location = useLocation();
+export function LayoutSideNav() {
+  const { isSideNavExpanded, toggleSideNav, closeMobileSideNav } = useLayout();
+  const { pathname } = useLocation();
   const { user } = useAuth();
+  const isCurrent = (path: string) => Boolean(matchPath({ path, end: false }, pathname));
 
-  const renderNavLink = (item: NavLink) => (
-    <SideNavLink
-      key={item.name}
-      as={Link}
-      to={item.path}
-      isActive={item.path === location.pathname}
-      renderIcon={item.icon}
-    >
-      {item.name}
-    </SideNavLink>
-  );
+  const onNavigate = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isModifiedClick(event)) closeMobileSideNav();
+  };
 
-  const renderGroup = (group: NavGroup): React.ReactNode => (
-    <div key={group.name} className="side-nav-group">
-      <p className="side-nav-group__title">{group.name}</p>
-      {group.children.map((child) => (isNavGroup(child) ? renderGroup(child) : renderNavLink(child)))}
-    </div>
-  );
+  const dismissMenu = () => {
+    toggleSideNav();
+    document.getElementById('navigation-toggle')?.focus();
+  };
 
   return (
-    <SideNav expanded={isSideNavExpanded} isPersistent={isSideNavExpanded} isChildOfHeader>
+    <SideNav
+      id="side-navigation"
+      aria-label="Side navigation"
+      expanded={isSideNavExpanded}
+      hidden={!isSideNavExpanded}
+      isPersistent={isSideNavExpanded}
+      onOverlayClick={dismissMenu}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !event.defaultPrevented) dismissMenu();
+      }}
+    >
       <SideNavItems>
-        {visibleNavItems(NAVIGATION_ITEMS as NavItem[], user).map((item) =>
-          isNavGroup(item) ? renderGroup(item) : renderNavLink(item),
-        )}
+        {visibleNavItems(NAVIGATION_ITEMS, user).map((item) => {
+          if (item.children) {
+            const containsCurrentPage = item.children.some((child) => isCurrent(child.path));
+            return (
+              <SideNavMenu
+                key={`${item.name}-${containsCurrentPage}`}
+                title={item.name}
+                renderIcon={item.icon}
+                defaultExpanded={containsCurrentPage}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Escape') return;
+                  const trigger = event.currentTarget.querySelector<HTMLButtonElement>('button[aria-expanded="true"]');
+                  if (trigger) {
+                    event.stopPropagation();
+                    trigger.focus();
+                  }
+                }}
+              >
+                {item.children.map((child) => (
+                  <SideNavMenuItem
+                    key={child.path}
+                    as={Link}
+                    to={child.path}
+                    aria-current={isCurrent(child.path) ? 'page' : undefined}
+                    onClick={onNavigate}
+                  >
+                    {child.name}
+                  </SideNavMenuItem>
+                ))}
+              </SideNavMenu>
+            );
+          }
+          return (
+            <SideNavLink
+              key={item.path}
+              as={Link}
+              to={item.path}
+              aria-current={isCurrent(item.path) ? 'page' : undefined}
+              renderIcon={item.icon}
+              onClick={onNavigate}
+            >
+              {item.name}
+            </SideNavLink>
+          );
+        })}
       </SideNavItems>
     </SideNav>
   );
-};
+}

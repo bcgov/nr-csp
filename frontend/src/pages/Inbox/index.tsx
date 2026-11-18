@@ -1,14 +1,13 @@
-import { Search as SearchIcon } from '@carbon/icons-react';
-import { Grid, Column, TextInput, Button, Link } from '@carbon/react';
+import { Link, TextInput } from '@carbon/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import PageTitle from '@/components/core/PageTitle';
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ClientAutocomplete, { type ClientLocationResponse } from '@/components/Form/ClientAutocomplete';
 import DateInput from '@/components/Form/DateInput';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
 import SingleSelect from '@/components/Form/SingleSelect';
+import SearchPageLayout from '@/components/Layout/SearchPageLayout';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useSearchTableState } from '@/hooks/useSearchTableState';
 import { ROUTES } from '@/routes/routePaths';
@@ -16,8 +15,6 @@ import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } fr
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { formatDisplayDate, formatIsoDate } from '@/utils/format';
 import { isModifiedClick } from '@/utils/link';
-
-import './index.scss';
 
 type InboxRow = {
   id: string;
@@ -202,165 +199,120 @@ export function InboxPage() {
   };
 
   return (
-    <div className="inbox-page">
-      <Grid fullWidth>
-        <PageTitle title="Inbox" breadCrumbs={[{ name: 'Inbox search', path: '/inbox' }]} />
-
-        {/* Row 1: invoice number + submitter client name */}
-        <Column lg={16} md={8} sm={4}>
-          <div className="inbox-page__filter-row">
-            <div className="inbox-page__filter-item">
-              <TextInput
-                id="invoice-number"
-                labelText="Invoice number"
-                placeholder="Invoice number"
-                helperText="Use * or % (any) and ? (single) as wildcards"
-                value={invoiceNumberInput}
-                maxLength={15}
-                onChange={(e) => setInvoiceNumberInput(e.target.value)}
-              />
-            </div>
-            <div className="inbox-page__filter-item">
-              <ClientAutocomplete
-                id="submitter-client-name"
-                titleText="Submitter client name"
-                size="md"
-                selectedClient={submitterClient}
-                onSelect={setSubmitterClient}
-              />
-            </div>
-          </div>
-        </Column>
-
-        {/* Row 2: dates, selects, and the Search button aligned to input level */}
-        <Column lg={16} md={8} sm={4}>
-          <div className="inbox-page__filter-row inbox-page__filter-row--with-btn">
-            <div className="inbox-page__filter-item">
-              <DateInput
-                key={`start-date-${dateKey}`}
-                id="date-start"
-                labelText="Date start"
-                value={startDateInput || undefined}
-                onChange={(dates) => {
-                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
-                  setStartDateInput(val);
-                  validateDateRange(val, endDateInput);
-                }}
-              />
-            </div>
-            <div className="inbox-page__filter-item">
-              <DateInput
-                key={`end-date-${dateKey}`}
-                id="date-end"
-                labelText="Date end"
-                value={endDateInput || undefined}
-                invalid={!!dateRangeError}
-                invalidText={dateRangeError ?? undefined}
-                onChange={(dates) => {
-                  const val = dates[0] ? formatIsoDate(dates[0]) : '';
-                  setEndDateInput(val);
-                  validateDateRange(startDateInput, val);
-                }}
-              />
-            </div>
-            <div className="inbox-page__filter-item">
-              <SingleSelect
-                id="submitted-by-filter"
-                titleText="Submitted by"
-                items={submittedByItems}
-                selectedItem={submittedBy}
-                itemToString={(item) => (item ? item.label : '')}
-                onChange={({ selectedItem }) => setSubmittedBy(selectedItem ?? null)}
-              />
-            </div>
-            <div className="inbox-page__filter-item">
-              <SingleSelect
-                id="type-filter"
-                titleText="Type"
-                items={typeItems}
-                selectedItem={selectedType}
-                itemToString={(item) => (item ? item.label : '')}
-                onChange={({ selectedItem }) => setSelectedType(selectedItem ?? null)}
-              />
-            </div>
-            <div className="inbox-page__filter-item">
-              <SingleSelect
-                id="status-filter"
-                titleText="Status"
-                items={statusItems}
-                selectedItem={selectedStatus}
-                disabled={statusLoading}
-                itemToString={(item) => (item ? item.description : '')}
-                onChange={({ selectedItem }) => setSelectedStatus(selectedItem ?? null)}
-              />
-            </div>
-            <div className="inbox-page__filter-item">
-              <span className="inbox-page__search-btn-spacer" aria-hidden="true">
-                &nbsp;
-              </span>
-              <Button
-                kind="primary"
-                size="md"
-                renderIcon={SearchIcon}
-                iconDescription="Search"
-                onClick={executeSearch}
-                disabled={!!dateRangeError}
-              >
-                Search
-              </Button>
-            </div>
-          </div>
-        </Column>
-
-        {/* Clear filters — always visible */}
-        <Column lg={16} md={8} sm={4} className="inbox-page__clear-col">
-          <Button kind="ghost" size="sm" onClick={handleClearFilters}>
-            Clear filters
-          </Button>
-        </Column>
-
-        {apiErrorMessage && (
-          <Column lg={16} md={8} sm={4} className="inbox-page__error-col">
-            <p className="inbox-page__error">{apiErrorMessage}</p>
-          </Column>
-        )}
-
-        <Column lg={16} md={8} sm={4} className="inbox-page__table-col">
-          <ResultsTable
-            key={tableKey}
-            rows={rows}
-            columns={inboxColumns}
-            isSortable
-            serverSide
-            hasSearched={hasSearched}
-            isLoading={isLoading}
-            isFetching={isPlaceholderData}
-            page={currentPage}
-            pageSize={pageSize}
-            totalItems={totalElements}
-            pageSizes={[10, 20, 30, 40, 50, 100]}
-            paginationItemsPerPageText="Invoice per page:"
-            paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} invoices`}
-            searchKeyword={keyword}
-            onSearchKeywordChange={
-              hasSearched
-                ? (kw) => {
-                    setKeyword(kw);
-                    setCurrentPage(1);
-                  }
-                : undefined
-            }
-            onSortChange={(sortKey, sortDir) => {
-              setSortParam(sortKey && sortDir !== 'NONE' ? `${sortKey},${sortDir.toLowerCase()}` : undefined);
-              setCurrentPage(1);
-            }}
-            onPaginationChange={({ page, pageSize: newPageSize }) => {
-              setCurrentPage(page);
-              setPageSize(newPageSize);
+    <SearchPageLayout
+      title="Inbox"
+      subtitle="Review manual and electronic invoice submissions."
+      onSearch={executeSearch}
+      onClear={handleClearFilters}
+      searchDisabled={!!dateRangeError}
+      error={apiErrorMessage}
+      filters={
+        <>
+          <TextInput
+            id="invoice-number"
+            labelText="Invoice number"
+            placeholder="Invoice number"
+            helperText="Use * or % (any) and ? (single) as wildcards"
+            value={invoiceNumberInput}
+            maxLength={15}
+            onChange={(e) => setInvoiceNumberInput(e.target.value)}
+          />
+          <ClientAutocomplete
+            id="submitter-client-name"
+            titleText="Submitter client name"
+            size="md"
+            selectedClient={submitterClient}
+            onSelect={setSubmitterClient}
+          />
+          <DateInput
+            key={`start-date-${dateKey}`}
+            id="date-start"
+            labelText="Date start"
+            value={startDateInput || undefined}
+            onChange={(dates) => {
+              const val = dates[0] ? formatIsoDate(dates[0]) : '';
+              setStartDateInput(val);
+              validateDateRange(val, endDateInput);
             }}
           />
-        </Column>
-      </Grid>
-    </div>
+          <DateInput
+            key={`end-date-${dateKey}`}
+            id="date-end"
+            labelText="Date end"
+            value={endDateInput || undefined}
+            invalid={!!dateRangeError}
+            invalidText={dateRangeError ?? undefined}
+            onChange={(dates) => {
+              const val = dates[0] ? formatIsoDate(dates[0]) : '';
+              setEndDateInput(val);
+              validateDateRange(startDateInput, val);
+            }}
+          />
+          <SingleSelect
+            id="submitted-by-filter"
+            titleText="Submitted by"
+            blankOptionLabel="All"
+            items={submittedByItems}
+            selectedItem={submittedBy}
+            itemToString={(item) => (item ? item.label : '')}
+            onChange={({ selectedItem }) => setSubmittedBy(selectedItem ?? null)}
+          />
+          <SingleSelect
+            id="type-filter"
+            titleText="Type"
+            blankOptionLabel="All"
+            items={typeItems}
+            selectedItem={selectedType}
+            itemToString={(item) => (item ? item.label : '')}
+            onChange={({ selectedItem }) => setSelectedType(selectedItem ?? null)}
+          />
+          <SingleSelect
+            id="status-filter"
+            titleText="Status"
+            blankOptionLabel="All"
+            items={statusItems}
+            selectedItem={selectedStatus}
+            disabled={statusLoading}
+            itemToString={(item) => (item ? item.description : '')}
+            onChange={({ selectedItem }) => setSelectedStatus(selectedItem ?? null)}
+          />
+        </>
+      }
+    >
+      <ResultsTable
+        key={tableKey}
+        rows={rows}
+        columns={inboxColumns}
+        size="md"
+        isSortable
+        serverSide
+        hasSearched={hasSearched}
+        isLoading={isLoading}
+        isFetching={isPlaceholderData}
+        page={currentPage}
+        pageSize={pageSize}
+        totalItems={totalElements}
+        pageSizes={[10, 20, 30, 40, 50, 100]}
+        paginationItemsPerPageText="Submissions per page:"
+        paginationItemRangeText={(min, max, total) => `${min} – ${max} of ${total} submissions`}
+        searchKeyword={keyword}
+        onSearchKeywordChange={
+          hasSearched
+            ? (kw) => {
+                setKeyword(kw);
+                setCurrentPage(1);
+              }
+            : undefined
+        }
+        onSortChange={(sortKey, sortDir) => {
+          setSortParam(sortKey && sortDir !== 'NONE' ? `${sortKey},${sortDir.toLowerCase()}` : undefined);
+          setCurrentPage(1);
+        }}
+        onPaginationChange={({ page, pageSize: newPageSize }) => {
+          setCurrentPage(page);
+          setPageSize(newPageSize);
+        }}
+      />
+    </SearchPageLayout>
   );
 }

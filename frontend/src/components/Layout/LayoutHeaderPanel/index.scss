@@ -22,6 +22,7 @@
 
 .profile-panel {
   inline-size: 24rem !important;
+  max-inline-size: 100vw;
   z-index: 8002 !important;
   background-color: var(--#{vars.$bcgov-prefix}-layer-02);
   color: var(--#{vars.$bcgov-prefix}-text-primary);

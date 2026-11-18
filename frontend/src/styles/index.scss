@@ -1,6 +1,31 @@
 @use './variables' as *;
 @use './mixins' as *;
 @use './overrides';
+@use '@bcgov-nr/nr-theme/design-tokens/colors' as colors;
+
+// The Carbon Theme wrapper declares its own tokens inside the document theme.
+.cds--g10,
+.cds--g100 {
+  --cds-background-brand: #{colors.$blue-60};
+  --cds-button-primary: #{colors.$blue-60};
+  --cds-button-primary-hover: #{colors.$blue-65};
+  --cds-button-primary-active: #{colors.$blue-80};
+}
+
+.cds--g10 {
+  --cds-interactive: #{colors.$blue-70};
+  --cds-link-primary: #{colors.$blue-70};
+  --cds-button-tertiary: #{colors.$blue-70};
+  --cds-button-tertiary-hover: #{colors.$blue-75};
+  --cds-focus: #{colors.$blue-70};
+}
+
+.cds--g100 {
+  --cds-interactive: #{colors.$blue-30};
+  --cds-link-primary: #{colors.$blue-30};
+  --cds-button-tertiary: #{colors.$blue-30};
+  --cds-focus: #{colors.$blue-30};
+}
 
 // Light theme overrides only — white page background with grey input fields.
 // Scoped to data-carbon-theme='g10' so the g100 dark theme keeps Carbon's
