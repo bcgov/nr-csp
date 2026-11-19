@@ -48,7 +48,7 @@ and its row data is correct. Neither is redundant; the S01 row below cites both.
 | Paginator "Showing <count>" | S01 `:30` | `ResultsTable` pagination | — | deferred | Coverage gap #4 |
 | **UC-INBOX-002-S01** — navigate from the inbox to the invoice | S01 `:22-25` | Submission ID link → `/submission-history/:id`; Invoice # link → `/invoice/:id` | `journey` `@S01 @p0` | covered, re-grounded (one extra screen — see the feature header) | Spec gap #3 |
 | Invoice page shows status UNAPPROVED | S01 `:27` | status pill (`InvoiceStatusTag`) | `journey` `@S01 @p0` | covered | — |
-| Submission ID is populated | S01 `:28` | submission detail summary line | `journey` `@S01 @p0` (asserted on the submission page, where it exists) | covered, re-grounded | — |
+| Submission ID is populated | S01 `:28` | submission detail heading | `journey` `@S01 @p0` (asserted on the submission page, where it exists) | covered, re-grounded | — |
 | Group summary fieldset + table visible | S01 `:29-30` | "Invoice group summary" accordion + `ResultsTable` | `journey` `@S01 @p0` (asserts rows exist, not just the table) | covered | — |
 | Boom Numbers / Timber Marks / Weigh Slips visible | S01 `:31-33` | `#boom-numbers` / `#timber-marks` / `#weigh-slips` | `journey` `@S01 @p0` (+ asserts the boom field carries a value) | covered, strengthened | Spec gap #1 |
 | Approve enabled, Reject enabled | S01 `:34-35` | `canChangeStatus` + `canApprovePerm` / `canRejectPerm` | `journey` `@S01 @p0` | covered | — |

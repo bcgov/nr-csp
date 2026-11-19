@@ -1,16 +1,19 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, fireEvent, within } from '@testing-library/react';
+import { BrowserRouter, Route, Routes } from 'react-router';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { MockAuthProvider } from '@/context/auth/MockAuthProvider';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
+import { ViewSubmissionPage } from '@/pages/ViewSubmission';
+import { useInboxSearchQuery } from '@/services/inbox.service';
+
+import { InboxPage } from './index';
 
 // ── Service mocks ─────────────────────────────────────────────────────────────
 
-const mockNavigate = vi.fn();
-vi.mock('react-router', async (orig) => ({
-  ...(await orig<typeof import('react-router')>()),
-  useNavigate: () => mockNavigate,
+vi.mock('@/services/submissionHistory.service', () => ({
+  useSubmissionDetailQuery: () => ({ isLoading: true }),
 }));
 
 vi.mock('@/services/inbox.service', () => ({
@@ -29,9 +32,6 @@ vi.mock('@/services/lookup.service', () => ({
 vi.mock('@/services/search.service', () => ({
   getClientsByName: vi.fn().mockResolvedValue([]),
 }));
-
-import { useInboxSearchQuery } from '@/services/inbox.service';
-import { InboxPage } from './index';
 
 const mockUseInboxSearchQuery = vi.mocked(useInboxSearchQuery);
 
@@ -79,11 +79,16 @@ function renderInboxPage() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <PageTitleProvider>
-          <InboxPage />
-        </PageTitleProvider>
-      </MemoryRouter>
+      <MockAuthProvider>
+        <BrowserRouter>
+          <PageTitleProvider>
+            <Routes>
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/submission-history/:submissionId" element={<ViewSubmissionPage />} />
+            </Routes>
+          </PageTitleProvider>
+        </BrowserRouter>
+      </MockAuthProvider>
     </QueryClientProvider>,
   );
 }
@@ -108,6 +113,7 @@ const setDate = (label: RegExp, value: string) => {
 describe('InboxPage interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState(null, '', '/inbox');
     mockUseInboxSearchQuery.mockReturnValue(emptyResult as never);
   });
 
@@ -138,12 +144,44 @@ describe('InboxPage interactions', () => {
 
     const link = screen.getByRole('link', { name: 'SUB-555' });
     expect(link).toHaveAttribute('href', '/submission-history/SUB-555');
-    // Routed in-app rather than reloading the SPA on the href.
-    fireEvent.click(link);
-    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/SUB-555');
-
     // The manual row has no submission id, so there is nothing to link to.
     expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('returns to the filtered, sorted second page of the Inbox after reloading the detail route', async () => {
+    mockUseInboxSearchQuery.mockReturnValue({
+      ...emptyResult,
+      data: { content: [fullRow], totalElements: 210 },
+    } as never);
+    const { unmount } = renderInboxPage();
+    fireEvent.click(screen.getByRole('combobox', { name: 'Type' }));
+    fireEvent.click(screen.getByText('Electronic'));
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    const keyword = screen.getByRole('searchbox');
+    fireEvent.change(keyword, { target: { value: '555' } });
+    fireEvent.keyDown(keyword, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Submission ID' }));
+    fireEvent.click(screen.getByRole('button', { name: /next page/i }));
+    fireEvent.click(screen.getByRole('link', { name: 'SUB-555' }));
+
+    expect(await screen.findByRole('link', { name: 'Back to Inbox' })).toHaveAttribute('href', '/inbox');
+    unmount();
+    renderInboxPage(); // Recreate the router from the same browser history entry.
+    expect(screen.getByRole('heading', { name: 'Submission SUB-555' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Back to Inbox' }));
+
+    expect(await screen.findByRole('combobox', { name: 'Type' })).toHaveTextContent('Electronic');
+    expect(screen.getByRole('searchbox')).toHaveValue('555');
+    expect(screen.getByLabelText(/page of \d+ pages/i)).toHaveValue('2');
+    expect(screen.getByRole('columnheader', { name: /submission id/i })).toHaveAttribute('aria-sort', 'ascending');
+    expect(lastQueryParams()).toMatchObject({
+      submissionType: 'Electronic',
+      keyword: '555',
+      sort: 'submissionId,asc',
+      page: 1,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Submission ID' }));
+    expect(lastQueryParams().sort).toBe('submissionId,desc');
   });
 
   it('leaves a cmd/ctrl-click to the browser so the row opens in a new tab', () => {
@@ -159,8 +197,6 @@ describe('InboxPage interactions', () => {
     const link = screen.getByRole('link', { name: 'SUB-555' });
     const opened = fireEvent.click(link, { metaKey: true });
 
-    // Not routed in-app, and the default action is left intact for the browser.
-    expect(mockNavigate).not.toHaveBeenCalled();
     expect(opened).toBe(true);
   });
 
