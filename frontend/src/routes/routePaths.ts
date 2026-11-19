@@ -19,3 +19,10 @@ export const ROUTES = {
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
+
+export function submissionDetailLinkProps(
+  submissionNumber: string,
+  from: typeof ROUTES.INBOX | typeof ROUTES.SUBMISSION_HISTORY,
+) {
+  return { to: `${ROUTES.SUBMISSION_HISTORY}/${submissionNumber}`, state: { from } };
+}

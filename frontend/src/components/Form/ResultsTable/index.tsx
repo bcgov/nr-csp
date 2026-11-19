@@ -75,6 +75,8 @@ interface ResultsTableProps<T extends { id: string }> {
   page?: number;
   pageSize?: number;
   serverSide?: boolean;
+  /** Restore the list's saved "field,direction" sort when the table mounts. */
+  initialSort?: string;
   onSortChange?: (sortKey: string | null, sortDir: 'ASC' | 'DESC' | 'NONE') => void;
   // When `onPaginationChange` is provided, a Carbon Pagination control is rendered at the
   // bottom of the table using `totalItems`, `pageSize`, `page`, and `pageSizes`. Pages that
@@ -131,6 +133,7 @@ const ResultsTable = <T extends { id: string }>({
   page,
   pageSize,
   serverSide = false,
+  initialSort,
   onSortChange,
   totalItems,
   pageSizes,
@@ -173,8 +176,11 @@ const ResultsTable = <T extends { id: string }>({
   }
 
   // Sort state drives both the column-header icons and (when client-side) row ordering.
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'ASC' | 'DESC' | 'NONE'>('NONE');
+  const [initialSortKey, initialSortDirection] = initialSort?.split(',') ?? [];
+  const [sortKey, setSortKey] = useState<string | null>(initialSortKey ?? null);
+  const [sortDir, setSortDir] = useState<'ASC' | 'DESC' | 'NONE'>(
+    initialSortDirection === 'asc' ? 'ASC' : initialSortDirection === 'desc' ? 'DESC' : 'NONE',
+  );
 
   // Expansion is tracked by row id (rather than left to Carbon's internal
   // DataTable state) so a row stays open across `rows` prop changes.

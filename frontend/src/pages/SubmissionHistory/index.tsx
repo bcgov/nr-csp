@@ -1,19 +1,18 @@
-import { Grid, Column, IconButton, Link } from '@carbon/react';
 import { View, Chat } from '@carbon/icons-react';
-import { useNavigate } from 'react-router';
+import { Grid, Column, IconButton, Link } from '@carbon/react';
+import { Link as RouterLink, useLinkClickHandler } from 'react-router';
 
-import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import PageTitle from '@/components/core/PageTitle';
+import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { ROUTES } from '@/routes/routePaths';
-import { formatShortDate } from '@/utils/format';
-import { isModifiedClick } from '@/utils/link';
 import { usePersistentState, setSerializer } from '@/hooks/usePersistentState';
+import { ROUTES, submissionDetailLinkProps } from '@/routes/routePaths';
 import {
   type SubmissionHistoryListParams,
   type SubmissionHistoryRowResponse,
   useSubmissionHistoryListQuery,
 } from '@/services/submissionHistory.service';
+import { formatShortDate } from '@/utils/format';
 
 import InvoiceCommentsPanel from './InvoiceCommentsPanel';
 import './index.scss';
@@ -51,9 +50,26 @@ function toSubmissionRow(r: SubmissionHistoryRowResponse, index: number): Submis
   };
 }
 
-export function SubmissionHistoryPage() {
-  const navigate = useNavigate();
+function ViewSubmissionAction({ submissionNumber }: { submissionNumber: string }) {
+  const { to, state } = submissionDetailLinkProps(submissionNumber, ROUTES.SUBMISSION_HISTORY);
+  const onClick = useLinkClickHandler<HTMLElement>(to, { state });
+  return (
+    <IconButton
+      href={to}
+      onClick={onClick}
+      className="submission-history-page__view-btn"
+      kind="ghost"
+      size="sm"
+      label="View submission"
+      align="left"
+      autoAlign
+    >
+      <View />
+    </IconButton>
+  );
+}
 
+export function SubmissionHistoryPage() {
   const NS = 'csp.table.submissionHistory.v1';
   const [pageSize, setPageSize] = usePersistentState(NS, 'pageSize', 10);
   const [currentPage, setCurrentPage] = usePersistentState(NS, 'page', 1);
@@ -97,18 +113,7 @@ export function SubmissionHistoryPage() {
             {row.submissionId == null ? (
               invoiceLabel
             ) : (
-              <Link
-                href={`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`}
-                onClick={(e) => {
-                  // Let the browser own Cmd/Ctrl+Click and friends, so a row can
-                  // be opened in a background tab.
-                  if (isModifiedClick(e)) return;
-                  e.preventDefault();
-                  // `void`: react-router's `navigate` returns a Promise and nothing here
-                  // waits on it — starting the transition is the whole job.
-                  void navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
-                }}
-              >
+              <Link as={RouterLink} {...submissionDetailLinkProps(row.submissionId, ROUTES.SUBMISSION_HISTORY)}>
                 {invoiceLabel}
               </Link>
             )}
@@ -132,19 +137,7 @@ export function SubmissionHistoryPage() {
       headerAlign: 'center',
       cellAlign: 'center',
       renderCell: (row) =>
-        row.submissionId == null ? null : (
-          <IconButton
-            className="submission-history-page__view-btn"
-            kind="ghost"
-            size="sm"
-            label="View submission"
-            align="left"
-            autoAlign
-            onClick={() => void navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`)}
-          >
-            <View />
-          </IconButton>
-        ),
+        row.submissionId == null ? null : <ViewSubmissionAction submissionNumber={row.submissionId} />,
     },
   ];
 
@@ -169,6 +162,7 @@ export function SubmissionHistoryPage() {
             columns={columns}
             isSortable
             serverSide
+            initialSort={sortParam}
             hasSearched
             expandable
             expandedRowIds={expandedRowIds}

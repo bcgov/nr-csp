@@ -49,9 +49,8 @@ export class ViewSubmissionPage {
       .filter({ has: this.page.getByRole('columnheader', { name: 'Invoice #', exact: true }) });
   }
 
-  /** The "Submission by … · Submission ID <n> · <date>" summary line above the detail sections. */
-  get summaryText(): Locator {
-    return this.page.locator('.view-submission-page__summary-text');
+  get submissionHeading(): Locator {
+    return this.page.getByRole('heading', { level: 1 });
   }
 
   get submissionStatusTag(): Locator {
