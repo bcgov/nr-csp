@@ -1267,7 +1267,7 @@ export function InvoicePage() {
       weightSlips: weighSlips,
       replaceInvNum: replaceInvNum.length ? replaceInvNum.join(',') : null,
       adjustInvNum: adjustInvNum.length ? adjustInvNum.join(',') : null,
-      reviewComments: reviewerComment || null,
+      reviewComments: isDataEntryOnly ? null : reviewerComment || null,
       submitComments: submitterComment || null,
       // (submissionId is the surrogate join key and is always present once saved.)
       manual: isManual,

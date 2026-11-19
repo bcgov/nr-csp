@@ -35,6 +35,7 @@ import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.mapper.InvoiceMapper;
 import ca.bc.gov.nrs.csp.backend.util.constants.ActionType;
 import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
+import ca.bc.gov.nrs.csp.backend.util.constants.PermissionConstants;
 import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
@@ -153,7 +154,7 @@ public class InvoiceService {
         List<LineItem> lines = mapper.toLineItems(request.lineItems(), null, request.invType());
         InvoiceDetails details = withChannelTotals(mapper.toDetails(request, user), lines, request.manual());
         if (dataEntryOnly) {
-            details = preserveReviewerNotes(details, null);
+            details = withReviewComments(details, null);
         }
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
@@ -236,7 +237,7 @@ public class InvoiceService {
                 mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID()),
                 lines, request.manual());
         if (dataEntryOnly) {
-            details = preserveReviewerNotes(details, existing.details().reviewComments());
+            details = withReviewComments(details, existing.details().reviewComments());
         }
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
@@ -355,9 +356,7 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(id);
-        String status = existing.details().invStatus();
-        if (!ConstantsCode.INVENTRYSTATUS_DRAFT.equals(status)
-                && !ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(status)) {
+        if (!isDraftOrUnapproved(existing.details().invStatus())) {
             throw new ConflictException("Only draft or unapproved invoices can be submitted.");
         }
 
@@ -552,6 +551,11 @@ public class InvoiceService {
         LoadedInvoice replaced = loadInvoiceOrThrow(replacedId);
         String previousStatus = replaced.details().invStatus();
         if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
+        if (isDataEntryOnly() && (replaced.submissionNumber() != null || !isDraftOrUnapproved(previousStatus))) {
+            throw new ConflictException("Ask an approver to save the replacement for invoice "
+                    + replaced.details().invNumber()
+                    + ". Data Entry can replace manual invoices in Draft or Unapproved status.");
+        }
 
         invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
         log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
@@ -721,7 +725,8 @@ public class InvoiceService {
 
     private static boolean isDataEntryOnly() {
         List<String> roles = SecurityContextUtils.currentRoles();
-        return roles.contains(Roles.ENTRY) && !roles.contains(Roles.APPROVE) && !roles.contains(Roles.ADMIN);
+        return roles.contains(Roles.ENTRY) && roles.stream()
+                .noneMatch(role -> PermissionService.roleGrants(role, PermissionConstants.INVOICE_DETAILS_APPROVE));
     }
 
     private static void requireManualEntry(boolean manual) {
@@ -735,20 +740,16 @@ public class InvoiceService {
         LoadedInvoice invoice = loadInvoiceOrThrow(invoiceId);
         if (isDataEntryOnly()) {
             requireManualEntry(invoice.submissionNumber() == null);
-            String status = invoice.details().invStatus();
-            if (!ConstantsCode.INVENTRYSTATUS_DRAFT.equals(status)
-                    && !ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(status)) {
+            if (!isDraftOrUnapproved(invoice.details().invStatus())) {
                 throw new ConflictException("Data Entry may only change draft or unapproved invoices.");
             }
         }
         return invoice;
     }
 
-    private InvoiceDetails preserveReviewerNotes(InvoiceDetails invoice, String storedNotes) {
-        if (invoice.reviewComments() != null && !Objects.equals(invoice.reviewComments(), storedNotes)) {
-            throw new AuthorizationDeniedException("Data Entry may not change reviewer notes.");
-        }
-        return withReviewComments(invoice, storedNotes);
+    private static boolean isDraftOrUnapproved(String status) {
+        return ConstantsCode.INVENTRYSTATUS_DRAFT.equals(status)
+                || ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(status);
     }
 
     private record ResponseSnapshot(String version, List<LineItem> lines) {}

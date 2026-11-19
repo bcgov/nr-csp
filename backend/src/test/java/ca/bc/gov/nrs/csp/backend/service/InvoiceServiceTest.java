@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -140,13 +141,18 @@ class InvoiceServiceTest {
 
     private InvoiceDetails details(Long id, String status, String otherClientNum,
                                    String otherClientName, String submittedBy) {
+        return details(id, status, otherClientNum, otherClientName, submittedBy, id == null ? null : "comments");
+    }
+
+    private InvoiceDetails details(Long id, String status, String otherClientNum,
+                                   String otherClientName, String submittedBy, String reviewerNotes) {
         return new InvoiceDetails(
                 id, "INV-001", LocalDate.of(2026, Month.JANUARY, 15), status, "SAL", "M", "FOB01", "SORT01", "SORT01",
                 new BigDecimal("100.00"), 10, new BigDecimal("5.0"),
                 "1234", "00", submittedBy, "1234", "00",
                 otherClientNum, "00", otherClientName, "Nanaimo", "BC",
                 List.of("B1"), List.of("T1"), List.of("W1"),
-                null, null, id == null ? null : "comments", null, "entryUser");
+                null, null, reviewerNotes, null, "entryUser");
     }
 
     private InvoiceDetails draftDetails(Long id) {
@@ -293,7 +299,9 @@ class InvoiceServiceTest {
         loginWithRoles(role);
         CreateInvoiceRequest req = createRequest(true);
         // Registered other party (otherClientNum set) → no participant insert.
-        given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", "5678", null, "Seller"));
+        String reviewerNotes = "Reviewer note";
+        given(mapper.toDetails(eq(req), anyString()))
+                .willReturn(details(null, "DFT", "5678", null, "Seller", reviewerNotes));
         given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of(line(null, null)));
         given(submissionRepo.insertSubmission(any(), any(), eq("LOB"), any())).willReturn(77L);
         given(invoiceRepo.insertInvoice(any(), eq(77L), eq("DFT"), isNull(), isNull(), any())).willReturn(500L);
@@ -301,7 +309,9 @@ class InvoiceServiceTest {
         service.create(req);
 
         verify(submissionRepo).insertSubmission("1234", "00", "LOB", USER);
-        verify(invoiceRepo).insertInvoice(any(), eq(77L), eq("DFT"), isNull(), isNull(), eq(USER));
+        ArgumentCaptor<InvoiceDetails> saved = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(invoiceRepo).insertInvoice(saved.capture(), eq(77L), eq("DFT"), isNull(), isNull(), eq(USER));
+        assertThat(saved.getValue().reviewComments()).isEqualTo(Roles.ENTRY.equals(role) ? null : reviewerNotes);
         verify(lineItemRepo).insertLineItem(eq(500L), any(), eq(USER));
         verify(invoiceRepo, times(3)).replaceLogSources(eq(500L), any(), any(), eq(USER));
         verify(invoiceRepo, times(2)).replaceRelatedInvoices(eq(500L), any(), any(), any(), any(), eq(USER));
@@ -365,15 +375,9 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void dataEntryCanOnlyCreateManualInvoicesWithoutReviewerNotes() {
+    void dataEntryCannotCreateElectronicInvoices() {
         loginWithRoles(Roles.ENTRY);
         assertThatThrownBy(() -> service.create(createRequest(false)))
-                .isInstanceOf(AuthorizationDeniedException.class);
-
-        CreateInvoiceRequest manualRequest = createRequest(true);
-        given(mapper.toDetails(manualRequest, USER)).willReturn(draftDetails(1L));
-        given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
-        assertThatThrownBy(() -> service.create(manualRequest))
                 .isInstanceOf(AuthorizationDeniedException.class);
         verify(submissionRepo, never()).insertSubmission(any(), any(), any(), any());
     }
@@ -440,14 +444,16 @@ class InvoiceServiceTest {
         verify(invoiceRepo, never()).incrementRevisionCount(any(), any());
     }
 
-    @Test
-    void dataEntryPreservesStoredReviewerNotesWhenUpdatingAnUnapprovedInvoice() {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "Original\r\nnotes", "Different notes"})
+    void dataEntryPreservesStoredReviewerNotesWhenUpdatingAnUnapprovedInvoice(String requestedNotes) {
         loginWithRoles(Roles.ENTRY);
         UpdateInvoiceRequest request = updateRequest();
-        InvoiceDetails existing = details(1L, "UNA", "5678", null, "Seller");
+        InvoiceDetails existing = details(1L, "UNA", "5678", null, "Seller", "Original\nnotes");
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(existing, 10L)));
         given(mapper.toDetails(request, 1L, "DFT", existing.entryUserID()))
-                .willReturn(details(null, "DFT", "5678", null, "Seller"));
+                .willReturn(details(1L, "DFT", "5678", null, "Seller", requestedNotes));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
         service.update(1L, CURRENT_VERSION, request);
@@ -660,6 +666,7 @@ class InvoiceServiceTest {
 
     @Test
     void create_replacesProcessingInvoice_cancelsItAndClearsItsSubmission() {
+        loginWithRoles(Roles.ENTRY, Roles.APPROVE);
         CreateInvoiceRequest req = createReplacing("REP", 900L);
         given(invoiceRepo.findById(900L))
                 .willReturn(Optional.of(loaded(details(900L, "PRO", "5678", null, "Seller"), 20L, null, null)));
@@ -673,14 +680,30 @@ class InvoiceServiceTest {
 
     @Test
     void create_replacesDraftInvoice_cancelsItButLeavesItsSubmissionInTheLobby() {
+        loginWithRoles(Roles.ENTRY);
         CreateInvoiceRequest req = createReplacing("REP", 900L);
         given(invoiceRepo.findById(900L))
-                .willReturn(Optional.of(loaded(draftDetails(900L), 20L, null, null)));
+                .willReturn(Optional.of(loadedManual(draftDetails(900L), 20L)));
 
         service.create(req);
 
         verify(invoiceRepo).updateStatus(900L, "CAN", USER);
         verify(submissionRepo, never()).updateSubmissionStatus(eq(20L), any(), any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"PRO, false", "DFT, true", "APP, false"})
+    void dataEntryCannotCreateAReplacementForAnOriginalOutsideItsWriteScope(String status, boolean electronic) {
+        loginWithRoles(Roles.ENTRY, Roles.VIEW);
+        CreateInvoiceRequest request = createReplacing("REP", 900L);
+        InvoiceDetails original = details(900L, status, "5678", null, "Seller");
+        LoadedInvoice loadedOriginal = electronic ? loaded(original, 20L, null, null) : loadedManual(original, 20L);
+        given(invoiceRepo.findById(900L)).willReturn(Optional.of(loadedOriginal));
+
+        assertThatThrownBy(() -> service.create(request)).isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Ask an approver to save the replacement");
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
     @Test
@@ -710,6 +733,7 @@ class InvoiceServiceTest {
 
     @Test
     void create_replacesAlreadyCancelledInvoice_leavesItUntouched() {
+        loginWithRoles(Roles.ENTRY);
         CreateInvoiceRequest req = createReplacing("REP", 900L);
         given(invoiceRepo.findById(900L))
                 .willReturn(Optional.of(loaded(details(900L, "CAN", "5678", null, "Seller"), 20L, null, null)));
@@ -745,14 +769,15 @@ class InvoiceServiceTest {
 
     @Test
     void update_replacesUnapprovedInvoice_cancelsItAlongsideTheNormalSave() {
+        loginWithRoles(Roles.ENTRY);
         UpdateInvoiceRequest req = updateRequest();
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
         given(invoiceRepo.replaceRelatedInvoices(eq(1L), eq("REP"), any(), any(), any(), any()))
                 .willReturn(List.of(900L));
         given(invoiceRepo.findById(900L))
-                .willReturn(Optional.of(loaded(details(900L, "UNA", "5678", null, "Seller"), 20L, null, null)));
+                .willReturn(Optional.of(loadedManual(details(900L, "UNA", "5678", null, "Seller"), 20L)));
 
         service.update(1L, CURRENT_VERSION, req);
 
@@ -760,6 +785,23 @@ class InvoiceServiceTest {
         verify(submissionRepo).updateSubmissionStatus(20L, "REJ", USER);
         // The saved invoice's own submission still reverts to the lobby.
         verify(submissionRepo).updateSubmissionStatus(10L, "LOB", USER);
+    }
+
+    @Test
+    void dataEntryCannotSaveAReplacementForAnOriginalInProcessing() {
+        loginWithRoles(Roles.ENTRY);
+        UpdateInvoiceRequest request = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(mapper.toDetails(eq(request), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+        given(invoiceRepo.replaceRelatedInvoices(eq(1L), eq("REP"), any(), any(), any(), any()))
+                .willReturn(List.of(900L));
+        given(invoiceRepo.findById(900L))
+                .willReturn(Optional.of(loadedManual(details(900L, "PRO", "5678", null, "Seller"), 20L)));
+
+        assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, request)).isInstanceOf(ConflictException.class);
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
     @Test

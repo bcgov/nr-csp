@@ -286,7 +286,9 @@ for that identity provider. Everything else is denied, by the API and, to match 
 - Provision `CSP_ENTRY` as an unscoped role on the CSP integration in modern FAM. It is for ministry
   staff entering invoice data received from industry outside ESF. The role grants Search and
   Invoice access. Submission sends the invoice to Processing for staff review.
-  Saving a replacement invoice follows the normal workflow and cancels the invoice it replaces.
+  Saving a replacement cancels the original invoice. Data Entry can cancel a manual original in
+  Draft or Unapproved status through this workflow. An approver handles other originals that
+  still require cancellation.
 - `CSP_SUBMITTER` must exist in FAM as a **forest-client-scoped** role. FAM then issues
   `CSP_SUBMITTER_FOREST_CLIENT-00012345` for each client granted, never the bare code. CSP parses
   it as FAM's `CssRoleNaming.parse` does (suffixes stripped from the right), and accepts only that

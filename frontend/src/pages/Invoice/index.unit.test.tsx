@@ -392,6 +392,24 @@ describe('InvoicePage — Data Entry', () => {
     h.usePermission.mockImplementation((action) => ROLE_PERMISSIONS.ENTRY.has(action));
   });
 
+  it('can enter details before a manual draft exists', async () => {
+    renderPage();
+    const invoiceNumber = screen.getByRole('textbox', { name: /Invoice number$/i });
+    expect(invoiceNumber).toBeEnabled();
+    await userEvent.type(invoiceNumber, 'MANUAL-01');
+    expect(invoiceNumber).toHaveValue('MANUAL-01');
+  });
+
+  it('omits the stored reviewer note when saving a manual draft', async () => {
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null, reviewComments: 'Stored reviewer note' });
+    expect(screen.getByLabelText('Reviewer comment')).toHaveValue('Stored reviewer note');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(h.mutations.update.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ reviewComments: null }) }),
+      expect.any(Object),
+    );
+  });
+
   it.each(['DFT', 'UNA'])('can change and submit a manual invoice with status %s', async (invStatus) => {
     await renderLoaded({ invStatus, submissionNumber: null });
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
