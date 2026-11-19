@@ -47,7 +47,7 @@ describe('LayoutHeader', () => {
     vi.clearAllMocks();
   });
 
-  const appNameLink = () => screen.getByRole('link', { name: /coast selling application \(csp\)/i });
+  const appNameLink = () => screen.getByRole('link', { name: /csp coast selling price system/i });
 
   // '/' is the public welcome screen and sits outside this shell, so sending a
   // signed-in user there would unmount and remount the shell around a redirect.

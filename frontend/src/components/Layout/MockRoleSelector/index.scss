@@ -24,6 +24,11 @@
     position: relative;
     z-index: 1;
 
+    @media (max-width: 30rem) {
+      max-inline-size: 7rem;
+      text-overflow: ellipsis;
+    }
+
     option {
       background: $layer-01;
       color: $text-primary;

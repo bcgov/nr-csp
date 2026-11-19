@@ -89,13 +89,9 @@ export class SearchPage {
   // Actions
   // -------------------------------------------------------------------------
 
-  /**
-   * The Search button in the filter row — NOT the results toolbar's keyword input. Scoped to the
-   * filter row that contains it, so the two can never collide.
-   */
   get searchButton(): Locator {
     return this.page
-      .locator('.search-page__filter-row--with-btn')
+      .getByRole('search', { name: 'Invoice search' })
       .getByRole('button', { name: 'Search', exact: true });
   }
 

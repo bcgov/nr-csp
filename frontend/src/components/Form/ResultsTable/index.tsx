@@ -49,10 +49,8 @@ export interface ResultsTableColumn<T> {
  * @property {boolean} [hasSearched] - When true and `rows` is empty, renders the uniform "No results found" state. When false and `rows` is empty, renders the uniform "Your search results will appear here." state.
  * @property {boolean} [isLoading] - When true, renders an animated skeleton table in place of results.
  * @property {boolean} [isFetching] - When true (and `isLoading` is false), the body renders the same skeleton
- *   while the keyword bar and pagination bar stay put — the bar keeps rendering from `totalItems`. Consumers pass
- *   react-query's `isPlaceholderData`, which is true only while a newly-selected page loads and the previous page's
- *   totals are retained (see CSP-630). Scoping to placeholder data means the body skeletons on page changes but does
- *   not flash on background refetches of the current page (these list queries refetch on mount and window focus).
+ *   while the keyword and pagination bars keep their values. Search pages set this only for active searches
+ *   displaying placeholder data during a page or filter change (CSP-630).
  * @property {string} [searchKeyword] - Currently applied keyword filter. Seeds the search bar, and re-seeds it whenever this changes from outside (e.g. a page's "Clear filters").
  * @property {(keyword: string) => void} [onSearchKeywordChange] - Commits the keyword filter: called on Enter, on blur, and as soon as the bar is emptied (via its clear button or by deleting the text). Keystrokes otherwise stay local to the bar, so the committed keyword always matches what the bar displays. Omit to hide the bar.
  * @property {number} [page] - Current page number. When provided alongside `pageSize` (and `serverSide` is false), sorting spans the
@@ -348,8 +346,7 @@ const ResultsTable = <T extends { id: string }>({
   // search-driven defaults.
   const resolvedEmptyTitle = emptyTitle ?? (hasSearched ? 'No results found' : 'Your search results will appear here.');
   const resolvedEmptyDescription =
-    emptyDescription ??
-    (hasSearched ? 'Try adjusting your search criteria.' : 'Enter at least one criteria to start the search.');
+    emptyDescription ?? (hasSearched ? 'Try adjusting your search criteria.' : 'Set your filters, then select Search.');
   const Pictogram = hasSearched ? UserSearch : Summit;
 
   return (

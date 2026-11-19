@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Theme } from '@/context/theme/ThemeContext';
 import { useTheme } from '@/context/theme/useTheme';
 
 import { ThemeToggle } from './index';
+
+import type { Theme } from '@/context/theme/ThemeContext';
 
 vi.mock('@/context/theme/useTheme', () => ({ useTheme: vi.fn() }));
 
@@ -20,40 +21,17 @@ describe('ThemeToggle', () => {
     vi.clearAllMocks();
   });
 
-  it('offers to switch to the dark theme while the light theme is active', () => {
-    arrange('g10');
-    const toggle = screen.getByRole('button', { name: 'Switch to dark theme' });
-    expect(toggle).toHaveClass('off');
-    expect(toggle).not.toHaveClass('on');
+  it.each([
+    ['g10', false],
+    ['g100', true],
+  ] as const)('reports the dark theme switch state for %s', (theme, checked) => {
+    arrange(theme);
+    expect(screen.getByRole('switch', { name: 'Dark theme', checked })).toBeInTheDocument();
   });
 
-  it('offers to switch to the light theme while the dark theme is active', () => {
-    arrange('g100');
-    const toggle = screen.getByRole('button', { name: 'Switch to light theme' });
-    expect(toggle).toHaveClass('on');
-  });
-
-  it('toggles the theme on click', () => {
+  it('toggles the theme once per click', () => {
     arrange();
-    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByRole('switch'));
     expect(toggleTheme).toHaveBeenCalledTimes(1);
-  });
-
-  it('toggles the theme on Enter key', () => {
-    arrange();
-    fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' });
-    expect(toggleTheme).toHaveBeenCalledTimes(1);
-  });
-
-  it('toggles the theme on Space key', () => {
-    arrange();
-    fireEvent.keyDown(screen.getByRole('button'), { key: ' ' });
-    expect(toggleTheme).toHaveBeenCalledTimes(1);
-  });
-
-  it('ignores other keys', () => {
-    arrange();
-    fireEvent.keyDown(screen.getByRole('button'), { key: 'Escape' });
-    expect(toggleTheme).not.toHaveBeenCalled();
   });
 });

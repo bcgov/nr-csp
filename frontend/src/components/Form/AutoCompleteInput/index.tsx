@@ -52,7 +52,7 @@ type AutoCompleteProps<T> = {
    * @param item The item to render in the dropdown
    */
   renderItem?: (item: T) => ReactNode;
-} & Omit<ComboBoxProps<T>, 'items' | 'onChange' | 'onInputChange'>;
+} & Omit<ComboBoxProps<T>, 'items' | 'onChange' | 'onInputChange' | 'onSelect'>;
 
 /**
  * A reusable autocomplete input component that uses Carbon's ComboBox.

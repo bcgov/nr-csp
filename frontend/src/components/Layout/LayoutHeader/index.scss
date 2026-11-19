@@ -1,37 +1,56 @@
-@use '../../../styles/variables' as vars;
-@use '@bcgov-nr/nr-theme/design-tokens/colors.scss' as colors;
-@use '@carbon/react/scss/spacing' as *;
-@use '@carbon/react/scss/breakpoint' as *;
-@use '@carbon/type';
+@use '@bcgov-nr/nr-theme/design-tokens/colors' as colors;
 
 .bc-header {
-  .#{vars.$bcgov-prefix}--header__name {
-    margin-left: 0.9375rem;
+  .cds--header__name {
+    min-inline-size: 0;
+    overflow: hidden;
+    padding-inline: 1rem;
+    font-family: inherit;
     color: colors.$white;
+    white-space: nowrap;
+  }
 
-    &:hover {
-      color: colors.$white;
-    }
+  .cds--header__name > span:last-child {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 
-    @include breakpoint-down(lg) {
-      margin-left: 0;
-      padding: 0;
+    @media (max-width: 30rem) {
+      display: none;
     }
   }
 
-  .#{vars.$bcgov-prefix}--header__menu-toggle {
+  .cds--header__name--prefix {
+    flex-shrink: 0;
+    font-weight: 400;
+  }
+
+  .cds--header__menu-toggle {
+    flex-shrink: 0;
     color: colors.$white;
 
-    &.#{vars.$bcgov-prefix}--header__action--active {
-      color: var(--#{vars.$bcgov-prefix}-layer-selected-inverse);
-    }
-
-    path {
+    svg {
       fill: currentColor;
     }
   }
 
-  .theme-toggle-action {
-    margin-right: $spacing-05;
+  .cds--header__menu-toggle.cds--header__action--active,
+  .cds--header__menu-toggle:hover,
+  .cds--header__name:hover {
+    background-color: colors.$blue-65;
+    color: colors.$white;
+  }
+
+  .cds--header__global {
+    align-items: center;
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+  }
+
+  .cds--header__name:focus-visible,
+  .cds--header__action:focus-visible,
+  .theme-toggle:focus-visible {
+    outline: 2px solid colors.$white;
+    outline-offset: -2px;
   }
 }

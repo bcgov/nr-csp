@@ -10,17 +10,15 @@ export const ThemeToggle: FC = () => {
   const isDark = theme === 'g100';
 
   return (
-    <div
-      className={`theme-toggle ${isDark ? 'on' : 'off'}`}
+    <button
+      type="button"
+      className="theme-toggle"
+      role="switch"
+      aria-label="Dark theme"
+      aria-checked={isDark}
       onClick={toggleTheme}
-      role="button"
-      tabIndex={0}
-      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') toggleTheme();
-      }}
     >
-      <div className="circle">{isDark ? <AsleepFilled className="icon" /> : <LightFilled className="icon" />}</div>
-    </div>
+      <span className="theme-toggle__thumb">{isDark ? <AsleepFilled /> : <LightFilled />}</span>
+    </button>
   );
 };

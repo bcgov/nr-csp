@@ -109,7 +109,7 @@ describe('InboxPage', () => {
   it('shows the initial empty state before a search', () => {
     renderInboxPage();
     expect(screen.getByText(/your search results will appear here/i)).toBeInTheDocument();
-    expect(screen.getByText(/enter at least one criteria to start the search/i)).toBeInTheDocument();
+    expect(screen.getByText('Set your filters, then select Search.')).toBeInTheDocument();
   });
 
   it('switches to the no-results empty state after a search', () => {

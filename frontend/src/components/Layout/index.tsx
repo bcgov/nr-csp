@@ -1,4 +1,4 @@
-import { Content, HeaderContainer, Loading, ToastNotification } from '@carbon/react';
+import { Content, Loading, ToastNotification } from '@carbon/react';
 import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 
@@ -29,8 +29,8 @@ const Layout: FC = () => {
   return (
     <>
       <LayoutProvider>
-        <HeaderContainer render={LayoutHeader} />
-        <Content className="app-content">
+        <LayoutHeader />
+        <Content id="main-content" tabIndex={-1} className="app-content">
           <Outlet />
         </Content>
       </LayoutProvider>
