@@ -28,6 +28,19 @@ public class SecurityConfig {
 
     private static final String API_PATH = "/api/**";
     private static final String[] STAFF_AUTHORITIES = Roles.STAFF_ROLES.toArray(String[]::new);
+    private static final String[] DATA_ENTRY_GET_PATHS = {
+            "/api/search",
+            "/api/clients",
+            "/api/invoices/{id}",
+            "/api/lookup/status",
+            "/api/lookup/type",
+            "/api/lookup/maturity",
+            "/api/lookup/sort-code",
+            "/api/lookup/species",
+            "/api/lookup/grade",
+            "/api/lookup/fob",
+            "/api/lookup/species-grade-combinations"
+    };
     private static final String[] SUBMITTER_POST_PATHS = {
             "/api/submissions/validate/structural",
             "/api/submissions/parse",
@@ -74,7 +87,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, SUBMITTER_GET_PATHS)
                         .hasAnyAuthority(Roles.ADMIN, Roles.APPROVE, Roles.VIEW, Roles.SUBMITTER)
                         // Data Entry gets the manual invoice form, search, and their supporting lookups.
-                        .requestMatchers(HttpMethod.GET, "/api/search", "/api/clients", "/api/lookup/**", "/api/invoices/{id}")
+                        .requestMatchers(HttpMethod.GET, DATA_ENTRY_GET_PATHS)
                         .hasAnyAuthority(STAFF_AUTHORITIES)
                         .requestMatchers(HttpMethod.POST, "/api/invoices", "/api/invoices/{id}/submit", "/api/invoices/{id}/line-items")
                         .hasAnyAuthority(STAFF_AUTHORITIES)

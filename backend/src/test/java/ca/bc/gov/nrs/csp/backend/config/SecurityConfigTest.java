@@ -1,9 +1,12 @@
 package ca.bc.gov.nrs.csp.backend.config;
 
 import ca.bc.gov.nrs.csp.backend.controller.InvoiceController;
+import ca.bc.gov.nrs.csp.backend.controller.LookupController;
 import ca.bc.gov.nrs.csp.backend.service.InvoiceService;
 import ca.bc.gov.nrs.csp.backend.service.JwtService;
+import ca.bc.gov.nrs.csp.backend.service.LookupService;
 import ca.bc.gov.nrs.csp.backend.service.PermissionService;
+import ca.bc.gov.nrs.csp.backend.service.mapper.LookupMapper;
 import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +56,7 @@ class SecurityConfigTest {
     // No @Bean factory method needed — adding one would register it twice.
     @Configuration
     @EnableWebMvc
-    @Import(InvoiceController.class)
+    @Import({InvoiceController.class, LookupController.class})
     @ImportAutoConfiguration(AopAutoConfiguration.class)
     static class TestWebConfig {
 
@@ -66,8 +69,7 @@ class SecurityConfigTest {
         static class TestController {
             @GetMapping("/api/health") String health() { return "ok"; }
             @GetMapping("/api/some-endpoint") String endpoint() { return "ok"; }
-            @GetMapping({"/api/search", "/api/clients", "/api/lookup/species-grade-combinations"})
-            String invoiceLookup() { return "ok"; }
+            @GetMapping({"/api/search", "/api/clients"}) String search() { return "ok"; }
             @GetMapping("/api/swagger-ui/index.html") String swagger() { return "swagger"; }
             @GetMapping("/api/v3/api-docs") String apiDocs() { return "{}"; }
             @PostMapping({"/api/submissions/validate/structural", "/api/submissions/parse",
@@ -88,6 +90,12 @@ class SecurityConfigTest {
 
     @MockitoBean
     private InvoiceService invoiceService;
+
+    @MockitoBean
+    private LookupService lookupService;
+
+    @MockitoBean
+    private LookupMapper lookupMapper;
 
     private MockMvc mockMvc;
 
@@ -116,6 +124,7 @@ class SecurityConfigTest {
     void authenticatedRequestToApiEndpoint_isOk() throws Exception {
         mockMvc.perform(get("/api/some-endpoint"))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/lookup/modelling-code")).andExpect(status().isOk());
     }
 
     @Test
@@ -139,8 +148,9 @@ class SecurityConfigTest {
         String lineBody = """
                 {"secondSort":"SORT01","species":"SP1","grade":"G1","numOfPieces":1,"price":25.00,"volume":6.25}
                 """;
-        for (String path : new String[]{"/api/search", "/api/clients", "/api/lookup/species-grade-combinations",
-                "/api/invoices/1"}) {
+        for (String path : new String[]{"/api/search", "/api/clients", "/api/invoices/1",
+                "/api/lookup/status", "/api/lookup/type", "/api/lookup/maturity", "/api/lookup/sort-code",
+                "/api/lookup/species", "/api/lookup/grade", "/api/lookup/fob", "/api/lookup/species-grade-combinations"}) {
             mockMvc.perform(get(path)).andExpect(status().isOk());
         }
         mockMvc.perform(post("/api/invoices").contentType(MediaType.APPLICATION_JSON).content(invoiceBody))
@@ -170,6 +180,9 @@ class SecurityConfigTest {
         mockMvc.perform(post("/api/R06")).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/inbox")).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/flat-price-conversions")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/lookup/modelling-code")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/lookup/submission-status")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/lookup/grade-by-species/FIR")).andExpect(status().isForbidden());
     }
 
     @Test
