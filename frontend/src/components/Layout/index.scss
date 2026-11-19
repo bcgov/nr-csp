@@ -1,5 +1,5 @@
 .app-content {
-  min-height: 100vh;
+  min-height: calc(100vh - 3rem);
 }
 
 // z-index 9001 places toasts above Carbon modals (which sit at 9000)

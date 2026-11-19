@@ -110,7 +110,11 @@ describe('SearchPage interactions', () => {
       isError: false,
     } as never);
     renderSearchPage();
-    fireEvent.click(screen.getByRole('link', { name: 'WFP521046' }));
+    const invoiceLink = screen.getByRole('link', { name: 'WFP521046' });
+    expect(invoiceLink).toHaveAttribute('href', '/invoice/200456');
+    fireEvent.click(invoiceLink, { metaKey: true });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    fireEvent.click(invoiceLink);
     expect(mockNavigate).toHaveBeenCalledWith('/invoice/200456', { state: { fromSearch: true } });
   });
 
@@ -239,11 +243,16 @@ describe('SearchPage interactions', () => {
   });
 
   it('resets the results table to its pre-search state when Clear filters is clicked', () => {
-    mockUseSearchQuery.mockReturnValue({
-      data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
-      isLoading: false,
-      isError: false,
-    } as never);
+    mockUseSearchQuery.mockImplementation(
+      (_params, searchEnabled) =>
+        ({
+          data: { content: [mockSearchResult], totalElements: 1, totalPages: 1, size: 20, number: 0 },
+          isLoading: false,
+          isError: false,
+          // keepPreviousData can retain the filtered result after Clear disables the query.
+          isPlaceholderData: !searchEnabled,
+        }) as never,
+    );
     renderSearchPage();
 
     fireEvent.change(screen.getByLabelText(/invoice number/i), { target: { value: 'WFP*' } });
@@ -408,7 +417,7 @@ describe('SearchPage interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /next page/i }));
     expect(lastQueryParams()).toMatchObject({ page: 1, size: 100 });
 
-    fireEvent.change(screen.getByLabelText('Invoice per page:'), { target: { value: '40' } });
+    fireEvent.change(screen.getByLabelText('Invoices per page:'), { target: { value: '40' } });
     expect(lastQueryParams()).toMatchObject({ size: 40 });
   });
 });

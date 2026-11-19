@@ -8,12 +8,17 @@ import './index.scss';
 // when the parent's state is null/undefined.
 const BLANK_SENTINEL: unique symbol = Symbol('single-select-blank');
 
+interface SingleSelectProps<ItemType> extends Omit<DropdownProps<ItemType>, 'label'> {
+  label?: DropdownProps<ItemType>['label'];
+  blankOptionLabel?: string;
+}
+
 /**
  * SingleSelect is a thin wrapper around Carbon's Dropdown that prevents
  * menu items from truncating. The dropdown list expands to the longest
  * item's width and is never narrower than the trigger input.
  *
- * A "Select..." blank option is automatically prepended to the items list and
+ * A blank option (default "Select...") is automatically prepended to the items list and
  * is shown in the trigger whenever the parent's `selectedItem` is null or
  * undefined. Selecting it fires onChange with { selectedItem: null }, allowing
  * callers to reset their state with the standard `selectedItem ?? null` pattern.
@@ -27,18 +32,19 @@ const BLANK_SENTINEL: unique symbol = Symbol('single-select-blank');
 const SingleSelect = <ItemType,>({
   className,
   label = 'Select...',
+  blankOptionLabel = 'Select...',
   items,
   itemToString,
   selectedItem,
   onChange,
   ...props
-}: DropdownProps<ItemType>): React.ReactElement => {
+}: SingleSelectProps<ItemType>): React.ReactElement => {
   const blankItem = BLANK_SENTINEL as unknown as ItemType;
   const itemsWithBlank = [blankItem, ...items];
 
   const resolvedItemToString = (item: ItemType | null | undefined): string => {
     if (item === null || item === undefined || (item as unknown) === BLANK_SENTINEL) {
-      return 'Select...';
+      return blankOptionLabel;
     }
     return itemToString ? itemToString(item) : String(item);
   };

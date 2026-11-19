@@ -1,5 +1,5 @@
 import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 
 import { LayoutProvider } from './LayoutProvider';
 import { useLayout } from './useLayout';
@@ -18,6 +18,24 @@ function Consumer() {
 }
 
 describe('LayoutProvider', () => {
+  let desktopViewport: MediaQueryList;
+  beforeEach(() => {
+    desktopViewport = window.matchMedia('(min-width: 66rem)');
+    vi.spyOn(desktopViewport, 'matches', 'get').mockReturnValue(true);
+    vi.spyOn(window, 'matchMedia').mockReturnValue(desktopViewport);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('starts with the menu closed on a narrow screen', () => {
+    vi.spyOn(desktopViewport, 'matches', 'get').mockReturnValue(false);
+    render(
+      <LayoutProvider>
+        <Consumer />
+      </LayoutProvider>,
+    );
+    expect(screen.getByTestId('sidenav')).toHaveTextContent('false');
+  });
+
   it('renders children', () => {
     render(
       <LayoutProvider>
