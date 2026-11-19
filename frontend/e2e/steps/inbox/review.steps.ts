@@ -69,7 +69,7 @@ When('I open that submission from the inbox', async ({ page, inboxPage, world })
 
 Then('the submission detail page lists its invoices', async ({ viewSubmissionPage, world }) => {
   await viewSubmissionPage.waitForLoaded();
-  await expect(viewSubmissionPage.summaryText).toContainText(`Submission ID ${world.reviewSubmissionId}`);
+  await expect(viewSubmissionPage.submissionHeading).toHaveText(`Submission ${world.reviewSubmissionId}`);
   // The invoice we are about to open must actually be on this submission — otherwise the journey
   // would be navigating by URL rather than by following the app's own links.
   await expect(viewSubmissionPage.invoiceRow(world.reviewInvoiceId as number)).toHaveCount(1);

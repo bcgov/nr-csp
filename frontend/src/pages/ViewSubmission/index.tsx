@@ -1,14 +1,14 @@
 import { ArrowLeft } from '@carbon/icons-react';
 import { Grid, Column, InlineNotification, Link, Loading } from '@carbon/react';
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router';
 
 import DetailSection, { type DetailItem } from '@/components/core/DetailSection';
 import PageTitle from '@/components/core/PageTitle';
 import InvoiceStatusTag from '@/components/core/Tags/InvoiceStatusTag';
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ResultsTable, { type ResultsTableColumn } from '@/components/Form/ResultsTable';
-import { INVOICE_DETAILS } from '@/context/auth/permissions';
+import { INBOX, INVOICE_DETAILS } from '@/context/auth/permissions';
 import { usePermission } from '@/context/auth/usePermission';
 import { ROUTES } from '@/routes/routePaths';
 import {
@@ -37,6 +37,9 @@ export function ViewSubmissionPage() {
   // endpoint is keyed on — not the internal csp submission id.
   const { submissionId } = useParams<{ submissionId: string }>();
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const canViewInbox = usePermission(INBOX);
+  const fromInbox = canViewInbox && state?.from === ROUTES.INBOX;
   // Submitters can't open the staff invoice page, so they get plain invoice numbers.
   const canOpenInvoice = usePermission(INVOICE_DETAILS);
 
@@ -155,12 +158,6 @@ export function ViewSubmissionPage() {
               {data.clientName ?? '—'}
               {data.clientNumber ? ` (${data.clientNumber})` : ''}
             </strong>
-            {data.submissionId ? (
-              <>
-                {' · '}
-                Submission ID <strong>{data.submissionId}</strong>
-              </>
-            ) : null}
             {' · '}
             {formatShortDate(data.submissionDate)}
           </span>
@@ -295,19 +292,16 @@ export function ViewSubmissionPage() {
       <Grid fullWidth>
         <Column lg={16} md={8} sm={4} className="view-submission-page__back-col">
           <Link
-            href={ROUTES.SUBMISSION_HISTORY}
+            as={RouterLink}
+            to={fromInbox ? ROUTES.INBOX : ROUTES.SUBMISSION_HISTORY}
             className="view-submission-page__back-link"
-            onClick={(e) => {
-              e.preventDefault();
-              void navigate(ROUTES.SUBMISSION_HISTORY);
-            }}
           >
-            <ArrowLeft />
-            Back to Submission History
+            <ArrowLeft aria-hidden="true" />
+            Back to {fromInbox ? 'Inbox' : 'Submission History'}
           </Link>
         </Column>
 
-        <PageTitle title="View Submission" />
+        <PageTitle title={`Submission ${data?.submissionId ?? submissionId}`} />
 
         {renderContent()}
       </Grid>

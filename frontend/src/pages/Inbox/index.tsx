@@ -1,6 +1,6 @@
 import { Link, TextInput } from '@carbon/react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link as RouterLink } from 'react-router';
 
 import SubmissionStatusTag from '@/components/core/Tags/SubmissionStatusTag';
 import ClientAutocomplete, { type ClientLocationResponse } from '@/components/Form/ClientAutocomplete';
@@ -10,11 +10,10 @@ import SingleSelect from '@/components/Form/SingleSelect';
 import SearchPageLayout from '@/components/Layout/SearchPageLayout';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useSearchTableState } from '@/hooks/useSearchTableState';
-import { ROUTES } from '@/routes/routePaths';
+import { ROUTES, submissionDetailLinkProps } from '@/routes/routePaths';
 import { type InboxSearchParams, type InboxRowResponse, useInboxSearchQuery } from '@/services/inbox.service';
 import { type LookupItemResponse, useSubmissionStatusesQuery } from '@/services/lookup.service';
 import { formatDisplayDate, formatIsoDate } from '@/utils/format';
-import { isModifiedClick } from '@/utils/link';
 
 type InboxRow = {
   id: string;
@@ -61,8 +60,6 @@ const NS = 'csp.table.inbox.v1';
 const DEFAULT_PAGE_SIZE = 100;
 
 export function InboxPage() {
-  const navigate = useNavigate();
-
   const {
     hasSearched,
     setHasSearched,
@@ -129,18 +126,7 @@ export function InboxPage() {
         row.submissionId == null ? (
           '—'
         ) : (
-          <Link
-            href={`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`}
-            onClick={(e) => {
-              // Let the browser own Cmd/Ctrl+Click and friends, so a row can be
-              // opened in a background tab.
-              if (isModifiedClick(e)) return;
-              e.preventDefault();
-              // `void`: react-router's `navigate` returns a Promise and nothing here waits
-              // on it — starting the transition is the whole job.
-              void navigate(`${ROUTES.SUBMISSION_HISTORY}/${row.submissionId}`);
-            }}
-          >
+          <Link as={RouterLink} {...submissionDetailLinkProps(row.submissionId, ROUTES.INBOX)}>
             {row.submissionId}
           </Link>
         ),
@@ -286,6 +272,7 @@ export function InboxPage() {
         size="md"
         isSortable
         serverSide
+        initialSort={sortParam}
         hasSearched={hasSearched}
         isLoading={hasSearched && isLoading}
         isFetching={hasSearched && isPlaceholderData}

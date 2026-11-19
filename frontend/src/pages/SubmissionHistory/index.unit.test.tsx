@@ -1,28 +1,25 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, fireEvent, within } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider } from 'react-router';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { MockAuthProvider } from '@/context/auth/MockAuthProvider';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
+import { ViewSubmissionPage } from '@/pages/ViewSubmission';
 import { useSubmissionHistoryListQuery, useSubmissionInvoiceCommentsQuery } from '@/services/submissionHistory.service';
+
+import { SubmissionHistoryPage } from './index';
 
 // ── Service mocks ─────────────────────────────────────────────────────────────
 
-const mockNavigate = vi.fn();
-vi.mock('react-router', async (orig) => ({
-  ...(await orig<typeof import('react-router')>()),
-  useNavigate: () => mockNavigate,
-}));
-
 vi.mock('@/services/submissionHistory.service', () => ({
+  useSubmissionDetailQuery: () => ({ isLoading: true }),
   useSubmissionHistoryListQuery: vi.fn(),
   useSubmissionInvoiceCommentsQuery: vi.fn(),
 }));
 
 const mockListQuery = vi.mocked(useSubmissionHistoryListQuery);
 const mockCommentsQuery = vi.mocked(useSubmissionInvoiceCommentsQuery);
-
-import { SubmissionHistoryPage } from './index';
 
 const sampleRow = {
   cspSubmissionId: 1234,
@@ -59,15 +56,23 @@ function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const router = createMemoryRouter(
+    [
+      { path: '/submission-history', element: <SubmissionHistoryPage /> },
+      { path: '/submission-history/:submissionId', element: <ViewSubmissionPage /> },
+    ],
+    { initialEntries: ['/submission-history'] },
+  );
+  render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MockAuthProvider>
         <PageTitleProvider>
-          <SubmissionHistoryPage />
+          <RouterProvider router={router} />
         </PageTitleProvider>
-      </MemoryRouter>
+      </MockAuthProvider>
     </QueryClientProvider>,
   );
+  return router;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -115,26 +120,14 @@ describe('SubmissionHistoryPage', () => {
     expect(screen.getByTitle(/2 invoice\(s\) with comments/i)).toBeInTheDocument();
   });
 
-  it('navigates in-app by submission number from both the link and the view button', () => {
+  it.each(['12 invoices', 'View submission'])('leaves a modified click on %s to the browser', (name) => {
     setListData([sampleRow]);
-    renderPage();
+    const router = renderPage();
+    const link = screen.getByRole('link', { name });
+    expect(link).toHaveAttribute('href', '/submission-history/9001');
 
-    fireEvent.click(screen.getByRole('link', { name: /12 invoices/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001');
-
-    mockNavigate.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: /view submission/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/submission-history/9001');
-  });
-
-  it('leaves a cmd/ctrl-click to the browser so the row opens in a new tab', () => {
-    setListData([sampleRow]);
-    renderPage();
-
-    const opened = fireEvent.click(screen.getByRole('link', { name: /12 invoices/i }), { ctrlKey: true });
-
-    expect(mockNavigate).not.toHaveBeenCalled();
-    expect(opened).toBe(true);
+    expect(fireEvent.click(link, { ctrlKey: true })).toBe(true);
+    expect(router.state.location.pathname).toBe('/submission-history');
   });
 
   it('does not link a manual submission, which has no submission number', () => {
@@ -142,7 +135,7 @@ describe('SubmissionHistoryPage', () => {
     renderPage();
     expect(screen.queryByRole('link', { name: /12 invoices/i })).not.toBeInTheDocument();
     expect(screen.getByText(/12 invoices/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /view submission/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /view submission/i })).not.toBeInTheDocument();
   });
 
   it('loads invoice comments into the expanded sub-table when a row is expanded', () => {
@@ -170,16 +163,17 @@ describe('SubmissionHistoryPage', () => {
     expect(within(panel).getByText('Rejected')).toBeInTheDocument();
   });
 
-  it('restores page, page size, and expanded rows from sessionStorage on mount', async () => {
+  it.each(['12 invoices', 'View submission'])('restores the History table after opening %s', async (name) => {
     window.sessionStorage.setItem('csp.table.submissionHistory.v1.page', '2');
     window.sessionStorage.setItem('csp.table.submissionHistory.v1.pageSize', '20');
     window.sessionStorage.setItem('csp.table.submissionHistory.v1.expanded', '["101"]');
+    window.sessionStorage.setItem('csp.table.submissionHistory.v1.sort', JSON.stringify('submissionDate,desc'));
 
     mockListQuery.mockReturnValue({
       data: {
         content: [
           { ...sampleRow, cspSubmissionId: 101 },
-          { ...sampleRow, cspSubmissionId: 102 },
+          { ...sampleRow, cspSubmissionId: 102, submissionId: '9002' },
         ],
         totalElements: 60,
       },
@@ -189,10 +183,20 @@ describe('SubmissionHistoryPage', () => {
     } as unknown as ReturnType<typeof useSubmissionHistoryListQuery>);
     setComments([{ invoiceNumber: 'INV-2025-08-0001', status: 'Approved', comment: 'All good.' }]);
 
-    renderPage();
+    const router = renderPage();
+    fireEvent.click(screen.getAllByRole('link', { name })[0]);
+    const backLink = await screen.findByRole('link', { name: 'Back to Submission History' });
+    expect(router.state.location).toMatchObject({
+      pathname: '/submission-history/9001',
+      state: { from: '/submission-history' },
+    });
+    expect(backLink).toHaveAttribute('href', '/submission-history');
+    fireEvent.click(backLink);
 
     const pageSelect = await screen.findByLabelText(/page of \d+ pages/i);
     expect((pageSelect as HTMLSelectElement).value).toBe('2');
+    expect(mockListQuery).toHaveBeenLastCalledWith({ page: 1, size: 20, sort: 'submissionDate,desc' });
+    expect(screen.getByRole('columnheader', { name: /submission date/i })).toHaveAttribute('aria-sort', 'descending');
 
     expect(screen.getByTestId('invoice-comments-panel-101')).toBeInTheDocument();
 

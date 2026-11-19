@@ -3,7 +3,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
+import { MockAuthProvider } from '@/context/auth/MockAuthProvider';
+import { MOCK_FOREST_CLIENTS_KEY, MOCK_ROLE_KEY } from '@/context/auth/mockUser';
 import PageTitleProvider from '@/context/pageTitle/PageTitleProvider';
+
+import { ViewSubmissionPage } from './index';
 
 const useSubmissionDetailQuery = vi.fn();
 
@@ -11,27 +15,25 @@ vi.mock('@/services/submissionHistory.service', () => ({
   useSubmissionDetailQuery: (id: string | undefined) => useSubmissionDetailQuery(id),
 }));
 
-const canOpenInvoice = vi.fn(() => true);
-vi.mock('@/context/auth/usePermission', () => ({ usePermission: () => canOpenInvoice() }));
-
 afterEach(() => {
-  canOpenInvoice.mockReturnValue(true);
+  localStorage.removeItem(MOCK_ROLE_KEY);
+  localStorage.removeItem(MOCK_FOREST_CLIENTS_KEY);
 });
-
-import { ViewSubmissionPage } from './index';
 
 // Mounted through a real route so useParams() actually resolves — rendering the
 // page bare leaves the param undefined and hides a route/param mismatch.
-function renderPage(submissionId = '9001') {
+function renderPage(submissionId = '9001', state?: { from: string }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/submission-history/${submissionId}`]}>
-        <PageTitleProvider>
-          <Routes>
-            <Route path="/submission-history/:submissionId" element={<ViewSubmissionPage />} />
-          </Routes>
-        </PageTitleProvider>
+      <MemoryRouter initialEntries={[{ pathname: `/submission-history/${submissionId}`, state }]}>
+        <MockAuthProvider>
+          <PageTitleProvider>
+            <Routes>
+              <Route path="/submission-history/:submissionId" element={<ViewSubmissionPage />} />
+            </Routes>
+          </PageTitleProvider>
+        </MockAuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -39,7 +41,7 @@ function renderPage(submissionId = '9001') {
 
 const sampleDetail = {
   cspSubmissionId: 42,
-  submissionId: 'SUB-42',
+  submissionId: '9001',
   submissionDate: '2025-11-10',
   submittedBy: 'Emily Davis',
   submissionStatus: 'Inbox',
@@ -163,7 +165,11 @@ describe('ViewSubmissionPage', () => {
   it('renders submission detail, the invoices summary and invoice rows', () => {
     useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false, error: null });
     renderPage();
-    expect(screen.getByRole('heading', { name: /view submission/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Submission 9001' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to Submission History' })).toHaveAttribute(
+      'href',
+      '/submission-history',
+    );
     expect(screen.getByText('INTERFOR CORPORATION', { exact: false })).toBeInTheDocument();
     // Summary line counts: 2 invoices, 3 line items.
     expect(screen.getByText(/2 invoices · 3 line items/)).toBeInTheDocument();
@@ -174,16 +180,25 @@ describe('ViewSubmissionPage', () => {
     expect(screen.getByRole('link', { name: 'INV-101' })).toBeInTheDocument();
   });
 
-  it('shows plain invoice numbers to a user who cannot open invoice details, such as a submitter', () => {
-    canOpenInvoice.mockReturnValue(false);
-    useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false });
+  it.each([undefined, { from: '/inbox' }])(
+    'returns a submitter to History and shows plain invoice numbers',
+    (state) => {
+      localStorage.setItem(MOCK_ROLE_KEY, 'SUBMITTER');
+      localStorage.setItem(MOCK_FOREST_CLIENTS_KEY, sampleDetail.clientNumber);
+      useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false });
 
-    renderPage();
+      renderPage('9001', state);
 
-    expect(screen.getByText('INV-100')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'INV-100' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'INV-101' })).not.toBeInTheDocument();
-  });
+      expect(screen.getByRole('heading', { name: 'Submission 9001' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Back to Submission History' })).toHaveAttribute(
+        'href',
+        '/submission-history',
+      );
+      expect(screen.getByText('INV-100')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'INV-100' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'INV-101' })).not.toBeInTheDocument();
+    },
+  );
 
   it('strips the mailto: prefix from the email address', () => {
     useSubmissionDetailQuery.mockReturnValue({ data: sampleDetail, isLoading: false, isError: false, error: null });
