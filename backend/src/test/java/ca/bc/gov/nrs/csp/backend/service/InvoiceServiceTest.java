@@ -692,7 +692,7 @@ class InvoiceServiceTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"PRO, false", "DFT, true", "APP, false"})
+    @CsvSource({"UNA, false", "PRO, false", "DFT, true", "APP, false"})
     void dataEntryCannotCreateAReplacementForAnOriginalOutsideItsWriteScope(String status, boolean electronic) {
         loginWithRoles(Roles.ENTRY, Roles.VIEW);
         CreateInvoiceRequest request = createReplacing("REP", 900L);
@@ -769,7 +769,7 @@ class InvoiceServiceTest {
 
     @Test
     void update_replacesUnapprovedInvoice_cancelsItAlongsideTheNormalSave() {
-        loginWithRoles(Roles.ENTRY);
+        loginWithRoles(Roles.APPROVE);
         UpdateInvoiceRequest req = updateRequest();
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));

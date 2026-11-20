@@ -73,6 +73,14 @@ public class InvoiceService {
     private static final Set<String> REVIEW_QUEUE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_PROCESSING, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
+    /** Statuses an invoice can be submitted for review from. */
+    private static final Set<String> SUBMITTABLE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
+    /** Statuses in which Data Entry may change a manual invoice and its line items. */
+    private static final Set<String> DATA_ENTRY_EDITABLE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
     public static final String STALE_INVOICE_MESSAGE =
             "This invoice was changed by another user after you opened it. Refresh the page to see their changes, then try again.";
 
@@ -356,7 +364,7 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(id);
-        if (!isDraftOrUnapproved(existing.details().invStatus())) {
+        if (!SUBMITTABLE_STATUSES.contains(existing.details().invStatus())) {
             throw new ConflictException("Only draft or unapproved invoices can be submitted.");
         }
 
@@ -551,10 +559,12 @@ public class InvoiceService {
         LoadedInvoice replaced = loadInvoiceOrThrow(replacedId);
         String previousStatus = replaced.details().invStatus();
         if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
-        if (isDataEntryOnly() && (replaced.submissionNumber() != null || !isDraftOrUnapproved(previousStatus))) {
+        // Cancelling an Unapproved or Processing invoice is a review decision, so Data Entry replaces drafts only.
+        if (isDataEntryOnly() && (replaced.submissionNumber() != null
+                || !ConstantsCode.INVENTRYSTATUS_DRAFT.equals(previousStatus))) {
             throw new ConflictException("Ask an approver to save the replacement for invoice "
                     + replaced.details().invNumber()
-                    + ". Data Entry can replace manual invoices in Draft or Unapproved status.");
+                    + ". Data Entry can replace manual invoices in Draft status.");
         }
 
         invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
@@ -740,16 +750,11 @@ public class InvoiceService {
         LoadedInvoice invoice = loadInvoiceOrThrow(invoiceId);
         if (isDataEntryOnly()) {
             requireManualEntry(invoice.submissionNumber() == null);
-            if (!isDraftOrUnapproved(invoice.details().invStatus())) {
+            if (!DATA_ENTRY_EDITABLE_STATUSES.contains(invoice.details().invStatus())) {
                 throw new ConflictException("Data Entry may only change draft or unapproved invoices.");
             }
         }
         return invoice;
-    }
-
-    private static boolean isDraftOrUnapproved(String status) {
-        return ConstantsCode.INVENTRYSTATUS_DRAFT.equals(status)
-                || ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(status);
     }
 
     private record ResponseSnapshot(String version, List<LineItem> lines) {}

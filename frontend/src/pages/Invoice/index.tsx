@@ -130,6 +130,8 @@ const LINE_ITEM_EDITABLE_STATUSES = new Set(['DFT', 'PRO', 'APP', 'UNA', 'REJ', 
 // Statuses in which Submit is offered (plus NEW / unsaved). Note PRO is NOT
 // submittable — a processing invoice is already submitted.
 const SUBMITTABLE_STATUSES = new Set(['DFT', 'UNA']);
+// Statuses in which Data Entry may change a manual invoice and its line items.
+const DATA_ENTRY_EDITABLE_STATUSES = new Set(['DFT', 'UNA']);
 // Statuses in which Duplicate is offered (existing invoices only).
 const DUPLICABLE_STATUSES = new Set(['DFT', 'PRO', 'UNA']);
 // Statuses in which Delete is offered (existing invoices only — not UNA).
@@ -887,7 +889,7 @@ export function InvoicePage() {
   const canUnapprovePerm = usePermission(INVOICE_DETAILS_UNAPPROVE);
 
   const isDataEntryOnly = currentUser?.privileges.includes('ENTRY') && !canApprovePerm;
-  const canChangeInvoice = !isDataEntryOnly || (isManual && SUBMITTABLE_STATUSES.has(currentStatus));
+  const canChangeInvoice = !isDataEntryOnly || (isManual && DATA_ENTRY_EDITABLE_STATUSES.has(currentStatus));
 
   // Brand-new invoice (no id) is editable; existing invoice is editable
   // only after it has loaded and has an editable status.

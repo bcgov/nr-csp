@@ -61,7 +61,8 @@ you add one.
   API enforces authorization.
 - `ENTRY` grants invoice search, detail reads and reference lookups. Its write permissions cover
   manual invoice creation, draft or unapproved invoice and line-item changes, and submission for
-  review. Approval decisions and reviewer-note changes require the corresponding staff role.
+  review. A replacement it saves may cancel only a manual draft. Approval decisions, cancellations
+  and reviewer-note changes require the corresponding staff role.
 - Swagger UI and the OpenAPI document are not public. They are off unless `API_DOCS_ENABLED=true`,
   which the OpenShift templates never pass, and even then need `ADMIN`, `APPROVE` or `VIEW`.
 - Sessions are stateless: no cookie, no server-side session. CSRF protection is disabled
