@@ -453,7 +453,7 @@ sequenceDiagram
     participant S as CSS (Keycloak)
     participant I as IDIR / Business BCeID
     participant B as CSP API
-    F->>S: Grant CSP_ADMIN / CSP_APPROVE / CSP_VIEW, or CSP_SUBMITTER per forest client
+    F->>S: Grant CSP_ADMIN / CSP_APPROVE / CSP_ENTRY / CSP_VIEW, or CSP_SUBMITTER per forest client
     U->>S: Authorization request with PKCE and a provider hint
     S->>I: Federated sign-in
     I-->>S: Authenticated identity
@@ -462,7 +462,7 @@ sequenceDiagram
     S-->>U: Access, ID and refresh tokens
     U->>B: /api request with bearer access token
     B->>B: Validate signature (JWKS), issuer, azp, typ, expiry and identity provider
-    B->>B: Map client_roles to ADMIN / APPROVE / VIEW, or SUBMITTER + FOREST_CLIENT-n
+    B->>B: Map client_roles to ADMIN / APPROVE / ENTRY / VIEW, or SUBMITTER + FOREST_CLIENT-n
     B-->>U: Response limited to the caller's ClientScope
     Note over U,S: Near expiry, one shared refresh renews the tokens
     opt VITE_OIDC_SITEMINDER_LOGOUT_URL is configured
@@ -505,8 +505,9 @@ the CSS realm's RS256 signature, exact issuer and `azp`, `typ=Bearer`, expiry, s
 identity provider, and directory username for auditing. Real auth requires
 `CSP_OIDC_ISSUER_URI` and `CSP_OIDC_CLIENT_ID`; the JWKS URI is derived from the issuer unless
 `CSP_OIDC_JWKS_URI` overrides it. `/api/health` is the only public path; the upload
-and submission-history endpoints admit an internal `ADMIN`, `APPROVE`, `VIEW` or `SUBMITTER`
-authority, and all other `/api/**` requests require `ADMIN`, `APPROVE`, or `VIEW`.
+and submission-history endpoints also admit `SUBMITTER`. Search, lookups, and manual invoice
+entry endpoints also admit `ENTRY`. The remaining `/api/**` requests require `ADMIN`,
+`APPROVE` or `VIEW`.
 
 **Mock auth.** `MockRequestFilter` is registered only when `auth.mock.enabled` is true and
 installs a synthetic authentication from `AUTH_MOCK_IDENTITY_PROVIDER` and `AUTH_MOCK_ROLES`, or
@@ -515,11 +516,11 @@ real tokens. It is an
 `Optional<MockRequestFilter>` injection, so when mock auth is off the filter does not exist in
 the context at all.
 
-**Role and action checks.** Internal roles are `ADMIN`, `APPROVE`, `VIEW`, and `SUBMITTER`, held
+**Role and action checks.** Internal roles are `ADMIN`, `APPROVE`, `ENTRY`, `VIEW`, and `SUBMITTER`, held
 as plain authorities with no `ROLE_` prefix; a submitter also holds one `FOREST_CLIENT-<number>`
 authority per client. CSS roles come from `client_roles`, falling back only to
 `resource_access.<configured client>.roles`, and match exactly but case-insensitively.
-`CSP_ADMIN`, `CSP_APPROVE`, and `CSP_VIEW` grant the staff authority to IDIR/IDIR MFA identities
+`CSP_ADMIN`, `CSP_APPROVE`, `CSP_ENTRY` and `CSP_VIEW` grant the staff authority to IDIR/IDIR MFA identities
 only.
 `CSP_SUBMITTER_FOREST_CLIENT-<8 digits>`, which FAM issues once per forest client for a
 forest-client-scoped role, grants `SUBMITTER` to Business BCeID identities only; it is parsed

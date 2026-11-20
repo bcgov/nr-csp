@@ -41,6 +41,7 @@ public final class PermissionConstants {
     public static final String INVOICE_DETAILS_CSV            = "invoiceDetails/CSV";
     public static final String INVOICE_DETAILS_CANCEL         = "invoiceDetails/Cancel";
     public static final String INVOICE_DETAILS_DELETE         = "invoiceDetails/Delete";
+    public static final String INVOICE_DETAILS_DELETE_LINE_ITEM = "invoiceDetails/Delete Line Item";
     public static final String INVOICE_DETAILS_DUPLICATE      = "invoiceDetails/Duplicate";
     public static final String INVOICE_DETAILS_NEW_LINE_ITEM  = "invoiceDetails/New Line Item";
     public static final String INVOICE_DETAILS_PDF            = "invoiceDetails/PDF";
@@ -245,6 +246,7 @@ public final class PermissionConstants {
             INBOX, INBOX_BACK, INBOX_CLEAR, INBOX_SEARCH,
             INVOICE_DETAILS, INVOICE_DETAILS_APPROVE, INVOICE_DETAILS_BACK,
             INVOICE_DETAILS_CSV, INVOICE_DETAILS_CANCEL, INVOICE_DETAILS_DELETE,
+            INVOICE_DETAILS_DELETE_LINE_ITEM,
             INVOICE_DETAILS_DUPLICATE, INVOICE_DETAILS_NEW_LINE_ITEM, INVOICE_DETAILS_PDF,
             INVOICE_DETAILS_PRINTS, INVOICE_DETAILS_REJECT, INVOICE_DETAILS_SAVE,
             INVOICE_DETAILS_SAVE_INVOICE, INVOICE_DETAILS_SUBMIT, INVOICE_DETAILS_UNAPPROVE,
@@ -303,6 +305,7 @@ public final class PermissionConstants {
             INBOX, INBOX_BACK, INBOX_CLEAR, INBOX_SEARCH,
             INVOICE_DETAILS, INVOICE_DETAILS_APPROVE, INVOICE_DETAILS_BACK,
             INVOICE_DETAILS_CSV, INVOICE_DETAILS_CANCEL, INVOICE_DETAILS_DELETE,
+            INVOICE_DETAILS_DELETE_LINE_ITEM,
             INVOICE_DETAILS_DUPLICATE, INVOICE_DETAILS_NEW_LINE_ITEM, INVOICE_DETAILS_PDF,
             INVOICE_DETAILS_PRINTS, INVOICE_DETAILS_REJECT, INVOICE_DETAILS_SAVE,
             INVOICE_DETAILS_SAVE_INVOICE, INVOICE_DETAILS_SUBMIT, INVOICE_DETAILS_UNAPPROVE,
@@ -372,6 +375,14 @@ public final class PermissionConstants {
             SUBMISSION_UPLOAD, SUBMISSION_HISTORY
     );
 
+    /** IDIR staff who enter industry invoices received outside ESF. */
+    public static final Set<String> ENTRY_ACTIONS = Set.of(
+            SEARCH, SEARCH_BACK, SEARCH_CLEAR, SEARCH_DETAILS, SEARCH_SEARCH,
+            INVOICE_DETAILS, INVOICE_DETAILS_BACK, INVOICE_DETAILS_SAVE, INVOICE_DETAILS_SAVE_INVOICE,
+            INVOICE_DETAILS_SUBMIT, INVOICE_DETAILS_NEW_LINE_ITEM, INVOICE_DETAILS_UPDATE_GROUP,
+            INVOICE_DETAILS_DELETE_LINE_ITEM
+    );
+
     /** SUBMITTER (Business BCeID) may only upload XML and see submission history, for its own clients. */
     public static final Set<String> SUBMITTER_ACTIONS = Set.of(
             SUBMISSION_UPLOAD, SUBMISSION_HISTORY
@@ -381,6 +392,7 @@ public final class PermissionConstants {
     public static final Map<String, Set<String>> ROLE_PERMISSIONS = Map.of(
             Roles.ADMIN,     ADMIN_ACTIONS,
             Roles.APPROVE,   APPROVE_ACTIONS,
+            Roles.ENTRY,     ENTRY_ACTIONS,
             Roles.VIEW,      VIEW_ACTIONS,
             Roles.SUBMITTER, SUBMITTER_ACTIONS
     );

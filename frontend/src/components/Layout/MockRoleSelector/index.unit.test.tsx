@@ -17,6 +17,7 @@ describe('MockRoleSelector', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'ADMIN' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'APPROVE' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'ENTRY' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'VIEW' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'SUBMITTER (BCeID)' })).toHaveValue('SUBMITTER');
   });

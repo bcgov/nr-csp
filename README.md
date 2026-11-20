@@ -129,7 +129,7 @@ Open `.env` and fill in the values:
 | `CSP_OIDC_CLIENT_ID` | real auth | Public CSS client ID |
 | `AUTH_MOCK_ENABLED` | for local dev | `true` enables backend mock auth — see [Authentication](#authentication) |
 | `AUTH_MOCK_IDENTITY_PROVIDER` | no | Mock user's identity provider: `idir` (default) or `bceidbusiness` |
-| `AUTH_MOCK_ROLES` | no | Mock user's FAM codes, comma-separated (`ADMIN`, `APPROVE`, `VIEW` are shorthand for `CSP_*`). Default `ADMIN` |
+| `AUTH_MOCK_ROLES` | no | Mock user's FAM codes, comma-separated (`ADMIN`, `APPROVE`, `ENTRY`, `VIEW` are shorthand for `CSP_*`). Default `ADMIN` |
 | `API_DOCS_ENABLED` | for local dev | `true` serves Swagger UI and the OpenAPI document. Off by default, and never set in deployed environments |
 | `JAVA_OPTS` | no | JVM flags for the backend container; defaults to container-aware heap sizing |
 
@@ -275,6 +275,7 @@ for that identity provider. Everything else is denied, by the API and, to match 
 | --- | --- | --- | --- |
 | IDIR / IDIR MFA | `CSP_ADMIN` | `ADMIN` | Existing admin permissions |
 | IDIR / IDIR MFA | `CSP_APPROVE` | `APPROVE` | Existing entry and review permissions |
+| IDIR / IDIR MFA | `CSP_ENTRY` | `ENTRY` (Data Entry) | Search and view invoices, create manual drafts, edit manual draft or unapproved invoices and their line items, and submit them for review |
 | IDIR / IDIR MFA | `CSP_VIEW` | `VIEW` | Existing read/export permissions |
 | Business BCeID | `CSP_SUBMITTER_FOREST_CLIENT-<8 digits>`, one per client | `SUBMITTER` | Upload XML submissions and see submission history, for those clients only |
 
@@ -282,6 +283,12 @@ for that identity provider. Everything else is denied, by the API and, to match 
   foreign-app roles, and any other identity provider grant nothing.
 - Staff codes never apply to a Business BCeID token, and `CSP_SUBMITTER` never applies to an IDIR
   token.
+- Provision `CSP_ENTRY` as an unscoped role on the CSP integration in modern FAM. It is for ministry
+  staff entering invoice data received from industry outside ESF. The role grants Search and
+  Invoice access. Submission sends the invoice to Processing for staff review.
+  Saving a replacement cancels the original invoice. Data Entry can cancel only a manual Draft
+  original this way, because cancelling an Unapproved or Processing invoice is a review decision.
+  An approver saves the replacement for any other original.
 - `CSP_SUBMITTER` must exist in FAM as a **forest-client-scoped** role. FAM then issues
   `CSP_SUBMITTER_FOREST_CLIENT-00012345` for each client granted, never the bare code. CSP parses
   it as FAM's `CssRoleNaming.parse` does (suffixes stripped from the right), and accepts only that
@@ -312,7 +319,7 @@ in sync.** The FAM-code mapping is mirrored the same way: `CspAuthorities.java` 
 `famRoles.ts` in the frontend. Each route names its page action in `routes/access.ts`.
 
 Locally, `AUTH_MOCK_IDENTITY_PROVIDER` and `AUTH_MOCK_ROLES` set the backend's default mock user;
-FAM codes are mapped exactly as a real token's are, and `ADMIN`, `APPROVE` and `VIEW` are
+FAM codes are mapped exactly as a real token's are, and `ADMIN`, `APPROVE`, `ENTRY` and `VIEW` are
 shorthand for the staff codes. The UI's mock role selector (`components/Layout/MockRoleSelector`)
 switches between the staff roles and `SUBMITTER (BCeID)` without a restart, and sends the chosen
 identity to the backend with each request, so the API enforces what the UI shows. A mock

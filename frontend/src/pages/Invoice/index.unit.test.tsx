@@ -3,6 +3,8 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { ROLE_PERMISSIONS, type Role } from '@/context/auth/permissions';
+
 import { InvoicePage } from './index';
 
 // ---------------------------------------------------------------------------
@@ -22,9 +24,10 @@ const h = vi.hoisted(() => {
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
     usePermission: vi.fn((_action: string) => true),
-    authUser: { username: 'keycloak-sub', idirUsername: 'TESTUSER' } as {
+    authUser: { username: 'keycloak-sub', idirUsername: 'TESTUSER', privileges: ['ADMIN'] } as {
       username: string;
       idirUsername?: string;
+      privileges: Role[];
     } | null,
     params: { id: undefined as string | undefined },
     invoiceQuery: { data: undefined as unknown, isLoading: false },
@@ -192,7 +195,7 @@ beforeEach(() => {
   h.params.id = undefined;
   h.invoiceQuery = { data: undefined, isLoading: false };
   h.usePermission.mockReturnValue(true);
-  h.authUser = { username: 'keycloak-sub', idirUsername: 'TESTUSER' };
+  h.authUser = { username: 'keycloak-sub', idirUsername: 'TESTUSER', privileges: ['ADMIN'] };
   h.getClientsByNumber.mockResolvedValue([CLIENT]);
   h.getClientsByName.mockResolvedValue([CLIENT]);
   Object.values(h.mutations).forEach((m) => {
@@ -232,7 +235,7 @@ describe('InvoicePage — rendering', () => {
   });
 
   it('falls back to the Keycloak subject when no directory username claim is present', () => {
-    h.authUser = { username: 'keycloak-sub' };
+    h.authUser = { username: 'keycloak-sub', privileges: ['ADMIN'] };
     renderPage();
     expect(screen.getByText('keycloak-sub')).toBeInTheDocument();
   });
@@ -380,6 +383,53 @@ describe('InvoicePage — button enablement by status', () => {
     expect(screen.getByLabelText('Client primary sort code')).toBeDisabled();
     // The reviewer comment stays editable so the invoice can be unapproved.
     expect(screen.getByLabelText('Reviewer comment')).toBeEnabled();
+  });
+});
+
+describe('InvoicePage — Data Entry', () => {
+  beforeEach(() => {
+    h.authUser!.privileges = ['ENTRY'];
+    h.usePermission.mockImplementation((action) => ROLE_PERMISSIONS.ENTRY.has(action));
+  });
+
+  it('can enter details before a manual draft exists', async () => {
+    renderPage();
+    const invoiceNumber = screen.getByRole('textbox', { name: /Invoice number$/i });
+    expect(invoiceNumber).toBeEnabled();
+    await userEvent.type(invoiceNumber, 'MANUAL-01');
+    expect(invoiceNumber).toHaveValue('MANUAL-01');
+  });
+
+  it('omits the stored reviewer note when saving a manual draft', async () => {
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null, reviewComments: 'Stored reviewer note' });
+    expect(screen.getByLabelText('Reviewer comment')).toHaveValue('Stored reviewer note');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(h.mutations.update.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ reviewComments: null }) }),
+      expect.any(Object),
+    );
+  });
+
+  it.each(['DFT', 'UNA'])('can change and submit a manual invoice with status %s', async (invStatus) => {
+    await renderLoaded({ invStatus, submissionNumber: null });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add new item' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete', exact: true })).toBeDisabled();
+    expect(screen.getByLabelText('Reviewer comment')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Export table' })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { invStatus: 'DFT', submissionNumber: 67890 },
+    { invStatus: 'PRO', submissionNumber: null },
+  ])('shows read-only invoice details for $invStatus and submission $submissionNumber', async (invoice) => {
+    await renderLoaded(invoice);
+    expect(screen.getByDisplayValue('INV-001')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Add new item' })).not.toBeInTheDocument();
   });
 });
 

@@ -13,13 +13,14 @@ import './index.scss';
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Admin',
   APPROVE: 'Approver',
+  ENTRY: 'Data Entry',
   VIEW: 'Viewer',
   SUBMITTER: 'Submitter',
 };
 
 // A user can hold several privileges; show the highest one, matching the single
 // "Role: …" line in the design.
-const ROLE_PRECEDENCE: Role[] = ['ADMIN', 'APPROVE', 'VIEW', 'SUBMITTER'];
+const ROLE_PRECEDENCE: Role[] = ['ADMIN', 'APPROVE', 'ENTRY', 'VIEW', 'SUBMITTER'];
 
 const primaryRoleLabel = (privileges: Role[]): string | undefined => {
   const role = ROLE_PRECEDENCE.find((r) => privileges.includes(r));

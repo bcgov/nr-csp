@@ -18,7 +18,7 @@ class ClientScopeTest {
 
     @Test
     void staffSeeEveryClient() {
-        for (String role : List.of("ADMIN", "APPROVE", "VIEW")) {
+        for (String role : List.of("ADMIN", "APPROVE", "ENTRY", "VIEW")) {
             ClientScope scope = ClientScope.from(authorities(role));
             assertThat(scope.isUnrestricted()).isTrue();
             assertThat(scope.permits("00000001")).isTrue();

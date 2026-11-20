@@ -24,7 +24,7 @@ export interface AuthUser {
    */
   roles: string[];
   /**
-   * App-level roles from `privilegesFromFamRoles`: ADMIN, APPROVE or VIEW for IDIR staff,
+   * App-level roles from `privilegesFromFamRoles`: ADMIN, APPROVE, ENTRY or VIEW for IDIR staff,
    * SUBMITTER for Business BCeID. Empty means no CSP access.
    */
   privileges: Role[];

@@ -29,9 +29,10 @@ public class PermissionService {
         if (auth == null) return false;
         return auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
-                .anyMatch(role -> {
-                    Set<String> actions = ROLE_PERMISSIONS.getOrDefault(role, Set.of());
-                    return actions.contains(action);
-                });
+                .anyMatch(role -> roleGrants(role, action));
+    }
+
+    static boolean roleGrants(String role, String action) {
+        return ROLE_PERMISSIONS.getOrDefault(role, Set.of()).contains(action);
     }
 }

@@ -94,7 +94,7 @@ public class InvoiceController implements InvoiceApi {
     }
 
     @Override
-    @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Delete')")
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Delete Line Item')")
     public ResponseEntity<InvoiceResponse> deleteLineItem(Long id, Long lineId, String expectedVersion) {
         log.info("DELETE /api/invoices/{}/line-items/{}", id, lineId);
         return ResponseEntity.ok(invoiceService.deleteLineItem(id, lineId, expectedVersion));

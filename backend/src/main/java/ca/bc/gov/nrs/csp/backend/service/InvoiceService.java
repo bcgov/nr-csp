@@ -35,6 +35,8 @@ import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.mapper.InvoiceMapper;
 import ca.bc.gov.nrs.csp.backend.util.constants.ActionType;
 import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
+import ca.bc.gov.nrs.csp.backend.util.constants.PermissionConstants;
+import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
@@ -42,6 +44,7 @@ import ca.bc.gov.nrs.csp.backend.invoice.manual.InvoiceValidator;
 import ca.bc.gov.nrs.csp.backend.invoice.manual.ManualInvoiceTotals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,6 +72,14 @@ public class InvoiceService {
      */
     private static final Set<String> REVIEW_QUEUE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_PROCESSING, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
+    /** Statuses an invoice can be submitted for review from. */
+    private static final Set<String> SUBMITTABLE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
+    /** Statuses in which Data Entry may change a manual invoice and its line items. */
+    private static final Set<String> DATA_ENTRY_EDITABLE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
     public static final String STALE_INVOICE_MESSAGE =
             "This invoice was changed by another user after you opened it. Refresh the page to see their changes, then try again.";
@@ -118,10 +129,9 @@ public class InvoiceService {
         ValidationResult validation = newValidator()
                 .validate(loaded.details(), lines, manual, ActionType.OTHER);
 
-        // Flat-price conversion is only re-run (and its warnings surfaced) when
-        // the invoice is PROCESSING. For every other status the stored converted
-        // prices are displayed as-is and no conversion warnings are added.
-        if (ConstantsCode.INVENTRYSTATUS_PROCESSING.equals(loaded.details().invStatus())) {
+        // Reading a processing invoice normally recalculates and persists converted prices.
+        // Data Entry reads the stored prices so opening an invoice cannot change it.
+        if (ConstantsCode.INVENTRYSTATUS_PROCESSING.equals(loaded.details().invStatus()) && !isDataEntryOnly()) {
             String user = SecurityContextUtils.requireUsername();
             PriceConversionService.Result conversion = priceConversionService
                     .apply(lines, loaded.details().maturity(), loaded.details().invoiceDate());
@@ -144,9 +154,16 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse create(CreateInvoiceRequest request) {
+        boolean dataEntryOnly = isDataEntryOnly();
+        if (dataEntryOnly) {
+            requireManualEntry(request.manual());
+        }
         String user = SecurityContextUtils.requireUsername();
         List<LineItem> lines = mapper.toLineItems(request.lineItems(), null, request.invType());
         InvoiceDetails details = withChannelTotals(mapper.toDetails(request, user), lines, request.manual());
+        if (dataEntryOnly) {
+            details = withReviewComments(details, null);
+        }
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on create.");
@@ -207,8 +224,11 @@ public class InvoiceService {
         // lock the header, so one can commit after the check; it must be kept, not deleted as dropped.
         Set<Long> existingLineIds = new HashSet<>(lineItemRepo.findIdsByInvoiceId(id));
         requireCurrentVersion(id, expectedVersion);
-        LoadedInvoice existing = invoiceRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
+        LoadedInvoice existing = loadInvoiceForEntryAction(id);
+        boolean dataEntryOnly = isDataEntryOnly();
+        if (dataEntryOnly) {
+            requireManualEntry(request.manual());
+        }
         String existingStatus = existing.details().invStatus();
         // The header detail fields are read-only on approved, rejected, and
         // cancelled invoices (parity with the legacy app); only DFT/PRO/UNA can
@@ -224,6 +244,9 @@ public class InvoiceService {
         InvoiceDetails details = withChannelTotals(
                 mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID()),
                 lines, request.manual());
+        if (dataEntryOnly) {
+            details = withReviewComments(details, existing.details().reviewComments());
+        }
 
         ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on update.");
@@ -340,11 +363,8 @@ public class InvoiceService {
     public InvoiceResponse submit(Long id, String expectedVersion) {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(id, expectedVersion);
-        LoadedInvoice existing = invoiceRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
-        String status = existing.details().invStatus();
-        if (!ConstantsCode.INVENTRYSTATUS_DRAFT.equals(status)
-                && !ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(status)) {
+        LoadedInvoice existing = loadInvoiceForEntryAction(id);
+        if (!SUBMITTABLE_STATUSES.contains(existing.details().invStatus())) {
             throw new ConflictException("Only draft or unapproved invoices can be submitted.");
         }
 
@@ -539,6 +559,13 @@ public class InvoiceService {
         LoadedInvoice replaced = loadInvoiceOrThrow(replacedId);
         String previousStatus = replaced.details().invStatus();
         if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
+        // Cancelling an Unapproved or Processing invoice is a review decision, so Data Entry replaces drafts only.
+        if (isDataEntryOnly() && (replaced.submissionNumber() != null
+                || !ConstantsCode.INVENTRYSTATUS_DRAFT.equals(previousStatus))) {
+            throw new ConflictException("Ask an approver to save the replacement for invoice "
+                    + replaced.details().invNumber()
+                    + ". Data Entry can replace manual invoices in Draft status.");
+        }
 
         invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
         log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
@@ -557,7 +584,7 @@ public class InvoiceService {
     public InvoiceResponse addLineItem(Long invoiceId, String expectedVersion, LineItemRequest request) {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(invoiceId, expectedVersion);
-        LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
+        LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
         requireAddLineItemAllowed(existing);
         // Build the candidate set: every existing line plus the new one. Run
         // the full invoice validator against the full set so totals-variance
@@ -580,7 +607,7 @@ public class InvoiceService {
     public InvoiceResponse updateLineItem(Long invoiceId, Long lineId, String expectedVersion, LineItemRequest request) {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(invoiceId, expectedVersion);
-        LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
+        LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
@@ -607,7 +634,7 @@ public class InvoiceService {
     public InvoiceResponse deleteLineItem(Long invoiceId, Long lineId, String expectedVersion) {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(invoiceId, expectedVersion);
-        LoadedInvoice existing = loadInvoiceOrThrow(invoiceId);
+        LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         lineItemRepo.deleteLineItem(lineId);
@@ -704,6 +731,30 @@ public class InvoiceService {
     private LoadedInvoice loadInvoiceOrThrow(Long invoiceId) {
         return invoiceRepo.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + invoiceId + " was not found."));
+    }
+
+    private static boolean isDataEntryOnly() {
+        List<String> roles = SecurityContextUtils.currentRoles();
+        return roles.contains(Roles.ENTRY) && roles.stream()
+                .noneMatch(role -> PermissionService.roleGrants(role, PermissionConstants.INVOICE_DETAILS_APPROVE));
+    }
+
+    private static void requireManualEntry(boolean manual) {
+        if (!manual) {
+            throw new AuthorizationDeniedException("Data Entry may only write manually entered invoices.");
+        }
+    }
+
+    // Called after the invoice revision is checked and locked.
+    private LoadedInvoice loadInvoiceForEntryAction(Long invoiceId) {
+        LoadedInvoice invoice = loadInvoiceOrThrow(invoiceId);
+        if (isDataEntryOnly()) {
+            requireManualEntry(invoice.submissionNumber() == null);
+            if (!DATA_ENTRY_EDITABLE_STATUSES.contains(invoice.details().invStatus())) {
+                throw new ConflictException("Data Entry may only change draft or unapproved invoices.");
+            }
+        }
+        return invoice;
     }
 
     private record ResponseSnapshot(String version, List<LineItem> lines) {}

@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.filter;
 
 import ca.bc.gov.nrs.csp.backend.security.CspAuthorities;
+import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,7 +18,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Local-dev-only filter that injects a mock authenticated user into the SecurityContext.
@@ -34,9 +34,6 @@ public class MockRequestFilter extends OncePerRequestFilter {
 
     public static final String IDENTITY_PROVIDER_HEADER = "X-Mock-Identity-Provider";
     public static final String ROLES_HEADER = "X-Mock-Roles";
-
-    /** Shorthand in auth.mock.roles for CSP_ADMIN, CSP_APPROVE and CSP_VIEW. */
-    private static final Set<String> STAFF_SHORTHAND = Set.of("ADMIN", "APPROVE", "VIEW");
 
     private final String mockUsername;
     private final String mockIdentityProvider;
@@ -74,7 +71,7 @@ public class MockRequestFilter extends OncePerRequestFilter {
         List<String> famRoles = Arrays.stream(roles.split(","))
                 .map(String::trim)
                 .filter(role -> !role.isEmpty())
-                .map(role -> STAFF_SHORTHAND.contains(role) ? "CSP_" + role : role)
+                .map(role -> Roles.STAFF_ROLES.contains(role) ? "CSP_" + role : role)
                 .toList();
         return CspAuthorities.fromFamRoles(identityProvider, famRoles);
     }

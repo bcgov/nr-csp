@@ -14,7 +14,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 /**
  * Maps an identity provider and its FAM role codes to CSP authorities, for real tokens and the
- * mock user alike. IDIR gets ADMIN, APPROVE or VIEW from CSP_ADMIN, CSP_APPROVE or CSP_VIEW.
+ * mock user alike. IDIR staff roles come from their exact unscoped CSP_ codes.
  * Business BCeID gets SUBMITTER plus one forest-client authority per 8-digit
  * CSP_SUBMITTER_FOREST_CLIENT-00012345 role. Anything else gets nothing. Codes are trimmed and
  * upper-cased first, as in LEXIS.
@@ -27,7 +27,6 @@ public final class CspAuthorities {
     /** The industry role, scoped per forest client in FAM. */
     public static final String FAM_SUBMITTER = "CSP_SUBMITTER";
 
-    private static final List<String> STAFF_ROLES = List.of(Roles.ADMIN, Roles.APPROVE, Roles.VIEW);
     private static final Pattern CLIENT_NUMBER = Pattern.compile("[0-9]{8}");
 
     private CspAuthorities() {}
@@ -39,7 +38,7 @@ public final class CspAuthorities {
                 .filter(role -> !role.isEmpty() && !CssRoleNaming.isSidecarRole(role))
                 .toList();
         if (identityProvider != null && STAFF_PROVIDERS.contains(identityProvider)) {
-            return STAFF_ROLES.stream()
+            return Roles.STAFF_ROLES.stream()
                     .filter(role -> roles.contains("CSP_" + role))
                     .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role))
                     .toList();

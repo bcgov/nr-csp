@@ -5,6 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { InvoicePage } from './index';
 
+import type { Role } from '@/context/auth/permissions';
+
 // ---------------------------------------------------------------------------
 // Shared, hoisted mock state — adapted from index.unit.test.tsx. Adds a
 // controllable `extractValidationErrors` so error paths can return
@@ -25,9 +27,10 @@ const h = vi.hoisted(() => {
     getClientsByNumber: vi.fn(),
     getClientsByName: vi.fn(),
     usePermission: vi.fn((_action: string) => true),
-    authUser: { username: 'keycloak-sub', idirUsername: 'TESTUSER' } as {
+    authUser: { username: 'keycloak-sub', idirUsername: 'TESTUSER', privileges: ['ADMIN'] } as {
       username: string;
       idirUsername?: string;
+      privileges: Role[];
     } | null,
     extractValidationErrors: vi.fn((_err: unknown): unknown[] => []),
     params: { id: undefined as string | undefined },
@@ -232,7 +235,7 @@ beforeEach(() => {
   h.params.id = undefined;
   h.invoiceQuery = { data: undefined, isLoading: false };
   h.usePermission.mockReturnValue(true);
-  h.authUser = { username: 'keycloak-sub', idirUsername: 'TESTUSER' };
+  h.authUser = { username: 'keycloak-sub', idirUsername: 'TESTUSER', privileges: ['ADMIN'] };
   h.getClientsByNumber.mockResolvedValue([CLIENT]);
   h.getClientsByName.mockResolvedValue([CLIENT]);
   h.extractValidationErrors.mockReset();

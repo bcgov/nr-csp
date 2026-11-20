@@ -17,7 +17,6 @@ import org.springframework.security.core.GrantedAuthority;
 public final class ClientScope {
 
     private static final ClientScope ALL_CLIENTS = new ClientScope(null);
-    private static final Set<String> STAFF_ROLES = Set.of(Roles.ADMIN, Roles.APPROVE, Roles.VIEW);
 
     private final List<String> clientNumbers;
 
@@ -39,7 +38,7 @@ public final class ClientScope {
     /** Staff get every client, a submitter with clients gets those, and anyone else a 403. */
     public static ClientScope from(Collection<? extends GrantedAuthority> authorities) {
         Set<String> names = authorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
-        boolean staff = names.stream().anyMatch(STAFF_ROLES::contains);
+        boolean staff = names.stream().anyMatch(Roles.STAFF_ROLES::contains);
         boolean submitter = names.contains(Roles.SUBMITTER);
         List<String> clients = names.stream()
                 .filter(name -> name.startsWith(Roles.FOREST_CLIENT_PREFIX))
