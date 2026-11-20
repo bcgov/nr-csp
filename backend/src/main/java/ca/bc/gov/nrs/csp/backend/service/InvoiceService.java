@@ -81,6 +81,10 @@ public class InvoiceService {
     private static final Set<String> DATA_ENTRY_EDITABLE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
+    // Same as the UI's DELETABLE_STATUSES, so the API refuses what the page never offers.
+    private static final Set<String> DELETABLE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_PROCESSING);
+
     public static final String STALE_INVOICE_MESSAGE =
             "This invoice was changed by another user after you opened it. Refresh the page to see their changes, then try again.";
 
@@ -300,8 +304,11 @@ public class InvoiceService {
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
-        if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(existing.details().invStatus())) {
-            throw new ConflictException("Approved invoices cannot be deleted; unapprove first.");
+        if (existing.submissionNumber() != null) {
+            throw new ConflictException("Cannot delete an electronic invoice.");
+        }
+        if (!DELETABLE_STATUSES.contains(existing.details().invStatus())) {
+            throw new ConflictException("Only draft or processing invoices can be deleted.");
         }
 
         // Legacy parity: snapshot the header and every line as 'D' audit rows before anything is removed.

@@ -179,6 +179,11 @@ class InvoiceServiceTest {
         return new LoadedInvoice(d, submissionId, null, null, null, CURRENT_VERSION);
     }
 
+    // A deletable invoice: manual draft with buyer and seller participant rows 50 and 60.
+    private LoadedInvoice loadedManualWithParticipants() {
+        return new LoadedInvoice(draftDetails(1L), 10L, 50L, 60L, null, CURRENT_VERSION);
+    }
+
     private LineItem line(Long id, BigDecimal converted) {
         return new LineItem(id, 100L, "SORT01", "CS01", "FIR", "Fir", "G1",
                 10, new BigDecimal("10.00"), new BigDecimal("5.0"), converted, new BigDecimal("100.00"));
@@ -617,18 +622,45 @@ class InvoiceServiceTest {
         verify(submissionRepo, never()).delete(anyLong());
     }
 
-    // An ESF submission is a record of a real transmission — it carries the business submission
-    // number and the submitter's contact details — so it is kept even once its last invoice is
-    // gone. `loaded(...)` sets a non-null submissionNumber, which is how the service tells them
-    // apart.
+    // Legacy refuses to delete an electronic (ESF) invoice. `loaded(...)` sets a non-null
+    // submissionNumber, which is how the service tells them apart.
     @Test
-    void delete_esfInvoice_keepsTheSubmissionEvenWhenEmpty() {
+    void delete_electronicInvoice_refusedBeforeAnyWrite() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
-        lenient().when(invoiceRepo.countByCspSubmissionId(10L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.delete(1L, CURRENT_VERSION))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Cannot delete an electronic invoice.");
+        verify(invoiceRepo, never()).insertDeleteAudit(anyLong(), any());
+        verify(lineItemRepo, never()).auditAndDeleteAllByInvoiceId(anyLong(), any());
+        verify(invoiceRepo, never()).deleteInvoice(anyLong());
+        verify(submissionRepo, never()).delete(anyLong());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"APP", "UNA", "REJ", "CAN"})
+    void delete_statusTheUiDoesNotOfferDelete_refusedBeforeAnyWrite(String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(
+                loadedManual(details(1L, status, "5678", null, "Seller"), 10L)));
+
+        assertThatThrownBy(() -> service.delete(1L, CURRENT_VERSION))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Only draft or processing invoices can be deleted.");
+        verify(invoiceRepo, never()).insertDeleteAudit(anyLong(), any());
+        verify(lineItemRepo, never()).auditAndDeleteAllByInvoiceId(anyLong(), any());
+        verify(invoiceRepo, never()).deleteInvoice(anyLong());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DFT", "PRO"})
+    void delete_draftOrProcessingManualInvoice_isDeleted(String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(
+                loadedManual(details(1L, status, "5678", null, "Seller"), 10L)));
 
         service.delete(1L, CURRENT_VERSION);
 
-        verify(submissionRepo, never()).delete(anyLong());
+        verify(invoiceRepo).insertDeleteAudit(1L, USER);
+        verify(invoiceRepo).deleteInvoice(1L);
     }
 
     @Test
@@ -845,17 +877,8 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void delete_approvedInvoice_throwsConflict() {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "APP", "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.delete(1L, CURRENT_VERSION)).isInstanceOf(ConflictException.class);
-        verify(invoiceRepo, never()).insertDeleteAudit(anyLong(), any());
-        verify(lineItemRepo, never()).auditAndDeleteAllByInvoiceId(anyLong(), any());
-        verify(invoiceRepo, never()).deleteInvoice(anyLong());
-    }
-
-    @Test
     void delete_writesDeleteAuditSnapshotsBeforeRemovingAnyRow() {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManualWithParticipants()));
 
         service.delete(1L, CURRENT_VERSION);
 
@@ -870,7 +893,7 @@ class InvoiceServiceTest {
 
     @Test
     void delete_success_removesChildrenInvoiceAndParticipants() {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManualWithParticipants()));
 
         service.delete(1L, CURRENT_VERSION);
 

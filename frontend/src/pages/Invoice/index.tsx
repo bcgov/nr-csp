@@ -2414,7 +2414,7 @@ export function InvoicePage() {
                   className="invoice-page__action-btn invoice-page__action-btn--delete"
                   renderIcon={deleteMutation.isPending ? undefined : TrashCan}
                   onClick={requestDeleteInvoice}
-                  disabled={!canDelete || !canDeletePerm || anyMutationPending}
+                  disabled={!canDelete || !isManual || !canDeletePerm || anyMutationPending}
                 >
                   {actionLabel(deleteMutation.isPending, 'Delete')}
                 </Button>
