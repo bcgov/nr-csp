@@ -38,6 +38,7 @@ import ca.bc.gov.nrs.csp.backend.util.constants.ConstantsCode;
 import ca.bc.gov.nrs.csp.backend.util.constants.PermissionConstants;
 import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import ca.bc.gov.nrs.csp.backend.util.validation.CommonValidation;
+import ca.bc.gov.nrs.csp.backend.util.validation.MessageType;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationMessage;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.invoice.manual.InvoiceValidator;
@@ -115,7 +116,7 @@ public class InvoiceService {
     // GET
     // ---------------------------------------------------------------
 
-    @Transactional
+    @Transactional(readOnly = true)
     public InvoiceResponse getById(Long id) {
         log.debug("Loading invoice id={}", id);
         LoadedInvoice loaded = invoiceRepo.findById(id)
@@ -129,19 +130,13 @@ public class InvoiceService {
         ValidationResult validation = newValidator()
                 .validate(loaded.details(), lines, manual, ActionType.OTHER);
 
-        // Reading a processing invoice normally recalculates and persists converted prices.
-        // Data Entry reads the stored prices so opening an invoice cannot change it.
-        if (ConstantsCode.INVENTRYSTATUS_PROCESSING.equals(loaded.details().invStatus()) && !isDataEntryOnly()) {
-            String user = SecurityContextUtils.requireUsername();
+        // Processing invoices show a conversion preview without writing it, like legacy.
+        // Other statuses show the stored prices. Save, submit and approve persist the conversion.
+        if (ConstantsCode.INVENTRYSTATUS_PROCESSING.equals(loaded.details().invStatus())) {
             PriceConversionService.Result conversion = priceConversionService
                     .apply(lines, loaded.details().maturity(), loaded.details().invoiceDate());
-            for (LineItem line : conversion.lines()) {
-                lineItemRepo.updateConvertedPrice(line.lineItemID(), line.convertedPrice(), user);
-            }
             lines = conversion.lines();
-            List<ValidationMessage> messages = new ArrayList<>(validation.messages());
-            messages.addAll(conversion.warnings());
-            validation = new ValidationResult(messages);
+            validation = withConversionWarnings(validation, conversion);
         }
 
         return mapper.toResponse(loaded.details(), loaded.submissionId(), loaded.submissionNumber(), lines, validation,
@@ -480,6 +475,10 @@ public class InvoiceService {
         ValidationResult result = newValidator().validateForChangeStatus(withNewComments, request.status(), user);
         throwIfErrors(result, "Invoice failed validation on status change.");
 
+        if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(request.status())) {
+            persistConversionForApproval(id, existing.details(), user);
+        }
+
         if (request.reviewComments() != null) {
             invoiceRepo.updateReviewerNotes(id, request.reviewComments(), user);
         }
@@ -494,6 +493,22 @@ public class InvoiceService {
         ResponseSnapshot snapshot = readResponseSnapshot(id);
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), snapshot.lines(), result,
                 snapshot.version());
+    }
+
+    // Legacy approve re-runs the conversion with ERROR severity, so a factor-not-found or
+    // out-of-range message refuses approval before any write. Otherwise the prices are saved.
+    private void persistConversionForApproval(Long id, InvoiceDetails details, String user) {
+        PriceConversionService.Result conversion = priceConversionService.apply(
+                lineItemRepo.findByInvoiceId(id), details.maturity(), details.invoiceDate());
+        if (!conversion.warnings().isEmpty()) {
+            List<ValidationMessage> errors = conversion.warnings().stream()
+                    .map(message -> new ValidationMessage(message.messageKey(), message.args(), MessageType.ERROR))
+                    .toList();
+            throw new ValidationException("Invoice failed price conversion on approval.", new ValidationResult(errors));
+        }
+        for (LineItem line : conversion.lines()) {
+            lineItemRepo.updateConvertedPrice(line.lineItemID(), line.convertedPrice(), user);
+        }
     }
 
     /**

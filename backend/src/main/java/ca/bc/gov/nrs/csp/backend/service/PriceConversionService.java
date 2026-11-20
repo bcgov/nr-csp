@@ -68,7 +68,7 @@ public class PriceConversionService {
         this.lookupRepo = lookupRepo;
     }
 
-    /** Result of a conversion run: the updated lines and any non-blocking warnings. */
+    /** Result of a conversion run: the updated lines and any warnings. Approval treats the warnings as errors. */
     public record Result(List<LineItem> lines, List<ValidationMessage> warnings) {}
 
     /**
