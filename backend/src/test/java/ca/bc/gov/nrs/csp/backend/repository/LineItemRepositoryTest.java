@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.RowMapper;
@@ -26,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -337,38 +339,48 @@ class LineItemRepositoryTest {
     // ---------------------------------------------------------------
 
     @Test
-    void auditAndDeleteLineItem_snapshotsTheLineThenDeletesIt() {
+    void auditAndDeleteLineItem_locksSnapshotsThenDeletesTheLine() {
+        given(jdbc.update(anyString(), any(MapSqlParameterSource.class))).willReturn(1, 1);
+
         repo.auditAndDeleteLineItem(10L, "USER1");
 
+        InOrder inOrder = inOrder(jdbc);
+        inOrder.verify(jdbc).queryForList(
+                eq("SELECT coastal_log_sale_detail_id FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_detail_id = :id FOR UPDATE"),
+                any(MapSqlParameterSource.class), eq(Long.class));
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc, times(2)).update(sqlCaptor.capture(), paramsCaptor.capture());
+        inOrder.verify(jdbc, times(2)).update(sqlCaptor.capture(), paramsCaptor.capture());
         assertThat(sqlCaptor.getAllValues().get(0))
                 .contains("INSERT INTO THE.coastal_log_sale_detail_audit")
                 .contains("SELECT 'D', t.coastal_log_sale_detail_id")
                 .contains("t.entry_userid, t.entry_timestamp, :deletedByUserId, SYSDATE")
-                .endsWith("WHERE t.coastal_log_sale_detail_id = :lineItemId");
+                .endsWith("WHERE t.coastal_log_sale_detail_id = :id");
         assertThat(sqlCaptor.getAllValues().get(1))
-                .isEqualTo("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_detail_id = :lineItemId");
+                .isEqualTo("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_detail_id = :id");
         MapSqlParameterSource params = paramsCaptor.getAllValues().get(0);
-        assertThat(params.getValue("lineItemId")).isEqualTo(10L);
+        assertThat(params.getValue("id")).isEqualTo(10L);
         assertThat(params.getValue("deletedByUserId")).isEqualTo("USER1");
     }
 
     @Test
-    void auditAndDeleteAllByInvoiceId_snapshotsEveryLineThenDeletesThem() {
+    void auditAndDeleteAllByInvoiceId_locksSnapshotsThenDeletesEveryLine() {
         repo.auditAndDeleteAllByInvoiceId(12345L, "USER1");
 
+        InOrder inOrder = inOrder(jdbc);
+        inOrder.verify(jdbc).queryForList(
+                eq("SELECT coastal_log_sale_detail_id FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = :id FOR UPDATE"),
+                any(MapSqlParameterSource.class), eq(Long.class));
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc, times(2)).update(sqlCaptor.capture(), paramsCaptor.capture());
+        inOrder.verify(jdbc, times(2)).update(sqlCaptor.capture(), paramsCaptor.capture());
         assertThat(sqlCaptor.getAllValues().get(0))
                 .contains("INSERT INTO THE.coastal_log_sale_detail_audit")
-                .endsWith("WHERE t.coastal_log_sale_id = :invoiceId");
+                .endsWith("WHERE t.coastal_log_sale_id = :id");
         assertThat(sqlCaptor.getAllValues().get(1))
-                .isEqualTo("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = :invoiceId");
+                .isEqualTo("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = :id");
         MapSqlParameterSource params = paramsCaptor.getAllValues().get(0);
-        assertThat(params.getValue("invoiceId")).isEqualTo(12345L);
+        assertThat(params.getValue("id")).isEqualTo(12345L);
         assertThat(params.getValue("deletedByUserId")).isEqualTo("USER1");
     }
 
@@ -382,8 +394,8 @@ class LineItemRepositoryTest {
     }
 
     @Test
-    void auditAndDeleteLineItem_lineAlreadyDeletedAfterTheAudit_isRefusedSoTheTransactionRollsBack() {
-        given(jdbc.update(anyString(), any(MapSqlParameterSource.class))).willReturn(1, 0);
+    void auditAndDeleteLineItem_lineAlreadyGone_isRefusedInsteadOfReportingSuccess() {
+        given(jdbc.update(anyString(), any(MapSqlParameterSource.class))).willReturn(0, 0);
 
         assertThatThrownBy(() -> repo.auditAndDeleteLineItem(10L, "USER1"))
                 .isInstanceOf(ConflictException.class);

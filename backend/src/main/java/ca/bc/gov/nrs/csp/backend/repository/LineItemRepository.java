@@ -185,30 +185,35 @@ public class LineItemRepository {
             """;
 
     public void auditAndDeleteLineItem(Long lineItemId, String deletedByUserId) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("lineItemId", lineItemId)
-                .addValue("deletedByUserId", deletedByUserId);
-        int auditedLineCount = jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t.coastal_log_sale_detail_id = :lineItemId", params);
-        int deletedLineCount = jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_detail_id = :lineItemId", params);
-        requireDeletedLinesMatchAudit(auditedLineCount, deletedLineCount);
+        int deletedLineCount = lockAuditAndDelete("coastal_log_sale_detail_id = :id", lineItemId, deletedByUserId);
+        if (deletedLineCount != 1) {
+            throw lineItemsChangedConflict();
+        }
     }
 
     public void auditAndDeleteAllByInvoiceId(Long invoiceId, String deletedByUserId) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("invoiceId", invoiceId)
-                .addValue("deletedByUserId", deletedByUserId);
-        int auditedLineCount = jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t.coastal_log_sale_id = :invoiceId", params);
-        int deletedLineCount = jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = :invoiceId", params);
-        requireDeletedLinesMatchAudit(auditedLineCount, deletedLineCount);
+        lockAuditAndDelete("coastal_log_sale_id = :id", invoiceId, deletedByUserId);
     }
 
-    // Legacy line changes don't lock the header, so one can commit between the audit and the delete.
-    // Refuse rather than delete a line with no 'D' row; the caller's transaction rolls back.
-    private static void requireDeletedLinesMatchAudit(int auditedLineCount, int deletedLineCount) {
+    // Lock the lines first so none can change between its 'D' snapshot and its delete. Legacy line adds
+    // don't lock the header, so a new line can still appear; unequal counts refuse that and roll back.
+    private int lockAuditAndDelete(String lineFilter, Long id, String deletedByUserId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("deletedByUserId", deletedByUserId);
+        jdbc.queryForList("SELECT coastal_log_sale_detail_id FROM THE.coastal_log_sale_detail WHERE " + lineFilter
+                + " FOR UPDATE", params, Long.class);
+        int auditedLineCount = jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t." + lineFilter, params);
+        int deletedLineCount = jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE " + lineFilter, params);
         if (deletedLineCount != auditedLineCount) {
-            throw new ConflictException("This invoice's line items were changed by another user while deleting. "
-                    + "Refresh the page to see their changes, then try again.");
+            throw lineItemsChangedConflict();
         }
+        return deletedLineCount;
+    }
+
+    private static ConflictException lineItemsChangedConflict() {
+        return new ConflictException("This invoice's line items were changed by another user while deleting. "
+                + "Refresh the page to see their changes, then try again.");
     }
 
     public List<Long> findIdsByInvoiceId(Long invoiceId) {
