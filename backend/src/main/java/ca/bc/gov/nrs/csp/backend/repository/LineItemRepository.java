@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.repository;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.exception.ConflictException;
 import ca.bc.gov.nrs.csp.backend.invoice.shared.LineAmount;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -187,16 +188,27 @@ public class LineItemRepository {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("lineItemId", lineItemId)
                 .addValue("deletedByUserId", deletedByUserId);
-        jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t.coastal_log_sale_detail_id = :lineItemId", params);
-        jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_detail_id = :lineItemId", params);
+        int auditedLineCount = jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t.coastal_log_sale_detail_id = :lineItemId", params);
+        int deletedLineCount = jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_detail_id = :lineItemId", params);
+        requireDeletedLinesMatchAudit(auditedLineCount, deletedLineCount);
     }
 
     public void auditAndDeleteAllByInvoiceId(Long invoiceId, String deletedByUserId) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("invoiceId", invoiceId)
                 .addValue("deletedByUserId", deletedByUserId);
-        jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t.coastal_log_sale_id = :invoiceId", params);
-        jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = :invoiceId", params);
+        int auditedLineCount = jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t.coastal_log_sale_id = :invoiceId", params);
+        int deletedLineCount = jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = :invoiceId", params);
+        requireDeletedLinesMatchAudit(auditedLineCount, deletedLineCount);
+    }
+
+    // Legacy line changes don't lock the header, so one can commit between the audit and the delete.
+    // Refuse rather than delete a line with no 'D' row; the caller's transaction rolls back.
+    private static void requireDeletedLinesMatchAudit(int auditedLineCount, int deletedLineCount) {
+        if (deletedLineCount != auditedLineCount) {
+            throw new ConflictException("This invoice's line items were changed by another user while deleting. "
+                    + "Refresh the page to see their changes, then try again.");
+        }
     }
 
     public List<Long> findIdsByInvoiceId(Long invoiceId) {

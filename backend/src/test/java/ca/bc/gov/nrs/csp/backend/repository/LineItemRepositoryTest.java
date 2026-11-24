@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.repository;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.exception.ConflictException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -368,6 +370,23 @@ class LineItemRepositoryTest {
         MapSqlParameterSource params = paramsCaptor.getAllValues().get(0);
         assertThat(params.getValue("invoiceId")).isEqualTo(12345L);
         assertThat(params.getValue("deletedByUserId")).isEqualTo("USER1");
+    }
+
+    @Test
+    void auditAndDeleteAllByInvoiceId_lineAddedAfterTheAudit_isRefusedSoTheTransactionRollsBack() {
+        given(jdbc.update(anyString(), any(MapSqlParameterSource.class))).willReturn(2, 3);
+
+        assertThatThrownBy(() -> repo.auditAndDeleteAllByInvoiceId(12345L, "USER1"))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("changed by another user");
+    }
+
+    @Test
+    void auditAndDeleteLineItem_lineAlreadyDeletedAfterTheAudit_isRefusedSoTheTransactionRollsBack() {
+        given(jdbc.update(anyString(), any(MapSqlParameterSource.class))).willReturn(1, 0);
+
+        assertThatThrownBy(() -> repo.auditAndDeleteLineItem(10L, "USER1"))
+                .isInstanceOf(ConflictException.class);
     }
 
     // ---------------------------------------------------------------
