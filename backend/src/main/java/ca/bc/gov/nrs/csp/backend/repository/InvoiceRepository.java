@@ -604,14 +604,22 @@ public class InvoiceRepository {
     }
 
     public void updateStatus(Long id, String status, String userId) {
+        // Like legacy InvSubmissionDAO.updateStatus: Approve and Unapprove record who decided and when.
+        // Each stamps only its own pair, so a re-approve keeps the earlier unapproval.
+        String decisionColumns = switch (status) {
+            case ConstantsCode.INVENTRYSTATUS_APPROVED -> "approved_userid = :userId, approved_date = SYSDATE,";
+            case ConstantsCode.INVENTRYSTATUS_UNAPPROVED -> "unapproved_userid = :userId, unapproved_date = SYSDATE,";
+            default -> "";
+        };
         String sql = """
                 UPDATE THE.coastal_log_sale SET
                     log_sale_entry_status_code = :status,
+                    %s
                     revision_count = revision_count + 1,
                     update_userid = :userId,
                     update_timestamp = SYSDATE
                 WHERE coastal_log_sale_id = :id
-                """;
+                """.formatted(decisionColumns);
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("status", status)

@@ -903,6 +903,34 @@ class InvoiceRepositoryTest {
     }
 
     @Test
+    void updateStatus_approve_recordsApproverOnly() {
+        repo.updateStatus(10L, "APP", "user123");
+
+        assertThat(captureUpdateSql())
+                .contains("approved_userid = :userId, approved_date = SYSDATE")
+                .doesNotContain("unapproved_userid");
+    }
+
+    @Test
+    void updateStatus_unapprove_recordsUnapproverAndKeepsApprover() {
+        repo.updateStatus(10L, "UNA", "user123");
+
+        assertThat(captureUpdateSql())
+                .contains("unapproved_userid = :userId, unapproved_date = SYSDATE")
+                .doesNotContain(" approved_userid");
+    }
+
+    @Test
+    void updateStatus_otherStatuses_leaveDecisionColumnsAlone() {
+        List<String> statuses = List.of("DFT", "PRO", "REJ", "CAN");
+        statuses.forEach(status -> repo.updateStatus(10L, status, "user123"));
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc, times(statuses.size())).update(sql.capture(), any(MapSqlParameterSource.class));
+        assertThat(sql.getAllValues()).allSatisfy(update -> assertThat(update).doesNotContain("approved_"));
+    }
+
+    @Test
     void updateReviewerNotes_bindsNotesUserIdAndId() {
         repo.updateReviewerNotes(10L, "new notes", "user123");
 
