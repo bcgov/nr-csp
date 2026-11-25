@@ -213,11 +213,15 @@ class InvoiceRepositoryTest {
         assertThat(result.get(0).coastalLogSaleId()).isEqualTo(55L);
         assertThat(result.get(0).invoiceStatusCode()).isEqualTo("APP");
 
+        // Legacy getRecordByInvoiceNumAndClientNum: the client is the buyer OR the seller,
+        // not the client the original was submitted under.
         String sql = captureQuerySql();
         assertThat(sql)
                 .contains("cls.client_invoice_no = :clientInvoiceNo")
-                .contains("cl.client_number = :clientNumber")
-                .contains("cl.client_locn_code = :clientLocnCode");
+                .contains("(cls.buyer_client_number = :clientNumber AND cls.buyer_client_locn_code = :clientLocnCode)")
+                .contains("OR (cls.seller_client_number = :clientNumber AND cls.seller_client_locn_code = :clientLocnCode)")
+                .contains("ORDER BY cls.coastal_log_sale_id")
+                .doesNotContain("csp_submission");
 
         MapSqlParameterSource params = captureQueryParams();
         assertThat(params.getValue("clientInvoiceNo")).isEqualTo("INV-9");
@@ -1059,26 +1063,32 @@ class InvoiceRepositoryTest {
     }
 
     @Test
-    void replaceRelatedInvoices_resolvesEachNumber_insertsResolved_skipsUnresolvedAndEmptyTokens() {
-        // "INV-A" resolves to id 101; "INV-B" does not resolve (defensive skip);
-        // the empty token between commas is skipped without a resolve query.
-        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
+    @SuppressWarnings("unchecked")
+    void replaceRelatedInvoices_resolvesEachNumber_insertsFirstMatch_skipsUnresolvedAndEmptyTokens() {
+        // "INV-A" matches ids 101 and 205 (oldest first, link the first); "INV-B" does not
+        // resolve (defensive skip); the empty token between commas is skipped without a lookup.
+        given(jdbc.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
                 .willAnswer(inv -> {
                     MapSqlParameterSource p = inv.getArgument(1);
-                    return "INV-A".equals(p.getValue("invNo")) ? List.of(101L) : List.of();
+                    return "INV-A".equals(p.getValue("clientInvoiceNo"))
+                            ? List.of(new InvoiceRepository.RelatedInvoice(101L, "APP"),
+                                    new InvoiceRepository.RelatedInvoice(205L, "DFT"))
+                            : List.of();
                 });
 
         // Only the resolved id comes back — callers use it to cancel the replaced invoice.
         assertThat(repo.replaceRelatedInvoices(10L, "REP", " INV-A , , INV-B ", "00001111", "01", "user123"))
                 .containsExactly(101L);
 
-        // Two resolve lookups: INV-A and INV-B (empty token skipped)
+        // Two lookups through findByInvoiceNoAndClient: INV-A and INV-B (empty token skipped)
+        ArgumentCaptor<String> resolveSqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> resolveCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc, times(2)).queryForList(anyString(), resolveCaptor.capture(), eq(Long.class));
-        assertThat(resolveCaptor.getAllValues().get(0).getValue("invNo")).isEqualTo("INV-A");
-        assertThat(resolveCaptor.getAllValues().get(0).getValue("submitterClientNum")).isEqualTo("00001111");
-        assertThat(resolveCaptor.getAllValues().get(0).getValue("submitterLocnCode")).isEqualTo("01");
-        assertThat(resolveCaptor.getAllValues().get(1).getValue("invNo")).isEqualTo("INV-B");
+        verify(jdbc, times(2)).query(resolveSqlCaptor.capture(), resolveCaptor.capture(), any(RowMapper.class));
+        assertThat(resolveSqlCaptor.getValue()).contains("cls.seller_client_number = :clientNumber");
+        assertThat(resolveCaptor.getAllValues().get(0).getValue("clientInvoiceNo")).isEqualTo("INV-A");
+        assertThat(resolveCaptor.getAllValues().get(0).getValue("clientNumber")).isEqualTo("00001111");
+        assertThat(resolveCaptor.getAllValues().get(0).getValue("clientLocnCode")).isEqualTo("01");
+        assertThat(resolveCaptor.getAllValues().get(1).getValue("clientInvoiceNo")).isEqualTo("INV-B");
 
         // One delete + one insert (only INV-A resolved)
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);

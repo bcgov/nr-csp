@@ -494,6 +494,23 @@ CREATE TABLE the.coastal_log_sale_detail (
 )
 /
 
+-- Replace/adjust links: the columns RelatedInvoiceLookupIT reads and writes.
+CREATE TABLE the.coastal_log_sale_rltd_invc (
+    coastal_log_sale_rltd_invc_id NUMBER(18) PRIMARY KEY,
+    coastal_log_sale_id           NUMBER(18) NOT NULL,
+    related_coastal_log_sale_id   NUMBER(18) NOT NULL,
+    csp_invoice_ref_type_code     VARCHAR2(3) NOT NULL,
+    revision_count                NUMBER(5) NOT NULL,
+    entry_userid                  VARCHAR2(30),
+    entry_timestamp               DATE,
+    update_userid                 VARCHAR2(30),
+    update_timestamp              DATE
+)
+/
+
+CREATE SEQUENCE the.coastal_log_sale_rtld_invc_seq
+/
+
 -- Audit tables: the action code plus every live column, as in production.
 CREATE TABLE the.coastal_log_sale_audit AS
     SELECT CAST(NULL AS VARCHAR2(10)) AS csp_audit_action_type_code, t.*
@@ -516,6 +533,10 @@ GRANT SELECT ON the.log_sale_type_code TO ${APP_USER}
 GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale TO ${APP_USER}
 /
 GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale_detail TO ${APP_USER}
+/
+GRANT SELECT, INSERT, DELETE ON the.coastal_log_sale_rltd_invc TO ${APP_USER}
+/
+GRANT SELECT ON the.coastal_log_sale_rtld_invc_seq TO ${APP_USER}
 /
 -- DELETE on the audit tables is only for IT cleanup between tests.
 GRANT SELECT, INSERT, DELETE ON the.coastal_log_sale_audit TO ${APP_USER}

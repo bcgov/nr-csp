@@ -65,7 +65,7 @@ public class ReferenceDataService {
     return flatPriceConversions.existsForSortCode(sortCode);
   }
 
-  /** Invoices for this client matching a number (for replace/adjust + status checks). */
+  /** Invoices with this number where the client is the buyer or seller (replace/adjust checks). */
   public List<InvoiceRef> findInvoices(String invoiceNumber, String clientNumber, String locnCode) {
     return invoices.findByInvoiceNoAndClient(invoiceNumber, clientNumber, locnCode).stream()
         .map(related -> new InvoiceRef(invoiceNumber, related.invoiceStatusCode()))

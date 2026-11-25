@@ -104,19 +104,18 @@ public class InvoiceRepository {
 
     public record RelatedInvoice(Long coastalLogSaleId, String invoiceStatusCode) {}
 
+    // Invoices with this number where the client and location is the buyer or the seller,
+    // whoever submitted them (legacy InvSubmissionDAO.getRecordByInvoiceNumAndClientNum). Oldest first.
     public List<RelatedInvoice> findByInvoiceNoAndClient(String clientInvoiceNo, String clientNumber, String clientLocnCode) {
         String sql = """
                 SELECT
                        cls.coastal_log_sale_id,
                        cls.log_sale_entry_status_code AS invoice_status_code
                 FROM THE.coastal_log_sale cls
-                JOIN THE.csp_submission sub ON cls.csp_submission_id = sub.csp_submission_id
-                JOIN THE.client_location cl
-                    ON sub.client_number = cl.client_number
-                   AND sub.client_locn_code = cl.client_locn_code
                 WHERE cls.client_invoice_no = :clientInvoiceNo
-                  AND cl.client_number = :clientNumber
-                  AND cl.client_locn_code = :clientLocnCode
+                  AND ((cls.buyer_client_number = :clientNumber AND cls.buyer_client_locn_code = :clientLocnCode)
+                    OR (cls.seller_client_number = :clientNumber AND cls.seller_client_locn_code = :clientLocnCode))
+                ORDER BY cls.coastal_log_sale_id
                 """;
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("clientInvoiceNo", clientInvoiceNo)
@@ -736,9 +735,9 @@ public class InvoiceRepository {
     /**
      * Replaces this invoice's related-invoice references of the given type (REP or ADJ).
      * Deletes existing rows for the parent+type, then inserts one row per invoice number
-     * in {@code csvInvoiceNumbers}, resolving each number to its coastal_log_sale_id via the
-     * submitter's client. The validator runs the same lookup, so any number reaching this
-     * method should already exist for the submitter.
+     * in {@code csvInvoiceNumbers}, resolving each number to the first match of
+     * findByInvoiceNoAndClient, as legacy SubmissionTransferRules did. The validator runs
+     * the same lookup, so any number reaching this method should already resolve.
      *
      * @return the coastal_log_sale_ids the numbers resolved to (unresolved numbers are
      *         omitted), so callers can act on the related invoices — e.g. cancelling the
@@ -751,15 +750,6 @@ public class InvoiceRepository {
                 new MapSqlParameterSource().addValue("id", parentId).addValue("type", refTypeCode));
 
         if (csvInvoiceNumbers == null || csvInvoiceNumbers.isBlank()) return List.of();
-
-        String resolveSql = """
-                SELECT cls.coastal_log_sale_id
-                FROM THE.coastal_log_sale cls
-                JOIN THE.csp_submission sub ON cls.csp_submission_id = sub.csp_submission_id
-                WHERE cls.client_invoice_no = :invNo
-                  AND sub.client_number = :submitterClientNum
-                  AND sub.client_locn_code = :submitterLocnCode
-                """;
 
         String insertSql = """
                 INSERT INTO THE.coastal_log_sale_rltd_invc (
@@ -778,20 +768,16 @@ public class InvoiceRepository {
         for (String invNo : csvInvoiceNumbers.split(",")) {
             String trimmed = invNo.trim();
             if (trimmed.isEmpty()) continue;
-            List<Long> ids = jdbc.queryForList(resolveSql,
-                    new MapSqlParameterSource()
-                            .addValue("invNo", trimmed)
-                            .addValue("submitterClientNum", submitterClientNum)
-                            .addValue("submitterLocnCode", submitterLocnCode),
-                    Long.class);
-            if (ids.isEmpty()) continue; // validator should have rejected; defensive skip
+            List<RelatedInvoice> originals = findByInvoiceNoAndClient(trimmed, submitterClientNum, submitterLocnCode);
+            if (originals.isEmpty()) continue; // validator should have rejected; defensive skip
+            Long relatedId = originals.get(0).coastalLogSaleId();
             jdbc.update(insertSql,
                     new MapSqlParameterSource()
                             .addValue("parentId", parentId)
-                            .addValue("relatedId", ids.get(0))
+                            .addValue("relatedId", relatedId)
                             .addValue("refTypeCode", refTypeCode)
                             .addValue("userId", userId));
-            relatedIds.add(ids.get(0));
+            relatedIds.add(relatedId);
         }
         return relatedIds;
     }
