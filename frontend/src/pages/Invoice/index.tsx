@@ -1490,7 +1490,7 @@ export function InvoicePage() {
     clearErrors();
     const expectedVersion = loadedInvoice.version;
     submitMutation.mutate(
-      { id: invoiceId, expectedVersion },
+      { id: invoiceId, expectedVersion, body: buildRequestBody() },
       {
         onSuccess: (data) => {
           advanceOpenEditors(expectedVersion, data.version);

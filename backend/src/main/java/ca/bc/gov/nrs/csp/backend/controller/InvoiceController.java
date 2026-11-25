@@ -60,9 +60,9 @@ public class InvoiceController implements InvoiceApi {
 
     @Override
     @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Submit')")
-    public ResponseEntity<InvoiceResponse> submit(Long id, String expectedVersion) {
-        log.info("POST /api/invoices/{}/submit", id);
-        return ResponseEntity.ok(invoiceService.submit(id, expectedVersion));
+    public ResponseEntity<InvoiceResponse> submit(Long id, String expectedVersion, UpdateInvoiceRequest request) {
+        log.info("POST /api/invoices/{}/submit invNumber={}", id, request.invNumber());
+        return ResponseEntity.ok(invoiceService.submit(id, expectedVersion, request));
     }
 
     @Override

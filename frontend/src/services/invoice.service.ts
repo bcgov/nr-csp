@@ -172,9 +172,14 @@ export const updateInvoice = (
 export const deleteInvoice = (id: number, expectedVersion: string): Promise<void> =>
   apiClient.delete(`${ROOT}/${id}`, versionParams(expectedVersion)).then(() => undefined);
 
-export const submitInvoice = (id: number, expectedVersion: string): Promise<InvoiceResponse> =>
+// Sends the form on screen, which the backend saves and submits in one step, like legacy Submit.
+export const submitInvoice = (
+  id: number,
+  expectedVersion: string,
+  body: UpdateInvoiceRequest,
+): Promise<InvoiceResponse> =>
   apiClient
-    .post<InvoiceResponse>(`${ROOT}/${id}/submit`, undefined, versionParams(expectedVersion))
+    .post<InvoiceResponse>(`${ROOT}/${id}/submit`, body, versionParams(expectedVersion))
     .then(({ data }) => data);
 
 export const duplicateInvoice = (id: number): Promise<InvoiceResponse> =>
@@ -293,8 +298,8 @@ export const useDeleteInvoiceMutation = () => {
 export const useSubmitInvoiceMutation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, expectedVersion }: { id: number; expectedVersion: string }) =>
-      submitInvoice(id, expectedVersion),
+    mutationFn: ({ id, expectedVersion, body }: { id: number; expectedVersion: string; body: UpdateInvoiceRequest }) =>
+      submitInvoice(id, expectedVersion, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);

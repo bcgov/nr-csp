@@ -91,10 +91,10 @@ describe('invoice endpoint fetchers', () => {
     expect(apiClient.delete).toHaveBeenCalledWith('/invoices/7', { params: { expectedVersion: 'v4' } });
   });
 
-  it('submitInvoice POSTs to /invoices/{id}/submit', async () => {
+  it('submitInvoice POSTs the form to /invoices/{id}/submit', async () => {
     vi.mocked(apiClient.post).mockResolvedValue({ data: INVOICE });
-    await expect(submitInvoice(7, 'v4')).resolves.toEqual(INVOICE);
-    expect(apiClient.post).toHaveBeenCalledWith('/invoices/7/submit', undefined, {
+    await expect(submitInvoice(7, 'v4', CREATE_BODY)).resolves.toEqual(INVOICE);
+    expect(apiClient.post).toHaveBeenCalledWith('/invoices/7/submit', CREATE_BODY, {
       params: { expectedVersion: 'v4' },
     });
   });
@@ -183,7 +183,7 @@ describe('invoice mutation hooks', () => {
 
     const { result } = renderHook(() => useSubmitInvoiceMutation(), { wrapper });
     act(() => {
-      result.current.mutate({ id: 7, expectedVersion: 'v4' });
+      result.current.mutate({ id: 7, expectedVersion: 'v4', body: CREATE_BODY });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

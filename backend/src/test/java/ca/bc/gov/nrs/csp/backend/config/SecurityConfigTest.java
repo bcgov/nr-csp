@@ -165,7 +165,9 @@ class SecurityConfigTest {
                         .contentType(MediaType.APPLICATION_JSON).content(lineBody))
                 .andExpect(status().isOk());
         mockMvc.perform(delete("/api/invoices/1/line-items/2?expectedVersion=v4")).andExpect(status().isOk());
-        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v5")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v5")
+                        .contentType(MediaType.APPLICATION_JSON).content(invoiceBody))
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -23,10 +23,12 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -235,19 +237,33 @@ class InvoiceControllerTest {
     // ---------------------------------------------------------------
 
     @Test
-    void submit_returns200() throws Exception {
-        given(invoiceService.submit(1L, "v3")).willReturn(sampleResponse());
+    void submit_passesTheFormToTheService() throws Exception {
+        given(invoiceService.submit(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
 
-        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3"))
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_CREATE_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.invID").value(1));
+        verify(invoiceService).submit(eq(1L), eq("v3"), argThat(form -> "INV-001".equals(form.invNumber())));
+    }
+
+    @Test
+    void submit_withInvalidForm_returns400() throws Exception {
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(BLANK_CREATE_BODY))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(invoiceService);
     }
 
     @Test
     void submit_notDraft_returns409() throws Exception {
-        given(invoiceService.submit(1L, "v3")).willThrow(new ConflictException("not draft"));
+        given(invoiceService.submit(eq(1L), eq("v3"), any())).willThrow(new ConflictException("not draft"));
 
-        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3"))
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_CREATE_BODY))
                 .andExpect(status().isConflict());
     }
 

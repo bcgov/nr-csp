@@ -438,6 +438,14 @@ class InvoiceServiceTest {
         return req;
     }
 
+    // A Submit form that carries the stored draft unchanged.
+    private UpdateInvoiceRequest submitForm() {
+        UpdateInvoiceRequest req = updateRequest();
+        lenient().when(mapper.toDetails(eq(req), any(), any(), any())).thenReturn(draftDetails(1L));
+        lenient().when(mapper.toLineItems(any(), any(), any())).thenReturn(List.of());
+        return req;
+    }
+
     @ParameterizedTest
     @CsvSource({"DFT, true", "PRO, false", "APP, false"})
     void dataEntryWritesRequireAnEditableManualInvoice(String status, boolean electronic) {
@@ -449,7 +457,7 @@ class InvoiceServiceTest {
                 ? AuthorizationDeniedException.class : ConflictException.class;
 
         assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, updateRequest())).isInstanceOf(expectedError);
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(expectedError);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, submitForm())).isInstanceOf(expectedError);
         assertThatThrownBy(() -> service.addLineItem(1L, CURRENT_VERSION, lineItemRequest())).isInstanceOf(expectedError);
         assertThatThrownBy(() -> service.updateLineItem(1L, 2L, CURRENT_VERSION, lineItemRequest()))
                 .isInstanceOf(expectedError);
@@ -922,13 +930,13 @@ class InvoiceServiceTest {
     @Test
     void submit_notFound_throws() {
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION, submitForm())).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void submit_notDraftOrUnapproved_throwsConflict() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, submitForm())).isInstanceOf(ConflictException.class);
     }
 
     @Test
@@ -936,7 +944,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SUBMIT))).willReturn(WITH_ERROR);
 
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, submitForm())).isInstanceOf(ValidationException.class);
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
 
@@ -948,7 +956,7 @@ class InvoiceServiceTest {
         given(priceConversionService.apply(any(), any(), any()))
                 .willReturn(new PriceConversionService.Result(List.of(converted), List.of(A_WARNING)));
 
-        service.submit(1L, CURRENT_VERSION);
+        service.submit(1L, CURRENT_VERSION, submitForm());
 
         verify(lineItemRepo).updateConvertedPrice(1L, new BigDecimal("12.34"), USER);
         verify(invoiceRepo).updateStatus(1L, "PRO", USER);
@@ -964,9 +972,57 @@ class InvoiceServiceTest {
         loginWithRoles(Roles.ENTRY);
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(details(1L, "UNA", "5678", null, "Seller"), 10L)));
 
-        service.submit(1L, CURRENT_VERSION);
+        service.submit(1L, CURRENT_VERSION, submitForm());
 
         verify(invoiceRepo).updateStatus(1L, "PRO", USER);
+    }
+
+    // Legacy Submit saves the form on screen first, so an unsaved edit is what gets submitted.
+    @Test
+    void submit_withForm_validatesAndSavesTheFormBeforeSubmittingIt() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        InvoiceDetails edited = details(1L, "DFT", "9999", null, "Seller");
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(edited);
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L));
+
+        service.submit(1L, CURRENT_VERSION, req);
+
+        ArgumentCaptor<InvoiceDetails> validated = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(validator).validate(validated.capture(), any(), eq(true), eq(ActionType.SUBMIT));
+        assertThat(validated.getValue().otherClientNum()).isEqualTo("9999");
+        verify(validator, never()).validate(any(), any(), anyBoolean(), eq(ActionType.SAVE));
+        InOrder order = inOrder(invoiceRepo, lineItemRepo);
+        order.verify(invoiceRepo).updateInvoice(eq(1L), validated.capture(), eq("DFT"), any(), any(), eq(USER));
+        order.verify(lineItemRepo).updateLineItem(eq(1L), any(), eq(USER));
+        order.verify(invoiceRepo).updateStatus(1L, "PRO", USER);
+        assertThat(validated.getValue().otherClientNum()).isEqualTo("9999");
+        verify(submissionRepo).updateSubmissionStatus(10L, "INB", USER);
+    }
+
+    @Test
+    void submit_withFormThatFailsValidation_writesNothing() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+        given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SUBMIT))).willReturn(WITH_ERROR);
+
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, req)).isInstanceOf(ValidationException.class);
+        verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(anyLong(), any());
+    }
+
+    @Test
+    void submit_staleVersionWithForm_writesNothing() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.lockVersion(1L)).willReturn(Optional.of("4.20261117150000.1.1"));
+
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, req)).isInstanceOf(ConflictException.class);
+        verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
 
     // ===============================================================
@@ -1512,7 +1568,7 @@ class InvoiceServiceTest {
 
     @Test
     void submit_staleVersion_refusedBeforeAnyWrite() {
-        assertThatThrownBy(() -> service.submit(1L, STALE_VERSION)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.submit(1L, STALE_VERSION, submitForm())).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).updateStatus(anyLong(), any(), any());
     }
 
@@ -1543,7 +1599,7 @@ class InvoiceServiceTest {
     void staleCheck_missingInvoice_isNotFound() {
         given(invoiceRepo.lockVersion(99L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION, submitForm())).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -1601,7 +1657,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         legacyLineCommitsAfterTheVersionRead();
 
-        service.submit(1L, CURRENT_VERSION);
+        service.submit(1L, CURRENT_VERSION, submitForm());
 
         assertResponseReadItsLinesAfterItsVersion();
     }

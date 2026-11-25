@@ -88,7 +88,7 @@ public interface InvoiceApi {
             @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion);
 
     @Operation(summary = "Submit a DRAFT invoice",
-            description = "Transitions a DRAFT invoice to PROCESSING. Runs a stricter validation (at least one line item required) and updates the parent submission status to INBOX.")
+            description = "Saves the form in the body and transitions the invoice to PROCESSING in one transaction, like legacy Submit. Runs a stricter validation (at least one line item required) and updates the parent submission status to INBOX.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Submitted",
                     content = @Content(schema = @Schema(implementation = InvoiceResponse.class))),
@@ -102,7 +102,8 @@ public interface InvoiceApi {
     @PostMapping("/{id}/submit")
     ResponseEntity<InvoiceResponse> submit(
             @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
-            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion);
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
+            @Valid @RequestBody UpdateInvoiceRequest request);
 
     @Operation(summary = "Duplicate an invoice",
             description = "Clones an existing invoice (header + lines + source-document references) as a brand-new DRAFT invoice under a new submission. The returned response describes the new invoice.")

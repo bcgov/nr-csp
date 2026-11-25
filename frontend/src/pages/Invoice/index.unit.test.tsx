@@ -489,10 +489,26 @@ describe('InvoicePage — action flows', () => {
     );
   });
 
-  it('Submit fires the submit mutation with the invoice id and loaded version', async () => {
+  it('Submit fires the submit mutation with the invoice id, loaded version and form', async () => {
     await renderLoaded({ invStatus: 'DFT' });
     await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(h.mutations.submit.mutate).toHaveBeenCalledWith({ id: 1, expectedVersion: 'v4' }, expect.anything());
+    expect(h.mutations.submit.mutate).toHaveBeenCalledWith(
+      { id: 1, expectedVersion: 'v4', body: expect.objectContaining({ invNumber: 'INV-001', manual: false }) },
+      expect.anything(),
+    );
+  });
+
+  // Legacy Submit saves the form on screen, so an edit that was never saved is submitted too.
+  it('Submit sends an unsaved field change', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    const invoiceNumber = screen.getByRole('textbox', { name: /Invoice number$/i });
+    await userEvent.clear(invoiceNumber);
+    await userEvent.type(invoiceNumber, 'INV-002');
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(h.mutations.submit.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ invNumber: 'INV-002' }) }),
+      expect.anything(),
+    );
   });
 
   it('Submit is disabled when there are no line items', async () => {

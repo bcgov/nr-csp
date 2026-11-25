@@ -224,10 +224,6 @@ public class InvoiceService {
         Set<Long> existingLineIds = new HashSet<>(lineItemRepo.findIdsByInvoiceId(id));
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(id);
-        boolean dataEntryOnly = isDataEntryOnly();
-        if (dataEntryOnly) {
-            requireManualEntry(request.manual());
-        }
         String existingStatus = existing.details().invStatus();
         // The header detail fields are read-only on approved, rejected, and
         // cancelled invoices (parity with the legacy app); only DFT/PRO/UNA can
@@ -239,36 +235,13 @@ public class InvoiceService {
                     "Approved, rejected, or cancelled invoices cannot have their details edited.");
         }
 
-        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, request.invType());
-        InvoiceDetails details = withChannelTotals(
-                mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID()),
-                lines, request.manual());
-        if (dataEntryOnly) {
-            details = withReviewComments(details, existing.details().reviewComments());
-        }
+        InvoiceForm form = toInvoiceForm(id, existing, request);
+        InvoiceDetails details = form.details();
 
-        ValidationResult result = newValidator().validate(details, lines, request.manual(), ActionType.SAVE);
+        ValidationResult result = newValidator().validate(details, form.lines(), request.manual(), ActionType.SAVE);
         throwIfErrors(result, "Invoice failed validation on update.");
 
-        // Reconcile manual-other-party participant row(s) against the new request.
-        // We compute the plan (inserts/updates + the set of orphan ids to delete) first,
-        // then run updateInvoice to clear the FK references, THEN delete the orphans.
-        // Deleting them before updateInvoice would violate the CLS_CLSP_FK constraint.
-        ParticipantPlan plan = reconcileParticipant(existing, details, user);
-
-        invoiceRepo.updateInvoice(id, details, ConstantsCode.INVENTRYSTATUS_DRAFT,
-                plan.newIds().buyerId(), plan.newIds().sellerId(), user);
-        plan.orphans().forEach(participantRepo::delete);
-
-        reconcileLineItems(id, lines, existingLineIds, user);
-        invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
-        invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
-        invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
-        List<Long> replacedIds = invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_REPLACE,
-                details.replaceInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
-        invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_ADJUST,
-                details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
-        cancelReplacedInvoices(id, replacedIds, user);
+        writeInvoiceForm(id, existing, form, existingLineIds, user);
 
         // Saving an existing invoice reverts its submission to LOBBY.
         if (existing.submissionId() != null) {
@@ -287,6 +260,49 @@ public class InvoiceService {
         InvoiceDetails saved = withId(details, id, ConstantsCode.INVENTRYSTATUS_DRAFT);
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
                 withConversionWarnings(result, conversion), snapshot.version());
+    }
+
+    private record InvoiceForm(InvoiceDetails details, List<LineItem> lines) {}
+
+    // The header and lines as the staff form sent them, ready to validate and write.
+    private InvoiceForm toInvoiceForm(Long id, LoadedInvoice existing, UpdateInvoiceRequest request) {
+        boolean dataEntryOnly = isDataEntryOnly();
+        if (dataEntryOnly) {
+            requireManualEntry(request.manual());
+        }
+        List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, request.invType());
+        InvoiceDetails details = withChannelTotals(
+                mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID()),
+                lines, request.manual());
+        if (dataEntryOnly) {
+            details = withReviewComments(details, existing.details().reviewComments());
+        }
+        return new InvoiceForm(details, lines);
+    }
+
+    // Writes a validated form as a Draft. Called after the version check, inside the caller's transaction.
+    private void writeInvoiceForm(Long id, LoadedInvoice existing, InvoiceForm form, Set<Long> existingLineIds,
+                                  String user) {
+        InvoiceDetails details = form.details();
+        // Reconcile manual-other-party participant row(s) against the new request.
+        // We compute the plan (inserts/updates + the set of orphan ids to delete) first,
+        // then run updateInvoice to clear the FK references, THEN delete the orphans.
+        // Deleting them before updateInvoice would violate the CLS_CLSP_FK constraint.
+        ParticipantPlan plan = reconcileParticipant(existing, details, user);
+
+        invoiceRepo.updateInvoice(id, details, ConstantsCode.INVENTRYSTATUS_DRAFT,
+                plan.newIds().buyerId(), plan.newIds().sellerId(), user);
+        plan.orphans().forEach(participantRepo::delete);
+
+        reconcileLineItems(id, form.lines(), existingLineIds, user);
+        invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
+        invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_TIMERMARK, details.timberMarks(), user);
+        invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_WEIGHSLIP, details.weightSlips(), user);
+        List<Long> replacedIds = invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_REPLACE,
+                details.replaceInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
+        invoiceRepo.replaceRelatedInvoices(id, ConstantsCode.INVRELATETYPE_ADJUST,
+                details.adjustInvNum(), details.submitterClientNum(), details.submitterLocation(), user);
+        cancelReplacedInvoices(id, replacedIds, user);
     }
 
     // ---------------------------------------------------------------
@@ -364,19 +380,25 @@ public class InvoiceService {
     // SUBMIT (DRAFT or UNAPPROVED → PROCESSING)
     // ---------------------------------------------------------------
 
+    // Legacy Submit saves the form on screen and submits it in one step (InvoiceBean.saveSubmitInvoiceAction),
+    // so the form is validated once for Submit and written before the status change.
     @Transactional
-    public InvoiceResponse submit(Long id, String expectedVersion) {
+    public InvoiceResponse submit(Long id, String expectedVersion, UpdateInvoiceRequest request) {
         String user = SecurityContextUtils.requireUsername();
+        // Read before the version check, as in update.
+        Set<Long> existingLineIds = new HashSet<>(lineItemRepo.findIdsByInvoiceId(id));
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(id);
         if (!SUBMITTABLE_STATUSES.contains(existing.details().invStatus())) {
             throw new ConflictException("Only draft or unapproved invoices can be submitted.");
         }
 
-        List<LineItem> lines = lineItemRepo.findByInvoiceId(id);
-        ValidationResult result = newValidator().validate(existing.details(), lines, /*manual*/ true, ActionType.SUBMIT);
+        InvoiceForm form = toInvoiceForm(id, existing, request);
+        InvoiceDetails details = form.details();
+        ValidationResult result = newValidator().validate(details, form.lines(), /*manual*/ true, ActionType.SUBMIT);
         throwIfErrors(result, "Invoice failed validation on submit.");
 
+        writeInvoiceForm(id, existing, form, existingLineIds, user);
         invoiceRepo.updateStatus(id, ConstantsCode.INVENTRYSTATUS_PROCESSING, user);
         submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_INBOX, user);
         log.info("Submitted invoice id={} submissionId={}", id, existing.submissionId());
@@ -385,7 +407,7 @@ public class InvoiceService {
         // price and persist it. Converted-price writes leave the version alone.
         ResponseSnapshot snapshot = readResponseSnapshot(id);
         PriceConversionService.Result conversion = priceConversionService.apply(
-                snapshot.lines(), existing.details().maturity(), existing.details().invoiceDate());
+                snapshot.lines(), details.maturity(), details.invoiceDate());
         for (LineItem line : conversion.lines()) {
             lineItemRepo.updateConvertedPrice(line.lineItemID(), line.convertedPrice(), user);
         }
@@ -394,7 +416,7 @@ public class InvoiceService {
         // alongside the validator's.
         ValidationResult responseResult = withConversionWarnings(result, conversion);
 
-        InvoiceDetails saved = withId(existing.details(), id, ConstantsCode.INVENTRYSTATUS_PROCESSING);
+        InvoiceDetails saved = withId(details, id, ConstantsCode.INVENTRYSTATUS_PROCESSING);
         return mapper.toResponse(saved, existing.submissionId(), existing.submissionNumber(), conversion.lines(),
                 responseResult, snapshot.version());
     }
