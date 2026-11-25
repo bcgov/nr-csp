@@ -642,6 +642,25 @@ class InvoiceRepositoryTest {
     }
 
     @Test
+    void findRelatedInvoiceIds_readsTheStoredLinksOfOneType() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
+                .willReturn(List.of(900L, 901L));
+
+        assertThat(repo.findRelatedInvoiceIds(1L, "REP")).containsExactly(900L, 901L);
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> params = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).queryForList(sql.capture(), params.capture(), eq(Long.class));
+        assertThat(sql.getValue())
+                .contains("SELECT related_coastal_log_sale_id")
+                .contains("FROM THE.coastal_log_sale_rltd_invc")
+                .contains("coastal_log_sale_id = :parentId")
+                .contains("csp_invoice_ref_type_code = :refTypeCode");
+        assertThat(params.getValue().getValue("parentId")).isEqualTo(1L);
+        assertThat(params.getValue().getValue("refTypeCode")).isEqualTo("REP");
+    }
+
+    @Test
     void findRelatedInvoiceNumbers_joinsNumbersWithCommaAndBindsParams() {
         given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(String.class)))
                 .willReturn(List.of("INV-A", "INV-B"));

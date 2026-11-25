@@ -495,6 +495,12 @@ public class InvoiceService {
         invoiceRepo.updateStatus(id, request.status(), user);
         log.info("Changed invoice id={} status={}", id, request.status());
 
+        // Legacy approve saves the invoice, and every save cancels what it replaces (InvSubmissionDAO.saveInvoice).
+        // Covers an uploaded replacement that staff approve without saving. Adjustments leave their originals active.
+        if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(request.status())) {
+            cancelReplacedInvoices(id, invoiceRepo.findRelatedInvoiceIds(id, ConstantsCode.INVRELATETYPE_REPLACE), user);
+        }
+
         // Cascade the change to the submission status (after the invoice's own
         // status is persisted, so the counts below reflect the new state).
         applySubmissionStatusOnStatusChange(existing.submissionId(), request.status(), user);
@@ -544,7 +550,8 @@ public class InvoiceService {
      * A replacement invoice supersedes every invoice named in its "Replaces invoice
      * number(s)" field, so saving it cancels those originals. Called from create and
      * update with the ids {@link InvoiceRepository#replaceRelatedInvoices} resolved for
-     * the REP relationship (never ADJ — an adjusting invoice leaves its target alone).
+     * the REP relationship (never ADJ — an adjusting invoice leaves its target alone),
+     * and from approve with the stored REP links.
      *
      * <p>Skipped: an already-CANCELLED original (nothing to change) and a self-reference
      * (the validator rejects "replaces itself", so this is only a defensive guard).</p>

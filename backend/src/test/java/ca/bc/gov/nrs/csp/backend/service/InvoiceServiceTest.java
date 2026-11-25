@@ -1206,6 +1206,41 @@ class InvoiceServiceTest {
         verify(priceConversionService, never()).apply(any(), any(), any());
         verify(lineItemRepo, never()).updateConvertedPrice(any(), any(), any());
         verify(invoiceRepo).updateStatus(1L, status, USER);
+        // Only Approve cancels what an invoice replaces.
+        verify(invoiceRepo, never()).findRelatedInvoiceIds(any(), any());
+    }
+
+    @Test
+    void changeStatus_approveUploadedReplacement_cancelsItsStoredOriginal() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.findRelatedInvoiceIds(1L, "REP")).willReturn(List.of(900L));
+        given(invoiceRepo.findById(900L)).willReturn(Optional.of(loaded(details(900L, "PRO", "5678", null, "Seller"), 20L, null, null)));
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(1);
+        given(invoiceRepo.countUndecidedByCspSubmissionId(20L)).willReturn(0);
+
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
+
+        InOrder order = inOrder(invoiceRepo);
+        order.verify(invoiceRepo).updateStatus(1L, "APP", USER);
+        order.verify(invoiceRepo).lockVersion(900L);
+        order.verify(invoiceRepo).updateStatus(900L, "CAN", USER);
+        // The original's upload had nothing else undecided, so it closes; the replacement's stays open.
+        verify(submissionRepo).updateSubmissionStatus(20L, "REJ", USER);
+        verify(submissionRepo, never()).updateSubmissionStatus(eq(10L), any(), any());
+        verify(invoiceRepo, never()).findRelatedInvoiceIds(1L, "ADJ");
+    }
+
+    @Test
+    void changeStatus_approveReplacementWhoseOriginalWasCancelledOnSave_changesNothingMore() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(details(1L, "PRO", "5678", null, "Seller"), 10L)));
+        given(invoiceRepo.findRelatedInvoiceIds(1L, "REP")).willReturn(List.of(900L));
+        given(invoiceRepo.findById(900L)).willReturn(Optional.of(loadedManual(details(900L, "CAN", "5678", null, "Seller"), 20L)));
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(1);
+
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
+
+        verify(invoiceRepo, never()).updateStatus(eq(900L), any(), any());
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
     // ===============================================================

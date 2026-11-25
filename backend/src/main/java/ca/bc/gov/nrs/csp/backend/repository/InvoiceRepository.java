@@ -387,6 +387,19 @@ public class InvoiceRepository {
         return numbers.isEmpty() ? null : String.join(",", numbers);
     }
 
+    // The stored links, not a fresh lookup by invoice number, so an upload's originals are the ones intake resolved.
+    public List<Long> findRelatedInvoiceIds(Long parentId, String refTypeCode) {
+        return jdbc.queryForList("""
+                        SELECT related_coastal_log_sale_id
+                        FROM THE.coastal_log_sale_rltd_invc
+                        WHERE coastal_log_sale_id = :parentId
+                          AND csp_invoice_ref_type_code = :refTypeCode
+                        ORDER BY coastal_log_sale_rltd_invc_id
+                        """,
+                new MapSqlParameterSource().addValue("parentId", parentId).addValue("refTypeCode", refTypeCode),
+                Long.class);
+    }
+
     public List<String> findLogSources(Long coastalLogSaleId, String logSourceCode) {
         String sql = """
                 SELECT source_document_reference
