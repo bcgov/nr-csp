@@ -252,17 +252,26 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void getById_processing_recomputesAndPersistsConvertedPrices() {
+    void getById_processing_returnsConversionPreviewWithoutWriting() {
         InvoiceDetails d = details(1L, "PRO", "5678", null, "Seller");
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(d, 10L, null, null)));
-        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null)));
+        List<LineItem> stored = List.of(line(1L, null));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(stored);
         LineItem converted = line(1L, new BigDecimal("9.99"));
-        given(priceConversionService.apply(any(), any(), any()))
-                .willReturn(new PriceConversionService.Result(List.of(converted), List.of()));
+        ValidationMessage conversionWarning = new ValidationMessage(
+                "invoice.conversion.factor.not.found.error", null, MessageType.WARNING);
+        given(priceConversionService.apply(stored, d.maturity(), d.invoiceDate()))
+                .willReturn(new PriceConversionService.Result(List.of(converted), List.of(conversionWarning)));
 
         service.getById(1L);
 
-        verify(lineItemRepo).updateConvertedPrice(1L, new BigDecimal("9.99"), USER);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LineItem>> lines = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<ValidationResult> validation = ArgumentCaptor.forClass(ValidationResult.class);
+        verify(mapper).toResponse(any(), eq(10L), any(), lines.capture(), validation.capture(), any());
+        assertThat(lines.getValue()).containsExactly(converted);
+        assertThat(validation.getValue().warnings()).containsExactly(conversionWarning);
+        verify(lineItemRepo, never()).updateConvertedPrice(any(), any(), any());
     }
 
     @Test
@@ -1146,6 +1155,72 @@ class InvoiceServiceTest {
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
 
+    @Test
+    void changeStatus_approve_persistsConvertedPricesAfterTheLockAndBeforeTheStatusWrite() {
+        InvoiceDetails d = details(1L, "PRO", "5678", null, "Seller");
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(d, 10L, null, null)));
+        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1);
+        List<LineItem> stored = List.of(line(1L, null), line(2L, null));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(stored);
+        given(priceConversionService.apply(stored, d.maturity(), d.invoiceDate()))
+                .willReturn(new PriceConversionService.Result(
+                        List.of(line(1L, new BigDecimal("12.34")), line(2L, BigDecimal.ZERO)), List.of()));
+
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
+
+        InOrder order = inOrder(invoiceRepo, priceConversionService, lineItemRepo);
+        order.verify(invoiceRepo).lockVersion(1L);
+        order.verify(priceConversionService).apply(stored, d.maturity(), d.invoiceDate());
+        order.verify(lineItemRepo).updateConvertedPrice(1L, new BigDecimal("12.34"), USER);
+        order.verify(lineItemRepo).updateConvertedPrice(2L, BigDecimal.ZERO, USER);
+        order.verify(invoiceRepo).updateStatus(1L, "APP", USER);
+    }
+
+    @Test
+    void changeStatus_approveWithConversionError_isRefusedAndWritesNothing() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null)));
+        Object[] args = { "O", "SORT01", "FIR", "G1", "2026-01-15" };
+        given(priceConversionService.apply(any(), any(), any()))
+                .willReturn(new PriceConversionService.Result(List.of(line(1L, null)), List.of(
+                        new ValidationMessage("invoice.conversion.factor.not.found.error", args, MessageType.WARNING))));
+        ChangeStatusRequest req = new ChangeStatusRequest("APP", "approving");
+
+        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_VERSION, req))
+                .isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getResult().errors())
+                        .containsExactly(new ValidationMessage(
+                                "invoice.conversion.factor.not.found.error", args, MessageType.ERROR)));
+        verify(lineItemRepo, never()).updateConvertedPrice(any(), any(), any());
+        verify(invoiceRepo, never()).updateReviewerNotes(any(), any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
+    }
+
+    @Test
+    void changeStatus_approveValidationError_isRefusedBeforeConverting() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(validator.validateForChangeStatus(any(), any(), any())).willReturn(WITH_ERROR);
+        ChangeStatusRequest req = new ChangeStatusRequest("APP", null);
+
+        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_VERSION, req))
+                .isInstanceOf(ValidationException.class);
+        verify(priceConversionService, never()).apply(any(), any(), any());
+        verify(lineItemRepo, never()).updateConvertedPrice(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"PRO,REJ", "PRO,CAN", "APP,UNA"})
+    void changeStatus_nonApproval_doesNotConvert(String currentStatus, String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, currentStatus, "5678", null, "Seller"), 10L, null, null)));
+        lenient().when(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).thenReturn(1);
+
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest(status, "reviewed"));
+
+        verify(priceConversionService, never()).apply(any(), any(), any());
+        verify(lineItemRepo, never()).updateConvertedPrice(any(), any(), any());
+        verify(invoiceRepo).updateStatus(1L, status, USER);
+    }
+
     // ===============================================================
     // addLineItem
     // ===============================================================
@@ -1477,6 +1552,7 @@ class InvoiceServiceTest {
         assertThatThrownBy(() -> service.changeStatus(1L, STALE_VERSION, req)).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).updateStatus(anyLong(), any(), any());
         verify(invoiceRepo, never()).updateReviewerNotes(anyLong(), any(), any());
+        verify(lineItemRepo, never()).updateConvertedPrice(any(), any(), any());
     }
 
     @Test
