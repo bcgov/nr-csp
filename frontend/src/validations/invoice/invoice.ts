@@ -6,12 +6,15 @@
 
 import { MessageCollector, type ValidationResult } from '@/validations/validationResult';
 
-const INVOICE_NUMBER_PATTERN = /^[A-Z0-9-]+$/;
+// Legacy's invoice-number field refused only tabs, line breaks and backslashes (admin_info.xhtml).
+const INVOICE_NUMBER_PATTERN = /^[^\t\n\v\f\r\\]+$/;
 const INVOICE_TYPE_PATTERN = /^[A-Z]+$/;
 const LOCATION_PATTERN = /^\d{2}$/;
 const SUBMITTED_BY_PATTERN = /^(Buyer|Seller)$/;
 
 const INVOICE_NUMBER_MAX_LENGTH = 15;
+// FOB is free text, as in legacy and the CSP schema; the column holds 120.
+const FOB_MAX_LENGTH = 120;
 const CLIENT_PRIMARY_SORT_CODE_MAX_LENGTH = 100;
 const REVIEWER_COMMENT_MAX_LENGTH = 4000;
 const SUBMITTER_COMMENT_MAX_LENGTH = 4000;
@@ -20,6 +23,7 @@ export interface InvoiceFieldValues {
   invNumber: string;
   invDate: string; // ISO yyyy-MM-dd, or '' when unset
   invType: string;
+  fobCode: string;
   submittedBy: string;
   submitterLocation: string;
   otherClientLocation: string;
@@ -32,7 +36,7 @@ export function validate(values: InvoiceFieldValues): ValidationResult {
   const messages = new MessageCollector();
   const t = (s: string) => s.trim();
 
-  // invNumber — @NotBlank + ^[A-Z0-9-]+$ + max length
+  // invNumber — @NotBlank + no tabs, line breaks or backslashes + max length
   if (!t(values.invNumber)) {
     messages.addError('invoice.client.invnumber.required.error');
   } else if (!INVOICE_NUMBER_PATTERN.test(t(values.invNumber))) {
@@ -51,6 +55,11 @@ export function validate(values: InvoiceFieldValues): ValidationResult {
     messages.addError('invoice.client.invtype.required.error');
   } else if (!INVOICE_TYPE_PATTERN.test(t(values.invType))) {
     messages.addError('invoice.client.invtype.pattern.error');
+  }
+
+  // fobCode — free text, max length only (required-ness is gated by the Save button)
+  if (values.fobCode.length > FOB_MAX_LENGTH) {
+    messages.addError('invoice.client.fob.maxlength.error');
   }
 
   // submittedBy — @NotBlank + ^(Buyer|Seller)$

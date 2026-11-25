@@ -78,10 +78,6 @@ vi.mock('@/services/search.service', () => ({
   getClientsByName: (...a: unknown[]) => h.getClientsByName(...a),
 }));
 
-vi.mock('@/services/fob.service', () => ({
-  useFobCodesQuery: () => ({ data: [{ code: 'FOB01', description: 'FOB One' }] }),
-}));
-
 vi.mock('@/components/core/PageTitle', () => ({
   default: ({ children }: { children?: React.ReactNode }) => <div data-testid="page-title">{children}</div>,
 }));
@@ -268,24 +264,31 @@ describe('InvoicePage — message relabelling', () => {
 });
 
 // ---------------------------------------------------------------------------
-// FOB blur validation + auto-clearing of server errors on edit
+// Free-text FOB + auto-clearing of server errors on edit
 // ---------------------------------------------------------------------------
 describe('InvoicePage — FOB validation & server error auto-clear', () => {
-  it('flags an unknown FOB code on blur and clears it while retyping', async () => {
-    await renderLoaded({ invStatus: 'DFT' });
+  // Legacy took FOB as free text and the CSP schema allows any client value, so a place name
+  // outside the lookup must leave Save and Submit available after the field loses focus.
+  it('keeps Save and Submit available for a free-text FOB after leaving the field', async () => {
+    await renderLoaded({ invStatus: 'DFT', invNumber: 'INV/42' });
     const fob = screen.getByLabelText(/FOB/);
-    fireEvent.change(fob, { target: { value: 'BAD' } });
+    fireEvent.change(fob, { target: { value: 'TEST LANDING' } });
     fireEvent.blur(fob);
-    expect(screen.getByText('FOB code "BAD" is not a valid FOB location.')).toBeInTheDocument();
-    // Typing clears the inline error immediately (re-checked on next blur).
-    fireEvent.change(fob, { target: { value: 'FOB01' } });
-    expect(screen.queryByText(/is not a valid FOB location/)).not.toBeInTheDocument();
-    fireEvent.blur(fob); // valid code → still no error
-    expect(screen.queryByText(/is not a valid FOB location/)).not.toBeInTheDocument();
-    // Empty value clears the error too.
-    fireEvent.change(fob, { target: { value: '' } });
-    fireEvent.blur(fob);
-    expect(screen.queryByText(/is not a valid FOB location/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not a valid FOB location/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(h.mutations.submit.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ invNumber: 'INV/42', fobCode: 'TEST LANDING' }) }),
+      expect.anything(),
+    );
+  });
+
+  it('flags a FOB longer than the 120 characters the column holds', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    fireEvent.change(screen.getByLabelText(/FOB/), { target: { value: 'A'.repeat(121) } });
+    expect(screen.getByText('FOB must be at most 120 characters.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('drops a server field error once the user edits that field', async () => {
@@ -338,9 +341,9 @@ describe('InvoicePage — header field handlers', () => {
     fireEvent.keyDown(boom, { key: 'Enter' });
 
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-    expect(
-      screen.getByText(/Provide at least one Boom number, Timber mark or Weigh slip/).className,
-    ).not.toContain('invoice-page__field-note--unmet');
+    expect(screen.getByText(/Provide at least one Boom number, Timber mark or Weigh slip/).className).not.toContain(
+      'invoice-page__field-note--unmet',
+    );
   });
 
   it('a Timber mark alone also satisfies the source-document rule', async () => {
@@ -452,7 +455,14 @@ describe('InvoicePage — save & create flows', () => {
       opts.onSuccess?.(
         makeInvoice({
           invID: 5,
-          warnings: [{ messageKey: 'invoice.submit.saved.warning', message: 'Remember to submit this invoice', type: 'WARNING', args: null }],
+          warnings: [
+            {
+              messageKey: 'invoice.submit.saved.warning',
+              message: 'Remember to submit this invoice',
+              type: 'WARNING',
+              args: null,
+            },
+          ],
         }),
       );
     });
@@ -490,7 +500,9 @@ describe('InvoicePage — save & create flows', () => {
     //
     // Still there once loaded: the effect re-ran for the new id and recognised the redirect. An id
     // change that is NOT a post-create redirect clears it (asserted in the next test).
-    expect(await screen.findByText('Remember to submit this invoice', undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Remember to submit this invoice', undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
   });
 
   // The other side of the same guard: switching between two EXISTING invoices is a different

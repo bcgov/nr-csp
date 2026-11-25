@@ -53,6 +53,7 @@ export const CLIENT_MESSAGE_KEY_TO_FIELD: Record<string, string> = {
   'invoice.client.invnumber.required.error': 'invNumber',
   'invoice.client.invnumber.pattern.error': 'invNumber',
   'invoice.client.invnumber.maxlength.error': 'invNumber',
+  'invoice.client.fob.maxlength.error': 'fobCode',
   'invoice.client.invdate.required.error': 'invDate',
   'invoice.client.invtype.required.error': 'invType',
   'invoice.client.invtype.pattern.error': 'invType',

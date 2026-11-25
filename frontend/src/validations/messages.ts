@@ -41,7 +41,8 @@ const REPORT_MESSAGES: Record<string, string> = {
 // request-DTO constraints (required / pattern), surfaced inline as the user types.
 const INVOICE_MESSAGES: Record<string, string> = {
   'invoice.client.invnumber.required.error': 'Invoice number is required.',
-  'invoice.client.invnumber.pattern.error': 'Invoice number may only contain uppercase letters, digits and hyphens.',
+  'invoice.client.invnumber.pattern.error': 'Invoice number cannot contain tabs, line breaks or backslashes.',
+  'invoice.client.fob.maxlength.error': 'FOB must be at most 120 characters.',
   'invoice.client.invnumber.maxlength.error': 'Invoice number must be at most 15 characters.',
   'invoice.client.invdate.required.error': 'Invoice date is required.',
   'invoice.client.invtype.required.error': 'Invoice type is required.',

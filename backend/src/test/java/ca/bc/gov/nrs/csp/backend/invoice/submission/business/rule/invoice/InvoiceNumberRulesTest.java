@@ -13,7 +13,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The invoice number may carry only uppercase letters, digits and hyphens.
+ * The invoice number may carry anything legacy accepted: everything but tabs,
+ * line breaks and backslashes.
  * Rejection and normalisation are two different answers, so the cases that the
  * normaliser already fixes (lower case, surrounding whitespace) are exercised
  * through it, exactly as production runs them.
@@ -24,8 +25,9 @@ class InvoiceNumberRulesTest {
   private final IdentifierNormalizer normalizer = new IdentifierNormalizer();
 
   @ParameterizedTest
-  @ValueSource(strings = {"INV-001", "INV001", "123", "A-1-2", "-", "INVOICE-0000001"})
-  void accepts_uppercase_digits_and_hyphens(String invoiceNumber) {
+  @ValueSource(strings = {"INV-001", "INV001", "123", "A-1-2", "-", "INVOICE-0000001",
+      "INV/42", "INV 001", "INV_001", "INV#001", "INV.001", "INV*", "INV+1", "INV(1)", "INV,1"})
+  void accepts_what_legacy_accepted(String invoiceNumber) {
     ValidationCollector collector = new ValidationCollector();
 
     rules.invoiceNumberValid(context(collector, invoiceNumber));
@@ -34,8 +36,8 @@ class InvoiceNumberRulesTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"INV 001", "INV_001", "INV#001", "INV.001", "INV/001", "INV*", "INV+1", "INV(1)", "INV,1"})
-  void rejects_spaces_and_special_characters(String invoiceNumber) {
+  @ValueSource(strings = {"INV\t001", "INV\n001", "INV\r001", "INV\f001", "INV\u000B001", "INV\\001"})
+  void rejects_tabs_line_breaks_and_backslashes(String invoiceNumber) {
     ValidationCollector collector = new ValidationCollector();
 
     rules.invoiceNumberValid(context(collector, invoiceNumber));
@@ -85,7 +87,7 @@ class InvoiceNumberRulesTest {
   void validate_runs_the_rule() {
     ValidationCollector collector = new ValidationCollector();
 
-    rules.validate(context(collector, "INV 1"));
+    rules.validate(context(collector, "INV\\1"));
 
     assertThat(collector.entries()).hasSize(1);
     assertThat(collector.entries().get(0).error().code()).isEqualTo("invoice.number.pattern.error");

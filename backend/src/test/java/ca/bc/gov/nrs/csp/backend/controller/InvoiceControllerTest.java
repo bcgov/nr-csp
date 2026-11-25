@@ -136,7 +136,7 @@ class InvoiceControllerTest {
     @Test
     void create_invalidInvNumberPattern_returns400() throws Exception {
         String body = """
-                {"invNumber":"inv 001!","invoiceDate":"2026-01-15","invType":"SAL",
+                {"invNumber":"INV\\\\001","invoiceDate":"2026-01-15","invType":"SAL",
                  "submitterClientNum":"1234","submitterLocation":"00","submittedBy":"Seller","manual":true}
                 """;
         mockMvc.perform(post("/api/invoices")
@@ -154,6 +154,35 @@ class InvoiceControllerTest {
                         .content(VALID_CREATE_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.invID").value(1));
+    }
+
+    // Legacy accepted these and the CSP schema allows them, so the staff form's API does too.
+    @Test
+    void update_legacyInvoiceNumberAndFreeTextFob_returns200() throws Exception {
+        given(invoiceService.update(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
+        String body = """
+                {"invNumber":"INV/42","invoiceDate":"2026-01-15","invType":"SAL","fobCode":"TEST LANDING",
+                 "submitterClientNum":"1234","submitterLocation":"00","submittedBy":"Seller","manual":true}
+                """;
+
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void update_fobLongerThanTheColumn_returns400() throws Exception {
+        String body = """
+                {"invNumber":"INV-001","invoiceDate":"2026-01-15","invType":"SAL","fobCode":"%s",
+                 "submitterClientNum":"1234","submitterLocation":"00","submittedBy":"Seller","manual":true}
+                """.formatted("A".repeat(121));
+
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(invoiceService);
     }
 
     @Test

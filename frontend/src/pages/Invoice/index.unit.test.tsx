@@ -74,10 +74,6 @@ vi.mock('@/services/search.service', () => ({
   getClientsByName: (...a: unknown[]) => h.getClientsByName(...a),
 }));
 
-vi.mock('@/services/fob.service', () => ({
-  useFobCodesQuery: () => ({ data: [{ code: 'FOB01', description: 'FOB One' }] }),
-}));
-
 // PageTitle pulls in the PageTitle context/provider; stub it to a passthrough
 // that still renders its children (the status tag lives inside it).
 vi.mock('@/components/core/PageTitle', () => ({

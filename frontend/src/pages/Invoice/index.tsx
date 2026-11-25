@@ -40,7 +40,6 @@ import TagInput from '@/components/Form/TagInput';
 import TextArea from '@/components/Form/TextArea';
 import { useNotification } from '@/context/notification/useNotification';
 import { ROUTES } from '@/routes/routePaths';
-import { useFobCodesQuery } from '@/services/fob.service';
 import { useAuth } from '@/context/auth/useAuth';
 import { usePermission } from '@/context/auth/usePermission';
 import {
@@ -291,7 +290,6 @@ export function InvoicePage() {
   const { data: speciesItems = [] } = useSpeciesLookupQuery();
   const { data: sortCodeItems = [] } = useSortCodesLookupQuery();
   const { data: gradeItems = [] } = useGradeLookupQuery();
-  const { data: fobItems = [] } = useFobCodesQuery();
   // Full active (species, grade) xref — cached once per session and used
   // to filter the Add New Line Item form's Species and Grade dropdowns
   // against each other so the user can only pick valid combinations.
@@ -482,6 +480,7 @@ export function InvoicePage() {
     invNumber,
     invDate,
     invType: invTypeCode,
+    fobCode: fobCodeValue,
     submittedBy: submittedByCode,
     submitterLocation: submittingClientLocation,
     otherClientLocation,
@@ -499,6 +498,7 @@ export function InvoicePage() {
       invNumber,
       invDate,
       invTypeCode,
+      fobCodeValue,
       submittedByCode,
       submittingClientLocation,
       otherClientLocation,
@@ -512,6 +512,7 @@ export function InvoicePage() {
     invNumber,
     invDate,
     invType: invTypeCode,
+    fobCode: fobCodeValue,
     submittedBy: submittedByCode,
     submittingClientLocation,
     otherClientLocation,
@@ -536,6 +537,7 @@ export function InvoicePage() {
       invNumber,
       invDate,
       invTypeCode,
+      fobCodeValue,
       submittedByCode,
       submittingClientLocation,
       otherClientLocation,
@@ -646,7 +648,6 @@ export function InvoicePage() {
     );
   };
   const [editGroupFieldErrors, setEditGroupFieldErrors] = useState<Record<string, string>>({});
-  const [fobValidationError, setFobValidationError] = useState('');
 
   // Which group rows are expanded, keyed by GroupRow.id.
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
@@ -661,13 +662,8 @@ export function InvoicePage() {
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirm | null>(null);
 
   // Disable Save/Submit while ANY field is showing a validation error: the
-  // live structural checks, server-returned field errors, the FOB lookup
-  // check, or the reviewer-comment check.
-  const hasAnyFieldError =
-    hasStructuralErrors ||
-    Object.keys(fieldErrors).length > 0 ||
-    fobValidationError !== '' ||
-    reviewerCommentError !== '';
+  // live structural checks, server-returned field errors, or the reviewer-comment check.
+  const hasAnyFieldError = hasStructuralErrors || Object.keys(fieldErrors).length > 0 || reviewerCommentError !== '';
 
   // -----------------------------------------------------------------
   // Filtered species list for the group-edit modal — only species that
@@ -684,20 +680,6 @@ export function InvoicePage() {
       gradesInGroup.every((g) => speciesGradeCombos.some((c) => c.species === s.code && c.grade === g)),
     );
   }, [editGroupDraft, lineItems, speciesItems, speciesGradeCombos]);
-
-  // Run on blur of the FOB text input: check the entered code against the
-  // /api/lookup/fob list. Empty values clear the error (required-ness is
-  // enforced server-side via the standard fieldErrors flow). Skip while
-  // the FOB list is still loading so we don't false-flag a valid code.
-  const validateFobOnBlur = () => {
-    if (fobCodeValue.trim() === '') {
-      setFobValidationError('');
-      return;
-    }
-    if (fobItems.length === 0) return;
-    const exists = fobItems.some((f) => f.code === fobCodeValue.trim());
-    setFobValidationError(exists ? '' : `FOB code "${fobCodeValue}" is not a valid FOB location.`);
-  };
 
   // -----------------------------------------------------------------
   // Reset all form state whenever the URL invoice id changes — this
@@ -757,7 +739,6 @@ export function InvoicePage() {
     setPageErrors([]);
     setWarnings([]);
     setReviewerCommentError('');
-    setFobValidationError('');
     setNewLineFieldErrors({});
     setEditLineDraft(null);
     setEditLineOpenedAtVersion(undefined);
@@ -1094,11 +1075,7 @@ export function InvoicePage() {
   );
 
   const applyServerErrors = (errors: ValidationMessageResponse[]) =>
-    routeServerErrors(
-      errors,
-      canEdit ? MESSAGE_KEY_TO_FIELD : REVIEWER_COMMENT_ONLY_FIELD_MAP,
-      setFieldErrors,
-    );
+    routeServerErrors(errors, canEdit ? MESSAGE_KEY_TO_FIELD : REVIEWER_COMMENT_ONLY_FIELD_MAP, setFieldErrors);
 
   // Variant for the POST/PATCH /line-items mutations — routes mapped keys to
   // the Add New Line Item form's inline state and unmapped keys to the banner.
@@ -2105,15 +2082,10 @@ export function InvoicePage() {
                       id="fob-code"
                       labelText={<RequiredLabel>FOB</RequiredLabel>}
                       value={fobCodeValue}
-                      onChange={(e) => {
-                        setFobCodeValue(e.target.value);
-                        // Clear the inline error while the user is editing —
-                        // it'll be re-checked on blur.
-                        if (fobValidationError) setFobValidationError('');
-                      }}
-                      onBlur={validateFobOnBlur}
-                      invalid={!!fobValidationError || !!displayFieldErrors.fobCode}
-                      invalidText={fobValidationError || displayFieldErrors.fobCode}
+                      // Free text, as in legacy and the CSP schema: a lookup code or a place name.
+                      onChange={(e) => setFobCodeValue(e.target.value)}
+                      invalid={!!displayFieldErrors.fobCode}
+                      invalidText={displayFieldErrors.fobCode}
                       disabled={!canEdit}
                     />
                   </Column>
@@ -2135,21 +2107,15 @@ export function InvoicePage() {
                     <>
                       <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                         <span className="invoice-page__meta-label">Declared total pieces</span>
-                        <span className="invoice-page__meta-value">
-                          {formatNumber(loadedInvoice?.totalPieces)}
-                        </span>
+                        <span className="invoice-page__meta-value">{formatNumber(loadedInvoice?.totalPieces)}</span>
                       </Column>
                       <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
                         <span className="invoice-page__meta-label">Declared total volume (m3)</span>
-                        <span className="invoice-page__meta-value">
-                          {formatNumber(loadedInvoice?.totalVol, 3)}
-                        </span>
+                        <span className="invoice-page__meta-value">{formatNumber(loadedInvoice?.totalVol, 3)}</span>
                       </Column>
                       <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
                         <span className="invoice-page__meta-label">Declared total amount</span>
-                        <span className="invoice-page__meta-value">
-                          {formatCurrency(loadedInvoice?.totalAmt)}
-                        </span>
+                        <span className="invoice-page__meta-value">{formatCurrency(loadedInvoice?.totalAmt)}</span>
                       </Column>
                     </>
                   ) : (
