@@ -310,6 +310,22 @@ locally, because CI never installed these deps. One install removes the failure 
 **Note:** `npm test` runs only `chromium`. Running the `deployed` project against a local stack fails
 by design — local mock auth auto-authenticates, so the anonymous welcome screen never renders.
 
+### User manual screenshots and PDFs
+
+`manual/` captures the images for the end-user manuals in `docs/manual/` and builds their PDFs. It
+needs no stack: the spec serves the built app (`frontend/build`) to the browser, signs in with a
+sample token and answers every API call from `manual/manual-fixtures.ts`, so all data is fictional.
+
+```bash
+cd frontend
+npm run manual:screenshots   # builds the app, then writes docs/manual/<edition>/images/*.png
+npm run manual:pdf           # writes frontend/public/manuals/CSP-*-User-Manual.pdf
+npm run manual:check         # role, link and table checks only; no browser
+```
+
+Conventions and the review checklist are in the `update-manual` skill
+(`.claude/skills/update-manual/SKILL.md`).
+
 ---
 
 ## Layout — organized by domain, then use case

@@ -641,6 +641,7 @@ has the environment, rather than in the frontend deploy template.
 | Document | What's in it |
 |---|---|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Tech stack, system design, data access, auth flow, reporting pipeline |
+| [`docs/manual/`](docs/manual/README.md) | End-user manuals for industry (Business BCeID) and ministry (IDIR) users, updated with the code |
 | [`frontend/e2e/README.md`](frontend/e2e/README.md) | **End-to-end testing** — stack setup, seeded DB, tags, layout, pitfalls |
 | [`frontend/e2e/coverage-guide.md`](frontend/e2e/coverage-guide.md) | How per-use-case `coverage.md` files are written |
 | [`frontend/e2e/defects-guide.md`](frontend/e2e/defects-guide.md) | How discovered defects are recorded and tracked |

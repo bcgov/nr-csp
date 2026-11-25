@@ -1,3 +1,4 @@
+import { Help } from '@carbon/icons-react';
 import { SideNav, SideNavItems, SideNavLink, SideNavMenu, SideNavMenuItem } from '@carbon/react';
 import { Link, matchPath, useLocation } from 'react-router';
 
@@ -6,6 +7,7 @@ import { useLayout } from '@/context/layout/useLayout';
 import { visibleNavItems } from '@/routes/access';
 import { NAVIGATION_ITEMS } from '@/routes/navigation';
 import { isModifiedClick } from '@/utils/link';
+import { userManualsForRoles } from '@/utils/support';
 
 import type { MouseEvent } from 'react';
 
@@ -16,6 +18,7 @@ export function LayoutSideNav() {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const isCurrent = (path: string) => Boolean(matchPath({ path, end: false }, pathname));
+  const userManuals = userManualsForRoles(user?.privileges);
 
   const onNavigate = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isModifiedClick(event)) closeMobileSideNav();
@@ -84,6 +87,15 @@ export function LayoutSideNav() {
             </SideNavLink>
           );
         })}
+        {userManuals.length > 0 && (
+          <SideNavMenu title="Support" renderIcon={Help}>
+            {userManuals.map((userManual) => (
+              <SideNavMenuItem key={userManual.href} href={userManual.href} download>
+                {userManual.label}
+              </SideNavMenuItem>
+            ))}
+          </SideNavMenu>
+        )}
       </SideNavItems>
     </SideNav>
   );

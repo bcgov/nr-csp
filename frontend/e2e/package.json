@@ -17,11 +17,15 @@
     "test:ui": "playwright test --project=chromium --ui",
     "report": "playwright show-report",
     "codegen": "playwright codegen http://localhost:3000",
-    "test:deployed": "playwright test --project=deployed"
+    "test:deployed": "playwright test --project=deployed",
+    "manual:screenshots": "npm --prefix .. run build && playwright test --config=playwright.manual.config.ts",
+    "manual:pdf": "node manual/build-manual-pdf.mjs",
+    "manual:check": "node manual/build-manual-pdf.mjs --check"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
     "dotenv": "^18.0.0",
+    "marked": "15.0.12",
     "playwright-bdd": "^9.2.1"
   }
 }
