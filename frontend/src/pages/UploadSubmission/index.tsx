@@ -140,9 +140,13 @@ const STATUS_BANNER: Record<InvoiceSeverity, { kind: 'success' | 'warning' | 'er
   },
   error: {
     kind: 'error',
-    subtitle: 'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
+    subtitle:
+      'Submission is blocked and no invoices from this file are saved. Correct the errors in your source file, then upload the whole corrected file.',
   },
 };
+
+// Submit refuses the whole file when any invoice has an error; the server's verdict says how many.
+const INVOICES_REJECTED = 'INVOICES_REJECTED';
 
 export function UploadSubmissionPage() {
   const navigate = useNavigate();
@@ -635,15 +639,11 @@ export function UploadSubmissionPage() {
     if (severity === 'warning') title = `${warnings} warning${warnings === 1 ? '' : 's'} found.`;
     else if (severity === 'error') title = `${errors} error${errors === 1 ? '' : 's'} found.`;
     else title = `${fileName ?? 'The file'} was uploaded with no issues found.`;
+    let subtitle: string | undefined = severity === 'none' ? undefined : banner.subtitle;
+    if (severity === 'error' && businessResult?.code === INVOICES_REJECTED) subtitle = businessResult.message;
     return (
       <div className="upload-submission-page__notification">
-        <InlineNotification
-          kind={banner.kind}
-          lowContrast
-          title={title}
-          subtitle={severity === 'none' ? undefined : banner.subtitle}
-          hideCloseButton
-        />
+        <InlineNotification kind={banner.kind} lowContrast title={title} subtitle={subtitle} hideCloseButton />
         {issues?.formIssues.map((issue) => (
           <InlineNotification
             key={`form-${issue.type}-${issue.message}`}

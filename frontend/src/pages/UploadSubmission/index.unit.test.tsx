@@ -118,6 +118,9 @@ const makeParse = (over: Partial<SubmissionParseResponse> = {}): SubmissionParse
   ...over,
 });
 
+const MIXED_FILE_MESSAGE =
+  '1 of 2 invoice(s) have errors. No invoices from this file are saved. Correct the errors and upload the whole corrected file.';
+
 const makeValidation = (over: Partial<SubmissionValidationResponse> = {}): SubmissionValidationResponse => ({
   valid: true,
   code: 'ACCEPTED',
@@ -291,13 +294,13 @@ describe('UploadSubmissionPage', () => {
     expect(screen.getByText('Could not reach the server. Please try again.')).toBeInTheDocument();
   });
 
-  it('business validation partial via thrown 422 shows warning summary, inline field + banners', async () => {
+  it('business validation failed via thrown 422 shows error summary, inline field + banners', async () => {
     mockParse.mockResolvedValue(makeParse());
     mockValidate.mockRejectedValue(
       envelopeError(
         makeValidation({
           valid: false,
-          code: 'PARTIALLY_ACCEPTED',
+          code: 'VALIDATION_ERROR',
           acceptedInvoices: ['INV-001'],
           rejectedInvoices: ['INV-002'],
           errors: [
@@ -320,7 +323,7 @@ describe('UploadSubmissionPage', () => {
     expect(await screen.findByText('4 errors found.')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
+        'Submission is blocked and no invoices from this file are saved. Correct the errors in your source file, then upload the whole corrected file.',
       ),
     ).toBeInTheDocument();
 
@@ -345,7 +348,7 @@ describe('UploadSubmissionPage', () => {
     mockValidate.mockResolvedValue(
       makeValidation({
         valid: false,
-        code: 'PARTIALLY_ACCEPTED',
+        code: 'VALIDATION_ERROR',
         acceptedInvoices: [],
         rejectedInvoices: ['INV-001'],
         // Read-only invoice-level error — the user can't fix it in the form.
@@ -363,8 +366,8 @@ describe('UploadSubmissionPage', () => {
     mockParse.mockResolvedValue(makeParse());
     mockValidate.mockResolvedValue(
       makeValidation({
-        valid: false,
-        code: 'PARTIALLY_ACCEPTED',
+        valid: true,
+        code: 'OK',
         acceptedInvoices: ['INV-001'],
         rejectedInvoices: [],
         errors: [msg('invoice.month.completed.warning', 'invoice #1 (INV-001): Month may be incomplete.', 'WARNING')],
@@ -619,7 +622,7 @@ describe('UploadSubmissionPage', () => {
       envelopeError(
         makeValidation({
           valid: false,
-          code: 'PARTIALLY_ACCEPTED',
+          code: 'VALIDATION_ERROR',
           acceptedInvoices: [],
           rejectedInvoices: ['INV-001'],
           errors: [
@@ -649,8 +652,8 @@ describe('UploadSubmissionPage', () => {
     mockValidate.mockRejectedValue(
       envelopeError(
         makeValidation({
-          valid: false,
-          code: 'PARTIALLY_ACCEPTED',
+          valid: true,
+          code: 'OK',
           acceptedInvoices: ['INV-001'],
           rejectedInvoices: [],
           errors: [
@@ -678,7 +681,7 @@ describe('UploadSubmissionPage', () => {
       envelopeError(
         makeValidation({
           valid: false,
-          code: 'PARTIALLY_ACCEPTED',
+          code: 'VALIDATION_ERROR',
           acceptedInvoices: [],
           rejectedInvoices: ['INV-001'],
           errors: [
@@ -723,7 +726,7 @@ describe('UploadSubmissionPage', () => {
     expect(await screen.findByText('1 error found.')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
+        'Submission is blocked and no invoices from this file are saved. Correct the errors in your source file, then upload the whole corrected file.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Everything failed.')).toBeInTheDocument();
@@ -827,7 +830,8 @@ describe('UploadSubmissionPage', () => {
     mockSubmit.mockResolvedValue(
       makeSubmit({
         valid: false,
-        code: 'PARTIALLY_ACCEPTED',
+        code: 'INVOICES_REJECTED',
+        message: MIXED_FILE_MESSAGE,
         submissionId: null,
         submissionNumber: null,
         acceptedInvoices: ['INV-001'],
@@ -842,6 +846,7 @@ describe('UploadSubmissionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     expect(await screen.findByText('1 error found.')).toBeInTheDocument();
+    expect(screen.getByText(MIXED_FILE_MESSAGE)).toBeInTheDocument();
     expect(screen.getByText('Rejected at submit.')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -883,6 +888,27 @@ describe('UploadSubmissionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     expect(await screen.findByText('Upload failed.')).toBeInTheDocument();
+  });
+
+  it('a mixed-file preview says no invoices are saved and the whole file must be uploaded again', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(
+      makeValidation({
+        valid: false,
+        code: 'INVOICES_REJECTED',
+        message: MIXED_FILE_MESSAGE,
+        acceptedInvoices: ['INV-002'],
+        rejectedInvoices: ['INV-001'],
+        errors: [msg('invoice.date.required.error', 'invoice #1 (INV-001): Invoice date is required.', 'ERROR')],
+      }),
+    );
+
+    await uploadAndSettle();
+
+    expect(await screen.findByText('1 error found.')).toBeInTheDocument();
+    expect(screen.getByText(MIXED_FILE_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText(/partially/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
   });
 
   it('clear button resets back to idle', async () => {

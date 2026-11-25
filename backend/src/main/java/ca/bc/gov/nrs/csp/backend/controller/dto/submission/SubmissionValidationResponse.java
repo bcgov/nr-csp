@@ -18,13 +18,13 @@ import java.util.List;
 public record SubmissionValidationResponse(
         @Schema(description = "True ONLY when the submission is fully accepted (no rejected invoices)", example = "false")
         boolean valid,
-        @Schema(description = "Outcome code: OK (fully accepted), PARTIALLY_ACCEPTED, or VALIDATION_ERROR", example = "PARTIALLY_ACCEPTED")
+        @Schema(description = "Outcome code: OK (fully accepted), INVOICES_REJECTED (any rejected invoice refuses the whole file), or VALIDATION_ERROR", example = "INVOICES_REJECTED")
         String code,
         @Schema(description = "Human-readable summary")
         String message,
-        @Schema(description = "Invoice numbers that passed all rules and are accepted (empty for structural validation)")
+        @Schema(description = "Invoice numbers that passed all rules; none are saved while any invoice is rejected (empty for structural validation)")
         List<String> acceptedInvoices,
-        @Schema(description = "Invoice numbers rejected for at least one ERROR — correct and resubmit these")
+        @Schema(description = "Invoice numbers rejected for at least one ERROR — correct them and resubmit the whole file")
         List<String> rejectedInvoices,
         @Schema(description = "Every message that fired (ERROR and WARNING), each with locator and severity")
         List<ValidationMessageResponse> errors

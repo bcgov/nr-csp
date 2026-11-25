@@ -19,7 +19,7 @@ import java.util.List;
 public record SubmissionSubmitResponse(
         @Schema(description = "True when the submission was saved", example = "true")
         boolean valid,
-        @Schema(description = "Outcome code: OK, VALIDATION_ERROR, PARTIALLY_ACCEPTED, or an upload code", example = "OK")
+        @Schema(description = "Outcome code: OK, VALIDATION_ERROR, INVOICES_REJECTED (nothing saved), or an upload code", example = "OK")
         String code,
         @Schema(description = "Human-readable summary")
         String message,
@@ -28,7 +28,7 @@ public record SubmissionSubmitResponse(
         @Schema(description = "Business submission number allocated to the saved submission — what the "
                 + "submission detail page is keyed on; null when not saved", example = "9001")
         Long submissionNumber,
-        @Schema(description = "Invoice numbers accepted by business validation")
+        @Schema(description = "Invoice numbers that passed business validation; saved only when none is rejected")
         List<String> acceptedInvoices,
         @Schema(description = "Invoice numbers rejected by business validation (blocks the save)")
         List<String> rejectedInvoices,

@@ -67,6 +67,9 @@ public class CspSubmissionController implements CspSubmissionApi {
     private static final String CODE_UPLOAD_MISSING = "UPLOAD_MISSING";
     private static final String CODE_UPLOAD_UNREADABLE = "UPLOAD_UNREADABLE";
     private static final String CODE_VALIDATION_ERROR = "VALIDATION_ERROR";
+    private static final String CODE_INVOICES_REJECTED = "INVOICES_REJECTED";
+    private static final String MSG_VALIDATION_ERROR =
+            "Submission failed validation. No invoices from this file are saved.";
     private static final String CODE_CLIENT_NOT_AUTHORIZED = "CLIENT_NOT_AUTHORIZED";
     private static final String MSG_CLIENT_NOT_AUTHORIZED = "Submission client is not one of your forest clients";
     private static final String MSG_UPLOAD_MISSING = "file part 'file' is missing or empty";
@@ -232,18 +235,18 @@ public class CspSubmissionController implements CspSubmissionApi {
         }
 
         // Gate on business validation: only a fully accepted submission (no rejected
-        // invoices) is persisted. A "partial acceptance" reports result.valid()==true
-        // but still carries rejected invoices, so block on either condition.
+        // invoices) is persisted. Legacy saved the valid invoices of a mixed file; modern
+        // refuses the whole file, so the verdict says nothing was saved, as the preview does.
         SubmissionValidationResult result = validationService.validateBusiness(submission);
         List<String> rejected = result.acceptance().rejected();
         if (!result.valid() || !rejected.isEmpty()) {
             List<ValidationMessageResponse> messages = result.errors().stream()
                     .map(this::toMessageResponse)
                     .toList();
-            String code = rejected.isEmpty() ? CODE_VALIDATION_ERROR : "PARTIALLY_ACCEPTED";
+            String code = rejected.isEmpty() ? CODE_VALIDATION_ERROR : CODE_INVOICES_REJECTED;
+            String message = rejected.isEmpty() ? MSG_VALIDATION_ERROR : invoicesRejectedMessage(result);
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
-                    new SubmissionSubmitResponse(false, code,
-                            "Submission cannot be saved until all issues are resolved.",
+                    new SubmissionSubmitResponse(false, code, message,
                             null, null, result.acceptance().accepted(), rejected, messages));
         }
 
@@ -482,22 +485,27 @@ public class CspSubmissionController implements CspSubmissionApi {
         if (!result.valid()) {
             // Rejected outright: a submission-level error, or no invoice was accepted.
             return new SubmissionValidationResponse(
-                    false, CODE_VALIDATION_ERROR, "Submission failed validation",
+                    false, CODE_VALIDATION_ERROR, MSG_VALIDATION_ERROR,
                     accepted, rejected, messages);
         }
         if (!rejected.isEmpty()) {
-            // Accepted, but some invoices were rejected — must NOT read as a clean accept.
-            // valid=false (so callers keying on valid notice), but HTTP stays 200 since the
-            // submission was processed and the accepted invoices proceed.
+            // Submit refuses the whole file when any invoice is rejected, so this must not read
+            // as a partial save. HTTP stays 200 because the preview itself succeeded.
             return new SubmissionValidationResponse(
-                    false, "PARTIALLY_ACCEPTED",
-                    "Submission partially accepted: " + rejected.size()
-                            + " invoice(s) rejected and must be corrected and resubmitted",
+                    false, CODE_INVOICES_REJECTED, invoicesRejectedMessage(result),
                     accepted, rejected, messages);
         }
         // Fully accepted.
         return new SubmissionValidationResponse(
                 true, "OK", "Submission is valid", accepted, rejected, messages);
+    }
+
+    // Shared by the preview and Submit so a mixed file gets the same verdict from both.
+    private static String invoicesRejectedMessage(SubmissionValidationResult result) {
+        int rejected = result.acceptance().rejected().size();
+        int total = rejected + result.acceptance().accepted().size();
+        return rejected + " of " + total + " invoice(s) have errors. No invoices from this file are saved."
+                + " Correct the errors and upload the whole corrected file.";
     }
 
     private ValidationMessageResponse toMessageResponse(SubmissionValidationError err) {
