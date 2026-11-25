@@ -521,25 +521,15 @@ public class InvoiceService {
         }
     }
 
-    /**
-     * Submission-status side effects of an invoice status change:
-     * <ul>
-     *   <li>UNAPPROVE — never changes the submission.</li>
-     *   <li>APPROVE / REJECT / CANCEL — only once no PROCESSING invoices remain in
-     *       the submission (i.e. this was the last processing invoice) does the
-     *       submission move: COMPLETE if any APPROVED invoice exists in it,
-     *       otherwise REJECTED. While other invoices are still processing, the
-     *       submission is left unchanged.</li>
-     * </ul>
-     * Must be called AFTER the invoice's own status has been persisted.
-     */
+    // Legacy SubmissionTransferRules.provideSubmissionStatus: Unapprove leaves the submission alone, and it
+    // closes only when every invoice is Approved, Cancelled or Rejected. Call after the invoice status is saved.
     private void applySubmissionStatusOnStatusChange(Long submissionId, String newInvoiceStatus, String user) {
         if (submissionId == null) return;
         if (ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(newInvoiceStatus)) return;
 
-        int processing = invoiceRepo.countByCspSubmissionIdAndStatus(
-                submissionId, ConstantsCode.INVENTRYSTATUS_PROCESSING);
-        if (processing > 0) return; // not the last processing invoice — leave the submission alone
+        // Without the lock, two last decisions on sibling invoices could each still see the other undecided.
+        submissionRepo.lockForUpdate(submissionId);
+        if (invoiceRepo.countUndecidedByCspSubmissionId(submissionId) > 0) return;
 
         boolean anyApproved = invoiceRepo.countByCspSubmissionIdAndStatus(
                 submissionId, ConstantsCode.INVENTRYSTATUS_APPROVED) > 0;
@@ -563,8 +553,7 @@ public class InvoiceService {
      * {@link #REVIEW_QUEUE_STATUSES review-queue status}, which is what the cascade was
      * written for; it clears a replaced invoice out of the inbox. Cancelling a DRAFT
      * original deliberately leaves its submission in the lobby:
-     * the cascade would otherwise push a lobby submission (possibly holding other drafts)
-     * to REJECTED.</p>
+     * the cascade would otherwise close a lobby submission whose only invoice was that draft.</p>
      */
     private void cancelReplacedInvoices(Long replacementId, List<Long> replacedIds, String user) {
         if (replacedIds == null) return;
@@ -682,7 +671,8 @@ public class InvoiceService {
         invoiceRepo.incrementRevisionCount(invoiceId, user);
         if (!ConstantsCode.INVENTRYSTATUS_DRAFT.equals(existing.details().invStatus())) {
             invoiceRepo.updateStatus(invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT, user);
-            if (existing.submissionId() != null) {
+            // An upload stays in the staff Inbox, as legacy InvoiceService.submitOrSaveInv moves only manual submissions.
+            if (existing.submissionId() != null && existing.submissionNumber() == null) {
                 submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_LOBBY, user);
             }
             log.info("Line-item change reverted invoice id={} to DRAFT submissionId={}", invoiceId, existing.submissionId());

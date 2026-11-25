@@ -1031,6 +1031,22 @@ class InvoiceRepositoryTest {
     }
 
     @Test
+    void countUndecidedByCspSubmissionId_countsEveryStatusButApprovedCancelledAndRejected() {
+        given(jdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
+                .willReturn(2);
+
+        assertThat(repo.countUndecidedByCspSubmissionId(500L)).isEqualTo(2);
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> params = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).queryForObject(sql.capture(), params.capture(), eq(Integer.class));
+        assertThat(sql.getValue())
+                .contains("csp_submission_id = :id")
+                .contains("log_sale_entry_status_code NOT IN ('APP', 'CAN', 'REJ')");
+        assertThat(params.getValue().getValue("id")).isEqualTo(500L);
+    }
+
+    @Test
     void countByCspSubmissionIdAndStatus_nullId_returnsZeroWithoutQuerying() {
         assertThat(repo.countByCspSubmissionIdAndStatus(null, "DFT")).isZero();
         verifyNoInteractions(jdbc);

@@ -731,6 +731,16 @@ public class InvoiceRepository {
         return count == null ? 0 : count;
     }
 
+    // Legacy isTheInvoiceLastProcessingInSubmission: anything not Approved, Cancelled or Rejected keeps the submission open.
+    public int countUndecidedByCspSubmissionId(Long submissionId) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM THE.coastal_log_sale WHERE csp_submission_id = :id"
+                        + " AND log_sale_entry_status_code NOT IN ('APP', 'CAN', 'REJ')",
+                new MapSqlParameterSource("id", submissionId),
+                Integer.class);
+        return count == null ? 0 : count;
+    }
+
     public int countByCspSubmissionIdAndStatus(Long submissionId, String statusCode) {
         if (submissionId == null) return 0;
         Integer count = jdbc.queryForObject(

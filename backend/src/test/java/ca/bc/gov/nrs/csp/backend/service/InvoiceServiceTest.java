@@ -1063,7 +1063,7 @@ class InvoiceServiceTest {
     @Test
     void changeStatus_withComments_updatesReviewerNotesAndStatus() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1); // others still processing
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(1); // a sibling is still undecided
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("REJ", "Rejecting this"));
 
@@ -1075,7 +1075,7 @@ class InvoiceServiceTest {
     @Test
     void changeStatus_noComments_skipsReviewerNotesUpdate() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1);
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(1);
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
 
@@ -1090,14 +1090,14 @@ class InvoiceServiceTest {
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("UNA", "reopen"));
 
         verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
-        // UNA short-circuits before counting processing invoices.
-        verify(invoiceRepo, never()).countByCspSubmissionIdAndStatus(any(), eq("PRO"));
+        // UNA short-circuits before counting undecided invoices.
+        verify(invoiceRepo, never()).countUndecidedByCspSubmissionId(any());
     }
 
     @Test
-    void changeStatus_lastProcessingWithApproved_movesSubmissionToComplete() {
+    void changeStatus_lastUndecidedWithApproved_movesSubmissionToComplete() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(0);
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(0);
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "APP")).willReturn(1);
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
@@ -1105,10 +1105,26 @@ class InvoiceServiceTest {
         verify(submissionRepo).updateSubmissionStatus(10L, "COM", USER);
     }
 
-    @Test
-    void changeStatus_lastProcessingNoneApproved_movesSubmissionToRejected() {
+    @ParameterizedTest
+    @ValueSource(strings = {"APP", "REJ", "CAN"})
+    void changeStatus_withAnUndecidedSibling_locksThenLeavesSubmissionOpen(String status) {
+        // For example the second invoice of an upload still in Draft.
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(0);
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(1);
+
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest(status, "reviewed"));
+
+        InOrder order = inOrder(invoiceRepo, submissionRepo);
+        order.verify(invoiceRepo).updateStatus(1L, status, USER);
+        order.verify(submissionRepo).lockForUpdate(10L);
+        order.verify(invoiceRepo).countUndecidedByCspSubmissionId(10L);
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
+    }
+
+    @Test
+    void changeStatus_lastUndecidedNoneApproved_movesSubmissionToRejected() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(0);
         given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "APP")).willReturn(0);
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("REJ", "no good"));
@@ -1122,7 +1138,7 @@ class InvoiceServiceTest {
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("APP", null));
 
-        verify(invoiceRepo, never()).countByCspSubmissionIdAndStatus(any(), any());
+        verify(invoiceRepo, never()).countUndecidedByCspSubmissionId(any());
         verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
@@ -1130,7 +1146,7 @@ class InvoiceServiceTest {
     void changeStatus_approve_persistsConvertedPricesAfterTheLockAndBeforeTheStatusWrite() {
         InvoiceDetails d = details(1L, "PRO", "5678", null, "Seller");
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(d, 10L, null, null)));
-        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1);
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(1);
         List<LineItem> stored = List.of(line(1L, null), line(2L, null));
         given(lineItemRepo.findByInvoiceId(1L)).willReturn(stored);
         given(priceConversionService.apply(stored, d.maturity(), d.invoiceDate()))
@@ -1183,7 +1199,7 @@ class InvoiceServiceTest {
     @ValueSource(strings = {"REJ", "CAN", "UNA"})
     void changeStatus_nonApproval_doesNotConvert(String status) {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        lenient().when(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).thenReturn(1);
+        lenient().when(invoiceRepo.countUndecidedByCspSubmissionId(10L)).thenReturn(1);
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest(status, "reviewed"));
 
@@ -1240,9 +1256,9 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void addLineItem_onUnapproved_revertsToDraftAndLobby() {
+    void addLineItem_onManualUnapproved_revertsToDraftAndLobby() {
         LineItemRequest req = lineItemRequest();
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "UNA", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(details(1L, "UNA", "5678", null, "Seller"), 10L)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
         service.addLineItem(1L, CURRENT_VERSION, req);
@@ -1250,6 +1266,18 @@ class InvoiceServiceTest {
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
         verify(submissionRepo).updateSubmissionStatus(10L, "LOB", USER);
+    }
+
+    @Test
+    void addLineItem_onUploadedProcessing_revertsToDraftButKeepsTheUploadInTheInbox() {
+        LineItemRequest req = lineItemRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
+
+        service.addLineItem(1L, CURRENT_VERSION, req);
+
+        verify(invoiceRepo).updateStatus(1L, "DFT", USER);
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
     @Test
@@ -1609,7 +1637,7 @@ class InvoiceServiceTest {
     @Test
     void changeStatus_readsResponseLinesAfterItsVersion() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        given(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).willReturn(1);
+        given(invoiceRepo.countUndecidedByCspSubmissionId(10L)).willReturn(1);
         legacyLineCommitsAfterTheVersionRead();
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest("REJ", "Rejecting this"));
