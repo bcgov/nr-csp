@@ -343,7 +343,7 @@ describe('InvoicePage — invoice not found', () => {
 
 describe('InvoicePage — button enablement by status', () => {
   it('DFT: Save/Submit/Duplicate/Delete enabled; Approve/Cancel/Reject disabled', async () => {
-    await renderLoaded({ invStatus: 'DFT' });
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null });
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Duplicate' })).toBeEnabled();
@@ -351,6 +351,12 @@ describe('InvoicePage — button enablement by status', () => {
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled();
+  });
+
+  // Legacy refuses to delete an electronic invoice, and so does the API.
+  it('DFT electronic: Delete disabled', async () => {
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: 67890 });
+    expect(screen.getByRole('button', { name: /delete/i })).toBeDisabled();
   });
 
   it('PRO: Approve/Cancel/Reject enabled; Submit disabled', async () => {
@@ -501,7 +507,7 @@ describe('InvoicePage — action flows', () => {
   });
 
   it('Delete opens a confirmation modal and fires the delete mutation on confirm', async () => {
-    await renderLoaded({ invStatus: 'DFT' });
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null });
     await userEvent.click(screen.getByRole('button', { name: /delete/i }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/delete invoice/i)).toBeInTheDocument();

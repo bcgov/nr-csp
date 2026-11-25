@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.csp.backend.repository;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.exception.ConflictException;
 import ca.bc.gov.nrs.csp.backend.invoice.shared.LineAmount;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -167,14 +168,52 @@ public class LineItemRepository {
         return (clientSort != null && !clientSort.isBlank()) ? clientSort : line.secondSort();
     }
 
-    public void deleteLineItem(Long lineItemId) {
-        jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_detail_id = :id",
-                new MapSqlParameterSource("id", lineItemId));
+    // Same columns as legacy LineItemDAO.getBaseDeleteAuditQuery. The DB triggers audit inserts and
+    // updates only, so every line delete must write this 'D' snapshot first, in the same transaction.
+    private static final String SQL_INSERT_LINE_DELETE_AUDIT = """
+            INSERT INTO THE.coastal_log_sale_detail_audit (
+                csp_audit_action_type_code, coastal_log_sale_detail_id, coastal_log_sale_id,
+                log_sale_sort_code, csp_species_grade_xref_id, client_secondary_sort_code,
+                pieces, volume, price, converted_price, revision_count,
+                entry_userid, entry_timestamp, update_userid, update_timestamp
+            )
+            SELECT 'D', t.coastal_log_sale_detail_id, t.coastal_log_sale_id,
+                t.log_sale_sort_code, t.csp_species_grade_xref_id, t.client_secondary_sort_code,
+                t.pieces, t.volume, t.price, t.converted_price, t.revision_count,
+                t.entry_userid, t.entry_timestamp, :deletedByUserId, SYSDATE
+            FROM THE.coastal_log_sale_detail t
+            """;
+
+    public void auditAndDeleteLineItem(Long lineItemId, String deletedByUserId) {
+        int deletedLineCount = lockAuditAndDelete("coastal_log_sale_detail_id = :id", lineItemId, deletedByUserId);
+        if (deletedLineCount != 1) {
+            throw lineItemsChangedConflict();
+        }
     }
 
-    public void deleteAllByInvoiceId(Long invoiceId) {
-        jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = :id",
-                new MapSqlParameterSource("id", invoiceId));
+    public void auditAndDeleteAllByInvoiceId(Long invoiceId, String deletedByUserId) {
+        lockAuditAndDelete("coastal_log_sale_id = :id", invoiceId, deletedByUserId);
+    }
+
+    // Lock the lines first so none can change between its 'D' snapshot and its delete. Legacy line adds
+    // don't lock the header, so a new line can still appear; unequal counts refuse that and roll back.
+    private int lockAuditAndDelete(String lineFilter, Long id, String deletedByUserId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("deletedByUserId", deletedByUserId);
+        jdbc.queryForList("SELECT coastal_log_sale_detail_id FROM THE.coastal_log_sale_detail WHERE " + lineFilter
+                + " FOR UPDATE", params, Long.class);
+        int auditedLineCount = jdbc.update(SQL_INSERT_LINE_DELETE_AUDIT + "WHERE t." + lineFilter, params);
+        int deletedLineCount = jdbc.update("DELETE FROM THE.coastal_log_sale_detail WHERE " + lineFilter, params);
+        if (deletedLineCount != auditedLineCount) {
+            throw lineItemsChangedConflict();
+        }
+        return deletedLineCount;
+    }
+
+    private static ConflictException lineItemsChangedConflict() {
+        return new ConflictException("This invoice's line items were changed by another user while deleting. "
+                + "Refresh the page to see their changes, then try again.");
     }
 
     public List<Long> findIdsByInvoiceId(Long invoiceId) {

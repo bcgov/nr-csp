@@ -635,6 +635,58 @@ public class InvoiceRepository {
         jdbc.update(sql, params);
     }
 
+    // Same columns as legacy InvSubmissionDAO.getAuditQueries. The DB triggers audit inserts and
+    // updates only, so an invoice delete must write this 'D' snapshot first, in the same transaction.
+    private static final String SQL_INSERT_HEADER_DELETE_AUDIT = """
+            INSERT INTO THE.coastal_log_sale_audit (
+                csp_audit_action_type_code, coastal_log_sale_id, csp_submission_id,
+                client_invoice_no, client_invoice_date,
+                log_sale_entry_status_code, csp_invoice_type_code,
+                seller_client_number, seller_client_locn_code,
+                buyer_client_number, buyer_client_locn_code,
+                log_sale_type_code, log_sale_sort_code,
+                client_primary_sort_code, cancelled_ind,
+                late_invoice_ind, amv_calculate_date,
+                approved_userid, approved_date,
+                unapproved_userid, unapproved_date,
+                client_total_boomstick_pieces, client_total_log_pieces,
+                client_total_invoice_pieces, client_total_invoice_volume,
+                client_total_invoice_amt,
+                revision_count, entry_userid,
+                entry_timestamp, update_userid,
+                update_timestamp, seller_log_sale_participant_id,
+                buyer_log_sale_participant_id, log_sale_fob_location,
+                submitter_notes, reviewer_notes
+            )
+            SELECT 'D', t.coastal_log_sale_id, t.csp_submission_id,
+                t.client_invoice_no, t.client_invoice_date,
+                t.log_sale_entry_status_code, t.csp_invoice_type_code,
+                t.seller_client_number, t.seller_client_locn_code,
+                t.buyer_client_number, t.buyer_client_locn_code,
+                t.log_sale_type_code, t.log_sale_sort_code,
+                t.client_primary_sort_code, t.cancelled_ind,
+                t.late_invoice_ind, t.amv_calculate_date,
+                t.approved_userid, t.approved_date,
+                t.unapproved_userid, t.unapproved_date,
+                t.client_total_boomstick_pieces, t.client_total_log_pieces,
+                t.client_total_invoice_pieces, t.client_total_invoice_volume,
+                t.client_total_invoice_amt,
+                t.revision_count, t.entry_userid,
+                t.entry_timestamp, :deletedByUserId,
+                SYSDATE, t.seller_log_sale_participant_id,
+                t.buyer_log_sale_participant_id, t.log_sale_fob_location,
+                t.submitter_notes, t.reviewer_notes
+            FROM THE.coastal_log_sale t
+            WHERE t.coastal_log_sale_id = :invoiceId
+            """;
+
+    public void insertDeleteAudit(Long invoiceId, String deletedByUserId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("invoiceId", invoiceId)
+                .addValue("deletedByUserId", deletedByUserId);
+        jdbc.update(SQL_INSERT_HEADER_DELETE_AUDIT, params);
+    }
+
     public void deleteInvoice(Long id) {
         jdbc.update("DELETE FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id",
                 new MapSqlParameterSource("id", id));

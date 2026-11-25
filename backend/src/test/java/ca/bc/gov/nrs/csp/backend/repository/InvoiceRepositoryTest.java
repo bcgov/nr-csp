@@ -921,6 +921,22 @@ class InvoiceRepositoryTest {
     // ---------------------------------------------------------------
 
     @Test
+    void insertDeleteAudit_snapshotsTheHeaderAsADeleteRowWithBoundParameters() {
+        repo.insertDeleteAudit(10L, "user123");
+
+        assertThat(captureUpdateSql())
+                .contains("INSERT INTO THE.coastal_log_sale_audit")
+                .contains("SELECT 'D', t.coastal_log_sale_id, t.csp_submission_id")
+                .contains("t.entry_timestamp, :deletedByUserId,")
+                .contains("SYSDATE, t.seller_log_sale_participant_id")
+                .contains("t.submitter_notes, t.reviewer_notes")
+                .contains("WHERE t.coastal_log_sale_id = :invoiceId");
+        MapSqlParameterSource params = captureUpdateParams();
+        assertThat(params.getValue("invoiceId")).isEqualTo(10L);
+        assertThat(params.getValue("deletedByUserId")).isEqualTo("user123");
+    }
+
+    @Test
     void deleteInvoice_deletesByCoastalLogSaleId() {
         repo.deleteInvoice(10L);
 

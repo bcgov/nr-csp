@@ -179,6 +179,11 @@ class InvoiceServiceTest {
         return new LoadedInvoice(d, submissionId, null, null, null, CURRENT_VERSION);
     }
 
+    // A deletable invoice: manual draft with buyer and seller participant rows 50 and 60.
+    private LoadedInvoice loadedManualWithParticipants() {
+        return new LoadedInvoice(draftDetails(1L), 10L, 50L, 60L, null, CURRENT_VERSION);
+    }
+
     private LineItem line(Long id, BigDecimal converted) {
         return new LineItem(id, 100L, "SORT01", "CS01", "FIR", "Fir", "G1",
                 10, new BigDecimal("10.00"), new BigDecimal("5.0"), converted, new BigDecimal("100.00"));
@@ -525,8 +530,23 @@ class InvoiceServiceTest {
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), isNull(), isNull(), eq(USER));
         verify(lineItemRepo).updateLineItem(eq(1L), any(), eq(USER)); // existing line updated
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER)); // new line inserted
-        verify(lineItemRepo).deleteLineItem(2L);                      // dropped line deleted
+        verify(lineItemRepo).auditAndDeleteLineItem(2L, USER);         // dropped line audited, then deleted
         verify(submissionRepo).updateSubmissionStatus(10L, "LOB", USER);
+    }
+
+    @Test
+    void update_auditsEveryDroppedLineAndKeepsTheRetainedOne() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(2L, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L, 2L, 3L));
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        verify(lineItemRepo).auditAndDeleteLineItem(1L, USER);
+        verify(lineItemRepo).auditAndDeleteLineItem(3L, USER);
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(eq(2L), any());
     }
 
     @Test
@@ -547,7 +567,7 @@ class InvoiceServiceTest {
         service.update(1L, CURRENT_VERSION, req);
 
         verify(lineItemRepo).updateLineItem(eq(1L), any(), eq(USER));
-        verify(lineItemRepo, never()).deleteLineItem(anyLong());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(anyLong(), any());
     }
 
     @Test
@@ -602,18 +622,45 @@ class InvoiceServiceTest {
         verify(submissionRepo, never()).delete(anyLong());
     }
 
-    // An ESF submission is a record of a real transmission — it carries the business submission
-    // number and the submitter's contact details — so it is kept even once its last invoice is
-    // gone. `loaded(...)` sets a non-null submissionNumber, which is how the service tells them
-    // apart.
+    // Legacy refuses to delete an electronic (ESF) invoice. `loaded(...)` sets a non-null
+    // submissionNumber, which is how the service tells them apart.
     @Test
-    void delete_esfInvoice_keepsTheSubmissionEvenWhenEmpty() {
+    void delete_electronicInvoice_refusedBeforeAnyWrite() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
-        lenient().when(invoiceRepo.countByCspSubmissionId(10L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.delete(1L, CURRENT_VERSION))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Cannot delete an electronic invoice.");
+        verify(invoiceRepo, never()).insertDeleteAudit(anyLong(), any());
+        verify(lineItemRepo, never()).auditAndDeleteAllByInvoiceId(anyLong(), any());
+        verify(invoiceRepo, never()).deleteInvoice(anyLong());
+        verify(submissionRepo, never()).delete(anyLong());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"APP", "UNA", "REJ", "CAN"})
+    void delete_statusTheUiDoesNotOfferDelete_refusedBeforeAnyWrite(String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(
+                loadedManual(details(1L, status, "5678", null, "Seller"), 10L)));
+
+        assertThatThrownBy(() -> service.delete(1L, CURRENT_VERSION))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Only draft or processing invoices can be deleted.");
+        verify(invoiceRepo, never()).insertDeleteAudit(anyLong(), any());
+        verify(lineItemRepo, never()).auditAndDeleteAllByInvoiceId(anyLong(), any());
+        verify(invoiceRepo, never()).deleteInvoice(anyLong());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"DFT", "PRO"})
+    void delete_draftOrProcessingManualInvoice_isDeleted(String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(
+                loadedManual(details(1L, status, "5678", null, "Seller"), 10L)));
 
         service.delete(1L, CURRENT_VERSION);
 
-        verify(submissionRepo, never()).delete(anyLong());
+        verify(invoiceRepo).insertDeleteAudit(1L, USER);
+        verify(invoiceRepo).deleteInvoice(1L);
     }
 
     @Test
@@ -830,19 +877,27 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void delete_approvedInvoice_throwsConflict() {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "APP", "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.delete(1L, CURRENT_VERSION)).isInstanceOf(ConflictException.class);
-        verify(invoiceRepo, never()).deleteInvoice(anyLong());
+    void delete_writesDeleteAuditSnapshotsBeforeRemovingAnyRow() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManualWithParticipants()));
+
+        service.delete(1L, CURRENT_VERSION);
+
+        InOrder order = inOrder(invoiceRepo, lineItemRepo, participantRepo);
+        order.verify(invoiceRepo).lockVersion(1L);
+        order.verify(invoiceRepo).insertDeleteAudit(1L, USER);
+        order.verify(lineItemRepo).auditAndDeleteAllByInvoiceId(1L, USER);
+        order.verify(invoiceRepo).deleteAllLogSources(1L);
+        order.verify(invoiceRepo).deleteInvoice(1L);
+        order.verify(participantRepo).delete(50L);
     }
 
     @Test
     void delete_success_removesChildrenInvoiceAndParticipants() {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, 60L)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManualWithParticipants()));
 
         service.delete(1L, CURRENT_VERSION);
 
-        verify(lineItemRepo).deleteAllByInvoiceId(1L);
+        verify(lineItemRepo).auditAndDeleteAllByInvoiceId(1L, USER);
         verify(invoiceRepo).deleteAllLogSources(1L);
         verify(invoiceRepo).deleteAllRelatedInvoiceRefs(1L);
         verify(invoiceRepo).deleteAllIncomingRelatedInvoiceRefs(1L);
@@ -1261,7 +1316,7 @@ class InvoiceServiceTest {
 
         service.deleteLineItem(1L, 5L, CURRENT_VERSION);
 
-        verify(lineItemRepo).deleteLineItem(5L);
+        verify(lineItemRepo).auditAndDeleteLineItem(5L, USER);
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
     }
 
@@ -1326,7 +1381,7 @@ class InvoiceServiceTest {
 
         service.deleteLineItem(1L, 5L, CURRENT_VERSION);
 
-        verify(lineItemRepo).deleteLineItem(5L);
+        verify(lineItemRepo).auditAndDeleteLineItem(5L, USER);
     }
 
     // ===============================================================
@@ -1404,8 +1459,9 @@ class InvoiceServiceTest {
     @Test
     void delete_staleVersion_refusedBeforeAnyWrite() {
         assertThatThrownBy(() -> service.delete(1L, STALE_VERSION)).isInstanceOf(ConflictException.class);
+        verify(invoiceRepo, never()).insertDeleteAudit(anyLong(), any());
         verify(invoiceRepo, never()).deleteInvoice(anyLong());
-        verify(lineItemRepo, never()).deleteAllByInvoiceId(anyLong());
+        verify(lineItemRepo, never()).auditAndDeleteAllByInvoiceId(anyLong(), any());
     }
 
     @Test
@@ -1432,7 +1488,7 @@ class InvoiceServiceTest {
         assertThatThrownBy(() -> service.deleteLineItem(1L, 5L, STALE_VERSION)).isInstanceOf(ConflictException.class);
         verify(lineItemRepo, never()).insertLineItem(anyLong(), any(), any());
         verify(lineItemRepo, never()).updateLineItem(anyLong(), any(), any());
-        verify(lineItemRepo, never()).deleteLineItem(anyLong());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(anyLong(), any());
         verify(invoiceRepo, never()).incrementRevisionCount(anyLong(), any());
     }
 
