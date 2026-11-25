@@ -1,7 +1,6 @@
 package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R08ReportRequest;
-import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
@@ -9,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
 import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportMonthPeriod;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R08Validator;
 import net.sf.jasperreports.engine.JasperPrint;
@@ -19,9 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.time.LocalDate;
-import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,7 +92,7 @@ public class R08Service {
             p.put("MONTH", r.getSubmissionYearMonth().substring(4, 6));
         }
 
-        String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
+        String effectiveDateTo = ReportMonthPeriod.resolveInvoiceDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
         if (r.getDateFrom() != null) p.put("INVOICE_DATE_FROM", r.getDateFrom());
         if (effectiveDateTo != null) p.put("INVOICE_DATE_TO", effectiveDateTo);
 
@@ -144,22 +141,5 @@ public class R08Service {
             return results.isEmpty() ? null : results.get(0);
         }
         return null;
-    }
-
-    private static String autoDateTo(String dateFrom, String dateTo, String timeFrame) {
-        if (dateTo != null || dateFrom == null) return dateTo;
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd");
-        LocalDate from = LocalDate.parse(dateFrom, fmt);
-        LocalDate end;
-        if (timeFrame != null && !timeFrame.isBlank()) {
-            try {
-                end = from.plusMonths(Integer.parseInt(timeFrame));
-            } catch (NumberFormatException e) {
-                throw new BadRequestException("timeFrame must be a numeric value");
-            }
-        } else {
-            end = from;
-        }
-        return YearMonth.from(end).atEndOfMonth().format(fmt);
     }
 }
