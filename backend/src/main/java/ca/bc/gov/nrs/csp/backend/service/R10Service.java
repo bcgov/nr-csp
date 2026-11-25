@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
 import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportMonthPeriod;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R10Validator;
 import net.sf.jasperreports.engine.JasperPrint;
@@ -89,7 +90,10 @@ public class R10Service {
         String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
         if (r.getDateFrom() != null)           p.put("INVOICE_DATE_FROM", firstDayOfMonth(r.getDateFrom()));
         if (effectiveDateTo != null)           p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
-        if (r.getTimeFrame() != null)          p.put("TIME_FRAME", r.getTimeFrame());
+        // Like legacy R10Bean.changeTimeFrame, print the months actually queried, not the selected time frame
+        if (r.getDateFrom() != null && effectiveDateTo != null) {
+            p.put("TIME_FRAME", ReportMonthPeriod.inclusiveMonthCount(r.getDateFrom(), effectiveDateTo));
+        }
         if (r.getSellerClientNumber() != null) p.put("SELLER_CLIENT_NUMBER", r.getSellerClientNumber());
         // The stored proc / jrxml parameter is SELLER_CLIENT_LOCN_CODE / BUYER_CLIENT_LOCN_CODE
         // (confirmed against both the JR7-converted and the original JR6 report designs) — the

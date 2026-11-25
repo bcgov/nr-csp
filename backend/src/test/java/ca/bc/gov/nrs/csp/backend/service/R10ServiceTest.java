@@ -8,11 +8,15 @@ import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.service.model.ClientLocation;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.base.JRBasePrintPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -32,8 +36,12 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -224,6 +232,105 @@ class R10ServiceTest {
         }
     }
 
+    // Legacy printed the month count of the queried period; modern left it blank and the CSV said "For the null"
+    @Nested
+    @DisplayName("TIME_FRAME month count")
+    class TimeFrameMonthCount {
+
+        private Map<String, Object> buildParams(R10ReportRequest r) {
+            return ReflectionTestUtils.invokeMethod(service, "buildParams", r);
+        }
+
+        @Test
+        void shouldBeOne_forASingleFullMonth() {
+            R10ReportRequest r = baseRequest();
+            r.setDateFrom("20240401");
+            r.setDateTo("20240430");
+
+            assertThat(buildParams(r)).containsEntry("TIME_FRAME", "1");
+        }
+
+        @Test
+        void shouldCountAcrossAYearBoundary() {
+            R10ReportRequest r = baseRequest();
+            r.setDateFrom("20231201");
+            r.setDateTo("20240131");
+
+            assertThat(buildParams(r)).containsEntry("TIME_FRAME", "2");
+        }
+
+        @Test
+        void shouldCountWholeMonths_whenEndDateIsMidMonth() {
+            R10ReportRequest r = baseRequest();
+            r.setDateFrom("20240115");
+            r.setDateTo("20240310");
+
+            assertThat(buildParams(r))
+                    .containsEntry("INVOICE_DATE_FROM", "20240101")
+                    .containsEntry("INVOICE_DATE_TO", "20240331")
+                    .containsEntry("TIME_FRAME", "3");
+        }
+
+        @Test
+        void shouldMatchSelectedTimeFrame_whenNoEndDate() {
+            R10ReportRequest r = baseRequest();
+            r.setDateFrom("20240115");
+            r.setTimeFrame("6");
+
+            assertThat(buildParams(r))
+                    .containsEntry("INVOICE_DATE_TO", "20240630")
+                    .containsEntry("TIME_FRAME", "6");
+        }
+
+        @Test
+        void shouldFollowEndDate_whenEndDateAndTimeFrameBothSent() {
+            R10ReportRequest r = baseRequest();
+            r.setDateFrom("20240101");
+            r.setDateTo("20241231");
+            r.setTimeFrame("3");
+
+            assertThat(buildParams(r))
+                    .containsEntry("INVOICE_DATE_TO", "20241231")
+                    .containsEntry("TIME_FRAME", "12");
+        }
+
+        // Validation rejects this request; buildParams still never sends a date range without its month count
+        @Test
+        void shouldCountStartMonth_whenOnlyStartDateGiven() {
+            R10ReportRequest r = baseRequest();
+            r.setDateFrom("20240415");
+
+            assertThat(buildParams(r))
+                    .containsEntry("INVOICE_DATE_TO", "20240430")
+                    .containsEntry("TIME_FRAME", "1");
+        }
+
+        @Test
+        void shouldPassMonthCountToJasper_forCsv() {
+            JasperReportRenderer renderer = mock(JasperReportRenderer.class);
+            R10Service csvService = new R10Service(renderer, searchService, Clock.systemUTC());
+            ReflectionTestUtils.setField(csvService, "r10CsvTemplatePath", "/reports/R10_CSV.jrxml");
+            JasperPrint onePagePrint = new JasperPrint();
+            onePagePrint.addPage(new JRBasePrintPage());
+            given(renderer.compileFromClasspath("/reports/R10_CSV.jrxml")).willReturn(mock(JasperReport.class));
+            given(renderer.fillReport(any(), anyMap(), eq("R10"))).willReturn(onePagePrint);
+            given(renderer.exportReport(onePagePrint, "CSV", "R10")).willReturn(new byte[0]);
+            R10ReportRequest r = baseRequest();
+            r.setReportFormat(ReportFormat.CSV);
+            r.setDateFrom("20231201");
+            r.setDateTo("20240131");
+
+            csvService.generateReport(r);
+
+            ArgumentCaptor<Map<String, Object>> jasperParams = ArgumentCaptor.captor();
+            verify(renderer).fillReport(any(), jasperParams.capture(), eq("R10"));
+            assertThat(jasperParams.getValue())
+                    .containsEntry("INVOICE_DATE_FROM", "20231201")
+                    .containsEntry("INVOICE_DATE_TO", "20240131")
+                    .containsEntry("TIME_FRAME", "2");
+        }
+    }
+
     @Nested
     @DisplayName("buildParams() optional criteria")
     class OptionalCriteria {
@@ -267,17 +374,7 @@ class R10ServiceTest {
             assertThat(params)
                     .doesNotContainKeys("SELLER_CLIENT_NUMBER", "SELLER_CLIENT_LOCN_CODE",
                             "BUYER_CLIENT_NUMBER", "BUYER_CLIENT_LOCN_CODE",
-                            "MATURITY", "INVOICE_TYPE_CODE", "TIME_FRAME", "USER_ID");
-        }
-
-        @Test
-        void shouldIncludeTimeFrameParam_whenProvided() {
-            R10ReportRequest r = baseRequest();
-            r.setTimeFrame("3");
-
-            Map<String, Object> params = buildParams(r);
-
-            assertThat(params).containsEntry("TIME_FRAME", "3");
+                            "MATURITY", "INVOICE_TYPE_CODE", "USER_ID");
         }
 
         @Test
