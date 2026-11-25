@@ -979,6 +979,26 @@ class InvoiceServiceTest {
         assertThatThrownBy(() -> service.duplicate(99L)).isInstanceOf(ResourceNotFoundException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"APP", "REJ", "CAN"})
+    void duplicate_ofADecidedInvoice_isRefusedBeforeAnyWrite(String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, status, "5678", null, "Seller"), 10L, null, null)));
+
+        assertThatThrownBy(() -> service.duplicate(1L)).isInstanceOf(ConflictException.class);
+        verify(invoiceRepo, never()).insertInvoice(any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PRO", "UNA"})
+    void duplicate_ofProcessingOrUnapproved_isAllowed(String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, status, "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.insertInvoice(any(), eq(10L), eq("DFT"), any(), any(), any())).willReturn(600L);
+
+        service.duplicate(1L);
+
+        verify(invoiceRepo).insertInvoice(any(), eq(10L), eq("DFT"), isNull(), isNull(), eq(USER));
+    }
+
     @Test
     void duplicate_clonesUnderSameSubmissionAsNewDraft() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));

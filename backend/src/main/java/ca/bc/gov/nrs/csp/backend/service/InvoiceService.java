@@ -82,6 +82,11 @@ public class InvoiceService {
     private static final Set<String> DATA_ENTRY_EDITABLE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
+    // Legacy InvoiceBean.duplicateStatusAction duplicates only these; the UI offers the same.
+    private static final Set<String> DUPLICABLE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_PROCESSING,
+            ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
     // Same as the UI's DELETABLE_STATUSES, so the API refuses what the page never offers.
     private static final Set<String> DELETABLE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_PROCESSING);
@@ -408,6 +413,9 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
+        if (!DUPLICABLE_STATUSES.contains(existing.details().invStatus())) {
+            throw new ConflictException("Only draft, processing or unapproved invoices can be duplicated.");
+        }
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(id);
 
         // Reset id/status on the cloned details and persist as a new DRAFT. A
