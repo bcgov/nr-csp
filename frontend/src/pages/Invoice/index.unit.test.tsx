@@ -511,6 +511,32 @@ describe('InvoicePage — action flows', () => {
     );
   });
 
+  // The $510 declared on an electronic invoice stays separate from the $500 in its lines.
+  it('shows an electronic invoice declared totals apart from the calculated line totals', async () => {
+    await renderLoaded({ invStatus: 'DFT', totalAmt: 510, totalPieces: 12, totalVol: 5.5 });
+    expect(screen.getByText('Declared total amount')).toBeInTheDocument();
+    expect(screen.getByText('$510.00')).toBeInTheDocument();
+    expect(screen.getByText('Calculated totals')).toBeInTheDocument();
+    expect(screen.getAllByText('$500.00').length).toBeGreaterThan(0);
+  });
+
+  it('saves an electronic invoice with its declared totals, not the line sums', async () => {
+    await renderLoaded({ invStatus: 'DFT', totalAmt: 510, totalPieces: 12, totalVol: 5.5 });
+    await userEvent.type(screen.getByLabelText('Reviewer comment'), 'Checked');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(h.mutations.update.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ totalAmt: 510, totalPieces: 12, totalVol: 5.5 }) }),
+      expect.anything(),
+    );
+  });
+
+  it('shows a manual invoice totals from its lines', async () => {
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null, totalAmt: 500 });
+    expect(screen.queryByText('Declared total amount')).not.toBeInTheDocument();
+    expect(screen.getByText('Total amount')).toBeInTheDocument();
+    expect(screen.getByText('Invoice totals')).toBeInTheDocument();
+  });
+
   it('Submit is disabled when there are no line items', async () => {
     await renderLoaded({ invStatus: 'DFT', lineItems: [] });
     expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();

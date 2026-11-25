@@ -587,6 +587,44 @@ class InvoiceServiceTest {
         verify(lineItemRepo, never()).auditAndDeleteLineItem(anyLong(), any());
     }
 
+    // An electronic invoice declaring $510 with $500 in lines keeps $510 through a note-only save.
+    @Test
+    void update_electronicInvoice_keepsTheDeclaredTotalsWhateverTheRequestSends() {
+        UpdateInvoiceRequest req = updateRequest();
+        InvoiceDetails declared = details(1L, "DFT", "5678", null, "Seller");
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(declared, 10L, null, null)));
+        InvoiceDetails sent = ManualInvoiceTotals.withCalculatedTotals(draftDetails(1L), List.of());
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(sent);
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null)));
+        // Even a request claiming to be manual can't recalculate an electronic invoice's totals.
+        given(req.manual()).willReturn(true);
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        ArgumentCaptor<InvoiceDetails> saved = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(invoiceRepo).updateInvoice(eq(1L), saved.capture(), eq("DFT"), any(), any(), eq(USER));
+        assertThat(saved.getValue().totalAmt()).isEqualByComparingTo("100.00");
+        assertThat(saved.getValue().totalPieces()).isEqualTo(10);
+        assertThat(saved.getValue().totalVol()).isEqualByComparingTo("5.0");
+    }
+
+    @Test
+    void update_manualInvoice_savesTheTotalsCalculatedFromTheLines() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        LineItem fiftyDollars = new LineItem(1L, 1L, "SORT01", "CS01", "FIR", "Fir", "G1",
+                3, new BigDecimal("10.00"), new BigDecimal("5.0"), null, new BigDecimal("50.00"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(fiftyDollars));
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        ArgumentCaptor<InvoiceDetails> saved = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(invoiceRepo).updateInvoice(eq(1L), saved.capture(), eq("DFT"), any(), any(), eq(USER));
+        assertThat(saved.getValue().totalAmt()).isEqualByComparingTo("50.00");
+        assertThat(saved.getValue().totalPieces()).isEqualTo(3);
+    }
+
     @Test
     void update_noSubmission_doesNotTouchSubmissionStatus() {
         UpdateInvoiceRequest req = updateRequest();

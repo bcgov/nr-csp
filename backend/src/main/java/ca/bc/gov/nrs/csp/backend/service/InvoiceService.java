@@ -271,9 +271,13 @@ public class InvoiceService {
             requireManualEntry(request.manual());
         }
         List<LineItem> lines = mapper.toLineItems(request.lineItems(), id, request.invType());
-        InvoiceDetails details = withChannelTotals(
-                mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID()),
-                lines, request.manual());
+        InvoiceDetails details =
+                mapper.toDetails(request, id, ConstantsCode.INVENTRYSTATUS_DRAFT, existing.details().entryUserID());
+        // The stored channel decides, not the request: an electronic invoice keeps the totals industry declared.
+        // Legacy overwrote them with the line sums on every staff save; modern keeps them, as it does at intake.
+        details = existing.submissionNumber() == null
+                ? ManualInvoiceTotals.withCalculatedTotals(details, lines)
+                : withTotalsOf(details, existing.details());
         if (dataEntryOnly) {
             details = withReviewComments(details, existing.details().reviewComments());
         }
@@ -957,6 +961,21 @@ public class InvoiceService {
                 newId, details.invNumber(), details.invoiceDate(), status, details.invType(),
                 details.maturity(), details.fobCode(), details.primarySortCode(), details.clientPrimarySortCode(),
                 details.totalAmt(), details.totalPieces(), details.totalVol(),
+                details.submitterClientNum(), details.submitterLocation(), details.submittedBy(),
+                details.clientNumber(), details.clientLocation(),
+                details.otherClientNum(), details.otherClientLocation(),
+                details.otherClientName(), details.otherClientCity(), details.otherClientProvState(),
+                details.boomNumbers(), details.timberMarks(), details.weightSlips(),
+                details.replaceInvNum(), details.adjustInvNum(),
+                details.reviewComments(), details.submitComments(), details.entryUserID()
+        );
+    }
+
+    private static InvoiceDetails withTotalsOf(InvoiceDetails details, InvoiceDetails totalsSource) {
+        return new InvoiceDetails(
+                details.invID(), details.invNumber(), details.invoiceDate(), details.invStatus(), details.invType(),
+                details.maturity(), details.fobCode(), details.primarySortCode(), details.clientPrimarySortCode(),
+                totalsSource.totalAmt(), totalsSource.totalPieces(), totalsSource.totalVol(),
                 details.submitterClientNum(), details.submitterLocation(), details.submittedBy(),
                 details.clientNumber(), details.clientLocation(),
                 details.otherClientNum(), details.otherClientLocation(),

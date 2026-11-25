@@ -953,6 +953,9 @@ export function InvoicePage() {
   const totalPieces = lineItems.reduce((s, l) => s + (l.numOfPieces ?? 0), 0);
   const totalVolume = lineItems.reduce((s, l) => s + Number(l.volume ?? 0), 0);
   const totalAmount = lineItems.reduce((s, l) => s + Number(l.amount ?? 0), 0);
+  // An electronic invoice keeps the totals industry declared; the group summary shows the line sums.
+  // Legacy also showed the stored header totals beside the group totals (details_info.xhtml, group_summary.xhtml).
+  const showDeclaredTotals = isExisting && !isManual;
 
   // Read-only meta values (not yet returned from any endpoint). For a brand-new
   // invoice created from scratch there's no stored received date, so default the
@@ -1251,9 +1254,10 @@ export function InvoicePage() {
       fobCode: fobCodeValue || null,
       primarySortCode: primarySortCodeValue || null,
       clientPrimarySortCode: clientPrimarySortCode || null,
-      totalAmt: totalAmount,
-      totalPieces,
-      totalVol: totalVolume,
+      // The backend recalculates a manual invoice's totals and keeps an electronic one's declared totals.
+      totalAmt: isManual ? totalAmount : (loadedInvoice?.totalAmt ?? null),
+      totalPieces: isManual ? totalPieces : (loadedInvoice?.totalPieces ?? null),
+      totalVol: isManual ? totalVolume : (loadedInvoice?.totalVol ?? null),
       submitterClientNum: submittingClientNumber,
       submitterLocation: submittingClientLocation,
       submittedBy: (submittedByCode || 'Seller') as 'Buyer' | 'Seller',
@@ -1428,7 +1432,7 @@ export function InvoicePage() {
       <TableRow className="invoice-page__line-items-totals-row">
         <TableCell colSpan={4} />
         <TableCell>
-          <strong>Invoice totals</strong>
+          <strong>{isManual ? 'Invoice totals' : 'Calculated totals'}</strong>
         </TableCell>
         <TableCell style={{ textAlign: 'right' }}>
           <strong>{formatNumber(totalPieces)}</strong>
@@ -1443,7 +1447,7 @@ export function InvoicePage() {
         <TableCell />
       </TableRow>
     );
-  }, [groupRows]);
+  }, [groupRows, isManual]);
 
   // -----------------------------------------------------------------
   // Action handlers — each runs the matching mutation and surfaces the
@@ -2127,20 +2131,49 @@ export function InvoicePage() {
                     />
                   </Column>
 
-                  <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
-                    <span className="invoice-page__meta-label">Total pieces</span>
-                    <span className="invoice-page__meta-value">{hasLineItems ? formatNumber(totalPieces) : '—'}</span>
-                  </Column>
-                  <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
-                    <span className="invoice-page__meta-label">Total volume (m3)</span>
-                    <span className="invoice-page__meta-value">
-                      {hasLineItems ? formatNumber(totalVolume, 3) : '—'}
-                    </span>
-                  </Column>
-                  <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
-                    <span className="invoice-page__meta-label">Total amount</span>
-                    <span className="invoice-page__meta-value">{hasLineItems ? formatCurrency(totalAmount) : '—'}</span>
-                  </Column>
+                  {showDeclaredTotals ? (
+                    <>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Declared total pieces</span>
+                        <span className="invoice-page__meta-value">
+                          {formatNumber(loadedInvoice?.totalPieces)}
+                        </span>
+                      </Column>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Declared total volume (m3)</span>
+                        <span className="invoice-page__meta-value">
+                          {formatNumber(loadedInvoice?.totalVol, 3)}
+                        </span>
+                      </Column>
+                      <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Declared total amount</span>
+                        <span className="invoice-page__meta-value">
+                          {formatCurrency(loadedInvoice?.totalAmt)}
+                        </span>
+                      </Column>
+                    </>
+                  ) : (
+                    <>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Total pieces</span>
+                        <span className="invoice-page__meta-value">
+                          {hasLineItems ? formatNumber(totalPieces) : '—'}
+                        </span>
+                      </Column>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Total volume (m3)</span>
+                        <span className="invoice-page__meta-value">
+                          {hasLineItems ? formatNumber(totalVolume, 3) : '—'}
+                        </span>
+                      </Column>
+                      <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Total amount</span>
+                        <span className="invoice-page__meta-value">
+                          {hasLineItems ? formatCurrency(totalAmount) : '—'}
+                        </span>
+                      </Column>
+                    </>
+                  )}
 
                   <Column sm={4} md={3} lg={5} className="invoice-page__field-col invoice-page__field-col--left">
                     <TagInput
