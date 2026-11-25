@@ -171,7 +171,8 @@ const buildHtml = (manual) => {
     .map((file) => ({ file, id: path.basename(file, '.md'), markdown: read(file) }))
     .filter((chapter) => /^# /m.test(chapter.markdown))
     .map((chapter) => {
-      if (/^\|[-| :]+\|\n(?!\|)/m.test(chapter.markdown)) {
+      // A separator row with no body row after it, also in an indented table or at the end of the file.
+      if (/^[ \t]*\|[-| :]+\|[ \t]*(?:\n(?![ \t]*\|)|(?![\s\S]))/m.test(chapter.markdown)) {
         throw new Error(`${manual.name}: a table in ${chapter.file} has no rows left`);
       }
       return chapter;

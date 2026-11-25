@@ -202,13 +202,16 @@ Buttons your role or the invoice's status doesn't allow are greyed out.
 
 | Button | Works when the invoice is |
 |---|---|
-| **Save** | New, Draft, Processing or Unapproved | <!-- roles: admin, approver, data-entry -->
-| **Submit** | Draft or Unapproved, saved, with at least one line item | <!-- roles: admin, approver, data-entry -->
+| **Save** | New, Draft, Processing or Unapproved | <!-- roles: admin, approver -->
+| **Save** | New, or a manual invoice that is Draft or Unapproved | <!-- roles: data-entry -->
+| **Submit** | Draft or Unapproved, saved, with at least one line item | <!-- roles: admin, approver -->
+| **Submit** | A saved manual invoice that is Draft or Unapproved, with at least one line item | <!-- roles: data-entry -->
 | **Approve** / **Unapprove** | Processing or Unapproved / Approved | <!-- roles: admin, approver -->
 | **Duplicate** | Draft, Processing or Unapproved | <!-- roles: admin, approver -->
 | **Cancel**, **Reject** | Processing or Unapproved, with a reviewer comment | <!-- roles: admin, approver -->
 | **Delete** | Manual, and Draft or Processing | <!-- roles: admin, approver -->
-| **Add new item** | Saved and not Approved | <!-- roles: admin, approver, data-entry -->
+| **Add new item** | Saved and not Approved | <!-- roles: admin, approver -->
+| **Add new item** | A saved manual invoice that is Draft or Unapproved | <!-- roles: data-entry -->
 | **Export table** | Saved | <!-- roles: admin, approver, viewer -->
 
 ## Invoice statuses

@@ -141,7 +141,7 @@ const SEARCH_RESULTS = [
   }));
 
 const INBOX_ROWS = [
-  [1042, '2026-11-18', 'Inbox', 'Electronic', 6, 2, 0, 3, 1],
+  [1042, '2026-11-18', 'Inbox', 'Electronic', 3, 1, 0, 2, 0],
   [null, '2026-11-17', 'Inbox', 'Manual', 1, 0, 0, 1, 0],
   [1039, '2026-11-10', 'Inbox', 'Electronic', 4, 3, 0, 1, 0],
   [1036, '2026-11-03', 'Complete', 'Electronic', 12, 11, 0, 0, 1],
@@ -268,23 +268,36 @@ const SORT_CODES = LOOKUPS['/lookup/sort-code'].map(({ code, description }) => (
 /** The file name the capture uploads; the parse fixture describes its contents. */
 export const UPLOAD_FILE_NAME = 'november-invoices.xml';
 
-const UPLOAD_INVOICES = [
-  ['EX-24107', '2026-11-04', 'SAL', 4, 1398.4, 140540.95, 892],
-  ['EX-24108', '2026-11-04', 'ADJ', 1, 12.5, 1206.25, 0],
-  ['EX-24109', '2026-11-06', 'SAL', 2, 520.75, 61238.5, 301],
-].map(([invoiceNumber, invoiceDate, invoiceType, , totalVolume, totalAmount, totalPieces], position) => ({
+// Each uploaded invoice with its lines. The totals are the sums of its lines, as in a clean file.
+const UPLOAD_SOURCE = [
+  { invoiceNumber: 'EX-24107', invoiceDate: '2026-11-04', invoiceType: 'SAL', lines: SAMPLE_LINES },
+  {
+    invoiceNumber: 'EX-24108',
+    invoiceDate: '2026-11-04',
+    invoiceType: 'ADJ',
+    lines: [line(6, 'A', 'H', 'H', 0, 12.5, 96.5)],
+  },
+  {
+    invoiceNumber: 'EX-24109',
+    invoiceDate: '2026-11-06',
+    invoiceType: 'SAL',
+    lines: [line(7, 'A', 'H', 'H', 180, 320.25, 118.0), line(8, 'A', 'F', 'I', 121, 200.5, 116.95)],
+  },
+];
+
+const UPLOAD_INVOICES = UPLOAD_SOURCE.map(({ invoiceNumber, invoiceDate, invoiceType, lines }, position) => ({
   // The parse response numbers invoices and their lines from 1.
   index: position + 1,
-  invoiceNumber: String(invoiceNumber),
-  invoiceDate: String(invoiceDate),
-  invoiceType: String(invoiceType),
+  invoiceNumber,
+  invoiceDate,
+  invoiceType,
   sellerClientNumber: OWN_CLIENT,
   buyerClientNumber: '00000003',
   maturity: 'S',
   locationFOB: 'NAN',
-  totalAmount: Number(totalAmount),
-  totalVolume: Number(totalVolume),
-  totalPieces: Number(totalPieces),
+  totalAmount: Math.round(sum(lines.map((l) => l.amount)) * 100) / 100,
+  totalVolume: sum(lines.map((l) => l.volume)),
+  totalPieces: sum(lines.map((l) => l.numOfPieces)),
   replacesInvoiceNumbers: null,
   adjustsInvoiceNumbers: invoiceType === 'ADJ' ? 'EX-24101' : null,
   sellerClientLocnCode: '00',
@@ -300,19 +313,11 @@ const UPLOAD_INVOICES = [
   submitterNotes: null,
 }));
 
-const UPLOAD_LINES = SAMPLE_LINES.slice(0, 4)
-  .map((l) => ({ ...l, invoiceIndex: 0 }))
-  .concat([{ ...line(6, 'A', 'H', 'H', 0, 12.5, 96.5), invoiceIndex: 1 }])
-  .concat(
-    [line(7, 'A', 'H', 'H', 180, 320.25, 118.0), line(8, 'A', 'F', 'I', 121, 200.5, 116.95)].map((l) => ({
-      ...l,
-      invoiceIndex: 2,
-    })),
-  )
-  .map((l, i, all) => ({
-    invoiceIndex: l.invoiceIndex + 1,
-    lineIndex: all.slice(0, i).filter((other) => other.invoiceIndex === l.invoiceIndex).length + 1,
-    invoiceNumber: UPLOAD_INVOICES[l.invoiceIndex].invoiceNumber,
+const UPLOAD_LINES = UPLOAD_SOURCE.flatMap(({ invoiceNumber, lines }, position) =>
+  lines.map((l, i) => ({
+    invoiceIndex: position + 1,
+    lineIndex: i + 1,
+    invoiceNumber,
     species: l.species,
     grade: l.grade,
     secondarySortCode: l.secondSort,
@@ -320,7 +325,8 @@ const UPLOAD_LINES = SAMPLE_LINES.slice(0, 4)
     numberOfPieces: l.numOfPieces,
     volume: l.volume,
     price: l.price,
-  }));
+  })),
+);
 
 const PARSED_UPLOAD = {
   valid: true,
@@ -356,7 +362,7 @@ const UPLOAD_CHECK = {
 };
 
 const HISTORY_ROWS = [
-  [SAMPLE_SUBMISSION_ID, '2026-11-18', 'JSAMPLE', 'Inbox', 6, 0],
+  [SAMPLE_SUBMISSION_ID, '2026-11-18', 'JSAMPLE', 'Inbox', 3, 1],
   [1039, '2026-11-10', 'JSAMPLE', 'Inbox', 4, 0],
   [1036, '2026-11-03', 'JSAMPLE', 'Complete', 12, 1],
   [1031, '2026-10-21', 'PEXAMPLE', 'Complete', 8, 0],
