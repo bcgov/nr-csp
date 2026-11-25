@@ -1,5 +1,14 @@
 import { Download } from '@carbon/icons-react';
-import { Button, Column, Grid, InlineLoading, InlineNotification, Link, TextInput } from '@carbon/react';
+import {
+  ActionableNotification,
+  Button,
+  Column,
+  Grid,
+  InlineLoading,
+  InlineNotification,
+  Link,
+  TextInput,
+} from '@carbon/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -51,7 +60,16 @@ type InvoiceRow = ParsedInvoice & { id: string };
 type LineItemRow = ParsedLineItem & { id: string };
 
 /** Where we are in the upload → parse → validate → submit pipeline. */
-type Status = 'idle' | 'parsing' | 'structural-error' | 'validating' | 'done' | 'submitting' | 'network-error';
+type Status =
+  | 'idle'
+  | 'parsing'
+  | 'structural-error'
+  | 'validating'
+  | 'done'
+  | 'submitting'
+  | 'network-error'
+  // Submit got no response, so the save may have committed.
+  | 'submit-unconfirmed';
 
 /**
  * The submission metadata fields the user can edit after a file is parsed.
@@ -266,7 +284,7 @@ export function UploadSubmissionPage() {
         applyBusinessResult(body);
         setStatus('done');
       } else {
-        setStatus('network-error');
+        setStatus('submit-unconfirmed');
       }
     }
   };
@@ -568,6 +586,21 @@ export function UploadSubmissionPage() {
     />
   );
 
+  // The save may have committed before the response was lost, so point to History rather than a retry.
+  const renderSubmitUnconfirmed = () => (
+    <ActionableNotification
+      inline
+      kind="warning"
+      lowContrast
+      hideCloseButton
+      title="We could not confirm your submission."
+      subtitle="The connection dropped before the server replied, so it may have been saved. Check Submission History before you upload this file again."
+      actionButtonLabel="Open Submission History"
+      onActionButtonClick={() => void navigate(ROUTES.SUBMISSION_HISTORY)}
+      className="upload-submission-page__notification"
+    />
+  );
+
   const renderStructuralError = () => {
     const issueRows = toStructuralIssueRows(structuralErrors);
     const issueColumns: DataPreviewColumn<StructuralIssueRow>[] = [
@@ -671,6 +704,7 @@ export function UploadSubmissionPage() {
 
   const renderStatus = () => {
     if (status === 'network-error') return renderNetworkError();
+    if (status === 'submit-unconfirmed') return renderSubmitUnconfirmed();
     if (status === 'structural-error') return renderStructuralError();
     if (status === 'done' && businessResult) return renderBusinessResult();
     if (status === 'idle' && notificationVisible) return renderIdle();

@@ -877,7 +877,7 @@ describe('UploadSubmissionPage', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('submit network error (plain Error) shows network-error', async () => {
+  it('submit network error (plain Error) says to check Submission History before uploading again', async () => {
     mockParse.mockResolvedValue(makeParse());
     mockValidate.mockResolvedValue(makeValidation());
     mockSubmit.mockRejectedValue(new Error('network'));
@@ -887,7 +887,14 @@ describe('UploadSubmissionPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(await screen.findByText('Upload failed.')).toBeInTheDocument();
+    expect(await screen.findByText('We could not confirm your submission.')).toBeInTheDocument();
+    expect(
+      screen.getByText(/so it may have been saved\. Check Submission History before you upload/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Upload failed.')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Submission History' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/submission-history');
   });
 
   it('a mixed-file preview says no invoices are saved and the whole file must be uploaded again', async () => {
