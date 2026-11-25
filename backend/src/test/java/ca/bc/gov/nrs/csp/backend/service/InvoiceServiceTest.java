@@ -625,6 +625,61 @@ class InvoiceServiceTest {
         assertThat(saved.getValue().totalPieces()).isEqualTo(3);
     }
 
+    private InvoiceDetails withSubmitter(InvoiceDetails d, String clientNumber, String location) {
+        return new InvoiceDetails(d.invID(), d.invNumber(), d.invoiceDate(), d.invStatus(), d.invType(), d.maturity(),
+                d.fobCode(), d.primarySortCode(), d.clientPrimarySortCode(), d.totalAmt(), d.totalPieces(), d.totalVol(),
+                clientNumber, location, d.submittedBy(), clientNumber, location,
+                d.otherClientNum(), d.otherClientLocation(), d.otherClientName(), d.otherClientCity(),
+                d.otherClientProvState(), d.boomNumbers(), d.timberMarks(), d.weightSlips(), d.replaceInvNum(),
+                d.adjustInvNum(), d.reviewComments(), d.submitComments(), d.entryUserID());
+    }
+
+    // Search and History read the submitter from the parent submission, so a correction must move it.
+    @Test
+    void update_correctedSubmitterOnASingleManualInvoice_movesItsSubmission() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(invoiceRepo.countByCspSubmissionId(10L)).willReturn(1);
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(withSubmitter(draftDetails(1L), "4321", "01"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        InOrder order = inOrder(submissionRepo, invoiceRepo);
+        order.verify(submissionRepo).updateClient(10L, "4321", "01", USER);
+        order.verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
+    }
+
+    @Test
+    void update_unchangedSubmitter_leavesTheSubmissionClientAlone() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
+    }
+
+    // Legacy moved the whole parent, taking sibling invoices to the new client; that waits on a decision.
+    @ParameterizedTest
+    @CsvSource({"true, 1", "false, 2"})
+    void update_correctedSubmitterOnAnElectronicOrSharedSubmission_isRefusedBeforeAnyWrite(
+            boolean electronic, int invoicesInSubmission) {
+        UpdateInvoiceRequest req = updateRequest();
+        LoadedInvoice existing = electronic ? loaded(draftDetails(1L), 10L, null, null) : loadedManual(draftDetails(1L), 10L);
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(existing));
+        lenient().when(invoiceRepo.countByCspSubmissionId(10L)).thenReturn(invoicesInSubmission);
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(withSubmitter(draftDetails(1L), "4321", "01"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, req)).isInstanceOf(ConflictException.class);
+        verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
+        verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
+        verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
+    }
+
     @Test
     void update_noSubmission_doesNotTouchSubmissionStatus() {
         UpdateInvoiceRequest req = updateRequest();

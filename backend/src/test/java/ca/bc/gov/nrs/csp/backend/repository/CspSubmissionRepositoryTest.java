@@ -320,4 +320,19 @@ class CspSubmissionRepositoryTest {
         assertThat(params.getValue("status")).isEqualTo("COM");
         assertThat(params.getValue("userId")).isEqualTo("USER1");
     }
+
+    @Test
+    void updateClient_movesTheSubmissionToTheGivenClientAndLocation() {
+        repo.updateClient(42L, "00001234", "01", "USER1");
+
+        assertThat(captureUpdateSql())
+                .contains("client_number = :clientNumber")
+                .contains("client_locn_code = :clientLocnCode")
+                .contains("revision_count = revision_count + 1")
+                .contains("WHERE csp_submission_id = :id");
+        MapSqlParameterSource params = captureUpdateParams();
+        assertThat(params.getValue("id")).isEqualTo(42L);
+        assertThat(params.getValue("clientNumber")).isEqualTo("00001234");
+        assertThat(params.getValue("clientLocnCode")).isEqualTo("01");
+    }
 }

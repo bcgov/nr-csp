@@ -264,6 +264,23 @@ public class InvoiceService {
 
     private record InvoiceForm(InvoiceDetails details, List<LineItem> lines) {}
 
+    // The submitter lives on the parent submission, which Search and History read. Legacy moved the parent
+    // on any correction (InvoiceService.submitOrSaveInv), taking sibling invoices with it, so only a manual
+    // invoice alone in its submission is moved here; electronic and shared parents are refused.
+    private void moveSubmissionToCorrectedSubmitter(LoadedInvoice existing, InvoiceDetails details, String user) {
+        boolean corrected = !Objects.equals(existing.details().submitterClientNum(), details.submitterClientNum())
+                || !Objects.equals(existing.details().submitterLocation(), details.submitterLocation());
+        if (!corrected) return;
+        if (existing.submissionNumber() != null || invoiceRepo.countByCspSubmissionId(existing.submissionId()) != 1) {
+            throw new ConflictException("The submitting client can only be changed on a manually entered invoice "
+                    + "that is the only invoice in its submission.");
+        }
+        submissionRepo.updateClient(existing.submissionId(), details.submitterClientNum(), details.submitterLocation(),
+                user);
+        log.info("Moved submission submissionId={} to the corrected submitter of invoice id={}",
+                existing.submissionId(), details.invID());
+    }
+
     // The header and lines as the staff form sent them, ready to validate and write.
     private InvoiceForm toInvoiceForm(Long id, LoadedInvoice existing, UpdateInvoiceRequest request) {
         boolean dataEntryOnly = isDataEntryOnly();
@@ -288,6 +305,7 @@ public class InvoiceService {
     private void writeInvoiceForm(Long id, LoadedInvoice existing, InvoiceForm form, Set<Long> existingLineIds,
                                   String user) {
         InvoiceDetails details = form.details();
+        moveSubmissionToCorrectedSubmitter(existing, details, user);
         // Pick the participant first, then point the invoice at it, then release the old one.
         // Releasing before updateInvoice would violate the CLS_CLSP_FK constraint.
         ParticipantPlan plan = reconcileParticipant(existing, details, user);
