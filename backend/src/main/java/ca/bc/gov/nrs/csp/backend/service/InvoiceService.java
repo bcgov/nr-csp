@@ -81,6 +81,10 @@ public class InvoiceService {
     private static final Set<String> DATA_ENTRY_EDITABLE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
+    // Same as the UI's DELETABLE_STATUSES, so the API refuses what the page never offers.
+    private static final Set<String> DELETABLE_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_PROCESSING);
+
     public static final String STALE_INVOICE_MESSAGE =
             "This invoice was changed by another user after you opened it. Refresh the page to see their changes, then try again.";
 
@@ -296,14 +300,20 @@ public class InvoiceService {
 
     @Transactional
     public void delete(Long id, String expectedVersion) {
+        String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
-        if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(existing.details().invStatus())) {
-            throw new ConflictException("Approved invoices cannot be deleted; unapprove first.");
+        if (existing.submissionNumber() != null) {
+            throw new ConflictException("Cannot delete an electronic invoice.");
+        }
+        if (!DELETABLE_STATUSES.contains(existing.details().invStatus())) {
+            throw new ConflictException("Only draft or processing invoices can be deleted.");
         }
 
-        lineItemRepo.deleteAllByInvoiceId(id);
+        // Legacy parity: snapshot the header and every line as 'D' audit rows before anything is removed.
+        invoiceRepo.insertDeleteAudit(id, user);
+        lineItemRepo.auditAndDeleteAllByInvoiceId(id, user);
         invoiceRepo.deleteAllLogSources(id);
         // Clean up BOTH directions of the related-invoice relationship before we delete
         // the parent row, so the RELATED_COASTAL_LOG_SALE_ID FK can't block us when some
@@ -637,7 +647,7 @@ public class InvoiceService {
         LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
-        lineItemRepo.deleteLineItem(lineId);
+        lineItemRepo.auditAndDeleteLineItem(lineId, user);
         log.info("Deleted line item id={} invoiceId={}", lineId, invoiceId);
 
         return revertToDraftAndRespond(existing, user);
@@ -901,7 +911,7 @@ public class InvoiceService {
             }
         }
         for (Long id : existingIds) {
-            if (!retainedIds.contains(id)) lineItemRepo.deleteLineItem(id);
+            if (!retainedIds.contains(id)) lineItemRepo.auditAndDeleteLineItem(id, user);
         }
     }
 

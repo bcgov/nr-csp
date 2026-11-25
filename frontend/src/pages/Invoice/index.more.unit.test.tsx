@@ -671,7 +671,7 @@ describe('InvoicePage — submit, status change, duplicate & delete results', ()
     h.mutations.del.mutate.mockImplementation((_id: unknown, opts: MutationOpts) => {
       opts.onSuccess?.(undefined);
     });
-    await renderLoaded({ invStatus: 'DFT' });
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null });
     await userEvent.click(screen.getByRole('button', { name: /delete/i }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
@@ -683,7 +683,7 @@ describe('InvoicePage — submit, status change, duplicate & delete results', ()
     h.mutations.del.mutate.mockImplementation((_id: unknown, opts: MutationOpts) => {
       opts.onError?.(new Error('boom'));
     });
-    await renderLoaded({ invStatus: 'DFT' });
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null });
     await userEvent.click(screen.getByRole('button', { name: /delete/i }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));

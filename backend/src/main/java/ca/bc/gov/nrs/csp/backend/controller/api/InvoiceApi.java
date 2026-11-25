@@ -79,7 +79,7 @@ public interface InvoiceApi {
             @ApiResponse(responseCode = "204", description = "Deleted"),
             @ApiResponse(responseCode = "404", description = "Invoice not found",
                     content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invoice is in a status that prevents deletion (e.g., APPROVED), or was changed by another user since expectedVersion was read",
+            @ApiResponse(responseCode = "409", description = "Invoice is electronic (has a submission number), is not DRAFT or PROCESSING, or was changed by another user since expectedVersion was read",
                     content = @Content(schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")

@@ -436,20 +436,73 @@ BEGIN
 END;
 /
 
--- Minimal invoice header and line tables: only the columns InvoiceVersionIT reads and writes.
+-- Invoice header and line tables: the columns InvoiceVersionIT and InvoiceDeleteAuditIT read and write.
 CREATE TABLE the.coastal_log_sale (
-    coastal_log_sale_id NUMBER(18) PRIMARY KEY,
-    revision_count      NUMBER(5) NOT NULL,
-    update_userid       VARCHAR2(30),
-    update_timestamp    DATE NOT NULL
+    coastal_log_sale_id            NUMBER(18) PRIMARY KEY,
+    revision_count                 NUMBER(5) NOT NULL,
+    update_userid                  VARCHAR2(30),
+    update_timestamp               DATE NOT NULL,
+    csp_submission_id              NUMBER(10),
+    client_invoice_no              VARCHAR2(15),
+    client_invoice_date            DATE,
+    log_sale_entry_status_code     VARCHAR2(4),
+    csp_invoice_type_code          VARCHAR2(3),
+    seller_client_number           VARCHAR2(8),
+    seller_client_locn_code        VARCHAR2(2),
+    buyer_client_number            VARCHAR2(8),
+    buyer_client_locn_code         VARCHAR2(2),
+    log_sale_type_code             VARCHAR2(1),
+    log_sale_sort_code             VARCHAR2(3),
+    client_primary_sort_code       VARCHAR2(100),
+    cancelled_ind                  VARCHAR2(1),
+    late_invoice_ind               VARCHAR2(1),
+    amv_calculate_date             DATE,
+    approved_userid                VARCHAR2(30),
+    approved_date                  DATE,
+    unapproved_userid              VARCHAR2(30),
+    unapproved_date                DATE,
+    client_total_boomstick_pieces  NUMBER(5),
+    client_total_log_pieces        NUMBER(8),
+    client_total_invoice_pieces    NUMBER(8),
+    client_total_invoice_volume    NUMBER,
+    client_total_invoice_amt       NUMBER,
+    entry_userid                   VARCHAR2(30),
+    entry_timestamp                DATE,
+    seller_log_sale_participant_id NUMBER(18),
+    buyer_log_sale_participant_id  NUMBER(18),
+    log_sale_fob_location          VARCHAR2(4),
+    submitter_notes                VARCHAR2(4000),
+    reviewer_notes                 VARCHAR2(4000)
 )
 /
 
 CREATE TABLE the.coastal_log_sale_detail (
     coastal_log_sale_detail_id NUMBER(18) PRIMARY KEY,
     coastal_log_sale_id        NUMBER(18) NOT NULL,
-    revision_count             NUMBER(5) NOT NULL
+    revision_count             NUMBER(5) NOT NULL,
+    log_sale_sort_code         VARCHAR2(3),
+    csp_species_grade_xref_id  NUMBER(10),
+    client_secondary_sort_code VARCHAR2(100),
+    pieces                     NUMBER(8),
+    volume                     NUMBER,
+    price                      NUMBER,
+    converted_price            NUMBER,
+    entry_userid               VARCHAR2(30),
+    entry_timestamp            DATE,
+    update_userid              VARCHAR2(30),
+    update_timestamp           DATE
 )
+/
+
+-- Audit tables: the action code plus every live column, as in production.
+CREATE TABLE the.coastal_log_sale_audit AS
+    SELECT CAST(NULL AS VARCHAR2(10)) AS csp_audit_action_type_code, t.*
+    FROM the.coastal_log_sale t WHERE 1 = 0
+/
+
+CREATE TABLE the.coastal_log_sale_detail_audit AS
+    SELECT CAST(NULL AS VARCHAR2(10)) AS csp_audit_action_type_code, t.*
+    FROM the.coastal_log_sale_detail t WHERE 1 = 0
 /
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -463,6 +516,11 @@ GRANT SELECT ON the.log_sale_type_code TO ${APP_USER}
 GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale TO ${APP_USER}
 /
 GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale_detail TO ${APP_USER}
+/
+-- DELETE on the audit tables is only for IT cleanup between tests.
+GRANT SELECT, INSERT, DELETE ON the.coastal_log_sale_audit TO ${APP_USER}
+/
+GRANT SELECT, INSERT, DELETE ON the.coastal_log_sale_detail_audit TO ${APP_USER}
 /
 GRANT SELECT ON the.csp_invoice_type_code TO ${APP_USER}
 /

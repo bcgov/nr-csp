@@ -42,7 +42,8 @@ class InvoiceVersionIT {
         execute("DELETE FROM THE.coastal_log_sale WHERE coastal_log_sale_id = 900");
         execute("INSERT INTO THE.coastal_log_sale (coastal_log_sale_id, revision_count, update_timestamp) "
                 + "VALUES (900, 3, TO_DATE('2026-11-17 14:00:00', 'YYYY-MM-DD HH24:MI:SS'))");
-        execute("INSERT INTO THE.coastal_log_sale_detail VALUES (9001, 900, 1)");
+        execute("INSERT INTO THE.coastal_log_sale_detail (coastal_log_sale_detail_id, coastal_log_sale_id, revision_count) "
+                + "VALUES (9001, 900, 1)");
     }
 
     @Test
@@ -64,7 +65,8 @@ class InvoiceVersionIT {
     void legacyLineAdd_withNoHeaderWrite_changesVersion() {
         String before = repo.findVersion(INVOICE_ID);
 
-        execute("INSERT INTO THE.coastal_log_sale_detail VALUES (9002, 900, 0)");
+        execute("INSERT INTO THE.coastal_log_sale_detail (coastal_log_sale_detail_id, coastal_log_sale_id, revision_count) "
+                + "VALUES (9002, 900, 0)");
 
         assertThat(repo.findVersion(INVOICE_ID)).isNotEqualTo(before);
     }
