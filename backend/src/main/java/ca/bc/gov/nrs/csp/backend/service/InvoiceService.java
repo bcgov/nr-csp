@@ -266,9 +266,8 @@ public class InvoiceService {
 
     private record InvoiceForm(InvoiceDetails details, List<LineItem> lines) {}
 
-    // The submitter lives on the parent submission, which Search and History read. Legacy moved the parent
-    // on any correction (InvoiceService.submitOrSaveInv), taking sibling invoices with it, so only a manual
-    // invoice alone in its submission is moved here; electronic and shared parents are refused.
+    // Search and History read the submitter from the parent submission. Legacy moved any parent (submitOrSaveInv),
+    // taking siblings with it, so only a manual invoice alone in its submission moves here; others are refused.
     private void moveSubmissionToCorrectedSubmitter(LoadedInvoice existing, InvoiceDetails details, String user) {
         boolean corrected = !Objects.equals(existing.details().submitterClientNum(), details.submitterClientNum())
                 || !Objects.equals(existing.details().submitterLocation(), details.submitterLocation());
@@ -944,9 +943,8 @@ public class InvoiceService {
         return new ValidationResult(combined);
     }
 
-    // Legacy shares a participant across invoices with the same name, city and province
-    // (SubmissionTransferRules.getAndSaveOtherPartiFromDTO), so an edit relinks this invoice instead of
-    // changing the shared row. The ids it stops using are returned to release once nothing refers to them.
+    // Legacy shares a participant across invoices with the same name, city and province (getAndSaveOtherPartiFromDTO),
+    // so an edit relinks this invoice rather than changing the shared row, and returns the ids it stops using.
     private ParticipantPlan reconcileParticipant(LoadedInvoice existing, InvoiceDetails details, String user) {
         Long participantId = hasManualOtherParty(details) ? participantFor(existing, details, user) : null;
         boolean intoBuyerSlot = otherPartyIsInBuyerSlot(details);

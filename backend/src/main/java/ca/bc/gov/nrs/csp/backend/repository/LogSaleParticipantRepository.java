@@ -47,11 +47,8 @@ public class LogSaleParticipantRepository {
         return ((Number) keyHolder.getKeys().get("LOG_SALE_PARTICIPANT_ID")).longValue();
     }
 
-    /**
-     * The participant with this name, city and province, inserted if there is none. Legacy reuses
-     * these rows across invoices (SubmissionTransferRules.getAndSaveOtherPartiFromDTO), so a row is
-     * never edited in place. As in legacy, a null field never matches, so it gets its own row.
-     */
+    // Legacy reuses the participant with the same name, city and province (getAndSaveOtherPartiFromDTO).
+    // As in legacy, a null field never matches, so it gets its own row.
     public Long findOrInsert(String name, String city, String province, String userId) {
         String sql = """
                 SELECT log_sale_participant_id FROM THE.log_sale_participant
