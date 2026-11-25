@@ -173,11 +173,12 @@ the invoice number if needed, then save.
 
 ### Delete an invoice
 
-1. Open a Draft or Processing invoice.
+1. Open a manual invoice that is Draft or Processing.
 2. Select **Delete**, then **Delete** in **Delete invoice**.
 
-The invoice can't be recovered. CSP opens a blank invoice afterwards. To
-delete an approved invoice, unapprove it first.
+The invoice can't be recovered. CSP opens a blank invoice afterwards. An
+invoice that came in an XML file can't be deleted: reject or cancel it
+instead.
 <!-- /roles -->
 
 <!-- roles: admin, approver, viewer -->
@@ -206,7 +207,7 @@ Buttons your role or the invoice's status doesn't allow are greyed out.
 | **Approve** / **Unapprove** | Processing or Unapproved / Approved | <!-- roles: admin, approver -->
 | **Duplicate** | Draft, Processing or Unapproved | <!-- roles: admin, approver -->
 | **Cancel**, **Reject** | Processing or Unapproved, with a reviewer comment | <!-- roles: admin, approver -->
-| **Delete** | Draft or Processing | <!-- roles: admin, approver -->
+| **Delete** | Manual, and Draft or Processing | <!-- roles: admin, approver -->
 | **Add new item** | Saved and not Approved | <!-- roles: admin, approver, data-entry -->
 | **Export table** | Saved | <!-- roles: admin, approver, viewer -->
 
