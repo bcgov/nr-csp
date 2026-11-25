@@ -329,7 +329,7 @@ class InvoiceServiceTest {
         verify(lineItemRepo).insertLineItem(eq(500L), any(), eq(USER));
         verify(invoiceRepo, times(3)).replaceLogSources(eq(500L), any(), any(), eq(USER));
         verify(invoiceRepo, times(2)).replaceRelatedInvoices(eq(500L), any(), any(), any(), any(), eq(USER));
-        verify(participantRepo, never()).insert(any(), any(), any(), any());
+        verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
     }
 
     @Test
@@ -403,12 +403,12 @@ class InvoiceServiceTest {
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", null, "ABC Logging", "Seller"));
         given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
-        given(participantRepo.insert(eq("ABC Logging"), any(), any(), any())).willReturn(900L);
+        given(participantRepo.findOrInsert(eq("ABC Logging"), any(), any(), any())).willReturn(900L);
         given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
 
         service.create(req);
 
-        verify(participantRepo).insert("ABC Logging", "Nanaimo", "BC", USER);
+        verify(participantRepo).findOrInsert("ABC Logging", "Nanaimo", "BC", USER);
         verify(invoiceRepo).insertInvoice(any(), eq(77L), eq("DFT"), eq(900L), isNull(), eq(USER));
     }
 
@@ -419,7 +419,7 @@ class InvoiceServiceTest {
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", null, "ABC Logging", "Buyer"));
         given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
-        given(participantRepo.insert(any(), any(), any(), any())).willReturn(900L);
+        given(participantRepo.findOrInsert(any(), any(), any(), any())).willReturn(900L);
         given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
 
         service.create(req);
@@ -648,8 +648,8 @@ class InvoiceServiceTest {
         service.update(1L, CURRENT_VERSION, req);
 
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), isNull(), isNull(), eq(USER));
-        verify(participantRepo).delete(50L);
-        verify(participantRepo).delete(60L);
+        verify(participantRepo).deleteIfUnreferenced(50L);
+        verify(participantRepo).deleteIfUnreferenced(60L);
     }
 
     // `create` inserts a csp_submission row for every manual invoice; deleting the invoice used to
@@ -718,34 +718,52 @@ class InvoiceServiceTest {
         verify(invoiceRepo).deleteInvoice(1L);
     }
 
+    // Legacy shares a participant across invoices, so an edit must relink this invoice, not change the row.
     @Test
-    void update_manualOtherPartyExistingBuyer_updatesInPlace() {
+    void update_editedOtherParty_relinksToAMatchingParticipantAndReleasesTheOldOne() {
         UpdateInvoiceRequest req = updateRequest();
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(
+                loaded(details(1L, "DFT", null, "Old Name", "Seller"), 10L, 50L, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", null, "ABC Logging", "Seller"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+        given(participantRepo.findOrInsert("ABC Logging", "Nanaimo", "BC", USER)).willReturn(77L);
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        InOrder order = inOrder(invoiceRepo, participantRepo);
+        order.verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), eq(77L), isNull(), eq(USER));
+        order.verify(participantRepo).deleteIfUnreferenced(50L);
+    }
+
+    @Test
+    void update_unchangedOtherParty_keepsItsParticipant() {
+        UpdateInvoiceRequest req = updateRequest();
+        InvoiceDetails manualParty = details(1L, "DFT", null, "ABC Logging", "Seller");
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(manualParty, 10L, 50L, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(manualParty);
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
         service.update(1L, CURRENT_VERSION, req);
 
-        verify(participantRepo).update(50L, "ABC Logging", "Nanaimo", "BC", USER);
-        verify(participantRepo, never()).insert(any(), any(), any(), any());
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), eq(50L), isNull(), eq(USER));
+        verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
+        verify(participantRepo, never()).deleteIfUnreferenced(any());
     }
 
     @Test
-    void update_manualOtherPartyMovedSlot_insertsNewAndOrphansOld() {
+    void update_manualOtherPartyMovedSlot_linksTheNewSlotAndReleasesTheOld() {
         UpdateInvoiceRequest req = updateRequest();
         // Existing seller participant 60; new state puts the manual party in the buyer slot.
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, 60L)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", null, "ABC Logging", "Seller"));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
-        given(participantRepo.insert(any(), any(), any(), any())).willReturn(99L);
+        given(participantRepo.findOrInsert(any(), any(), any(), any())).willReturn(99L);
 
         service.update(1L, CURRENT_VERSION, req);
 
-        verify(participantRepo).insert(eq("ABC Logging"), any(), any(), eq(USER));
+        verify(participantRepo).findOrInsert(eq("ABC Logging"), any(), any(), eq(USER));
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), eq(99L), isNull(), eq(USER));
-        verify(participantRepo).delete(60L); // old seller row orphaned
+        verify(participantRepo).deleteIfUnreferenced(60L); // old seller row orphaned
     }
 
     // ===============================================================
@@ -943,7 +961,7 @@ class InvoiceServiceTest {
         order.verify(lineItemRepo).auditAndDeleteAllByInvoiceId(1L, USER);
         order.verify(invoiceRepo).deleteAllLogSources(1L);
         order.verify(invoiceRepo).deleteInvoice(1L);
-        order.verify(participantRepo).delete(50L);
+        order.verify(participantRepo).deleteIfUnreferenced(50L);
     }
 
     @Test
@@ -957,8 +975,8 @@ class InvoiceServiceTest {
         verify(invoiceRepo).deleteAllRelatedInvoiceRefs(1L);
         verify(invoiceRepo).deleteAllIncomingRelatedInvoiceRefs(1L);
         verify(invoiceRepo).deleteInvoice(1L);
-        verify(participantRepo).delete(50L);
-        verify(participantRepo).delete(60L);
+        verify(participantRepo).deleteIfUnreferenced(50L);
+        verify(participantRepo).deleteIfUnreferenced(60L);
     }
 
     // ===============================================================

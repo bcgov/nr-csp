@@ -175,11 +175,11 @@ public class InvoiceService {
                 details.submitterClientNum(), details.submitterLocation(), submissionStatus, user);
 
         // If the other party is a manual entry (no client number, but name/city/province set),
-        // insert a log_sale_participant row and link its id via the correct buyer/seller slot.
+        // link a log_sale_participant row via the correct buyer/seller slot, reusing a matching one like legacy.
         Long buyerParticipantId = null;
         Long sellerParticipantId = null;
         if (hasManualOtherParty(details)) {
-            Long pid = participantRepo.insert(
+            Long pid = participantRepo.findOrInsert(
                     details.otherClientName(), details.otherClientCity(), details.otherClientProvState(), user);
             if (otherPartyIsInBuyerSlot(details)) {
                 buyerParticipantId = pid;
@@ -288,15 +288,13 @@ public class InvoiceService {
     private void writeInvoiceForm(Long id, LoadedInvoice existing, InvoiceForm form, Set<Long> existingLineIds,
                                   String user) {
         InvoiceDetails details = form.details();
-        // Reconcile manual-other-party participant row(s) against the new request.
-        // We compute the plan (inserts/updates + the set of orphan ids to delete) first,
-        // then run updateInvoice to clear the FK references, THEN delete the orphans.
-        // Deleting them before updateInvoice would violate the CLS_CLSP_FK constraint.
+        // Pick the participant first, then point the invoice at it, then release the old one.
+        // Releasing before updateInvoice would violate the CLS_CLSP_FK constraint.
         ParticipantPlan plan = reconcileParticipant(existing, details, user);
 
         invoiceRepo.updateInvoice(id, details, ConstantsCode.INVENTRYSTATUS_DRAFT,
                 plan.newIds().buyerId(), plan.newIds().sellerId(), user);
-        plan.orphans().forEach(participantRepo::delete);
+        plan.released().forEach(participantRepo::deleteIfUnreferenced);
 
         reconcileLineItems(id, form.lines(), existingLineIds, user);
         invoiceRepo.replaceLogSources(id, ConstantsCode.LOGSOURCECODE_BOOMNUMBER, details.boomNumbers(), user);
@@ -336,10 +334,10 @@ public class InvoiceService {
         invoiceRepo.deleteAllRelatedInvoiceRefs(id);
         invoiceRepo.deleteAllIncomingRelatedInvoiceRefs(id);
         invoiceRepo.deleteInvoice(id);
-        // Delete participant rows AFTER the invoice (the CLS_CLSP_FK constraint requires
-        // the referencing coastal_log_sale row to be gone first).
-        participantRepo.delete(existing.buyerParticipantId());
-        participantRepo.delete(existing.sellerParticipantId());
+        // Release participant rows AFTER the invoice (the CLS_CLSP_FK constraint requires
+        // the referencing coastal_log_sale row to be gone first). Another invoice may still share them.
+        participantRepo.deleteIfUnreferenced(existing.buyerParticipantId());
+        participantRepo.deleteIfUnreferenced(existing.sellerParticipantId());
         deleteSubmissionIfNowEmptyAndManual(existing);
         log.info("Deleted invoice id={}", id);
     }
@@ -864,60 +862,32 @@ public class InvoiceService {
         return new ValidationResult(combined);
     }
 
-    /**
-     * Plans the manual-other-party participant row changes for an update. Does any required
-     * INSERT/UPDATE immediately, but defers DELETE of orphan rows by returning their ids in
-     * {@link ParticipantPlan#orphans()} — callers must run the DELETE *after* updateInvoice
-     * clears the FK reference on {@code coastal_log_sale}, otherwise the CLS_CLSP_FK
-     * constraint will reject the delete.
-     *
-     * <p>Four logical branches:</p>
-     * <ul>
-     *   <li>No manual other party in the new state → both slots cleared; existing rows queued as orphans.</li>
-     *   <li>Manual + same slot already has a row → UPDATE in place (id retained, no orphan).</li>
-     *   <li>Manual + slot is empty → INSERT a new row.</li>
-     *   <li>Slot moved between buyer and seller → INSERT in the new slot, queue the old slot's row as an orphan.</li>
-     * </ul>
-     */
+    // Legacy shares a participant across invoices with the same name, city and province
+    // (SubmissionTransferRules.getAndSaveOtherPartiFromDTO), so an edit relinks this invoice instead of
+    // changing the shared row. The ids it stops using are returned to release once nothing refers to them.
     private ParticipantPlan reconcileParticipant(LoadedInvoice existing, InvoiceDetails details, String user) {
-        Long existingBuyerId = existing.buyerParticipantId();
-        Long existingSellerId = existing.sellerParticipantId();
-        List<Long> orphans = new ArrayList<>();
-
-        if (!hasManualOtherParty(details)) {
-            // Other party is a registered client (or absent) — clear both slots.
-            if (existingBuyerId != null) orphans.add(existingBuyerId);
-            if (existingSellerId != null) orphans.add(existingSellerId);
-            return new ParticipantPlan(new ParticipantIds(null, null), orphans);
-        }
-
+        Long participantId = hasManualOtherParty(details) ? participantFor(existing, details, user) : null;
         boolean intoBuyerSlot = otherPartyIsInBuyerSlot(details);
-        String name = details.otherClientName();
-        String city = details.otherClientCity();
-        String province = details.otherClientProvState();
-
-        Long newBuyerId;
-        Long newSellerId;
-        if (intoBuyerSlot) {
-            if (existingBuyerId != null) {
-                participantRepo.update(existingBuyerId, name, city, province, user);
-                newBuyerId = existingBuyerId;
-            } else {
-                newBuyerId = participantRepo.insert(name, city, province, user);
-            }
-            newSellerId = null;
-            if (existingSellerId != null) orphans.add(existingSellerId);
-        } else {
-            if (existingSellerId != null) {
-                participantRepo.update(existingSellerId, name, city, province, user);
-                newSellerId = existingSellerId;
-            } else {
-                newSellerId = participantRepo.insert(name, city, province, user);
-            }
-            newBuyerId = null;
-            if (existingBuyerId != null) orphans.add(existingBuyerId);
+        ParticipantIds newIds = new ParticipantIds(
+                intoBuyerSlot ? participantId : null, intoBuyerSlot ? null : participantId);
+        List<Long> released = new ArrayList<>();
+        for (Long oldId : new Long[] {existing.buyerParticipantId(), existing.sellerParticipantId()}) {
+            if (oldId != null && !oldId.equals(participantId)) released.add(oldId);
         }
-        return new ParticipantPlan(new ParticipantIds(newBuyerId, newSellerId), orphans);
+        return new ParticipantPlan(newIds, released);
+    }
+
+    // Keeps the linked row while its details are unchanged, so an unrelated save doesn't relink it.
+    private Long participantFor(LoadedInvoice existing, InvoiceDetails details, String user) {
+        Long current = otherPartyIsInBuyerSlot(existing.details())
+                ? existing.buyerParticipantId()
+                : existing.sellerParticipantId();
+        boolean unchanged = Objects.equals(existing.details().otherClientName(), details.otherClientName())
+                && Objects.equals(existing.details().otherClientCity(), details.otherClientCity())
+                && Objects.equals(existing.details().otherClientProvState(), details.otherClientProvState());
+        if (current != null && unchanged) return current;
+        return participantRepo.findOrInsert(
+                details.otherClientName(), details.otherClientCity(), details.otherClientProvState(), user);
     }
 
     private boolean hasManualOtherParty(InvoiceDetails details) {
@@ -939,7 +909,7 @@ public class InvoiceService {
 
     private record ParticipantIds(Long buyerId, Long sellerId) {}
 
-    private record ParticipantPlan(ParticipantIds newIds, List<Long> orphans) {}
+    private record ParticipantPlan(ParticipantIds newIds, List<Long> released) {}
 
     private void reconcileLineItems(Long invoiceId, List<LineItem> incoming, Set<Long> existingIds, String user) {
         Set<Long> retainedIds = new HashSet<>();

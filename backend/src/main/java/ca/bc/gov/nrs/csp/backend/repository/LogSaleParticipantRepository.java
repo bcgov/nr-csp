@@ -6,6 +6,8 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 /**
  * CRUD for {@code THE.log_sale_participant} — the table that stores manual "other party"
  * details (name/city/province) for invoices where the other party isn't a registered
@@ -45,29 +47,36 @@ public class LogSaleParticipantRepository {
         return ((Number) keyHolder.getKeys().get("LOG_SALE_PARTICIPANT_ID")).longValue();
     }
 
-    public void update(Long id, String name, String city, String province, String userId) {
+    /**
+     * The participant with this name, city and province, inserted if there is none. Legacy reuses
+     * these rows across invoices (SubmissionTransferRules.getAndSaveOtherPartiFromDTO), so a row is
+     * never edited in place. As in legacy, a null field never matches, so it gets its own row.
+     */
+    public Long findOrInsert(String name, String city, String province, String userId) {
         String sql = """
-                UPDATE THE.log_sale_participant SET
-                    name = :name,
-                    city = :city,
-                    province = :province,
-                    revision_count = revision_count + 1,
-                    update_userid = :userId,
-                    update_timestamp = SYSDATE
-                WHERE log_sale_participant_id = :id
+                SELECT log_sale_participant_id FROM THE.log_sale_participant
+                WHERE name = :name AND city = :city AND province = :province
+                ORDER BY log_sale_participant_id
                 """;
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("id", id)
                 .addValue("name", name)
                 .addValue("city", city)
-                .addValue("province", province)
-                .addValue("userId", userId);
-        jdbc.update(sql, params);
+                .addValue("province", province);
+        List<Long> ids = jdbc.queryForList(sql, params, Long.class);
+        return ids.isEmpty() ? insert(name, city, province, userId) : ids.get(0);
     }
 
-    public void delete(Long id) {
+    /** Deletes the participant only when no invoice refers to it as buyer or seller any more. */
+    public void deleteIfUnreferenced(Long id) {
         if (id == null) return;
-        jdbc.update("DELETE FROM THE.log_sale_participant WHERE log_sale_participant_id = :id",
-                new MapSqlParameterSource("id", id));
+        String sql = """
+                DELETE FROM THE.log_sale_participant p
+                WHERE p.log_sale_participant_id = :id
+                  AND NOT EXISTS (
+                      SELECT 1 FROM THE.coastal_log_sale cls
+                      WHERE cls.buyer_log_sale_participant_id = p.log_sale_participant_id
+                         OR cls.seller_log_sale_participant_id = p.log_sale_participant_id)
+                """;
+        jdbc.update(sql, new MapSqlParameterSource("id", id));
     }
 }
