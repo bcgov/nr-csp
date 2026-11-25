@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExp
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceDetails;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceResponse;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemGroupUpdateRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
@@ -57,6 +58,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -708,6 +710,68 @@ public class InvoiceService {
         log.info("Deleted line item id={} invoiceId={}", lineId, invoiceId);
 
         return revertToDraftAndRespond(existing, user);
+    }
+
+    // Legacy validates a group change across every line, then updates them in one transaction
+    // (InvoiceService.updateSummaryGroupLine, LineItemDAO.updateGroupOfLineItem), so a refusal changes nothing.
+    @Transactional
+    public InvoiceResponse updateLineItemGroup(Long invoiceId, String expectedVersion,
+                                               LineItemGroupUpdateRequest request) {
+        String user = SecurityContextUtils.requireUsername();
+        requireCurrentVersion(invoiceId, expectedVersion);
+        LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
+        List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
+        Set<Long> groupIds = requireGroupOnInvoice(invoiceId,
+                existingLines.stream().map(LineItem::lineItemID).toList(), request.lineItemIds());
+
+        List<LineItem> candidate = existingLines.stream()
+                .map(line -> groupIds.contains(line.lineItemID())
+                        ? withSortAndSpecies(line, request.secondSort(), request.species())
+                        : line)
+                .toList();
+        boolean manual = existing.submissionNumber() == null;
+        ValidationResult saveResult = newValidator().validate(existing.details(), candidate, manual, ActionType.SAVE);
+        throwIfErrors(saveResult, "Line item group failed validation.");
+
+        for (LineItem line : candidate) {
+            if (groupIds.contains(line.lineItemID())) {
+                lineItemRepo.updateLineItem(line.lineItemID(), line, user);
+            }
+        }
+        log.info("Updated line item group lines={} invoiceId={}", groupIds, invoiceId);
+        return revertToDraftAndRespond(existing, user);
+    }
+
+    // Legacy audits and deletes a whole group in one transaction (LineItemDAO.deleteGroupOfLineItem).
+    @Transactional
+    public InvoiceResponse deleteLineItemGroup(Long invoiceId, String expectedVersion, List<Long> lineItemIds) {
+        String user = SecurityContextUtils.requireUsername();
+        requireCurrentVersion(invoiceId, expectedVersion);
+        LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
+        Set<Long> groupIds = requireGroupOnInvoice(invoiceId, lineItemRepo.findIdsByInvoiceId(invoiceId), lineItemIds);
+
+        for (Long lineId : groupIds) {
+            lineItemRepo.auditAndDeleteLineItem(lineId, user);
+        }
+        log.info("Deleted line item group lines={} invoiceId={}", groupIds, invoiceId);
+        return revertToDraftAndRespond(existing, user);
+    }
+
+    private static Set<Long> requireGroupOnInvoice(Long invoiceId, List<Long> invoiceLineIds, List<Long> groupLineIds) {
+        if (groupLineIds == null || groupLineIds.isEmpty()) {
+            throw new BadRequestException("A line item group needs at least one line item.");
+        }
+        Set<Long> groupIds = new LinkedHashSet<>(groupLineIds);
+        if (!invoiceLineIds.containsAll(groupIds)) {
+            throw new ResourceNotFoundException("A line item in the group was not found on invoice " + invoiceId + ".");
+        }
+        return groupIds;
+    }
+
+    private static LineItem withSortAndSpecies(LineItem line, String secondSort, String species) {
+        return new LineItem(line.lineItemID(), line.invoiceID(), secondSort, line.clientSecondarySort(), species,
+                null, line.grade(), line.numOfPieces(), line.price(), line.volume(), line.convertedPrice(),
+                line.amount());
     }
 
     /**

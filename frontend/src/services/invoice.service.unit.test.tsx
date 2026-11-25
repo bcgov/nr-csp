@@ -17,6 +17,8 @@ import {
   getInvoice,
   isValidationErrorResponse,
   submitInvoice,
+  updateInvoiceLineItemGroup,
+  deleteInvoiceLineItemGroup,
   updateInvoice,
   updateInvoiceLineItem,
   useAddInvoiceLineItemMutation,
@@ -96,6 +98,23 @@ describe('invoice endpoint fetchers', () => {
     await expect(submitInvoice(7, 'v4', CREATE_BODY)).resolves.toEqual(INVOICE);
     expect(apiClient.post).toHaveBeenCalledWith('/invoices/7/submit', CREATE_BODY, {
       params: { expectedVersion: 'v4' },
+    });
+  });
+
+  it('updateInvoiceLineItemGroup PATCHes the whole group to /invoices/{id}/line-items', async () => {
+    vi.mocked(apiClient.patch).mockResolvedValue({ data: INVOICE });
+    const body = { lineItemIds: [1, 2], secondSort: 'SORT02', species: 'CED' };
+    await expect(updateInvoiceLineItemGroup(7, 'v4', body)).resolves.toEqual(INVOICE);
+    expect(apiClient.patch).toHaveBeenCalledWith('/invoices/7/line-items', body, {
+      params: { expectedVersion: 'v4' },
+    });
+  });
+
+  it('deleteInvoiceLineItemGroup DELETEs every line id in one request', async () => {
+    vi.mocked(apiClient.delete).mockResolvedValue({ data: INVOICE });
+    await expect(deleteInvoiceLineItemGroup(7, 'v4', [1, 2])).resolves.toEqual(INVOICE);
+    expect(apiClient.delete).toHaveBeenCalledWith('/invoices/7/line-items', {
+      params: { expectedVersion: 'v4', lineItemIds: '1,2' },
     });
   });
 

@@ -13,7 +13,6 @@ import { InvoicePage } from './index';
 const h = vi.hoisted(() => {
   const makeMutation = () => ({
     mutate: vi.fn(),
-    mutateAsync: vi.fn(),
     isPending: false,
     variables: undefined as unknown,
   });
@@ -41,6 +40,8 @@ const h = vi.hoisted(() => {
       addLine: makeMutation(),
       delLine: makeMutation(),
       updateLine: makeMutation(),
+      updateGroup: makeMutation(),
+      deleteGroup: makeMutation(),
       exp: makeMutation(),
     },
   };
@@ -100,6 +101,8 @@ vi.mock('@/services/invoice.service', () => ({
   useAddInvoiceLineItemMutation: () => h.mutations.addLine,
   useDeleteInvoiceLineItemMutation: () => h.mutations.delLine,
   useUpdateInvoiceLineItemMutation: () => h.mutations.updateLine,
+  useUpdateInvoiceLineItemGroupMutation: () => h.mutations.updateGroup,
+  useDeleteInvoiceLineItemGroupMutation: () => h.mutations.deleteGroup,
   useExportInvoiceGroupSummaryMutation: () => h.mutations.exp,
   extractApiErrorMessage: () => 'An error occurred.',
   extractValidationErrors: () => [],

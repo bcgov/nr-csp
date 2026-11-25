@@ -61,19 +61,20 @@ import {
   type CreateInvoiceRequest,
   type LineItemRequest,
   type LineItemResponse,
-  type InvoiceResponse,
   type ValidationMessageResponse,
   extractApiErrorMessage,
   extractValidationErrors,
   useAddInvoiceLineItemMutation,
   useChangeInvoiceStatusMutation,
   useCreateInvoiceMutation,
+  useDeleteInvoiceLineItemGroupMutation,
   useDeleteInvoiceLineItemMutation,
   useDeleteInvoiceMutation,
   useDuplicateInvoiceMutation,
   useExportInvoiceGroupSummaryMutation,
   useInvoiceQuery,
   useSubmitInvoiceMutation,
+  useUpdateInvoiceLineItemGroupMutation,
   useUpdateInvoiceLineItemMutation,
   useUpdateInvoiceMutation,
 } from '@/services/invoice.service';
@@ -313,6 +314,8 @@ export function InvoicePage() {
   const addLineItemMutation = useAddInvoiceLineItemMutation();
   const deleteLineItemMutation = useDeleteInvoiceLineItemMutation();
   const updateLineItemMutation = useUpdateInvoiceLineItemMutation();
+  const updateLineItemGroupMutation = useUpdateInvoiceLineItemGroupMutation();
+  const deleteLineItemGroupMutation = useDeleteInvoiceLineItemGroupMutation();
   const exportMutation = useExportInvoiceGroupSummaryMutation();
 
   // -----------------------------------------------------------------
@@ -915,7 +918,9 @@ export function InvoicePage() {
     changeStatusMutation.isPending ||
     addLineItemMutation.isPending ||
     deleteLineItemMutation.isPending ||
-    updateLineItemMutation.isPending;
+    updateLineItemMutation.isPending ||
+    updateLineItemGroupMutation.isPending ||
+    deleteLineItemGroupMutation.isPending;
   const savePending = createMutation.isPending || updateMutation.isPending;
   const approvePending = statusInFlight === 'APP';
   const unapprovePending = statusInFlight === 'UNA';
@@ -1298,33 +1303,28 @@ export function InvoicePage() {
     setEditGroupFieldErrors({});
   }, []);
 
-  // Deleting a group removes each of its line items
-  const performGroupDelete = async (group: GroupRow, openedAtVersion: string | undefined) => {
+  // Deleting a group removes all of its line items in one request, so a refusal deletes none.
+  const performGroupDelete = (group: GroupRow, openedAtVersion: string | undefined) => {
     if (!invoiceId || !openedAtVersion) return;
     clearErrors();
-    const ids = group.lineItems.map((l) => l.lineItemID).filter((id) => id > 0);
-    let lastResponse: InvoiceResponse | undefined;
-    for (const lineId of ids) {
-      // Each delete changes the version, so the next one sends the version the last one returned.
-      const expectedVersion = lastResponse?.version ?? openedAtVersion;
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        lastResponse = await deleteLineItemMutation.mutateAsync({ invoiceId, lineId, expectedVersion });
-      } catch (err) {
-        if (lastResponse) advanceOpenEditors(openedAtVersion, lastResponse.version);
-        setDeleteConfirm(null);
-        handleMutationError(err, 'Failed to delete group.');
-        return;
-      }
-    }
-    if (lastResponse) {
-      advanceOpenEditors(openedAtVersion, lastResponse.version);
-      setLineItems(lastResponse.lineItems ?? []);
-      setWarnings(lastResponse.warnings ?? []);
-      applyServerErrors(lastResponse.errors ?? []);
-    }
-    setDeleteConfirm(null);
-    addNotification({ kind: 'success', title: 'Group deleted.' });
+    const lineItemIds = group.lineItems.map((l) => l.lineItemID).filter((id) => id > 0);
+    deleteLineItemGroupMutation.mutate(
+      { invoiceId, expectedVersion: openedAtVersion, lineItemIds },
+      {
+        onSuccess: (data) => {
+          advanceOpenEditors(openedAtVersion, data.version);
+          setLineItems(data.lineItems ?? []);
+          setWarnings(data.warnings ?? []);
+          applyServerErrors(data.errors ?? []);
+          setDeleteConfirm(null);
+          addNotification({ kind: 'success', title: 'Group deleted.' });
+        },
+        onError: (err) => {
+          setDeleteConfirm(null);
+          handleMutationError(err, 'Failed to delete group.');
+        },
+      },
+    );
   };
   const performGroupDeleteRef = useRef(performGroupDelete);
   performGroupDeleteRef.current = performGroupDelete;
@@ -1676,7 +1676,7 @@ export function InvoicePage() {
     setEditGroupFieldErrors({});
   };
 
-  const handleSaveGroupEdit = async () => {
+  const handleSaveGroupEdit = () => {
     if (!invoiceId || !editGroupDraft?.openedAtVersion) return;
     const { lineItemIds, secondSort, species, openedAtVersion } = editGroupDraft;
     if (!secondSort || !species) {
@@ -1687,64 +1687,46 @@ export function InvoicePage() {
       return;
     }
     clearErrors();
-    let lastResponse: InvoiceResponse | undefined;
-    for (const lineId of lineItemIds) {
-      const sourceLines = lastResponse?.lineItems ?? lineItems;
-      const existing = sourceLines.find((l) => l.lineItemID === lineId);
-      if (!existing) continue;
-      const body: LineItemRequest = {
-        lineItemID: lineId,
-        secondSort,
-        clientSecondarySort: existing.clientSecondarySort ?? null,
-        species,
-        grade: existing.grade,
-        numOfPieces: existing.numOfPieces,
-        price: existing.price,
-        volume: existing.volume,
-        convertedPrice: existing.convertedPrice ?? null,
-      };
-      // Each update changes the version, so the next one sends the version the last one returned.
-      const expectedVersion = lastResponse?.version ?? openedAtVersion;
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        lastResponse = await updateLineItemMutation.mutateAsync({ invoiceId, lineId, expectedVersion, body });
-      } catch (err) {
-        if (lastResponse) advanceOpenEditors(openedAtVersion, lastResponse.version);
-        const errors = extractValidationErrors(err);
-        if (errors.length > 0) {
-          const inline: Record<string, string> = {};
-          errors.forEach((e) => {
-            const field = LINE_ITEM_MESSAGE_KEY_TO_FIELD[e.messageKey];
-            if (field === 'secondarySort') inline.secondSort = e.message || e.messageKey;
-            else if (field === 'grade' || field === 'pieces' || field === 'volume' || field === 'price') {
-              // Cross-field rules between the new species and the lines'
-              // existing data — surface against the species dropdown.
-              inline.species = e.message || e.messageKey;
-            }
-          });
-          setEditGroupFieldErrors(inline);
-        } else {
-          addNotification({
-            kind: 'error',
-            title: 'Failed to update group.',
-            subtitle: extractApiErrorMessage(err),
-          });
-        }
-        return; // bail out of the loop on the first failure
-      }
-    }
-    if (lastResponse) {
-      advanceOpenEditors(openedAtVersion, lastResponse.version);
-      const nextLines = lastResponse.lineItems ?? [];
-      setLineItems(nextLines);
-      // Keep the edited group open under its new (sort/species-derived) id.
-      keepGroupsExpandedForLines(nextLines, lineItemIds);
-      setWarnings(lastResponse.warnings ?? []);
-      applyServerErrors(lastResponse.errors ?? []);
-    }
-    setEditGroupDraft(null);
-    setEditGroupFieldErrors({});
-    addNotification({ kind: 'success', title: 'Group updated.' });
+    // One request for the whole group: the backend validates every line and saves all or none.
+    updateLineItemGroupMutation.mutate(
+      { invoiceId, expectedVersion: openedAtVersion, body: { lineItemIds, secondSort, species } },
+      {
+        onSuccess: (data) => {
+          advanceOpenEditors(openedAtVersion, data.version);
+          const nextLines = data.lineItems ?? [];
+          setLineItems(nextLines);
+          // Keep the edited group open under its new (sort/species-derived) id.
+          keepGroupsExpandedForLines(nextLines, lineItemIds);
+          setWarnings(data.warnings ?? []);
+          applyServerErrors(data.errors ?? []);
+          setEditGroupDraft(null);
+          setEditGroupFieldErrors({});
+          addNotification({ kind: 'success', title: 'Group updated.' });
+        },
+        onError: (err) => {
+          const errors = extractValidationErrors(err);
+          if (errors.length > 0) {
+            const inline: Record<string, string> = {};
+            errors.forEach((e) => {
+              const field = LINE_ITEM_MESSAGE_KEY_TO_FIELD[e.messageKey];
+              if (field === 'secondarySort') inline.secondSort = e.message || e.messageKey;
+              else if (field === 'grade' || field === 'pieces' || field === 'volume' || field === 'price') {
+                // Cross-field rules between the new species and the lines'
+                // existing data — surface against the species dropdown.
+                inline.species = e.message || e.messageKey;
+              }
+            });
+            setEditGroupFieldErrors(inline);
+          } else {
+            addNotification({
+              kind: 'error',
+              title: 'Failed to update group.',
+              subtitle: extractApiErrorMessage(err),
+            });
+          }
+        },
+      },
+    );
   };
 
   const handleExport = (format: 'csv' | 'pdf') => {
@@ -2431,7 +2413,7 @@ export function InvoicePage() {
         }
         submitLabel="Save"
         cancelLabel="Cancel"
-        submitLoading={updateLineItemMutation.isPending}
+        submitLoading={updateLineItemGroupMutation.isPending}
         onClose={handleCancelGroupEdit}
         onSubmit={handleSaveGroupEdit}
       >
@@ -2477,7 +2459,9 @@ export function InvoicePage() {
         cancelLabel="Cancel"
         submitIcon={TrashCan}
         danger
-        submitLoading={deleteMutation.isPending || deleteLineItemMutation.isPending}
+        submitLoading={
+          deleteMutation.isPending || deleteLineItemMutation.isPending || deleteLineItemGroupMutation.isPending
+        }
         onClose={() => setDeleteConfirm(null)}
         onSubmit={() => deleteConfirm?.onConfirm()}
       >

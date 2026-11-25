@@ -363,6 +363,35 @@ class InvoiceControllerTest {
     // ---------------------------------------------------------------
 
     @Test
+    void updateLineItemGroup_validRequest_returns200() throws Exception {
+        given(invoiceService.updateLineItemGroup(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
+
+        mockMvc.perform(patch("/api/invoices/1/line-items?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lineItemIds\":[1,2],\"secondSort\":\"SORT02\",\"species\":\"CED\"}"))
+                .andExpect(status().isOk());
+        verify(invoiceService).updateLineItemGroup(eq(1L), eq("v3"),
+                argThat(group -> group.lineItemIds().equals(List.of(1L, 2L)) && "CED".equals(group.species())));
+    }
+
+    @Test
+    void updateLineItemGroup_withoutLines_returns400() throws Exception {
+        mockMvc.perform(patch("/api/invoices/1/line-items?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lineItemIds\":[],\"secondSort\":\"SORT02\",\"species\":\"CED\"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(invoiceService);
+    }
+
+    @Test
+    void deleteLineItemGroup_passesEveryLineId() throws Exception {
+        given(invoiceService.deleteLineItemGroup(1L, "v3", List.of(1L, 2L))).willReturn(sampleResponse());
+
+        mockMvc.perform(delete("/api/invoices/1/line-items?expectedVersion=v3&lineItemIds=1,2"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void addLineItem_validRequest_returns200() throws Exception {
         given(invoiceService.addLineItem(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
 

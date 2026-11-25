@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExp
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExportRequest.GroupSummaryExportRow;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExportRequest.LineItemExportRow;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemGroupUpdateRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
@@ -462,6 +463,10 @@ class InvoiceServiceTest {
         assertThatThrownBy(() -> service.updateLineItem(1L, 2L, CURRENT_VERSION, lineItemRequest()))
                 .isInstanceOf(expectedError);
         assertThatThrownBy(() -> service.deleteLineItem(1L, 2L, CURRENT_VERSION)).isInstanceOf(expectedError);
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION,
+                new LineItemGroupUpdateRequest(List.of(2L), "SORT02", "CED"))).isInstanceOf(expectedError);
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(2L)))
+                .isInstanceOf(expectedError);
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
         verify(invoiceRepo, never()).incrementRevisionCount(any(), any());
     }
@@ -1134,6 +1139,96 @@ class InvoiceServiceTest {
         assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, req)).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
+
+    // ===============================================================
+    // line item groups — one version check, one transaction
+    // ===============================================================
+
+    private static final LineItemGroupUpdateRequest MOVE_GROUP =
+            new LineItemGroupUpdateRequest(List.of(1L, 2L), "SORT02", "CED");
+
+    @Test
+    void updateLineItemGroup_validatesEveryMovedLineThenUpdatesThemAll() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null), line(2L, null), line(3L, null)));
+
+        service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LineItem>> validated = ArgumentCaptor.forClass(List.class);
+        verify(validator).validate(any(), validated.capture(), eq(true), eq(ActionType.SAVE));
+        assertThat(validated.getValue()).extracting(LineItem::secondSort).containsExactly("SORT02", "SORT02", "SORT01");
+        assertThat(validated.getValue()).extracting(LineItem::species).containsExactly("CED", "CED", "FIR");
+        ArgumentCaptor<LineItem> written = ArgumentCaptor.forClass(LineItem.class);
+        verify(lineItemRepo).updateLineItem(eq(1L), written.capture(), eq(USER));
+        verify(lineItemRepo).updateLineItem(eq(2L), any(), eq(USER));
+        verify(lineItemRepo, never()).updateLineItem(eq(3L), any(), any());
+        assertThat(written.getValue().amount()).isEqualByComparingTo("100.00");
+        verify(invoiceRepo).incrementRevisionCount(1L, USER);
+    }
+
+    @Test
+    void updateLineItemGroup_thatFailsValidation_writesNoLine() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null), line(2L, null)));
+        given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
+
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP))
+                .isInstanceOf(ValidationException.class);
+        verify(lineItemRepo, never()).updateLineItem(any(), any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCount(any(), any());
+        verify(invoiceRepo, never()).updateTotals(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void lineItemGroupChanges_fromAStaleVersion_writeNothing() {
+        given(invoiceRepo.lockVersion(1L)).willReturn(Optional.of("4.20261117150000.2.2"));
+
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP))
+                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(1L, 2L)))
+                .isInstanceOf(ConflictException.class);
+        verify(lineItemRepo, never()).updateLineItem(any(), any(), any());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCount(any(), any());
+    }
+
+    @Test
+    void lineItemGroupChanges_withALineFromAnotherInvoice_writeNothing() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L));
+
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP))
+                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(1L, 99L)))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(lineItemRepo, never()).updateLineItem(any(), any(), any());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(any(), any());
+    }
+
+    @Test
+    void deleteLineItemGroup_auditsAndDeletesEveryLineThenRecalculatesTotals() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L, 2L, 3L));
+
+        service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(1L, 2L));
+
+        InOrder order = inOrder(lineItemRepo, invoiceRepo);
+        order.verify(lineItemRepo).auditAndDeleteLineItem(1L, USER);
+        order.verify(lineItemRepo).auditAndDeleteLineItem(2L, USER);
+        order.verify(invoiceRepo).incrementRevisionCount(1L, USER);
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(eq(3L), any());
+    }
+
+    @Test
+    void deleteLineItemGroup_withNoLines_isABadRequest() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of()))
+                .isInstanceOf(BadRequestException.class);
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(any(), any());
     }
 
     // ===============================================================

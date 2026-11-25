@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.ChangeStatusReque
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.CreateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExportRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceResponse;
+import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemGroupUpdateRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.ValidationErrorResponse;
@@ -28,6 +29,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.List;
 
 @Tag(name = "Invoice", description = "Invoice details — get, save, submit, duplicate, change status, delete")
 @RequestMapping("/api/invoices")
@@ -175,6 +178,40 @@ public interface InvoiceApi {
             @Parameter(description = "Line item id", example = "1") @PathVariable Long lineId,
             @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
             @Valid @RequestBody LineItemRequest request);
+
+    @Operation(summary = "Change the secondary sort and species of a group of line items",
+            description = "Validates the invoice with every listed line changed, then updates them all in one transaction, like legacy's group edit. A refused change leaves every line as it was.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Group updated",
+                    content = @Content(schema = @Schema(implementation = InvoiceResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Validation failed",
+                    content = @Content(schema = @Schema(implementation = ValidationErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Invoice or a listed line item not found",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedVersion was read",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    @PatchMapping("/{id}/line-items")
+    ResponseEntity<InvoiceResponse> updateLineItemGroup(
+            @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
+            @Valid @RequestBody LineItemGroupUpdateRequest request);
+
+    @Operation(summary = "Delete a group of line items",
+            description = "Audits and deletes every listed line in one transaction, like legacy's group delete. A refused delete leaves every line as it was.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Group deleted",
+                    content = @Content(schema = @Schema(implementation = InvoiceResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Invoice or a listed line item not found",
+                    content = @Content(schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "409", description = "Invoice status does not allow the change, or the invoice was changed by another user since expectedVersion was read",
+                    content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    @DeleteMapping("/{id}/line-items")
+    ResponseEntity<InvoiceResponse> deleteLineItemGroup(
+            @Parameter(description = "Invoice id", example = "12345") @PathVariable Long id,
+            @Parameter(description = "The version from the last read of this invoice. A different current version returns 409.", example = "3.20261117141623.4.6") @RequestParam String expectedVersion,
+            @Parameter(description = "Ids of the line items in the group, comma-separated", example = "1,2") @RequestParam List<Long> lineItemIds);
 
     @Operation(summary = "Delete a line item from a DRAFT invoice",
             description = "Removes the line and returns the refreshed InvoiceResponse.")

@@ -10,13 +10,11 @@ import type { Role } from '@/context/auth/permissions';
 // ---------------------------------------------------------------------------
 // Shared, hoisted mock state — adapted from index.unit.test.tsx. Adds a
 // controllable `extractValidationErrors` so error paths can return
-// field-mapped validation errors, and mutateAsync-capable mutation mocks
-// for the group edit/delete flows.
+// field-mapped validation errors, and mutation mocks for the group edit/delete flows.
 // ---------------------------------------------------------------------------
 const h = vi.hoisted(() => {
   const makeMutation = () => ({
     mutate: vi.fn(),
-    mutateAsync: vi.fn(),
     isPending: false,
     variables: undefined as unknown,
   });
@@ -45,6 +43,8 @@ const h = vi.hoisted(() => {
       addLine: makeMutation(),
       delLine: makeMutation(),
       updateLine: makeMutation(),
+      updateGroup: makeMutation(),
+      deleteGroup: makeMutation(),
       exp: makeMutation(),
     },
   };
@@ -117,6 +117,8 @@ vi.mock('@/services/invoice.service', () => ({
   useAddInvoiceLineItemMutation: () => h.mutations.addLine,
   useDeleteInvoiceLineItemMutation: () => h.mutations.delLine,
   useUpdateInvoiceLineItemMutation: () => h.mutations.updateLine,
+  useUpdateInvoiceLineItemGroupMutation: () => h.mutations.updateGroup,
+  useDeleteInvoiceLineItemGroupMutation: () => h.mutations.deleteGroup,
   useExportInvoiceGroupSummaryMutation: () => h.mutations.exp,
   extractApiErrorMessage: () => 'An error occurred.',
   extractValidationErrors: (err: unknown) => h.extractValidationErrors(err),
@@ -238,7 +240,6 @@ beforeEach(() => {
   h.extractValidationErrors.mockReturnValue([]);
   Object.values(h.mutations).forEach((m) => {
     m.mutate.mockReset();
-    m.mutateAsync.mockReset();
     m.isPending = false;
     m.variables = undefined;
   });
@@ -856,14 +857,23 @@ describe('InvoicePage — group edit & delete', () => {
     await pickOption(within(dialog).getByRole('combobox', { name: /species/i }), 'Select...');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(within(dialog).getByText('Species is required.')).toBeInTheDocument();
-    expect(h.mutations.updateLine.mutateAsync).not.toHaveBeenCalled();
+    expect(h.mutations.updateGroup.mutate).not.toHaveBeenCalled();
   });
 
-  it('saving the group updates each line and shows a toast', async () => {
-    h.mutations.updateLine.mutateAsync.mockResolvedValue(
-      makeInvoice({ lineItems: [{ ...LINE_ITEM, secondSort: 'SORT02', species: 'SPR' }] }),
-    );
-    await renderLoaded({ invStatus: 'DFT' });
+  // One request for the whole group, so the backend saves every line or none.
+  it('saving the group sends every line in one request and shows a toast', async () => {
+    h.mutations.updateGroup.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onSuccess?.(
+        makeInvoice({
+          version: 'v5',
+          lineItems: [
+            { ...LINE_ITEM, secondSort: 'SORT02', species: 'SPR' },
+            { ...LINE_ITEM, lineItemID: 2, secondSort: 'SORT02', species: 'SPR' },
+          ],
+        }),
+      );
+    });
+    await renderLoaded({ invStatus: 'DFT', lineItems: [{ ...LINE_ITEM }, { ...LINE_ITEM, lineItemID: 2 }] });
     const dialog = await openGroupEdit();
     await pickOption(within(dialog).getByRole('combobox', { name: /secondary sort code/i }), 'SORT02 - Sort Two');
     await pickOption(within(dialog).getByRole('combobox', { name: /species/i }), 'SPR');
@@ -871,18 +881,22 @@ describe('InvoicePage — group edit & delete', () => {
     await waitFor(() =>
       expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Group updated.' })),
     );
-    expect(h.mutations.updateLine.mutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(h.mutations.updateGroup.mutate).toHaveBeenCalledTimes(1);
+    expect(h.mutations.updateGroup.mutate).toHaveBeenCalledWith(
+      {
         invoiceId: 1,
-        lineId: 1,
         expectedVersion: 'v4',
-        body: expect.objectContaining({ secondSort: 'SORT02', species: 'SPR' }),
-      }),
+        body: { lineItemIds: [1, 2], secondSort: 'SORT02', species: 'SPR' },
+      },
+      expect.anything(),
     );
+    expect(h.mutations.updateLine.mutate).not.toHaveBeenCalled();
   });
 
   it('group save validation errors map onto the modal fields', async () => {
-    h.mutations.updateLine.mutateAsync.mockRejectedValue(new Error('400'));
+    h.mutations.updateGroup.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onError?.(new Error('400'));
+    });
     h.extractValidationErrors.mockReturnValue([
       { messageKey: 'invoice.secondry.sortcode.invalid.error', message: 'Bad sort', type: 'ERROR', args: null },
       { messageKey: 'invoice.species.grade.combination.error', message: 'Bad combo', type: 'ERROR', args: null },
@@ -895,7 +909,9 @@ describe('InvoicePage — group edit & delete', () => {
   });
 
   it('group save non-validation errors show the group error toast', async () => {
-    h.mutations.updateLine.mutateAsync.mockRejectedValue(new Error('500'));
+    h.mutations.updateGroup.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onError?.(new Error('500'));
+    });
     await renderLoaded({ invStatus: 'DFT' });
     const dialog = await openGroupEdit();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
@@ -906,9 +922,11 @@ describe('InvoicePage — group edit & delete', () => {
     );
   });
 
-  it('deleting a group confirms, deletes each line and shows a toast', async () => {
-    h.mutations.delLine.mutateAsync.mockResolvedValue(makeInvoice({ lineItems: [] }));
-    await renderLoaded({ invStatus: 'DFT' });
+  it('deleting a group confirms, deletes every line in one request and shows a toast', async () => {
+    h.mutations.deleteGroup.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onSuccess?.(makeInvoice({ version: 'v5', lineItems: [] }));
+    });
+    await renderLoaded({ invStatus: 'DFT', lineItems: [{ ...LINE_ITEM }, { ...LINE_ITEM, lineItemID: 2 }] });
     await userEvent.click(iconButton(document.body, 'Delete group'));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/delete all line items in this group/i)).toBeInTheDocument();
@@ -916,34 +934,18 @@ describe('InvoicePage — group edit & delete', () => {
     await waitFor(() =>
       expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Group deleted.' })),
     );
-    expect(h.mutations.delLine.mutateAsync).toHaveBeenCalledWith({ invoiceId: 1, lineId: 1, expectedVersion: 'v4' });
-  });
-
-  it('deleting a multi-line group sends each delete the version the previous one returned', async () => {
-    h.mutations.delLine.mutateAsync
-      .mockResolvedValueOnce(makeInvoice({ version: 'v5', lineItems: [{ ...LINE_ITEM, lineItemID: 2 }] }))
-      .mockResolvedValueOnce(makeInvoice({ version: 'v6', lineItems: [] }));
-    await renderLoaded({ invStatus: 'DFT', lineItems: [{ ...LINE_ITEM }, { ...LINE_ITEM, lineItemID: 2 }] });
-    await userEvent.click(iconButton(document.body, 'Delete group'));
-    const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
-    await waitFor(() =>
-      expect(h.addNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Group deleted.' })),
+    expect(h.mutations.deleteGroup.mutate).toHaveBeenCalledTimes(1);
+    expect(h.mutations.deleteGroup.mutate).toHaveBeenCalledWith(
+      { invoiceId: 1, expectedVersion: 'v4', lineItemIds: [1, 2] },
+      expect.anything(),
     );
-    expect(h.mutations.delLine.mutateAsync).toHaveBeenNthCalledWith(1, {
-      invoiceId: 1,
-      lineId: 1,
-      expectedVersion: 'v4',
-    });
-    expect(h.mutations.delLine.mutateAsync).toHaveBeenNthCalledWith(2, {
-      invoiceId: 1,
-      lineId: 2,
-      expectedVersion: 'v5',
-    });
+    expect(h.mutations.delLine.mutate).not.toHaveBeenCalled();
   });
 
   it('group delete failure shows the group delete error toast', async () => {
-    h.mutations.delLine.mutateAsync.mockRejectedValue(new Error('boom'));
+    h.mutations.deleteGroup.mutate.mockImplementation((_vars: unknown, opts: MutationOpts) => {
+      opts.onError?.(new Error('boom'));
+    });
     await renderLoaded({ invStatus: 'DFT' });
     await userEvent.click(iconButton(document.body, 'Delete group'));
     const dialog = await screen.findByRole('dialog');

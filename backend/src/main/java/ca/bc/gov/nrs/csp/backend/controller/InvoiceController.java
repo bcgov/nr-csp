@@ -5,6 +5,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.ChangeStatusReque
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.CreateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExportRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceResponse;
+import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemGroupUpdateRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.service.InvoiceService;
@@ -18,6 +19,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 public class InvoiceController implements InvoiceApi {
@@ -98,6 +101,22 @@ public class InvoiceController implements InvoiceApi {
     public ResponseEntity<InvoiceResponse> deleteLineItem(Long id, Long lineId, String expectedVersion) {
         log.info("DELETE /api/invoices/{}/line-items/{}", id, lineId);
         return ResponseEntity.ok(invoiceService.deleteLineItem(id, lineId, expectedVersion));
+    }
+
+    @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Update Group')")
+    public ResponseEntity<InvoiceResponse> updateLineItemGroup(Long id, String expectedVersion,
+                                                               LineItemGroupUpdateRequest request) {
+        log.info("PATCH /api/invoices/{}/line-items lines={} secondSort={} species={}", id,
+                request.lineItemIds().size(), request.secondSort(), request.species());
+        return ResponseEntity.ok(invoiceService.updateLineItemGroup(id, expectedVersion, request));
+    }
+
+    @Override
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Delete Line Item')")
+    public ResponseEntity<InvoiceResponse> deleteLineItemGroup(Long id, String expectedVersion, List<Long> lineItemIds) {
+        log.info("DELETE /api/invoices/{}/line-items lines={}", id, lineItemIds.size());
+        return ResponseEntity.ok(invoiceService.deleteLineItemGroup(id, expectedVersion, lineItemIds));
     }
 
     @Override
