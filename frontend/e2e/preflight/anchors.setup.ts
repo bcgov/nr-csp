@@ -201,7 +201,7 @@ test('preflight: the SUBM invoice anchors still resolve', async ({ request }) =>
  * changes status.
  *
  * So the pool is checked explicitly, here, before any scenario runs. A left-behind APPROVED row
- * fails the suite in about a second with the exact id and the command to put it back, instead of
+ * fails the suite in about a second with the exact id and how to put it back, instead of
  * surfacing later as a missing Approve button that reads like a UI bug.
  */
 test('preflight: the borrowable UNAPPROVED invoice pool is intact', async ({ request }) => {
@@ -213,20 +213,11 @@ test('preflight: the borrowable UNAPPROVED invoice pool is intact', async ({ req
       wrong.push(`invoice ${invoice.invoiceId}: GET returned HTTP ${res.status()}`);
       continue;
     }
-    const body = (await res.json()) as { invStatus: string; reviewComments: string | null };
+    const body = (await res.json()) as { invStatus: string };
     if (body.invStatus !== invoiceStatus.unapproved) {
       wrong.push(
         `invoice ${invoice.invoiceId} (submission ${invoice.submissionId}) is ` +
           `"${body.invStatus}", expected "${invoiceStatus.unapproved}"`,
-      );
-    }
-    // A pool row MUST carry a reviewer note. Rejecting overwrites it, and the API cannot write
-    // NULL back (the service skips the update when reviewComments is null) — so a null-noted row
-    // could never be restored after a reject scenario borrowed it.
-    if (body.reviewComments === null) {
-      wrong.push(
-        `invoice ${invoice.invoiceId} has a NULL reviewer comment, which a reject scenario could ` +
-          `overwrite and never restore`,
       );
     }
   }
@@ -235,10 +226,8 @@ test('preflight: the borrowable UNAPPROVED invoice pool is intact', async ({ req
     wrong,
     `[preflight] the borrowable UNAPPROVED invoice pool has drifted:\n  - ${wrong.join('\n  - ')}\n\n` +
       `Most likely a previous run of the review journey failed to restore a borrowed invoice (its ` +
-      `teardown fails loud, so check that run's output). Put each one back with:\n` +
-      `  curl -X PATCH "$BASE_URL/api/invoices/<id>/status" -H 'Content-Type: application/json' \\\n` +
-      `       -d '{"status":"UNA","reviewComments":null}'\n` +
-      `or reset the whole DB with ./scripts/reset-db.sh. If the seed image was rebuilt from a fresh ` +
+      `teardown fails loud, so check that run's output). Reset the DB with ./scripts/reset-db.sh ` +
+      `(the status API cannot move an invoice back to UNA). If the seed image was rebuilt from a fresh ` +
       `extract, re-ground fixtures/inbox/review-test-data.ts instead — the finding query is in the ` +
       `comment there.`,
   ).toEqual([]);

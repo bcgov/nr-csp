@@ -9,6 +9,7 @@ import {
 } from '../../fixtures/inbox/review-test-data';
 import { InboxPage } from '../../pages/inbox/InboxPage';
 import { ViewSubmissionPage } from '../../pages/inbox/ViewSubmissionPage';
+import { restoreBorrowedInvoice } from '../inbox/borrowedInvoiceDbRestore';
 
 /**
  * INBOX domain fixtures. One file per domain (see ./index.ts) so two authors adding two domains
@@ -80,20 +81,7 @@ export const inboxTest = base.extend<InboxFixtures>({
       throw new Error(
         `[borrowedInvoice] invoice ${invoice.invoiceId} is ${asFound.invStatus}, expected ` +
           `${invoiceStatus.unapproved}. A previous run most likely failed to restore it. Reset with ` +
-          `./scripts/reset-db.sh, or PATCH it back: ` +
-          `curl -X PATCH '.../api/invoices/${invoice.invoiceId}/status?expectedVersion=<version from GET>' ` +
-          `-d '{"status":"UNA"}'`,
-      );
-    }
-    // The reviewer note cannot be restored to NULL through the API — the service SKIPS the write
-    // when reviewComments is null, so a null-noted row could never have a test's comment removed
-    // again. Every pinned row currently carries a note; this guards a future pool addition.
-    if (asFound.reviewComments === null) {
-      throw new Error(
-        `[borrowedInvoice] invoice ${invoice.invoiceId} has a NULL reviewer comment. A reject ` +
-          `scenario would overwrite it and the API cannot write NULL back (the service skips the ` +
-          `update when reviewComments is null), so it could never be restored. Remove this row from ` +
-          `borrowableInvoicePool, or give it a note in the seed.`,
+          `./scripts/reset-db.sh.`,
       );
     }
 
@@ -101,57 +89,11 @@ export const inboxTest = base.extend<InboxFixtures>({
 
     // ---- RESTORE, and fail loud if it does not take ----
     // Runs whether the scenario passed or failed, so a mid-scenario failure still hands the row
-    // back.
-    //
-    // ⚠ A NO-OP NOTE WRITE IS REJECTED, which is why this is not one simple PATCH. Reject,
-    // unapprove and cancel now require the reviewer comment to have CHANGED from the stored value
-    // (`InvoiceValidator.isReviewerCommentUpdate`, restored from legacy). So:
-    //
-    //   * after a reject or unapprove the note holds the test's reason, and writing the original
-    //     back IS a change — one PATCH does it;
-    //   * after an approve the note was never touched, so writing the original back is a no-op and
-    //     would be refused with "Please enter the changes in the Reviewer Comment field below!".
-    //     Restoring the STATUS there still needs a comment change, so it takes two steps: a
-    //     transient marker to carry the status change, then the original note over the top.
-    // Every PATCH must carry the invoice's current version, so the restore reads it first and
-    // passes each response's version on to the next PATCH.
-    const currentRes = await request.get(`/api/invoices/${invoice.invoiceId}`);
-    const current = currentRes.ok()
-      ? ((await currentRes.json()) as { invStatus: string; reviewComments: string | null; version: string })
-      : null;
-    const noteAlreadyCorrect = current?.reviewComments === asFound.reviewComments;
-    const statusAlreadyCorrect = current?.invStatus === asFound.invStatus;
+    // back. It writes the DB directly because the status API cannot undo a reject.
+    restoreBorrowedInvoice(invoice.invoiceId, asFound.invStatus, asFound.reviewComments);
 
-    const patch = (reviewComments: string | null, expectedVersion: string | undefined) =>
-      request.patch(`/api/invoices/${invoice.invoiceId}/status`, {
-        params: expectedVersion === undefined ? undefined : { expectedVersion },
-        data: { status: asFound.invStatus, reviewComments },
-      });
-
-    const failRestore = async (res: { status: () => number; text: () => Promise<string> }) => {
-      throw new Error(
-        `[cleanup] FAILED to restore borrowed invoice ${invoice.invoiceId} to ` +
-          `${asFound.invStatus}: HTTP ${res.status()} — ${await res.text()}. The seeded DB is ` +
-          `now drifted: later runs will not find this invoice reviewable. Restore it by hand or run ` +
-          `./scripts/reset-db.sh.`,
-      );
-    };
-
-    if (!noteAlreadyCorrect) {
-      const res = await patch(asFound.reviewComments, current?.version);
-      if (!res.ok()) await failRestore(res);
-    } else if (!statusAlreadyCorrect) {
-      // The note is right but the status is not, and moving the status needs a comment change.
-      const marker = await patch(`e2e teardown ${Date.now()}`, current?.version);
-      if (!marker.ok()) await failRestore(marker);
-      const { version: afterMarker } = (await marker.json()) as { version: string };
-      const res = await patch(asFound.reviewComments, afterMarker);
-      if (!res.ok()) await failRestore(res);
-    }
-    // Nothing to do when both already match — the scenario never acted on the row.
-    // Read back rather than trusting the 200 — a restore that silently no-ops is exactly the drift
-    // this teardown exists to prevent. Both fields are checked, because a reject scenario can only
-    // be fully undone if the note went back too.
+    // Read back through the API rather than trusting the update. Both fields are checked, because a
+    // reject or unapprove scenario is only undone if the note went back too.
     const after = await request.get(`/api/invoices/${invoice.invoiceId}`);
     if (!after.ok()) {
       throw new Error(
@@ -172,7 +114,7 @@ export const inboxTest = base.extend<InboxFixtures>({
     }
     if (drift.length > 0) {
       throw new Error(
-        `[cleanup] invoice ${invoice.invoiceId} did not restore cleanly although the PATCH reported ` +
+        `[cleanup] invoice ${invoice.invoiceId} did not restore cleanly although the update reported ` +
           `success: ${drift.join('; ')}. The seeded DB is drifted — reset with ./scripts/reset-db.sh.`,
       );
     }
