@@ -541,7 +541,7 @@ class InvoiceServiceTest {
     void update_success_reconcilesLinesAndRevertsSubmissionToLobby() {
         UpdateInvoiceRequest req = updateRequest();
         // No manual other party, no existing participant rows.
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
         // Incoming: one existing line (id 1, updated) + one new line (null id). Existing on db: 1 and 2.
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null), line(null, null)));
@@ -683,6 +683,20 @@ class InvoiceServiceTest {
         verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
         verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
         verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
+    }
+
+    // Legacy only moves a manual submission to the Lobby on save, so a saved upload stays in the Inbox.
+    @Test
+    void update_electronicInvoice_leavesItsSubmissionInTheInbox() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
     @Test

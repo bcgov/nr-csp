@@ -245,8 +245,9 @@ public class InvoiceService {
 
         writeInvoiceForm(id, existing, form, existingLineIds, user);
 
-        // Saving an existing invoice reverts its submission to LOBBY.
-        if (existing.submissionId() != null) {
+        // Saving a manual invoice reverts its submission to LOBBY. Legacy leaves an upload in the Inbox
+        // (InvoiceService.submitOrSaveInv only moves a submission without an electronic submission id).
+        if (existing.submissionId() != null && existing.submissionNumber() == null) {
             submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_LOBBY, user);
         }
 
