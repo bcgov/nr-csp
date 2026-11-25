@@ -436,6 +436,16 @@ BEGIN
 END;
 /
 
+-- Parent submission: the columns InvoiceDecisionHistoryIT locks, reads and writes.
+CREATE TABLE the.csp_submission (
+    csp_submission_id          NUMBER(10) PRIMARY KEY,
+    csp_submission_status_code VARCHAR2(3),
+    revision_count             NUMBER(5) NOT NULL,
+    update_userid              VARCHAR2(30),
+    update_timestamp           DATE
+)
+/
+
 -- Invoice header and line tables: the columns InvoiceVersionIT and InvoiceDeleteAuditIT read and write.
 CREATE TABLE the.coastal_log_sale (
     coastal_log_sale_id            NUMBER(18) PRIMARY KEY,
@@ -545,6 +555,8 @@ GRANT SELECT ON the.log_sale_species_group_list TO ${APP_USER}
 GRANT SELECT ON the.v_client_public TO ${APP_USER}
 /
 GRANT SELECT ON the.client_location TO ${APP_USER}
+/
+GRANT SELECT, INSERT, UPDATE, DELETE ON the.csp_submission TO ${APP_USER}
 /
 GRANT EXECUTE ON the.csp_sp_rpt_07 TO ${APP_USER}
 /
