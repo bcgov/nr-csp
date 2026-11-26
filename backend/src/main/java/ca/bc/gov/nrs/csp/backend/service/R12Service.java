@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.JasperReportRenderer;
 import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportMonthPeriod;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R12Validator;
 import net.sf.jasperreports.engine.JasperPrint;
@@ -93,7 +94,10 @@ public class R12Service {
         String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
         if (r.getDateFrom() != null) p.put("INVOICE_DATE_FROM", firstDayOfMonth(r.getDateFrom()));
         if (effectiveDateTo != null) p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
-        if (r.getTimeFrame() != null) p.put("TIME_FRAME", r.getTimeFrame());
+        // Like legacy R12Bean.changeTimeFrame, print the months actually queried, not the selected time frame
+        if (r.getDateFrom() != null && effectiveDateTo != null) {
+            p.put("TIME_FRAME", ReportMonthPeriod.inclusiveMonthCount(r.getDateFrom(), effectiveDateTo));
+        }
         if (r.getLogSaleTypeCode() != null) p.put("LOG_SALE_TYPE_CODE", r.getLogSaleTypeCode());
         // Prefer the authenticated user (IDIR) from the validated JWT over any client-supplied value.
         String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());
