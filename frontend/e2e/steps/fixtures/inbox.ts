@@ -9,7 +9,7 @@ import {
 } from '../../fixtures/inbox/review-test-data';
 import { InboxPage } from '../../pages/inbox/InboxPage';
 import { ViewSubmissionPage } from '../../pages/inbox/ViewSubmissionPage';
-import { restoreBorrowedInvoice } from '../inbox/borrowedInvoiceDbRestore';
+import { restoreBorrowedInvoice, type BorrowedInvoiceState } from '../inbox/borrowedInvoiceDbRestore';
 
 /**
  * INBOX domain fixtures. One file per domain (see ./index.ts) so two authors adding two domains
@@ -90,7 +90,20 @@ export const inboxTest = base.extend<InboxFixtures>({
     // ---- RESTORE, and fail loud if it does not take ----
     // Runs whether the scenario passed or failed, so a mid-scenario failure still hands the row
     // back. It writes the DB directly because the status API cannot undo a reject.
-    restoreBorrowedInvoice(invoice.invoiceId, asFound.invStatus, asFound.reviewComments);
+    const current = await request.get(`/api/invoices/${invoice.invoiceId}`);
+    if (!current.ok()) {
+      throw new Error(
+        `[cleanup] could not read invoice ${invoice.invoiceId} before restoring it (HTTP ${current.status()}), ` +
+          `so it was not restored. Check the seeded DB.`,
+      );
+    }
+    const afterScenario = (await current.json()) as BorrowedInvoiceState;
+    if (
+      afterScenario.invStatus !== asFound.invStatus ||
+      afterScenario.reviewComments !== asFound.reviewComments
+    ) {
+      restoreBorrowedInvoice(invoice.invoiceId, afterScenario, asFound);
+    }
 
     // Read back through the API rather than trusting the update. Both fields are checked, because a
     // reject or unapprove scenario is only undone if the note went back too.

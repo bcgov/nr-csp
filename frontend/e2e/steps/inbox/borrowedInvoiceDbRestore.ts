@@ -47,22 +47,39 @@ function restoreFailed(invoiceId: number, detail: string): Error {
   );
 }
 
-export function restoreBorrowedInvoice(invoiceId: number, status: string, reviewComments: string | null): void {
-  if (!Number.isInteger(invoiceId) || !/^[A-Z]{3}$/.test(status)) {
-    throw new Error(`[cleanup] refusing to restore invoice ${invoiceId} to unexpected status "${status}".`);
+export type BorrowedInvoiceState = { invStatus: string; reviewComments: string | null };
+
+// Writes only if the row still holds expected (what the API showed), so a wrong DB or a later edit is left alone.
+// FOR UPDATE WAIT bounds a held lock in Oracle, because a timeout kill does not stop sqlplus in the container.
+export function restoreBorrowedInvoice(
+  invoiceId: number,
+  expected: BorrowedInvoiceState,
+  restored: BorrowedInvoiceState,
+): void {
+  for (const status of [expected.invStatus, restored.invStatus]) {
+    if (!Number.isInteger(invoiceId) || !/^[A-Z]{3}$/.test(status)) {
+      throw new Error(`[cleanup] refusing to restore invoice ${invoiceId} with unexpected status "${status}".`);
+    }
   }
-  const script = `WHENEVER SQLERROR EXIT SQL.SQLCODE
+  const script = `WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK
 DECLARE
-  restored_note VARCHAR2(32767) := ${noteExpression(reviewComments)};
+  expected_note VARCHAR2(32767) := ${noteExpression(expected.reviewComments)};
+  restored_note VARCHAR2(32767) := ${noteExpression(restored.reviewComments)};
+  locked_id NUMBER;
 BEGIN
+  SELECT coastal_log_sale_id INTO locked_id FROM THE.coastal_log_sale
+   WHERE coastal_log_sale_id = ${invoiceId} FOR UPDATE WAIT 10;
   UPDATE THE.coastal_log_sale SET
-      log_sale_entry_status_code = '${status}',
+      log_sale_entry_status_code = '${restored.invStatus}',
       reviewer_notes = restored_note,
       revision_count = revision_count + 1,
       update_timestamp = SYSDATE
-  WHERE coastal_log_sale_id = ${invoiceId};
+  WHERE coastal_log_sale_id = ${invoiceId}
+    AND log_sale_entry_status_code = '${expected.invStatus}'
+    AND DECODE(reviewer_notes, expected_note, 1, 0) = 1;
   IF SQL%ROWCOUNT <> 1 THEN
-    RAISE_APPLICATION_ERROR(-20001, 'Invoice ${invoiceId} was not found.');
+    RAISE_APPLICATION_ERROR(-20001, 'Invoice ${invoiceId} in this DB does not match what the app shows, '
+      || 'so nothing was restored. Check that ORACLE_DSN is the DB the backend uses.');
   END IF;
   COMMIT;
 END;
@@ -76,13 +93,14 @@ EXIT
       input: script,
       stdio: 'pipe',
       env: { ...process.env, DB_CONTAINER },
+      timeout: 60_000,
     }).toString();
   } catch (err) {
     // Not err.message: it repeats the command line, which carries the DSN.
-    const failure = err as { status?: number | null; code?: string; stdout?: Buffer; stderr?: Buffer };
+    const failure = err as { status?: number | null; code?: string; signal?: string; stdout?: Buffer; stderr?: Buffer };
     throw restoreFailed(
       invoiceId,
-      `exit ${failure.status ?? failure.code}\n${failure.stdout ?? ''}\n${failure.stderr ?? ''}`,
+      `exit ${failure.status ?? failure.code ?? failure.signal}\n${failure.stdout ?? ''}\n${failure.stderr ?? ''}`,
     );
   }
   // sqlplus can exit 0 after an ORA- error, so check its output too.
