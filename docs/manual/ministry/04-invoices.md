@@ -56,9 +56,10 @@ amount is its volume times its price.
 ![The invoice group summary](images/04-invoice-groups.png)
 
 **Price conversion** is **Y** when CSP spread a single flat price over the
-group's species and grades, using the flat price conversion table. CSP does
-this when the invoice is saved or submitted. If the table has no factor for a
-line, the invoice shows a warning.
+group's species and grades, using the flat price conversion table. CSP saves
+the converted prices when the invoice is saved, submitted or approved. If the
+table has no factor for a line, or a converted price comes out too large,
+saving or submitting shows a warning and approving is refused.
 
 For a manual invoice the header totals are always the sum of the lines. An
 electronic invoice keeps the totals in its file.
@@ -142,6 +143,11 @@ it.
 
 You can't approve an invoice you entered yourself. **Approve** works on
 Processing and Unapproved invoices.
+
+If a line has no flat price conversion factor, or its converted price comes
+out too large, CSP refuses the approval and names the maturity, sort code,
+species and grade. Correct the line, or have the flat price conversion table
+updated, then approve again.
 
 ### Reject or cancel an invoice
 
