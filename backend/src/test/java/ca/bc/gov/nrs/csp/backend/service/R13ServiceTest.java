@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -240,41 +241,46 @@ class R13ServiceTest {
     }
 
     @Nested
-    @DisplayName("resolveInvoiceDateTo() — date auto-population")
-    class ResolveDateTo {
+    @DisplayName("buildReportParameters() — invoice date range")
+    class InvoiceDateRange {
 
-        private String resolve(R13ReportRequest r) {
-            return ReflectionTestUtils.invokeMethod(service, "resolveInvoiceDateTo", r);
+        private Object invoiceDateTo(R13ReportRequest r) {
+            Map<String, Object> params = ReflectionTestUtils.invokeMethod(service, "buildReportParameters", r);
+            return params.get("INVOICE_DATE_TO");
         }
 
         @Test
-        void shouldReturnNull_whenNoDatesProvided() {
+        void shouldLeaveDateToEmpty_whenNoDatesProvided() {
             R13ReportRequest r = new R13ReportRequest();
-            assertThat(resolve(r)).isNull();
+            assertThat(invoiceDateTo(r)).isNull();
         }
 
         @Test
-        void shouldReturnExplicitDateTo_whenProvided() {
+        void shouldPreferProvidedDateTo_overTimeFrame() {
             R13ReportRequest r = new R13ReportRequest();
-            r.setInvoiceDateFrom("20200101");
-            r.setInvoiceDateTo("20200615");
-            assertThat(resolve(r)).isEqualTo("20200615");
+            r.setInvoiceDateFrom("20240401");
+            r.setInvoiceDateTo("20240515");
+            r.setTimeFrame("06");
+            assertThat(invoiceDateTo(r)).isEqualTo("20240515");
         }
 
         @Test
         void shouldReturnEndOfMonth_whenOnlyDateFromProvided() {
             R13ReportRequest r = new R13ReportRequest();
             r.setInvoiceDateFrom("20200115");
-            assertThat(resolve(r)).isEqualTo("20200131");
+            assertThat(invoiceDateTo(r)).isEqualTo("20200131");
         }
 
-        @Test
-        void shouldReturnEndOfOffsetMonth_whenTimeFrameProvided() {
-            // Jan + 3 months = Apr, last day = 30
+        @ParameterizedTest(name = "{0} + {1} month(s) -> {2}")
+        @CsvSource({
+                "20240401, 01, 20240430",
+                "20241201, 02, 20250131"
+        })
+        void shouldCountStartMonthAsMonthOne_whenNoEndDate(String dateFrom, String timeFrame, String expectedDateTo) {
             R13ReportRequest r = new R13ReportRequest();
-            r.setInvoiceDateFrom("20200101");
-            r.setTimeFrame("3");
-            assertThat(resolve(r)).isEqualTo("20200430");
+            r.setInvoiceDateFrom(dateFrom);
+            r.setTimeFrame(timeFrame);
+            assertThat(invoiceDateTo(r)).isEqualTo(expectedDateTo);
         }
     }
 
@@ -504,7 +510,7 @@ class R13ServiceTest {
             r.setSellerClientLocnCodes(List.of("00"));
             r.setBuyerClientLocnCodes(List.of("01"));
 
-            Map<String, Object> p = ReflectionTestUtils.invokeMethod(service, "buildReportParameters", r, "20200131");
+            Map<String, Object> p = ReflectionTestUtils.invokeMethod(service, "buildReportParameters", r);
 
             // consolidated assertions below
             assertThat(p)
@@ -541,7 +547,7 @@ class R13ServiceTest {
             R13ReportRequest r = new R13ReportRequest();
             r.setUserId("abc");
 
-            Map<String, Object> p = ReflectionTestUtils.invokeMethod(service, "buildReportParameters", r, "20200131");
+            Map<String, Object> p = ReflectionTestUtils.invokeMethod(service, "buildReportParameters", r);
 
             assertThat(p).isNotNull()
                     .containsEntry("USER_ID", "abc")
