@@ -82,8 +82,9 @@ public class InvoiceService {
     private static final Set<String> DATA_ENTRY_EDITABLE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
-    // Legacy InvoiceBean.duplicateStatusAction duplicates only these; the UI offers the same.
-    private static final Set<String> DUPLICABLE_STATUSES = Set.of(
+    // Legacy enables Duplicate and single-line edit/delete only in these (InvoiceBean.disableButtonsBaseonStatus,
+    // duplicateStatusAction, groups.xhtml). Add and group edits are not limited to them.
+    private static final Set<String> UNDECIDED_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_PROCESSING,
             ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
@@ -405,7 +406,7 @@ public class InvoiceService {
     }
 
     // ---------------------------------------------------------------
-    // DUPLICATE — clone as new DRAFT
+    // DUPLICATE — clone with the source's status
     // ---------------------------------------------------------------
 
     @Transactional
@@ -413,16 +414,17 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
-        if (!DUPLICABLE_STATUSES.contains(existing.details().invStatus())) {
+        String copyStatus = existing.details().invStatus();
+        if (!UNDECIDED_STATUSES.contains(copyStatus)) {
             throw new ConflictException("Only draft, processing or unapproved invoices can be duplicated.");
         }
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(id);
 
-        // Reset id/status on the cloned details and persist as a new DRAFT. A
+        // Legacy saves the copy with the source's status (InvSubmissionDAO.saveInvoice). A
         // manual invoice's totals come from the lines being cloned rather than
         // from the source's stored totals, so a clone can't inherit a stale one.
         InvoiceDetails cloned = withChannelTotals(
-                withId(existing.details(), null, ConstantsCode.INVENTRYSTATUS_DRAFT),
+                withId(existing.details(), null, copyStatus),
                 existingLines, existing.submissionNumber() == null);
 
         // Reuse the source invoice's submission — a submission can hold multiple
@@ -443,7 +445,11 @@ public class InvoiceService {
         }
 
         Long newInvoiceId = invoiceRepo.insertInvoice(cloned, submissionId,
-                ConstantsCode.INVENTRYSTATUS_DRAFT, buyerParticipantId, sellerParticipantId, user);
+                copyStatus, buyerParticipantId, sellerParticipantId, user);
+        if (ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(copyStatus)) {
+            // Legacy dealWithStatus stamps the copier as unapprover when the copy is saved as Unapproved.
+            invoiceRepo.updateStatus(newInvoiceId, copyStatus, user);
+        }
         for (LineItem line : existingLines) {
             LineItem freshLine = new LineItem(
                     null, newInvoiceId, line.secondSort(), line.clientSecondarySort(), line.species(),
@@ -460,7 +466,7 @@ public class InvoiceService {
                 cloned.adjustInvNum(), cloned.submitterClientNum(), cloned.submitterLocation(), user);
         log.info("Duplicated invoice id={} newId={}", id, newInvoiceId);
 
-        InvoiceDetails saved = withId(cloned, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
+        InvoiceDetails saved = withId(cloned, newInvoiceId, copyStatus);
         return mapper.toResponse(saved, submissionId, existing.submissionNumber(), lineItemRepo.findByInvoiceId(newInvoiceId), null,
                 invoiceRepo.findVersion(newInvoiceId));
     }
@@ -637,6 +643,7 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
+        requireLineRowChangeAllowed(existing);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
@@ -664,6 +671,7 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
+        requireLineRowChangeAllowed(existing);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         lineItemRepo.auditAndDeleteLineItem(lineId, user);
@@ -804,10 +812,13 @@ public class InvoiceService {
         }
     }
 
-    // Edit / delete line items: allowed in every status (a line-item change
-    // reverts the invoice to DRAFT — see revertToDraftAndRespond), so no
-    // status gate is needed here. Add is the only status-gated line operation
-    // (blocked on APPROVED — see requireAddLineItemAllowed).
+    // Legacy shows the row editor and line delete only while Save is enabled (groups.xhtml). Group edits have their own rule.
+    private static void requireLineRowChangeAllowed(LoadedInvoice existing) {
+        if (!UNDECIDED_STATUSES.contains(existing.details().invStatus())) {
+            throw new ConflictException(
+                    "Line items can only be edited or deleted on draft, processing or unapproved invoices.");
+        }
+    }
 
     private void ensureLineBelongsToInvoice(Long invoiceId, Long lineId) {
         if (!lineItemRepo.findIdsByInvoiceId(invoiceId).contains(lineId)) {

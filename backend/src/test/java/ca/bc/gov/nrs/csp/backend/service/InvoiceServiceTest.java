@@ -988,15 +988,28 @@ class InvoiceServiceTest {
         verify(invoiceRepo, never()).insertInvoice(any(), any(), any(), any(), any(), any());
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"PRO", "UNA"})
-    void duplicate_ofProcessingOrUnapproved_isAllowed(String status) {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, status, "5678", null, "Seller"), 10L, null, null)));
-        given(invoiceRepo.insertInvoice(any(), eq(10L), eq("DFT"), any(), any(), any())).willReturn(600L);
+    @Test
+    void duplicate_ofProcessing_keepsTheCopyInProcessing() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.insertInvoice(any(), eq(10L), eq("PRO"), any(), any(), any())).willReturn(600L);
 
         service.duplicate(1L);
 
-        verify(invoiceRepo).insertInvoice(any(), eq(10L), eq("DFT"), isNull(), isNull(), eq(USER));
+        verify(invoiceRepo).insertInvoice(any(), eq(10L), eq("PRO"), isNull(), isNull(), eq(USER));
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
+    }
+
+    @Test
+    void duplicate_ofUnapproved_keepsUnapprovedAndStampsTheCopierAsUnapprover() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "UNA", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.insertInvoice(any(), eq(10L), eq("UNA"), any(), any(), any())).willReturn(600L);
+
+        service.duplicate(1L);
+
+        verify(invoiceRepo).insertInvoice(any(), eq(10L), eq("UNA"), isNull(), isNull(), eq(USER));
+        verify(invoiceRepo).updateStatus(600L, "UNA", USER);
+        verify(invoiceRepo, never()).updateStatus(eq(1L), any(), any());
     }
 
     @Test
@@ -1438,14 +1451,37 @@ class InvoiceServiceTest {
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
     }
 
-    @Test
-    void deleteLineItem_onCancelled_succeedsAndRevertsToDraft() {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "CAN", "5678", null, "Seller"), 10L, null, null)));
-        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(5L));
+    @ParameterizedTest
+    @ValueSource(strings = {"APP", "REJ", "CAN"})
+    void deleteLineItem_onADecidedInvoice_isRefusedBeforeAnyWrite(String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, status, "5678", null, "Seller"), 10L, null, null)));
 
-        service.deleteLineItem(1L, 5L, CURRENT_VERSION);
+        assertThatThrownBy(() -> service.deleteLineItem(1L, 5L, CURRENT_VERSION)).isInstanceOf(ConflictException.class);
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
 
-        verify(lineItemRepo).auditAndDeleteLineItem(5L, USER);
+    @ParameterizedTest
+    @ValueSource(strings = {"APP", "REJ", "CAN"})
+    void updateLineItem_onADecidedInvoice_isRefusedBeforeAnyWrite(String status) {
+        LineItemRequest req = lineItemRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, status, "5678", null, "Seller"), 10L, null, null)));
+
+        assertThatThrownBy(() -> service.updateLineItem(1L, 5L, CURRENT_VERSION, req)).isInstanceOf(ConflictException.class);
+        verify(lineItemRepo, never()).updateLineItem(any(), any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REJ", "CAN"})
+    void addLineItem_onRejectedOrCancelled_isAllowedAndRevertsToDraftLikeLegacy(String status) {
+        LineItemRequest req = lineItemRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, status, "5678", null, "Seller"), 10L, null, null)));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
+
+        service.addLineItem(1L, CURRENT_VERSION, req);
+
+        verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
     }
 
