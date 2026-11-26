@@ -123,9 +123,7 @@ const SUBMITTED_BY_OPTIONS: LookupItemResponse[] = [
 // legacy app — rejected/cancelled/approved invoices are read-only headers).
 // Saving a PRO/UNA invoice reverts the record to DFT (backend).
 const EDITABLE_STATUSES = new Set(['DFT', 'PRO', 'UNA']);
-// Statuses in which line items / groups can be edited or deleted. Allowed in
-// every status (legacy parity): APP keeps group-only editing (see
-// `canEditLineRows`), the rest allow both row- and group-level edit/delete.
+// Statuses in which groups can be edited or deleted. Single rows follow Save instead (see `canEditLineRows`).
 const LINE_ITEM_EDITABLE_STATUSES = new Set(['DFT', 'PRO', 'APP', 'UNA', 'REJ', 'CAN']);
 // Statuses in which Submit is offered (plus NEW / unsaved). Note PRO is NOT
 // submittable — a processing invoice is already submitted.
@@ -898,9 +896,8 @@ export function InvoicePage() {
     isExisting &&
     !!loadedInvoice &&
     LINE_ITEM_EDITABLE_STATUSES.has(currentStatus);
-  // Individual line-item rows are editable/deletable in the same statuses EXCEPT
-  // APP — in APP only the group as a whole can be edited/deleted.
-  const canEditLineRows = canEditLineItems && currentStatus !== 'APP';
+  // Legacy offers the row editor and line trash only while Save is enabled (groups.xhtml), so DFT/PRO/UNA.
+  const canEditLineRows = canEditLineItems && EDITABLE_STATUSES.has(currentStatus);
   const hasLineItems = lineItems.length > 0;
 
   // ── Inline button loading ────────────────────────────────────────────────

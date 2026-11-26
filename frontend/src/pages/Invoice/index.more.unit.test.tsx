@@ -710,6 +710,30 @@ describe('InvoicePage — submit, status change, duplicate & delete results', ()
 // Line-item row edit / delete
 // ---------------------------------------------------------------------------
 describe('InvoicePage — line item row edit & delete', () => {
+  // Legacy shows the row editor and line trash only while Save is enabled; groups stay editable.
+  const hasIconButton = (label: string) => {
+    try {
+      iconButton(document.body, label);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  it.each(['APP', 'REJ', 'CAN'])('%s: hides row edit and delete but keeps the group controls', async (invStatus) => {
+    await renderLoaded({ invStatus });
+    expect(hasIconButton('Edit line item')).toBe(false);
+    expect(hasIconButton('Delete line item')).toBe(false);
+    expect(hasIconButton('Edit group')).toBe(true);
+    expect(hasIconButton('Delete group')).toBe(true);
+  });
+
+  it.each(['DFT', 'PRO', 'UNA'])('%s: offers row edit and delete', async (invStatus) => {
+    await renderLoaded({ invStatus });
+    expect(hasIconButton('Edit line item')).toBe(true);
+    expect(hasIconButton('Delete line item')).toBe(true);
+  });
+
   it('starting and cancelling a row edit toggles the inline editors', async () => {
     const { container } = await renderLoaded({ invStatus: 'DFT' });
     await userEvent.click(iconButton(document.body, 'Edit line item'));
