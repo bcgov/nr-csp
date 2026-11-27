@@ -7,9 +7,6 @@ import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.service.FlatPriceConversionExportService;
 import ca.bc.gov.nrs.csp.backend.service.FlatPriceConversionService;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,7 +43,6 @@ class FlatPriceConversionControllerTest {
     @Mock FlatPriceConversionExportService exportService;
 
     MockMvc mockMvc;
-    ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
@@ -54,9 +50,6 @@ class FlatPriceConversionControllerTest {
                 .standaloneSetup(new FlatPriceConversionController(service, exportService))
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .build();
-        objectMapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     private FlatPriceConversionResponse sampleResponse() {
