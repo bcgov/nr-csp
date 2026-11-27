@@ -9,7 +9,7 @@ import { NAVIGATION_ITEMS } from '@/routes/navigation';
 import { isModifiedClick } from '@/utils/link';
 import { userManualsForRoles } from '@/utils/support';
 
-import type { MouseEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 
 import './index.scss';
 
@@ -27,6 +27,16 @@ export function LayoutSideNav() {
   const dismissMenu = () => {
     toggleSideNav();
     document.getElementById('navigation-toggle')?.focus();
+  };
+
+  // Escape inside an open group returns focus to its heading instead of closing the whole menu.
+  const returnFocusToGroup = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Escape') return;
+    const trigger = event.currentTarget.querySelector<HTMLButtonElement>('button[aria-expanded="true"]');
+    if (trigger) {
+      event.stopPropagation();
+      trigger.focus();
+    }
   };
 
   return (
@@ -51,14 +61,7 @@ export function LayoutSideNav() {
                 title={item.name}
                 renderIcon={item.icon}
                 defaultExpanded={containsCurrentPage}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Escape') return;
-                  const trigger = event.currentTarget.querySelector<HTMLButtonElement>('button[aria-expanded="true"]');
-                  if (trigger) {
-                    event.stopPropagation();
-                    trigger.focus();
-                  }
-                }}
+                onKeyDown={returnFocusToGroup}
               >
                 {item.children.map((child) => (
                   <SideNavMenuItem
@@ -88,7 +91,7 @@ export function LayoutSideNav() {
           );
         })}
         {userManuals.length > 0 && (
-          <SideNavMenu title="Support" renderIcon={Help}>
+          <SideNavMenu title="Support" renderIcon={Help} onKeyDown={returnFocusToGroup}>
             {userManuals.map((userManual) => (
               <SideNavMenuItem key={userManual.href} href={userManual.href} download>
                 {userManual.label}

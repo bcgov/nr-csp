@@ -142,8 +142,10 @@ Select **Back to Submission History** to return to the list.
 
 1. Read the staff comment on the rejected invoice.
 2. Correct the invoice in your system.
-3. Upload it in a new file. If it replaces an invoice CSP already holds, list
-   the original's number in the invoice's replaced invoice numbers.
+3. Upload it in a new file. If it replaces an invoice CSP already holds, give
+   the corrected invoice a new invoice number and list the original's number
+   in its replaced invoice numbers. An invoice can't replace itself: CSP
+   refuses the whole file if one lists its own number.
 
 ## Statuses
 
@@ -156,6 +158,9 @@ A submission has one of these statuses.
 | **Complete** | Review is finished and at least one invoice was approved. |
 | **Rejected** | Review is finished and no invoice was approved. |
 
+The submission status is a summary: check each invoice's **Decision** to see
+where it stands.
+
 Each invoice has its own status, shown as its **Decision**.
 
 | Status | Means |
@@ -167,5 +172,6 @@ Each invoice has its own status, shown as its **Decision**.
 | **Cancelled** | Withdrawn, or replaced by another invoice. |
 | **Unapproved** | An approval was reversed; staff review it again. |
 
-Ministry staff review each invoice. A rejection, cancellation or
-unapproval always comes with a staff comment.
+Ministry staff review each invoice. When staff reject, cancel or unapprove an
+invoice, they add a staff comment. An invoice cancelled because another one
+replaced it has no comment.

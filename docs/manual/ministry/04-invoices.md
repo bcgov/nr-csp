@@ -51,7 +51,8 @@ CSP groups the lines that share a secondary sort, species and price, and
 numbers the groups. Each group row shows its totals and whether its prices
 were converted (**Price conversion**). Select the arrow beside a group to see
 its lines. **Invoice totals** at the bottom add up every line. A line's
-amount is its volume times its price.
+amount is its volume times its price. On an adjustment where both are
+negative, the amount stays negative: −10 m³ at −$10 is −$100.
 
 ![The invoice group summary](images/04-invoice-groups.png)
 
@@ -157,8 +158,13 @@ updated, then approve again.
 2. Select **Reject**, or **Cancel** to withdraw the invoice.
 
 Both need a reviewer comment and work on Processing and Unapproved invoices.
-**Cancel** cancels the invoice; it doesn't discard your edits. Rejected and
-cancelled invoices are final.
+**Cancel** withdraws the invoice; it isn't a way to undo your edits. Rejected
+and cancelled invoices are final.
+
+> **Note:** **Approve**, **Reject**, **Cancel** and **Unapprove** save only
+> the decision and the reviewer comment. Any other change you haven't saved is
+> lost. To change the invoice itself, save and submit it first; see [Change an
+> invoice under review](#change-an-invoice-under-review).
 
 ### Unapprove an invoice
 
@@ -245,3 +251,6 @@ entry.
 | **Inbox** | Waiting for review. Uploads arrive here, and submitting an invoice returns its submission here. |
 | **Complete** | Review is finished and at least one invoice is approved. |
 | **Rejected** | Review is finished and no invoice is approved. |
+
+The submission status is a summary. Check each invoice's status, the
+**Decision** column on the submission page, to see where it stands.

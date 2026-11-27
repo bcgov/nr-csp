@@ -109,6 +109,19 @@ describe('LayoutSideNav', () => {
     manuals.forEach((link) => expect(link).toHaveAttribute('download'));
   });
 
+  it('returns focus to Support on Escape from a manual link, without closing the menu', () => {
+    arrange(ROUTES.SEARCH, ['APPROVE']);
+    const support = screen.getByRole('button', { name: 'Support' });
+    fireEvent.click(support);
+    const link = screen.getByRole('link', { name: 'User manual' });
+    link.focus();
+
+    fireEvent.keyDown(link, { key: 'Escape' });
+
+    expect(document.activeElement).toBe(support);
+    expect(vi.mocked(useLayout).mock.results[0].value.toggleSideNav).not.toHaveBeenCalled();
+  });
+
   it('shows nothing to a user without a CSP role', () => {
     arrange('/', []);
 
