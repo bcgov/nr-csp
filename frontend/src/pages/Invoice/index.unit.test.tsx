@@ -13,7 +13,6 @@ import { InvoicePage } from './index';
 const h = vi.hoisted(() => {
   const makeMutation = () => ({
     mutate: vi.fn(),
-    mutateAsync: vi.fn(),
     isPending: false,
     variables: undefined as unknown,
   });
@@ -41,6 +40,8 @@ const h = vi.hoisted(() => {
       addLine: makeMutation(),
       delLine: makeMutation(),
       updateLine: makeMutation(),
+      updateGroup: makeMutation(),
+      deleteGroup: makeMutation(),
       exp: makeMutation(),
     },
   };
@@ -74,10 +75,6 @@ vi.mock('@/services/search.service', () => ({
   getClientsByName: (...a: unknown[]) => h.getClientsByName(...a),
 }));
 
-vi.mock('@/services/fob.service', () => ({
-  useFobCodesQuery: () => ({ data: [{ code: 'FOB01', description: 'FOB One' }] }),
-}));
-
 // PageTitle pulls in the PageTitle context/provider; stub it to a passthrough
 // that still renders its children (the status tag lives inside it).
 vi.mock('@/components/core/PageTitle', () => ({
@@ -104,6 +101,8 @@ vi.mock('@/services/invoice.service', () => ({
   useAddInvoiceLineItemMutation: () => h.mutations.addLine,
   useDeleteInvoiceLineItemMutation: () => h.mutations.delLine,
   useUpdateInvoiceLineItemMutation: () => h.mutations.updateLine,
+  useUpdateInvoiceLineItemGroupMutation: () => h.mutations.updateGroup,
+  useDeleteInvoiceLineItemGroupMutation: () => h.mutations.deleteGroup,
   useExportInvoiceGroupSummaryMutation: () => h.mutations.exp,
   extractApiErrorMessage: () => 'An error occurred.',
   extractValidationErrors: () => [],
@@ -489,10 +488,52 @@ describe('InvoicePage — action flows', () => {
     );
   });
 
-  it('Submit fires the submit mutation with the invoice id and loaded version', async () => {
+  it('Submit fires the submit mutation with the invoice id, loaded version and form', async () => {
     await renderLoaded({ invStatus: 'DFT' });
     await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(h.mutations.submit.mutate).toHaveBeenCalledWith({ id: 1, expectedVersion: 'v4' }, expect.anything());
+    expect(h.mutations.submit.mutate).toHaveBeenCalledWith(
+      { id: 1, expectedVersion: 'v4', body: expect.objectContaining({ invNumber: 'INV-001', manual: false }) },
+      expect.anything(),
+    );
+  });
+
+  // Legacy Submit saves the form on screen, so an edit that was never saved is submitted too.
+  it('Submit sends an unsaved field change', async () => {
+    await renderLoaded({ invStatus: 'DFT' });
+    const invoiceNumber = screen.getByRole('textbox', { name: /Invoice number$/i });
+    await userEvent.clear(invoiceNumber);
+    await userEvent.type(invoiceNumber, 'INV-002');
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(h.mutations.submit.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ invNumber: 'INV-002' }) }),
+      expect.anything(),
+    );
+  });
+
+  // The $510 declared on an electronic invoice stays separate from the $500 in its lines.
+  it('shows an electronic invoice declared totals apart from the calculated line totals', async () => {
+    await renderLoaded({ invStatus: 'DFT', totalAmt: 510, totalPieces: 12, totalVol: 5.5 });
+    expect(screen.getByText('Declared total amount')).toBeInTheDocument();
+    expect(screen.getByText('$510.00')).toBeInTheDocument();
+    expect(screen.getByText('Calculated totals')).toBeInTheDocument();
+    expect(screen.getAllByText('$500.00').length).toBeGreaterThan(0);
+  });
+
+  it('saves an electronic invoice with its declared totals, not the line sums', async () => {
+    await renderLoaded({ invStatus: 'DFT', totalAmt: 510, totalPieces: 12, totalVol: 5.5 });
+    await userEvent.type(screen.getByLabelText('Reviewer comment'), 'Checked');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(h.mutations.update.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ totalAmt: 510, totalPieces: 12, totalVol: 5.5 }) }),
+      expect.anything(),
+    );
+  });
+
+  it('shows a manual invoice totals from its lines', async () => {
+    await renderLoaded({ invStatus: 'DFT', submissionNumber: null, totalAmt: 500 });
+    expect(screen.queryByText('Declared total amount')).not.toBeInTheDocument();
+    expect(screen.getByText('Total amount')).toBeInTheDocument();
+    expect(screen.getByText('Invoice totals')).toBeInTheDocument();
   });
 
   it('Submit is disabled when there are no line items', async () => {

@@ -32,7 +32,7 @@ public class InvoiceMapper {
     public InvoiceDetails toDetails(CreateInvoiceRequest req, String entryUserID) {
         return new InvoiceDetails(
                 null,
-                req.invNumber(),
+                canonicalInvoiceNumbers(req.invNumber()),
                 req.invoiceDate(),
                 null,                       // invStatus is server-controlled (DFT on create)
                 req.invType(),
@@ -56,8 +56,8 @@ public class InvoiceMapper {
                 dedupSourceDocuments(req.boomNumbers()),
                 dedupSourceDocuments(req.timberMarks()),
                 dedupSourceDocuments(req.weightSlips()),
-                req.replaceInvNum(),
-                req.adjustInvNum(),
+                canonicalInvoiceNumbers(req.replaceInvNum()),
+                canonicalInvoiceNumbers(req.adjustInvNum()),
                 req.reviewComments(),
                 req.submitComments(),
                 entryUserID
@@ -68,7 +68,7 @@ public class InvoiceMapper {
     public InvoiceDetails toDetails(UpdateInvoiceRequest req, Long invID, String existingStatus, String existingEntryUserID) {
         return new InvoiceDetails(
                 invID,
-                req.invNumber(),
+                canonicalInvoiceNumbers(req.invNumber()),
                 req.invoiceDate(),
                 existingStatus,
                 req.invType(),
@@ -92,12 +92,18 @@ public class InvoiceMapper {
                 dedupSourceDocuments(req.boomNumbers()),
                 dedupSourceDocuments(req.timberMarks()),
                 dedupSourceDocuments(req.weightSlips()),
-                req.replaceInvNum(),
-                req.adjustInvNum(),
+                canonicalInvoiceNumbers(req.replaceInvNum()),
+                canonicalInvoiceNumbers(req.adjustInvNum()),
                 req.reviewComments(),
                 req.submitComments(),
                 existingEntryUserID
         );
+    }
+
+    // Legacy trims and upper-cases invoice numbers before every save (SubmissionTransferRules.makeReadyForSave),
+    // as the XML path does on parse, so both channels store and match the same form.
+    private static String canonicalInvoiceNumbers(String value) {
+        return value == null ? null : value.trim().toUpperCase(Locale.ENGLISH);
     }
 
     /**

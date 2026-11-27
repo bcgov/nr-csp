@@ -8,6 +8,7 @@ import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExp
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExportRequest.GroupSummaryExportRow;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceSummaryExportRequest.LineItemExportRow;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItem;
+import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemGroupUpdateRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.LineItemRequest;
 import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.UpdateInvoiceRequest;
 import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
@@ -329,7 +330,7 @@ class InvoiceServiceTest {
         verify(lineItemRepo).insertLineItem(eq(500L), any(), eq(USER));
         verify(invoiceRepo, times(3)).replaceLogSources(eq(500L), any(), any(), eq(USER));
         verify(invoiceRepo, times(2)).replaceRelatedInvoices(eq(500L), any(), any(), any(), any(), eq(USER));
-        verify(participantRepo, never()).insert(any(), any(), any(), any());
+        verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
     }
 
     @Test
@@ -403,12 +404,12 @@ class InvoiceServiceTest {
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", null, "ABC Logging", "Seller"));
         given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
-        given(participantRepo.insert(eq("ABC Logging"), any(), any(), any())).willReturn(900L);
+        given(participantRepo.findOrInsert(eq("ABC Logging"), any(), any(), any())).willReturn(900L);
         given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
 
         service.create(req);
 
-        verify(participantRepo).insert("ABC Logging", "Nanaimo", "BC", USER);
+        verify(participantRepo).findOrInsert("ABC Logging", "Nanaimo", "BC", USER);
         verify(invoiceRepo).insertInvoice(any(), eq(77L), eq("DFT"), eq(900L), isNull(), eq(USER));
     }
 
@@ -419,7 +420,7 @@ class InvoiceServiceTest {
         given(mapper.toDetails(eq(req), anyString())).willReturn(details(null, "DFT", null, "ABC Logging", "Buyer"));
         given(mapper.toLineItems(any(), isNull(), any())).willReturn(List.of());
         given(submissionRepo.insertSubmission(any(), any(), any(), any())).willReturn(77L);
-        given(participantRepo.insert(any(), any(), any(), any())).willReturn(900L);
+        given(participantRepo.findOrInsert(any(), any(), any(), any())).willReturn(900L);
         given(invoiceRepo.insertInvoice(any(), any(), any(), any(), any(), any())).willReturn(500L);
 
         service.create(req);
@@ -438,6 +439,14 @@ class InvoiceServiceTest {
         return req;
     }
 
+    // A Submit form that carries the stored draft unchanged.
+    private UpdateInvoiceRequest submitForm() {
+        UpdateInvoiceRequest req = updateRequest();
+        lenient().when(mapper.toDetails(eq(req), any(), any(), any())).thenReturn(draftDetails(1L));
+        lenient().when(mapper.toLineItems(any(), any(), any())).thenReturn(List.of());
+        return req;
+    }
+
     @ParameterizedTest
     @CsvSource({"DFT, true", "PRO, false", "APP, false"})
     void dataEntryWritesRequireAnEditableManualInvoice(String status, boolean electronic) {
@@ -449,11 +458,15 @@ class InvoiceServiceTest {
                 ? AuthorizationDeniedException.class : ConflictException.class;
 
         assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, updateRequest())).isInstanceOf(expectedError);
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(expectedError);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, submitForm())).isInstanceOf(expectedError);
         assertThatThrownBy(() -> service.addLineItem(1L, CURRENT_VERSION, lineItemRequest())).isInstanceOf(expectedError);
         assertThatThrownBy(() -> service.updateLineItem(1L, 2L, CURRENT_VERSION, lineItemRequest()))
                 .isInstanceOf(expectedError);
         assertThatThrownBy(() -> service.deleteLineItem(1L, 2L, CURRENT_VERSION)).isInstanceOf(expectedError);
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION,
+                new LineItemGroupUpdateRequest(List.of(2L), "SORT02", "CED"))).isInstanceOf(expectedError);
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(2L)))
+                .isInstanceOf(expectedError);
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
         verify(invoiceRepo, never()).incrementRevisionCount(any(), any());
     }
@@ -528,7 +541,7 @@ class InvoiceServiceTest {
     void update_success_reconcilesLinesAndRevertsSubmissionToLobby() {
         UpdateInvoiceRequest req = updateRequest();
         // No manual other party, no existing participant rows.
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
         // Incoming: one existing line (id 1, updated) + one new line (null id). Existing on db: 1 and 2.
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null), line(null, null)));
@@ -579,6 +592,113 @@ class InvoiceServiceTest {
         verify(lineItemRepo, never()).auditAndDeleteLineItem(anyLong(), any());
     }
 
+    // An electronic invoice declaring $510 with $500 in lines keeps $510 through a note-only save.
+    @Test
+    void update_electronicInvoice_keepsTheDeclaredTotalsWhateverTheRequestSends() {
+        UpdateInvoiceRequest req = updateRequest();
+        InvoiceDetails declared = details(1L, "DFT", "5678", null, "Seller");
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(declared, 10L, null, null)));
+        InvoiceDetails sent = ManualInvoiceTotals.withCalculatedTotals(draftDetails(1L), List.of());
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(sent);
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null)));
+        // Even a request claiming to be manual can't recalculate an electronic invoice's totals.
+        given(req.manual()).willReturn(true);
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        ArgumentCaptor<InvoiceDetails> saved = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(invoiceRepo).updateInvoice(eq(1L), saved.capture(), eq("DFT"), any(), any(), eq(USER));
+        assertThat(saved.getValue().totalAmt()).isEqualByComparingTo("100.00");
+        assertThat(saved.getValue().totalPieces()).isEqualTo(10);
+        assertThat(saved.getValue().totalVol()).isEqualByComparingTo("5.0");
+    }
+
+    @Test
+    void update_manualInvoice_savesTheTotalsCalculatedFromTheLines() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        LineItem fiftyDollars = new LineItem(1L, 1L, "SORT01", "CS01", "FIR", "Fir", "G1",
+                3, new BigDecimal("10.00"), new BigDecimal("5.0"), null, new BigDecimal("50.00"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(fiftyDollars));
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        ArgumentCaptor<InvoiceDetails> saved = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(invoiceRepo).updateInvoice(eq(1L), saved.capture(), eq("DFT"), any(), any(), eq(USER));
+        assertThat(saved.getValue().totalAmt()).isEqualByComparingTo("50.00");
+        assertThat(saved.getValue().totalPieces()).isEqualTo(3);
+    }
+
+    private InvoiceDetails withSubmitter(InvoiceDetails d, String clientNumber, String location) {
+        return new InvoiceDetails(d.invID(), d.invNumber(), d.invoiceDate(), d.invStatus(), d.invType(), d.maturity(),
+                d.fobCode(), d.primarySortCode(), d.clientPrimarySortCode(), d.totalAmt(), d.totalPieces(), d.totalVol(),
+                clientNumber, location, d.submittedBy(), clientNumber, location,
+                d.otherClientNum(), d.otherClientLocation(), d.otherClientName(), d.otherClientCity(),
+                d.otherClientProvState(), d.boomNumbers(), d.timberMarks(), d.weightSlips(), d.replaceInvNum(),
+                d.adjustInvNum(), d.reviewComments(), d.submitComments(), d.entryUserID());
+    }
+
+    // Search and History read the submitter from the parent submission, so a correction must move it.
+    @Test
+    void update_correctedSubmitterOnASingleManualInvoice_movesItsSubmission() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(invoiceRepo.countByCspSubmissionId(10L)).willReturn(1);
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(withSubmitter(draftDetails(1L), "4321", "01"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        InOrder order = inOrder(submissionRepo, invoiceRepo);
+        order.verify(submissionRepo).updateClient(10L, "4321", "01", USER);
+        order.verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
+    }
+
+    @Test
+    void update_unchangedSubmitter_leavesTheSubmissionClientAlone() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
+    }
+
+    // Legacy moved the whole parent, taking sibling invoices to the new client; that waits on a decision.
+    @ParameterizedTest
+    @CsvSource({"true, 1", "false, 2"})
+    void update_correctedSubmitterOnAnElectronicOrSharedSubmission_isRefusedBeforeAnyWrite(
+            boolean electronic, int invoicesInSubmission) {
+        UpdateInvoiceRequest req = updateRequest();
+        LoadedInvoice existing = electronic ? loaded(draftDetails(1L), 10L, null, null) : loadedManual(draftDetails(1L), 10L);
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(existing));
+        lenient().when(invoiceRepo.countByCspSubmissionId(10L)).thenReturn(invoicesInSubmission);
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(withSubmitter(draftDetails(1L), "4321", "01"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, req)).isInstanceOf(ConflictException.class);
+        verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
+        verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
+        verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
+    }
+
+    // Legacy only moves a manual submission to the Lobby on save, so a saved upload stays in the Inbox.
+    @Test
+    void update_electronicInvoice_leavesItsSubmissionInTheInbox() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
+    }
+
     @Test
     void update_noSubmission_doesNotTouchSubmissionStatus() {
         UpdateInvoiceRequest req = updateRequest();
@@ -602,8 +722,8 @@ class InvoiceServiceTest {
         service.update(1L, CURRENT_VERSION, req);
 
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), isNull(), isNull(), eq(USER));
-        verify(participantRepo).delete(50L);
-        verify(participantRepo).delete(60L);
+        verify(participantRepo).deleteIfUnreferenced(50L);
+        verify(participantRepo).deleteIfUnreferenced(60L);
     }
 
     // `create` inserts a csp_submission row for every manual invoice; deleting the invoice used to
@@ -672,34 +792,52 @@ class InvoiceServiceTest {
         verify(invoiceRepo).deleteInvoice(1L);
     }
 
+    // Legacy shares a participant across invoices, so an edit must relink this invoice, not change the row.
     @Test
-    void update_manualOtherPartyExistingBuyer_updatesInPlace() {
+    void update_editedOtherParty_relinksToAMatchingParticipantAndReleasesTheOldOne() {
         UpdateInvoiceRequest req = updateRequest();
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, 50L, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(
+                loaded(details(1L, "DFT", null, "Old Name", "Seller"), 10L, 50L, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", null, "ABC Logging", "Seller"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+        given(participantRepo.findOrInsert("ABC Logging", "Nanaimo", "BC", USER)).willReturn(77L);
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        InOrder order = inOrder(invoiceRepo, participantRepo);
+        order.verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), eq(77L), isNull(), eq(USER));
+        order.verify(participantRepo).deleteIfUnreferenced(50L);
+    }
+
+    @Test
+    void update_unchangedOtherParty_keepsItsParticipant() {
+        UpdateInvoiceRequest req = updateRequest();
+        InvoiceDetails manualParty = details(1L, "DFT", null, "ABC Logging", "Seller");
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(manualParty, 10L, 50L, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(manualParty);
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
         service.update(1L, CURRENT_VERSION, req);
 
-        verify(participantRepo).update(50L, "ABC Logging", "Nanaimo", "BC", USER);
-        verify(participantRepo, never()).insert(any(), any(), any(), any());
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), eq(50L), isNull(), eq(USER));
+        verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
+        verify(participantRepo, never()).deleteIfUnreferenced(any());
     }
 
     @Test
-    void update_manualOtherPartyMovedSlot_insertsNewAndOrphansOld() {
+    void update_manualOtherPartyMovedSlot_linksTheNewSlotAndReleasesTheOld() {
         UpdateInvoiceRequest req = updateRequest();
         // Existing seller participant 60; new state puts the manual party in the buyer slot.
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, 60L)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(details(1L, "DFT", null, "ABC Logging", "Seller"));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
-        given(participantRepo.insert(any(), any(), any(), any())).willReturn(99L);
+        given(participantRepo.findOrInsert(any(), any(), any(), any())).willReturn(99L);
 
         service.update(1L, CURRENT_VERSION, req);
 
-        verify(participantRepo).insert(eq("ABC Logging"), any(), any(), eq(USER));
+        verify(participantRepo).findOrInsert(eq("ABC Logging"), any(), any(), eq(USER));
         verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), eq(99L), isNull(), eq(USER));
-        verify(participantRepo).delete(60L); // old seller row orphaned
+        verify(participantRepo).deleteIfUnreferenced(60L); // old seller row orphaned
     }
 
     // ===============================================================
@@ -897,7 +1035,7 @@ class InvoiceServiceTest {
         order.verify(lineItemRepo).auditAndDeleteAllByInvoiceId(1L, USER);
         order.verify(invoiceRepo).deleteAllLogSources(1L);
         order.verify(invoiceRepo).deleteInvoice(1L);
-        order.verify(participantRepo).delete(50L);
+        order.verify(participantRepo).deleteIfUnreferenced(50L);
     }
 
     @Test
@@ -911,8 +1049,8 @@ class InvoiceServiceTest {
         verify(invoiceRepo).deleteAllRelatedInvoiceRefs(1L);
         verify(invoiceRepo).deleteAllIncomingRelatedInvoiceRefs(1L);
         verify(invoiceRepo).deleteInvoice(1L);
-        verify(participantRepo).delete(50L);
-        verify(participantRepo).delete(60L);
+        verify(participantRepo).deleteIfUnreferenced(50L);
+        verify(participantRepo).deleteIfUnreferenced(60L);
     }
 
     // ===============================================================
@@ -922,13 +1060,13 @@ class InvoiceServiceTest {
     @Test
     void submit_notFound_throws() {
         given(invoiceRepo.findById(99L)).willReturn(Optional.empty());
-        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION, submitForm())).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void submit_notDraftOrUnapproved_throwsConflict() {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, submitForm())).isInstanceOf(ConflictException.class);
     }
 
     @Test
@@ -936,7 +1074,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SUBMIT))).willReturn(WITH_ERROR);
 
-        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, submitForm())).isInstanceOf(ValidationException.class);
         verify(invoiceRepo, never()).updateStatus(any(), any(), any());
     }
 
@@ -948,7 +1086,7 @@ class InvoiceServiceTest {
         given(priceConversionService.apply(any(), any(), any()))
                 .willReturn(new PriceConversionService.Result(List.of(converted), List.of(A_WARNING)));
 
-        service.submit(1L, CURRENT_VERSION);
+        service.submit(1L, CURRENT_VERSION, submitForm());
 
         verify(lineItemRepo).updateConvertedPrice(1L, new BigDecimal("12.34"), USER);
         verify(invoiceRepo).updateStatus(1L, "PRO", USER);
@@ -964,9 +1102,147 @@ class InvoiceServiceTest {
         loginWithRoles(Roles.ENTRY);
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(details(1L, "UNA", "5678", null, "Seller"), 10L)));
 
-        service.submit(1L, CURRENT_VERSION);
+        service.submit(1L, CURRENT_VERSION, submitForm());
 
         verify(invoiceRepo).updateStatus(1L, "PRO", USER);
+    }
+
+    // Legacy Submit saves the form on screen first, so an unsaved edit is what gets submitted.
+    @Test
+    void submit_withForm_validatesAndSavesTheFormBeforeSubmittingIt() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        InvoiceDetails edited = details(1L, "DFT", "9999", null, "Seller");
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(edited);
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of(line(1L, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L));
+
+        service.submit(1L, CURRENT_VERSION, req);
+
+        ArgumentCaptor<InvoiceDetails> validated = ArgumentCaptor.forClass(InvoiceDetails.class);
+        verify(validator).validate(validated.capture(), any(), eq(true), eq(ActionType.SUBMIT));
+        assertThat(validated.getValue().otherClientNum()).isEqualTo("9999");
+        verify(validator, never()).validate(any(), any(), anyBoolean(), eq(ActionType.SAVE));
+        InOrder order = inOrder(invoiceRepo, lineItemRepo);
+        order.verify(invoiceRepo).updateInvoice(eq(1L), validated.capture(), eq("DFT"), any(), any(), eq(USER));
+        order.verify(lineItemRepo).updateLineItem(eq(1L), any(), eq(USER));
+        order.verify(invoiceRepo).updateStatus(1L, "PRO", USER);
+        assertThat(validated.getValue().otherClientNum()).isEqualTo("9999");
+        verify(submissionRepo).updateSubmissionStatus(10L, "INB", USER);
+    }
+
+    @Test
+    void submit_withFormThatFailsValidation_writesNothing() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(draftDetails(1L));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+        given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SUBMIT))).willReturn(WITH_ERROR);
+
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, req)).isInstanceOf(ValidationException.class);
+        verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(anyLong(), any());
+    }
+
+    @Test
+    void submit_staleVersionWithForm_writesNothing() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.lockVersion(1L)).willReturn(Optional.of("4.20261117150000.1.1"));
+
+        assertThatThrownBy(() -> service.submit(1L, CURRENT_VERSION, req)).isInstanceOf(ConflictException.class);
+        verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
+
+    // ===============================================================
+    // line item groups — one version check, one transaction
+    // ===============================================================
+
+    private static final LineItemGroupUpdateRequest MOVE_GROUP =
+            new LineItemGroupUpdateRequest(List.of(1L, 2L), "SORT02", "CED");
+
+    @Test
+    void updateLineItemGroup_validatesEveryMovedLineThenUpdatesThemAll() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null), line(2L, null), line(3L, null)));
+
+        service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LineItem>> validated = ArgumentCaptor.forClass(List.class);
+        verify(validator).validate(any(), validated.capture(), eq(true), eq(ActionType.SAVE));
+        assertThat(validated.getValue()).extracting(LineItem::secondSort).containsExactly("SORT02", "SORT02", "SORT01");
+        assertThat(validated.getValue()).extracting(LineItem::species).containsExactly("CED", "CED", "FIR");
+        ArgumentCaptor<LineItem> written = ArgumentCaptor.forClass(LineItem.class);
+        verify(lineItemRepo).updateLineItem(eq(1L), written.capture(), eq(USER));
+        verify(lineItemRepo).updateLineItem(eq(2L), any(), eq(USER));
+        verify(lineItemRepo, never()).updateLineItem(eq(3L), any(), any());
+        assertThat(written.getValue().amount()).isEqualByComparingTo("100.00");
+        verify(invoiceRepo).incrementRevisionCount(1L, USER);
+    }
+
+    @Test
+    void updateLineItemGroup_thatFailsValidation_writesNoLine() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null), line(2L, null)));
+        given(validator.validate(any(), any(), anyBoolean(), eq(ActionType.SAVE))).willReturn(WITH_ERROR);
+
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP))
+                .isInstanceOf(ValidationException.class);
+        verify(lineItemRepo, never()).updateLineItem(any(), any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCount(any(), any());
+        verify(invoiceRepo, never()).updateTotals(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void lineItemGroupChanges_fromAStaleVersion_writeNothing() {
+        given(invoiceRepo.lockVersion(1L)).willReturn(Optional.of("4.20261117150000.2.2"));
+
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP))
+                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(1L, 2L)))
+                .isInstanceOf(ConflictException.class);
+        verify(lineItemRepo, never()).updateLineItem(any(), any(), any());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCount(any(), any());
+    }
+
+    @Test
+    void lineItemGroupChanges_withALineFromAnotherInvoice_writeNothing() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findByInvoiceId(1L)).willReturn(List.of(line(1L, null)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L));
+
+        assertThatThrownBy(() -> service.updateLineItemGroup(1L, CURRENT_VERSION, MOVE_GROUP))
+                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(1L, 99L)))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(lineItemRepo, never()).updateLineItem(any(), any(), any());
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(any(), any());
+    }
+
+    @Test
+    void deleteLineItemGroup_auditsAndDeletesEveryLineThenRecalculatesTotals() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+        given(lineItemRepo.findIdsByInvoiceId(1L)).willReturn(List.of(1L, 2L, 3L));
+
+        service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of(1L, 2L));
+
+        InOrder order = inOrder(lineItemRepo, invoiceRepo);
+        order.verify(lineItemRepo).auditAndDeleteLineItem(1L, USER);
+        order.verify(lineItemRepo).auditAndDeleteLineItem(2L, USER);
+        order.verify(invoiceRepo).incrementRevisionCount(1L, USER);
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(eq(3L), any());
+    }
+
+    @Test
+    void deleteLineItemGroup_withNoLines_isABadRequest() {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
+
+        assertThatThrownBy(() -> service.deleteLineItemGroup(1L, CURRENT_VERSION, List.of()))
+                .isInstanceOf(BadRequestException.class);
+        verify(lineItemRepo, never()).auditAndDeleteLineItem(any(), any());
     }
 
     // ===============================================================
@@ -1269,9 +1545,9 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void addLineItem_onUnapproved_revertsToDraftAndLobby() {
+    void addLineItem_onManualUnapproved_revertsToDraftAndLobby() {
         LineItemRequest req = lineItemRequest();
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "UNA", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(details(1L, "UNA", "5678", null, "Seller"), 10L)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
         service.addLineItem(1L, CURRENT_VERSION, req);
@@ -1279,6 +1555,18 @@ class InvoiceServiceTest {
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
         verify(submissionRepo).updateSubmissionStatus(10L, "LOB", USER);
+    }
+
+    @Test
+    void addLineItem_onUploadedProcessing_revertsToDraftButKeepsTheUploadInTheInbox() {
+        LineItemRequest req = lineItemRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
+
+        service.addLineItem(1L, CURRENT_VERSION, req);
+
+        verify(invoiceRepo).updateStatus(1L, "DFT", USER);
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
     @Test
@@ -1541,7 +1829,7 @@ class InvoiceServiceTest {
 
     @Test
     void submit_staleVersion_refusedBeforeAnyWrite() {
-        assertThatThrownBy(() -> service.submit(1L, STALE_VERSION)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.submit(1L, STALE_VERSION, submitForm())).isInstanceOf(ConflictException.class);
         verify(invoiceRepo, never()).updateStatus(anyLong(), any(), any());
     }
 
@@ -1572,7 +1860,7 @@ class InvoiceServiceTest {
     void staleCheck_missingInvoice_isNotFound() {
         given(invoiceRepo.lockVersion(99L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.submit(99L, CURRENT_VERSION, submitForm())).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -1630,7 +1918,7 @@ class InvoiceServiceTest {
         given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), 10L, null, null)));
         legacyLineCommitsAfterTheVersionRead();
 
-        service.submit(1L, CURRENT_VERSION);
+        service.submit(1L, CURRENT_VERSION, submitForm());
 
         assertResponseReadItsLinesAfterItsVersion();
     }

@@ -23,10 +23,12 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -134,7 +136,7 @@ class InvoiceControllerTest {
     @Test
     void create_invalidInvNumberPattern_returns400() throws Exception {
         String body = """
-                {"invNumber":"inv 001!","invoiceDate":"2026-01-15","invType":"SAL",
+                {"invNumber":"INV\\\\001","invoiceDate":"2026-01-15","invType":"SAL",
                  "submitterClientNum":"1234","submitterLocation":"00","submittedBy":"Seller","manual":true}
                 """;
         mockMvc.perform(post("/api/invoices")
@@ -152,6 +154,35 @@ class InvoiceControllerTest {
                         .content(VALID_CREATE_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.invID").value(1));
+    }
+
+    // Legacy accepted these and the CSP schema allows them, so the staff form's API does too.
+    @Test
+    void update_legacyInvoiceNumberAndFreeTextFob_returns200() throws Exception {
+        given(invoiceService.update(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
+        String body = """
+                {"invNumber":"INV/42","invoiceDate":"2026-01-15","invType":"SAL","fobCode":"TEST LANDING",
+                 "submitterClientNum":"1234","submitterLocation":"00","submittedBy":"Seller","manual":true}
+                """;
+
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void update_fobLongerThanTheColumn_returns400() throws Exception {
+        String body = """
+                {"invNumber":"INV-001","invoiceDate":"2026-01-15","invType":"SAL","fobCode":"%s",
+                 "submitterClientNum":"1234","submitterLocation":"00","submittedBy":"Seller","manual":true}
+                """.formatted("A".repeat(121));
+
+        mockMvc.perform(put("/api/invoices/1?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(invoiceService);
     }
 
     @Test
@@ -235,19 +266,33 @@ class InvoiceControllerTest {
     // ---------------------------------------------------------------
 
     @Test
-    void submit_returns200() throws Exception {
-        given(invoiceService.submit(1L, "v3")).willReturn(sampleResponse());
+    void submit_passesTheFormToTheService() throws Exception {
+        given(invoiceService.submit(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
 
-        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3"))
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_CREATE_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.invID").value(1));
+        verify(invoiceService).submit(eq(1L), eq("v3"), argThat(form -> "INV-001".equals(form.invNumber())));
+    }
+
+    @Test
+    void submit_withInvalidForm_returns400() throws Exception {
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(BLANK_CREATE_BODY))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(invoiceService);
     }
 
     @Test
     void submit_notDraft_returns409() throws Exception {
-        given(invoiceService.submit(1L, "v3")).willThrow(new ConflictException("not draft"));
+        given(invoiceService.submit(eq(1L), eq("v3"), any())).willThrow(new ConflictException("not draft"));
 
-        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3"))
+        mockMvc.perform(post("/api/invoices/1/submit?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_CREATE_BODY))
                 .andExpect(status().isConflict());
     }
 
@@ -316,6 +361,35 @@ class InvoiceControllerTest {
     // ---------------------------------------------------------------
     // POST /api/invoices/{id}/line-items
     // ---------------------------------------------------------------
+
+    @Test
+    void updateLineItemGroup_validRequest_returns200() throws Exception {
+        given(invoiceService.updateLineItemGroup(eq(1L), eq("v3"), any())).willReturn(sampleResponse());
+
+        mockMvc.perform(patch("/api/invoices/1/line-items?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lineItemIds\":[1,2],\"secondSort\":\"SORT02\",\"species\":\"CED\"}"))
+                .andExpect(status().isOk());
+        verify(invoiceService).updateLineItemGroup(eq(1L), eq("v3"),
+                argThat(group -> group.lineItemIds().equals(List.of(1L, 2L)) && "CED".equals(group.species())));
+    }
+
+    @Test
+    void updateLineItemGroup_withoutLines_returns400() throws Exception {
+        mockMvc.perform(patch("/api/invoices/1/line-items?expectedVersion=v3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lineItemIds\":[],\"secondSort\":\"SORT02\",\"species\":\"CED\"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(invoiceService);
+    }
+
+    @Test
+    void deleteLineItemGroup_passesEveryLineId() throws Exception {
+        given(invoiceService.deleteLineItemGroup(1L, "v3", List.of(1L, 2L))).willReturn(sampleResponse());
+
+        mockMvc.perform(delete("/api/invoices/1/line-items?expectedVersion=v3&lineItemIds=1,2"))
+                .andExpect(status().isOk());
+    }
 
     @Test
     void addLineItem_validRequest_returns200() throws Exception {

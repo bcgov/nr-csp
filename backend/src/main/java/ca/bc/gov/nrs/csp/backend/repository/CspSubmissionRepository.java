@@ -163,4 +163,23 @@ public class CspSubmissionRepository {
                 .addValue("userId", userId);
         jdbc.update(sql, params);
     }
+
+    /** Moves the submission to another submitting client and location; Search and History read them from here. */
+    public void updateClient(Long submissionId, String clientNumber, String clientLocnCode, String userId) {
+        String sql = """
+                UPDATE THE.csp_submission SET
+                    client_number = :clientNumber,
+                    client_locn_code = :clientLocnCode,
+                    revision_count = revision_count + 1,
+                    update_userid = :userId,
+                    update_timestamp = SYSDATE
+                WHERE csp_submission_id = :id
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", submissionId)
+                .addValue("clientNumber", clientNumber)
+                .addValue("clientLocnCode", clientLocnCode)
+                .addValue("userId", userId);
+        jdbc.update(sql, params);
+    }
 }

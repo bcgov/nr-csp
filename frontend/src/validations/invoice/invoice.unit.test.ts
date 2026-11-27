@@ -12,6 +12,7 @@ const validInvoice = (): InvoiceFieldValues => ({
   invNumber: 'INV-100',
   invDate: '2026-05-19',
   invType: 'SAL',
+  fobCode: 'V',
   submittedBy: 'Seller',
   submitterLocation: '00',
   otherClientLocation: '',
@@ -38,7 +39,9 @@ describe('validate (invoice fields)', () => {
 
   it.each([
     { field: 'invNumber', value: '  ', key: 'invoice.client.invnumber.required.error' },
-    { field: 'invNumber', value: 'inv 100!', key: 'invoice.client.invnumber.pattern.error' },
+    { field: 'invNumber', value: 'INV\t100', key: 'invoice.client.invnumber.pattern.error' },
+    { field: 'invNumber', value: 'INV\\100', key: 'invoice.client.invnumber.pattern.error' },
+    { field: 'fobCode', value: 'A'.repeat(121), key: 'invoice.client.fob.maxlength.error' },
     { field: 'invNumber', value: 'INV-1234567890AB', key: 'invoice.client.invnumber.maxlength.error' },
     { field: 'invDate', value: '', key: 'invoice.client.invdate.required.error' },
     { field: 'invType', value: '', key: 'invoice.client.invtype.required.error' },
@@ -58,6 +61,15 @@ describe('validate (invoice fields)', () => {
   ])('flags $key when $field is "$value"', ({ field, value, key }) => {
     const result = validate({ ...validInvoice(), [field]: value });
     expect(keys(result)).toContain(key);
+  });
+
+  // Legacy accepted these, and so does the CSP schema.
+  it.each(['INV/42', 'INV 42', 'A.B#1'])('accepts the legacy invoice number "%s"', (invNumber) => {
+    expect(validate({ ...validInvoice(), invNumber }).hasErrors()).toBe(false);
+  });
+
+  it('accepts a free-text FOB location', () => {
+    expect(validate({ ...validInvoice(), fobCode: 'TEST LANDING' }).hasErrors()).toBe(false);
   });
 
   it('accepts an empty optional other-client location', () => {

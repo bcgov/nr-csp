@@ -10,7 +10,7 @@ import java.util.List;
 public record InvoiceDetails(
         @Schema(description = "Invoice detail id", example = "12345")
         Long invID,
-        @Pattern(regexp = "^[A-Z0-9-]+$")
+        @Pattern(regexp = InvoiceDetails.INVOICE_NUMBER_PATTERN)
         @Schema(description = "Invoice number", example = "INV-2026-001")
         String invNumber,
         @Schema(description = "Invoice date", example = "2026-05-19")
@@ -79,4 +79,9 @@ public record InvoiceDetails(
         String submitComments,
         @Schema(description = "User ID that entered this invoice", example = "user123")
         String entryUserID
-) {}
+) {
+
+    // Legacy's invoice-number field refused only tabs, line breaks and backslashes (admin_info.xhtml).
+    // Shared by the staff form's API and the XML rules so both channels accept the same numbers.
+    public static final String INVOICE_NUMBER_PATTERN = "^[^\\t\\n\\x0B\\f\\r\\\\]+$";
+}

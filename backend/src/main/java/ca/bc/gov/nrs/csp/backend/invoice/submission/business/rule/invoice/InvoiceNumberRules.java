@@ -1,5 +1,6 @@
 package ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.invoice;
 
+import ca.bc.gov.nrs.csp.backend.controller.dto.invoiceDetails.InvoiceDetails;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.InvoiceRule;
 import ca.bc.gov.nrs.csp.backend.invoice.submission.business.rule.InvoiceRuleContext;
 import org.springframework.stereotype.Component;
@@ -18,17 +19,12 @@ public class InvoiceNumberRules implements InvoiceRule {
   private static final Object[] NO_ARGS = new Object[0];
 
   /**
-   * Uppercase letters, digits and hyphens only — the same constraint the manual
-   * path puts on its request DTOs ({@code InvoiceDetails.invNumber}), so a number
-   * one channel accepts the other accepts too.
-   *
-   * <p>Case is not a concern by the time this runs: identifiers are trimmed and
-   * upper-cased as the submission is parsed, so a lower-case number in the file
-   * is normalised rather than rejected, and surrounding whitespace (which
-   * pretty-printed XML introduces on its own) is dropped before the check. The
-   * schema caps the length at 15, so there is no length check here.
+   * Legacy's rule: anything but tabs, line breaks and backslashes, the same
+   * constraint the manual path puts on its request DTOs, so a number one channel
+   * accepts the other accepts too. Identifiers are trimmed and upper-cased as the
+   * submission is parsed, and the schema caps the length at 15.
    */
-  private static final Pattern INVOICE_NUMBER = Pattern.compile("^[A-Z0-9-]+$");
+  private static final Pattern INVOICE_NUMBER = Pattern.compile(InvoiceDetails.INVOICE_NUMBER_PATTERN);
 
   @Override
   public void validate(InvoiceRuleContext ctx) {

@@ -14,7 +14,8 @@ import java.util.List;
 @Schema(description = "Body for updating an existing invoice. The invoice id is taken from the URL path. Status is preserved as DRAFT on save; use /submit or /status to transition status.")
 public record UpdateInvoiceRequest(
         @NotBlank
-        @Pattern(regexp = "^[A-Z0-9-]+$")
+        // Legacy refused only tabs, line breaks and backslashes (admin_info.xhtml); the column holds 15.
+        @Pattern(regexp = InvoiceDetails.INVOICE_NUMBER_PATTERN)
         @Size(max = 15)
         @Schema(description = "Client-supplied invoice number", example = "INV-2026-001")
         String invNumber,
@@ -27,7 +28,8 @@ public record UpdateInvoiceRequest(
         String invType,
         @Schema(description = "Maturity code", example = "M")
         String maturity,
-        @Schema(description = "FOB code", example = "FOB01")
+        @Size(max = 120)
+        @Schema(description = "FOB location, a code or free text", example = "TEST LANDING")
         String fobCode,
         @Schema(description = "Primary sort code", example = "SORT01")
         String primarySortCode,

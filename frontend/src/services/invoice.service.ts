@@ -21,6 +21,13 @@ export interface LineItemRequest {
   convertedPrice?: number | null;
 }
 
+// Moves every line in a group to a new secondary sort and species.
+export interface LineItemGroupUpdateRequest {
+  lineItemIds: number[];
+  secondSort: string;
+  species: string;
+}
+
 export interface LineItemResponse {
   lineItemID: number;
   invoiceID: number;
@@ -172,9 +179,14 @@ export const updateInvoice = (
 export const deleteInvoice = (id: number, expectedVersion: string): Promise<void> =>
   apiClient.delete(`${ROOT}/${id}`, versionParams(expectedVersion)).then(() => undefined);
 
-export const submitInvoice = (id: number, expectedVersion: string): Promise<InvoiceResponse> =>
+// Sends the form on screen, which the backend saves and submits in one step, like legacy Submit.
+export const submitInvoice = (
+  id: number,
+  expectedVersion: string,
+  body: UpdateInvoiceRequest,
+): Promise<InvoiceResponse> =>
   apiClient
-    .post<InvoiceResponse>(`${ROOT}/${id}/submit`, undefined, versionParams(expectedVersion))
+    .post<InvoiceResponse>(`${ROOT}/${id}/submit`, body, versionParams(expectedVersion))
     .then(({ data }) => data);
 
 export const duplicateInvoice = (id: number): Promise<InvoiceResponse> =>
@@ -219,6 +231,27 @@ export const deleteInvoiceLineItem = (
 ): Promise<InvoiceResponse> =>
   apiClient
     .delete<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items/${lineId}`, versionParams(expectedVersion))
+    .then(({ data }) => data);
+
+// A group edit or delete is one request, so the backend applies it in one transaction like legacy.
+export const updateInvoiceLineItemGroup = (
+  invoiceId: number,
+  expectedVersion: string,
+  body: LineItemGroupUpdateRequest,
+): Promise<InvoiceResponse> =>
+  apiClient
+    .patch<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items`, body, versionParams(expectedVersion))
+    .then(({ data }) => data);
+
+export const deleteInvoiceLineItemGroup = (
+  invoiceId: number,
+  expectedVersion: string,
+  lineItemIds: number[],
+): Promise<InvoiceResponse> =>
+  apiClient
+    .delete<InvoiceResponse>(`${ROOT}/${invoiceId}/line-items`, {
+      params: { expectedVersion, lineItemIds: lineItemIds.join(',') },
+    })
     .then(({ data }) => data);
 
 // ----------------------------------------------------------------------------
@@ -293,8 +326,8 @@ export const useDeleteInvoiceMutation = () => {
 export const useSubmitInvoiceMutation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, expectedVersion }: { id: number; expectedVersion: string }) =>
-      submitInvoice(id, expectedVersion),
+    mutationFn: ({ id, expectedVersion, body }: { id: number; expectedVersion: string; body: UpdateInvoiceRequest }) =>
+      submitInvoice(id, expectedVersion, body),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);
@@ -377,6 +410,44 @@ export const useDeleteInvoiceLineItemMutation = () => {
       lineId: number;
       expectedVersion: string;
     }) => deleteInvoiceLineItem(invoiceId, lineId, expectedVersion),
+    onSuccess: (data) => {
+      qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
+    },
+  });
+};
+
+export const useUpdateInvoiceLineItemGroupMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      invoiceId,
+      expectedVersion,
+      body,
+    }: {
+      invoiceId: number;
+      expectedVersion: string;
+      body: LineItemGroupUpdateRequest;
+    }) => updateInvoiceLineItemGroup(invoiceId, expectedVersion, body),
+    onSuccess: (data) => {
+      qc.setQueryData([...QUERY_KEY, data.invID], data);
+      invalidateSubmissionHistory(qc);
+    },
+  });
+};
+
+export const useDeleteInvoiceLineItemGroupMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      invoiceId,
+      expectedVersion,
+      lineItemIds,
+    }: {
+      invoiceId: number;
+      expectedVersion: string;
+      lineItemIds: number[];
+    }) => deleteInvoiceLineItemGroup(invoiceId, expectedVersion, lineItemIds),
     onSuccess: (data) => {
       qc.setQueryData([...QUERY_KEY, data.invID], data);
       invalidateSubmissionHistory(qc);

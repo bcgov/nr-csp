@@ -40,7 +40,6 @@ import TagInput from '@/components/Form/TagInput';
 import TextArea from '@/components/Form/TextArea';
 import { useNotification } from '@/context/notification/useNotification';
 import { ROUTES } from '@/routes/routePaths';
-import { useFobCodesQuery } from '@/services/fob.service';
 import { useAuth } from '@/context/auth/useAuth';
 import { usePermission } from '@/context/auth/usePermission';
 import {
@@ -62,19 +61,20 @@ import {
   type CreateInvoiceRequest,
   type LineItemRequest,
   type LineItemResponse,
-  type InvoiceResponse,
   type ValidationMessageResponse,
   extractApiErrorMessage,
   extractValidationErrors,
   useAddInvoiceLineItemMutation,
   useChangeInvoiceStatusMutation,
   useCreateInvoiceMutation,
+  useDeleteInvoiceLineItemGroupMutation,
   useDeleteInvoiceLineItemMutation,
   useDeleteInvoiceMutation,
   useDuplicateInvoiceMutation,
   useExportInvoiceGroupSummaryMutation,
   useInvoiceQuery,
   useSubmitInvoiceMutation,
+  useUpdateInvoiceLineItemGroupMutation,
   useUpdateInvoiceLineItemMutation,
   useUpdateInvoiceMutation,
 } from '@/services/invoice.service';
@@ -123,9 +123,7 @@ const SUBMITTED_BY_OPTIONS: LookupItemResponse[] = [
 // legacy app — rejected/cancelled/approved invoices are read-only headers).
 // Saving a PRO/UNA invoice reverts the record to DFT (backend).
 const EDITABLE_STATUSES = new Set(['DFT', 'PRO', 'UNA']);
-// Statuses in which line items / groups can be edited or deleted. Allowed in
-// every status (legacy parity): APP keeps group-only editing (see
-// `canEditLineRows`), the rest allow both row- and group-level edit/delete.
+// Statuses in which groups can be edited or deleted. Single rows follow Save instead (see `canEditLineRows`).
 const LINE_ITEM_EDITABLE_STATUSES = new Set(['DFT', 'PRO', 'APP', 'UNA', 'REJ', 'CAN']);
 // Statuses in which Submit is offered (plus NEW / unsaved). Note PRO is NOT
 // submittable — a processing invoice is already submitted.
@@ -291,7 +289,6 @@ export function InvoicePage() {
   const { data: speciesItems = [] } = useSpeciesLookupQuery();
   const { data: sortCodeItems = [] } = useSortCodesLookupQuery();
   const { data: gradeItems = [] } = useGradeLookupQuery();
-  const { data: fobItems = [] } = useFobCodesQuery();
   // Full active (species, grade) xref — cached once per session and used
   // to filter the Add New Line Item form's Species and Grade dropdowns
   // against each other so the user can only pick valid combinations.
@@ -315,6 +312,8 @@ export function InvoicePage() {
   const addLineItemMutation = useAddInvoiceLineItemMutation();
   const deleteLineItemMutation = useDeleteInvoiceLineItemMutation();
   const updateLineItemMutation = useUpdateInvoiceLineItemMutation();
+  const updateLineItemGroupMutation = useUpdateInvoiceLineItemGroupMutation();
+  const deleteLineItemGroupMutation = useDeleteInvoiceLineItemGroupMutation();
   const exportMutation = useExportInvoiceGroupSummaryMutation();
 
   // -----------------------------------------------------------------
@@ -482,6 +481,7 @@ export function InvoicePage() {
     invNumber,
     invDate,
     invType: invTypeCode,
+    fobCode: fobCodeValue,
     submittedBy: submittedByCode,
     submitterLocation: submittingClientLocation,
     otherClientLocation,
@@ -499,6 +499,7 @@ export function InvoicePage() {
       invNumber,
       invDate,
       invTypeCode,
+      fobCodeValue,
       submittedByCode,
       submittingClientLocation,
       otherClientLocation,
@@ -512,6 +513,7 @@ export function InvoicePage() {
     invNumber,
     invDate,
     invType: invTypeCode,
+    fobCode: fobCodeValue,
     submittedBy: submittedByCode,
     submittingClientLocation,
     otherClientLocation,
@@ -536,6 +538,7 @@ export function InvoicePage() {
       invNumber,
       invDate,
       invTypeCode,
+      fobCodeValue,
       submittedByCode,
       submittingClientLocation,
       otherClientLocation,
@@ -646,7 +649,6 @@ export function InvoicePage() {
     );
   };
   const [editGroupFieldErrors, setEditGroupFieldErrors] = useState<Record<string, string>>({});
-  const [fobValidationError, setFobValidationError] = useState('');
 
   // Which group rows are expanded, keyed by GroupRow.id.
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
@@ -661,13 +663,8 @@ export function InvoicePage() {
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirm | null>(null);
 
   // Disable Save/Submit while ANY field is showing a validation error: the
-  // live structural checks, server-returned field errors, the FOB lookup
-  // check, or the reviewer-comment check.
-  const hasAnyFieldError =
-    hasStructuralErrors ||
-    Object.keys(fieldErrors).length > 0 ||
-    fobValidationError !== '' ||
-    reviewerCommentError !== '';
+  // live structural checks, server-returned field errors, or the reviewer-comment check.
+  const hasAnyFieldError = hasStructuralErrors || Object.keys(fieldErrors).length > 0 || reviewerCommentError !== '';
 
   // -----------------------------------------------------------------
   // Filtered species list for the group-edit modal — only species that
@@ -684,20 +681,6 @@ export function InvoicePage() {
       gradesInGroup.every((g) => speciesGradeCombos.some((c) => c.species === s.code && c.grade === g)),
     );
   }, [editGroupDraft, lineItems, speciesItems, speciesGradeCombos]);
-
-  // Run on blur of the FOB text input: check the entered code against the
-  // /api/lookup/fob list. Empty values clear the error (required-ness is
-  // enforced server-side via the standard fieldErrors flow). Skip while
-  // the FOB list is still loading so we don't false-flag a valid code.
-  const validateFobOnBlur = () => {
-    if (fobCodeValue.trim() === '') {
-      setFobValidationError('');
-      return;
-    }
-    if (fobItems.length === 0) return;
-    const exists = fobItems.some((f) => f.code === fobCodeValue.trim());
-    setFobValidationError(exists ? '' : `FOB code "${fobCodeValue}" is not a valid FOB location.`);
-  };
 
   // -----------------------------------------------------------------
   // Reset all form state whenever the URL invoice id changes — this
@@ -757,7 +740,6 @@ export function InvoicePage() {
     setPageErrors([]);
     setWarnings([]);
     setReviewerCommentError('');
-    setFobValidationError('');
     setNewLineFieldErrors({});
     setEditLineDraft(null);
     setEditLineOpenedAtVersion(undefined);
@@ -914,9 +896,8 @@ export function InvoicePage() {
     isExisting &&
     !!loadedInvoice &&
     LINE_ITEM_EDITABLE_STATUSES.has(currentStatus);
-  // Individual line-item rows are editable/deletable in the same statuses EXCEPT
-  // APP — in APP only the group as a whole can be edited/deleted.
-  const canEditLineRows = canEditLineItems && currentStatus !== 'APP';
+  // Legacy offers the row editor and line trash only while Save is enabled (groups.xhtml), so DFT/PRO/UNA.
+  const canEditLineRows = canEditLineItems && EDITABLE_STATUSES.has(currentStatus);
   const hasLineItems = lineItems.length > 0;
 
   // ── Inline button loading ────────────────────────────────────────────────
@@ -934,7 +915,9 @@ export function InvoicePage() {
     changeStatusMutation.isPending ||
     addLineItemMutation.isPending ||
     deleteLineItemMutation.isPending ||
-    updateLineItemMutation.isPending;
+    updateLineItemMutation.isPending ||
+    updateLineItemGroupMutation.isPending ||
+    deleteLineItemGroupMutation.isPending;
   const savePending = createMutation.isPending || updateMutation.isPending;
   const approvePending = statusInFlight === 'APP';
   const unapprovePending = statusInFlight === 'UNA';
@@ -953,6 +936,9 @@ export function InvoicePage() {
   const totalPieces = lineItems.reduce((s, l) => s + (l.numOfPieces ?? 0), 0);
   const totalVolume = lineItems.reduce((s, l) => s + Number(l.volume ?? 0), 0);
   const totalAmount = lineItems.reduce((s, l) => s + Number(l.amount ?? 0), 0);
+  // An electronic invoice keeps the totals industry declared; the group summary shows the line sums.
+  // Legacy also showed the stored header totals beside the group totals (details_info.xhtml, group_summary.xhtml).
+  const showDeclaredTotals = isExisting && !isManual;
 
   // Read-only meta values (not yet returned from any endpoint). For a brand-new
   // invoice created from scratch there's no stored received date, so default the
@@ -1091,11 +1077,7 @@ export function InvoicePage() {
   );
 
   const applyServerErrors = (errors: ValidationMessageResponse[]) =>
-    routeServerErrors(
-      errors,
-      canEdit ? MESSAGE_KEY_TO_FIELD : REVIEWER_COMMENT_ONLY_FIELD_MAP,
-      setFieldErrors,
-    );
+    routeServerErrors(errors, canEdit ? MESSAGE_KEY_TO_FIELD : REVIEWER_COMMENT_ONLY_FIELD_MAP, setFieldErrors);
 
   // Variant for the POST/PATCH /line-items mutations — routes mapped keys to
   // the Add New Line Item form's inline state and unmapped keys to the banner.
@@ -1251,9 +1233,10 @@ export function InvoicePage() {
       fobCode: fobCodeValue || null,
       primarySortCode: primarySortCodeValue || null,
       clientPrimarySortCode: clientPrimarySortCode || null,
-      totalAmt: totalAmount,
-      totalPieces,
-      totalVol: totalVolume,
+      // The backend recalculates a manual invoice's totals and keeps an electronic one's declared totals.
+      totalAmt: isManual ? totalAmount : (loadedInvoice?.totalAmt ?? null),
+      totalPieces: isManual ? totalPieces : (loadedInvoice?.totalPieces ?? null),
+      totalVol: isManual ? totalVolume : (loadedInvoice?.totalVol ?? null),
       submitterClientNum: submittingClientNumber,
       submitterLocation: submittingClientLocation,
       submittedBy: (submittedByCode || 'Seller') as 'Buyer' | 'Seller',
@@ -1317,33 +1300,28 @@ export function InvoicePage() {
     setEditGroupFieldErrors({});
   }, []);
 
-  // Deleting a group removes each of its line items
-  const performGroupDelete = async (group: GroupRow, openedAtVersion: string | undefined) => {
+  // Deleting a group removes all of its line items in one request, so a refusal deletes none.
+  const performGroupDelete = (group: GroupRow, openedAtVersion: string | undefined) => {
     if (!invoiceId || !openedAtVersion) return;
     clearErrors();
-    const ids = group.lineItems.map((l) => l.lineItemID).filter((id) => id > 0);
-    let lastResponse: InvoiceResponse | undefined;
-    for (const lineId of ids) {
-      // Each delete changes the version, so the next one sends the version the last one returned.
-      const expectedVersion = lastResponse?.version ?? openedAtVersion;
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        lastResponse = await deleteLineItemMutation.mutateAsync({ invoiceId, lineId, expectedVersion });
-      } catch (err) {
-        if (lastResponse) advanceOpenEditors(openedAtVersion, lastResponse.version);
-        setDeleteConfirm(null);
-        handleMutationError(err, 'Failed to delete group.');
-        return;
-      }
-    }
-    if (lastResponse) {
-      advanceOpenEditors(openedAtVersion, lastResponse.version);
-      setLineItems(lastResponse.lineItems ?? []);
-      setWarnings(lastResponse.warnings ?? []);
-      applyServerErrors(lastResponse.errors ?? []);
-    }
-    setDeleteConfirm(null);
-    addNotification({ kind: 'success', title: 'Group deleted.' });
+    const lineItemIds = group.lineItems.map((l) => l.lineItemID).filter((id) => id > 0);
+    deleteLineItemGroupMutation.mutate(
+      { invoiceId, expectedVersion: openedAtVersion, lineItemIds },
+      {
+        onSuccess: (data) => {
+          advanceOpenEditors(openedAtVersion, data.version);
+          setLineItems(data.lineItems ?? []);
+          setWarnings(data.warnings ?? []);
+          applyServerErrors(data.errors ?? []);
+          setDeleteConfirm(null);
+          addNotification({ kind: 'success', title: 'Group deleted.' });
+        },
+        onError: (err) => {
+          setDeleteConfirm(null);
+          handleMutationError(err, 'Failed to delete group.');
+        },
+      },
+    );
   };
   const performGroupDeleteRef = useRef(performGroupDelete);
   performGroupDeleteRef.current = performGroupDelete;
@@ -1428,7 +1406,7 @@ export function InvoicePage() {
       <TableRow className="invoice-page__line-items-totals-row">
         <TableCell colSpan={4} />
         <TableCell>
-          <strong>Invoice totals</strong>
+          <strong>{isManual ? 'Invoice totals' : 'Calculated totals'}</strong>
         </TableCell>
         <TableCell style={{ textAlign: 'right' }}>
           <strong>{formatNumber(totalPieces)}</strong>
@@ -1443,7 +1421,7 @@ export function InvoicePage() {
         <TableCell />
       </TableRow>
     );
-  }, [groupRows]);
+  }, [groupRows, isManual]);
 
   // -----------------------------------------------------------------
   // Action handlers — each runs the matching mutation and surfaces the
@@ -1490,7 +1468,7 @@ export function InvoicePage() {
     clearErrors();
     const expectedVersion = loadedInvoice.version;
     submitMutation.mutate(
-      { id: invoiceId, expectedVersion },
+      { id: invoiceId, expectedVersion, body: buildRequestBody() },
       {
         onSuccess: (data) => {
           advanceOpenEditors(expectedVersion, data.version);
@@ -1695,7 +1673,7 @@ export function InvoicePage() {
     setEditGroupFieldErrors({});
   };
 
-  const handleSaveGroupEdit = async () => {
+  const handleSaveGroupEdit = () => {
     if (!invoiceId || !editGroupDraft?.openedAtVersion) return;
     const { lineItemIds, secondSort, species, openedAtVersion } = editGroupDraft;
     if (!secondSort || !species) {
@@ -1706,64 +1684,46 @@ export function InvoicePage() {
       return;
     }
     clearErrors();
-    let lastResponse: InvoiceResponse | undefined;
-    for (const lineId of lineItemIds) {
-      const sourceLines = lastResponse?.lineItems ?? lineItems;
-      const existing = sourceLines.find((l) => l.lineItemID === lineId);
-      if (!existing) continue;
-      const body: LineItemRequest = {
-        lineItemID: lineId,
-        secondSort,
-        clientSecondarySort: existing.clientSecondarySort ?? null,
-        species,
-        grade: existing.grade,
-        numOfPieces: existing.numOfPieces,
-        price: existing.price,
-        volume: existing.volume,
-        convertedPrice: existing.convertedPrice ?? null,
-      };
-      // Each update changes the version, so the next one sends the version the last one returned.
-      const expectedVersion = lastResponse?.version ?? openedAtVersion;
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        lastResponse = await updateLineItemMutation.mutateAsync({ invoiceId, lineId, expectedVersion, body });
-      } catch (err) {
-        if (lastResponse) advanceOpenEditors(openedAtVersion, lastResponse.version);
-        const errors = extractValidationErrors(err);
-        if (errors.length > 0) {
-          const inline: Record<string, string> = {};
-          errors.forEach((e) => {
-            const field = LINE_ITEM_MESSAGE_KEY_TO_FIELD[e.messageKey];
-            if (field === 'secondarySort') inline.secondSort = e.message || e.messageKey;
-            else if (field === 'grade' || field === 'pieces' || field === 'volume' || field === 'price') {
-              // Cross-field rules between the new species and the lines'
-              // existing data — surface against the species dropdown.
-              inline.species = e.message || e.messageKey;
-            }
-          });
-          setEditGroupFieldErrors(inline);
-        } else {
-          addNotification({
-            kind: 'error',
-            title: 'Failed to update group.',
-            subtitle: extractApiErrorMessage(err),
-          });
-        }
-        return; // bail out of the loop on the first failure
-      }
-    }
-    if (lastResponse) {
-      advanceOpenEditors(openedAtVersion, lastResponse.version);
-      const nextLines = lastResponse.lineItems ?? [];
-      setLineItems(nextLines);
-      // Keep the edited group open under its new (sort/species-derived) id.
-      keepGroupsExpandedForLines(nextLines, lineItemIds);
-      setWarnings(lastResponse.warnings ?? []);
-      applyServerErrors(lastResponse.errors ?? []);
-    }
-    setEditGroupDraft(null);
-    setEditGroupFieldErrors({});
-    addNotification({ kind: 'success', title: 'Group updated.' });
+    // One request for the whole group: the backend validates every line and saves all or none.
+    updateLineItemGroupMutation.mutate(
+      { invoiceId, expectedVersion: openedAtVersion, body: { lineItemIds, secondSort, species } },
+      {
+        onSuccess: (data) => {
+          advanceOpenEditors(openedAtVersion, data.version);
+          const nextLines = data.lineItems ?? [];
+          setLineItems(nextLines);
+          // Keep the edited group open under its new (sort/species-derived) id.
+          keepGroupsExpandedForLines(nextLines, lineItemIds);
+          setWarnings(data.warnings ?? []);
+          applyServerErrors(data.errors ?? []);
+          setEditGroupDraft(null);
+          setEditGroupFieldErrors({});
+          addNotification({ kind: 'success', title: 'Group updated.' });
+        },
+        onError: (err) => {
+          const errors = extractValidationErrors(err);
+          if (errors.length > 0) {
+            const inline: Record<string, string> = {};
+            errors.forEach((e) => {
+              const field = LINE_ITEM_MESSAGE_KEY_TO_FIELD[e.messageKey];
+              if (field === 'secondarySort') inline.secondSort = e.message || e.messageKey;
+              else if (field === 'grade' || field === 'pieces' || field === 'volume' || field === 'price') {
+                // Cross-field rules between the new species and the lines'
+                // existing data — surface against the species dropdown.
+                inline.species = e.message || e.messageKey;
+              }
+            });
+            setEditGroupFieldErrors(inline);
+          } else {
+            addNotification({
+              kind: 'error',
+              title: 'Failed to update group.',
+              subtitle: extractApiErrorMessage(err),
+            });
+          }
+        },
+      },
+    );
   };
 
   const handleExport = (format: 'csv' | 'pdf') => {
@@ -2101,15 +2061,10 @@ export function InvoicePage() {
                       id="fob-code"
                       labelText={<RequiredLabel>FOB</RequiredLabel>}
                       value={fobCodeValue}
-                      onChange={(e) => {
-                        setFobCodeValue(e.target.value);
-                        // Clear the inline error while the user is editing —
-                        // it'll be re-checked on blur.
-                        if (fobValidationError) setFobValidationError('');
-                      }}
-                      onBlur={validateFobOnBlur}
-                      invalid={!!fobValidationError || !!displayFieldErrors.fobCode}
-                      invalidText={fobValidationError || displayFieldErrors.fobCode}
+                      // Free text, as in legacy and the CSP schema: a lookup code or a place name.
+                      onChange={(e) => setFobCodeValue(e.target.value)}
+                      invalid={!!displayFieldErrors.fobCode}
+                      invalidText={displayFieldErrors.fobCode}
                       disabled={!canEdit}
                     />
                   </Column>
@@ -2127,20 +2082,43 @@ export function InvoicePage() {
                     />
                   </Column>
 
-                  <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
-                    <span className="invoice-page__meta-label">Total pieces</span>
-                    <span className="invoice-page__meta-value">{hasLineItems ? formatNumber(totalPieces) : '—'}</span>
-                  </Column>
-                  <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
-                    <span className="invoice-page__meta-label">Total volume (m3)</span>
-                    <span className="invoice-page__meta-value">
-                      {hasLineItems ? formatNumber(totalVolume, 3) : '—'}
-                    </span>
-                  </Column>
-                  <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
-                    <span className="invoice-page__meta-label">Total amount</span>
-                    <span className="invoice-page__meta-value">{hasLineItems ? formatCurrency(totalAmount) : '—'}</span>
-                  </Column>
+                  {showDeclaredTotals ? (
+                    <>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Declared total pieces</span>
+                        <span className="invoice-page__meta-value">{formatNumber(loadedInvoice?.totalPieces)}</span>
+                      </Column>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Declared total volume (m3)</span>
+                        <span className="invoice-page__meta-value">{formatNumber(loadedInvoice?.totalVol, 3)}</span>
+                      </Column>
+                      <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Declared total amount</span>
+                        <span className="invoice-page__meta-value">{formatCurrency(loadedInvoice?.totalAmt)}</span>
+                      </Column>
+                    </>
+                  ) : (
+                    <>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Total pieces</span>
+                        <span className="invoice-page__meta-value">
+                          {hasLineItems ? formatNumber(totalPieces) : '—'}
+                        </span>
+                      </Column>
+                      <Column sm={4} md={3} lg={5} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Total volume (m3)</span>
+                        <span className="invoice-page__meta-value">
+                          {hasLineItems ? formatNumber(totalVolume, 3) : '—'}
+                        </span>
+                      </Column>
+                      <Column sm={4} md={2} lg={6} className="invoice-page__meta-col">
+                        <span className="invoice-page__meta-label">Total amount</span>
+                        <span className="invoice-page__meta-value">
+                          {hasLineItems ? formatCurrency(totalAmount) : '—'}
+                        </span>
+                      </Column>
+                    </>
+                  )}
 
                   <Column sm={4} md={3} lg={5} className="invoice-page__field-col invoice-page__field-col--left">
                     <TagInput
@@ -2348,9 +2326,11 @@ export function InvoicePage() {
                   size="md"
                   className="invoice-page__action-btn invoice-page__action-btn--submit"
                   onClick={handleSubmit}
+                  // Submit saves the form first, so it also needs Save.
                   disabled={
                     !canSubmit ||
                     !canSubmitPerm ||
+                    !canSavePerm ||
                     hasAnyFieldError ||
                     !requiredFieldsFilled ||
                     !hasLineItems ||
@@ -2432,7 +2412,7 @@ export function InvoicePage() {
         }
         submitLabel="Save"
         cancelLabel="Cancel"
-        submitLoading={updateLineItemMutation.isPending}
+        submitLoading={updateLineItemGroupMutation.isPending}
         onClose={handleCancelGroupEdit}
         onSubmit={handleSaveGroupEdit}
       >
@@ -2478,7 +2458,9 @@ export function InvoicePage() {
         cancelLabel="Cancel"
         submitIcon={TrashCan}
         danger
-        submitLoading={deleteMutation.isPending || deleteLineItemMutation.isPending}
+        submitLoading={
+          deleteMutation.isPending || deleteLineItemMutation.isPending || deleteLineItemGroupMutation.isPending
+        }
         onClose={() => setDeleteConfirm(null)}
         onSubmit={() => deleteConfirm?.onConfirm()}
       >

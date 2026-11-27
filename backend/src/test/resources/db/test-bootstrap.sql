@@ -121,15 +121,18 @@ INSERT INTO the.log_sale_grade_code VALUES ('J', 'J Grade', DATE '2000-01-01', D
 /
 
 CREATE TABLE the.csp_species_grade_xref (
-    log_sale_species_code VARCHAR2(3),
-    log_sale_grade_code   VARCHAR2(1),
-    effective_date        DATE,
-    expiry_date           DATE
+    csp_species_grade_xref_id NUMBER(10) PRIMARY KEY,
+    log_sale_species_code     VARCHAR2(3),
+    log_sale_grade_code       VARCHAR2(1),
+    effective_date            DATE,
+    expiry_date               DATE
 )
 /
-INSERT INTO the.csp_species_grade_xref VALUES ('HEM', 'H', DATE '2000-01-01', DATE '9999-12-31')
+INSERT INTO the.csp_species_grade_xref VALUES (1, 'HEM', 'H', DATE '2000-01-01', DATE '9999-12-31')
 /
-INSERT INTO the.csp_species_grade_xref VALUES ('BAL', 'J', DATE '2000-01-01', DATE '9999-12-31')
+INSERT INTO the.csp_species_grade_xref VALUES (2, 'BAL', 'J', DATE '2000-01-01', DATE '9999-12-31')
+/
+INSERT INTO the.csp_species_grade_xref VALUES (3, 'BAL', 'H', DATE '2000-01-01', DATE '9999-12-31')
 /
 
 CREATE TABLE the.csp_modelling_code (

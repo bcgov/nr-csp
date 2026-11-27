@@ -11,12 +11,15 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.KeyHolder;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -73,50 +76,62 @@ class LogSaleParticipantRepositoryTest {
     }
 
     // ---------------------------------------------------------------
-    // update
+    // findOrInsert
     // ---------------------------------------------------------------
 
     @Test
-    void update_bindsAllParamsAndBumpsRevisionCount() {
-        repo.update(321L, "ACME Logging", "Nanaimo", "BC", "USER1");
+    void findOrInsert_reusesTheFirstParticipantWithTheSameDetails() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
+                .willReturn(List.of(12L, 34L));
+
+        assertThat(repo.findOrInsert("ACME Logging", "Victoria", "BC", "USER1")).isEqualTo(12L);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc).update(sqlCaptor.capture(), paramsCaptor.capture());
-
+        verify(jdbc).queryForList(sqlCaptor.capture(), paramsCaptor.capture(), eq(Long.class));
         assertThat(sqlCaptor.getValue())
-                .contains("UPDATE THE.log_sale_participant SET")
-                .contains("revision_count = revision_count + 1")
-                .contains("WHERE log_sale_participant_id = :id");
+                .contains("WHERE name = :name AND city = :city AND province = :province")
+                .contains("ORDER BY log_sale_participant_id");
+        assertThat(paramsCaptor.getValue().getValue("name")).isEqualTo("ACME Logging");
+        verify(jdbc, never()).update(anyString(), any(MapSqlParameterSource.class), any(KeyHolder.class), any(String[].class));
+    }
 
-        MapSqlParameterSource params = paramsCaptor.getValue();
-        assertThat(params.getValue("id")).isEqualTo(321L);
-        assertThat(params.getValue("name")).isEqualTo("ACME Logging");
-        assertThat(params.getValue("city")).isEqualTo("Nanaimo");
-        assertThat(params.getValue("province")).isEqualTo("BC");
-        assertThat(params.getValue("userId")).isEqualTo("USER1");
+    @Test
+    void findOrInsert_insertsWhenNoParticipantMatches() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class))).willReturn(List.of());
+        given(jdbc.update(anyString(), any(MapSqlParameterSource.class), any(KeyHolder.class), any(String[].class)))
+                .willAnswer(inv -> {
+                    KeyHolder keyHolder = inv.getArgument(2);
+                    keyHolder.getKeyList().add(Map.of("LOG_SALE_PARTICIPANT_ID", BigDecimal.valueOf(321L)));
+                    return 1;
+                });
+
+        assertThat(repo.findOrInsert("ACME Logging", "Victoria", "BC", "USER1")).isEqualTo(321L);
     }
 
     // ---------------------------------------------------------------
-    // delete
+    // deleteIfUnreferenced
     // ---------------------------------------------------------------
 
     @Test
-    void delete_nullId_doesNothing() {
-        repo.delete(null);
+    void deleteIfUnreferenced_nullId_doesNothing() {
+        repo.deleteIfUnreferenced(null);
         verifyNoInteractions(jdbc);
     }
 
     @Test
-    void delete_deletesByPrimaryKey() {
-        repo.delete(321L);
+    void deleteIfUnreferenced_skipsAParticipantAnyInvoiceStillUses() {
+        repo.deleteIfUnreferenced(321L);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
         verify(jdbc).update(sqlCaptor.capture(), paramsCaptor.capture());
 
         assertThat(sqlCaptor.getValue())
-                .contains("DELETE FROM THE.log_sale_participant WHERE log_sale_participant_id = :id");
+                .contains("DELETE FROM THE.log_sale_participant p")
+                .contains("NOT EXISTS")
+                .contains("cls.buyer_log_sale_participant_id = p.log_sale_participant_id")
+                .contains("cls.seller_log_sale_participant_id = p.log_sale_participant_id");
         assertThat(paramsCaptor.getValue().getValue("id")).isEqualTo(321L);
     }
 }
