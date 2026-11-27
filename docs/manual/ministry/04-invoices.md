@@ -158,8 +158,9 @@ updated, then approve again.
 2. Select **Reject**, or **Cancel** to withdraw the invoice.
 
 Both need a reviewer comment and work on Processing and Unapproved invoices.
-**Cancel** withdraws the invoice; it isn't a way to undo your edits. Rejected
-and cancelled invoices are final.
+**Cancel** withdraws the invoice; it isn't a way to undo your edits. You can
+still add a line or change a group on a rejected or cancelled invoice, which
+sends it back to Draft for review again.
 
 > **Note:** **Approve**, **Reject**, **Cancel** and **Unapprove** save only
 > the decision and the reviewer comment. Any other change you haven't saved is
@@ -234,8 +235,8 @@ Buttons your role or the invoice's status doesn't allow are greyed out.
 | **Draft** (DFT) | Being entered or changed. New manual invoices, uploaded invoices and duplicates start here. |
 | **Processing** (PRO) | Submitted and waiting for a decision. |
 | **Approved** (APP) | Accepted. |
-| **Rejected** (REJ) | Not accepted. Final. |
-| **Cancelled** (CAN) | Withdrawn, or replaced by another invoice. Final. |
+| **Rejected** (REJ) | Not accepted. Adding a line or changing a group sends it back to Draft. |
+| **Cancelled** (CAN) | Withdrawn, or replaced by another invoice. Adding a line or changing a group sends it back to Draft. |
 | **Unapproved** (UNA) | An approval was reversed. It can be changed and submitted again. |
 
 Saving an invoice that replaces others cancels the originals.
