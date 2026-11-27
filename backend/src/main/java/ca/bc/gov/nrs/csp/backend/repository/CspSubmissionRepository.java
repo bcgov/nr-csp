@@ -148,6 +148,12 @@ public class CspSubmissionRepository {
                 new MapSqlParameterSource("id", submissionId));
     }
 
+    // Held until commit, so decisions on sibling invoices take turns deciding the submission's status.
+    public void lockForUpdate(Long submissionId) {
+        jdbc.queryForList("SELECT csp_submission_id FROM THE.csp_submission WHERE csp_submission_id = :id FOR UPDATE",
+                new MapSqlParameterSource("id", submissionId), Long.class);
+    }
+
     public void updateSubmissionStatus(Long submissionId, String statusCode, String userId) {
         String sql = """
                 UPDATE THE.csp_submission SET

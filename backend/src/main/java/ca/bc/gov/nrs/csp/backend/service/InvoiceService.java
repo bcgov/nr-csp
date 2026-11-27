@@ -61,6 +61,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 @Service
 public class InvoiceService {
@@ -89,6 +91,12 @@ public class InvoiceService {
     /** Statuses in which Data Entry may change a manual invoice and its line items. */
     private static final Set<String> DATA_ENTRY_EDITABLE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
+    // Legacy enables Duplicate and single-line edit/delete only in these (InvoiceBean.disableButtonsBaseonStatus,
+    // duplicateStatusAction, groups.xhtml). Add and group edits are not limited to them.
+    private static final Set<String> UNDECIDED_STATUSES = Set.of(
+            ConstantsCode.INVENTRYSTATUS_DRAFT, ConstantsCode.INVENTRYSTATUS_PROCESSING,
+            ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
 
     // Same as the UI's DELETABLE_STATUSES, so the API refuses what the page never offers.
     private static final Set<String> DELETABLE_STATUSES = Set.of(
@@ -408,21 +416,28 @@ public class InvoiceService {
     }
 
     // ---------------------------------------------------------------
-    // DUPLICATE — clone as new DRAFT
+    // DUPLICATE — clone with the source's status
     // ---------------------------------------------------------------
 
     @Transactional
     public InvoiceResponse duplicate(Long id) {
         String user = SecurityContextUtils.requireUsername();
+        // Locked so a decision on the source waits for the copy, which then keeps its submission open.
+        invoiceRepo.lockVersion(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
+        String copyStatus = existing.details().invStatus();
+        if (!UNDECIDED_STATUSES.contains(copyStatus)) {
+            throw new ConflictException("Only draft, processing or unapproved invoices can be duplicated.");
+        }
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(id);
 
-        // Reset id/status on the cloned details and persist as a new DRAFT. A
+        // Legacy saves the copy with the source's status (InvSubmissionDAO.saveInvoice). A
         // manual invoice's totals come from the lines being cloned rather than
         // from the source's stored totals, so a clone can't inherit a stale one.
         InvoiceDetails cloned = withChannelTotals(
-                withId(existing.details(), null, ConstantsCode.INVENTRYSTATUS_DRAFT),
+                withId(existing.details(), null, copyStatus),
                 existingLines, existing.submissionNumber() == null);
 
         // Reuse the source invoice's submission — a submission can hold multiple
@@ -443,7 +458,11 @@ public class InvoiceService {
         }
 
         Long newInvoiceId = invoiceRepo.insertInvoice(cloned, submissionId,
-                ConstantsCode.INVENTRYSTATUS_DRAFT, buyerParticipantId, sellerParticipantId, user);
+                copyStatus, buyerParticipantId, sellerParticipantId, user);
+        if (ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(copyStatus)) {
+            // Legacy dealWithStatus stamps the copier as unapprover when the copy is saved as Unapproved.
+            invoiceRepo.updateStatus(newInvoiceId, copyStatus, user);
+        }
         for (LineItem line : existingLines) {
             LineItem freshLine = new LineItem(
                     null, newInvoiceId, line.secondSort(), line.clientSecondarySort(), line.species(),
@@ -460,7 +479,7 @@ public class InvoiceService {
                 cloned.adjustInvNum(), cloned.submitterClientNum(), cloned.submitterLocation(), user);
         log.info("Duplicated invoice id={} newId={}", id, newInvoiceId);
 
-        InvoiceDetails saved = withId(cloned, newInvoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT);
+        InvoiceDetails saved = withId(cloned, newInvoiceId, copyStatus);
         return mapper.toResponse(saved, submissionId, existing.submissionNumber(), lineItemRepo.findByInvoiceId(newInvoiceId), null,
                 invoiceRepo.findVersion(newInvoiceId));
     }
@@ -509,9 +528,18 @@ public class InvoiceService {
         invoiceRepo.updateStatus(id, request.status(), user);
         log.info("Changed invoice id={} status={}", id, request.status());
 
-        // Cascade the change to the submission status (after the invoice's own
-        // status is persisted, so the counts below reflect the new state).
-        applySubmissionStatusOnStatusChange(existing.submissionId(), request.status(), user);
+        // Legacy approve saves the invoice, and every save cancels what it replaces (InvSubmissionDAO.saveInvoice).
+        // Covers an uploaded replacement that staff approve without saving. Adjustments leave their originals active.
+        SortedSet<Long> submissionsToClose = new TreeSet<>();
+        if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(request.status())) {
+            submissionsToClose.addAll(cancelReplacedOriginals(
+                    id, invoiceRepo.findRelatedInvoiceIds(id, ConstantsCode.INVRELATETYPE_REPLACE), user));
+        }
+        // Legacy SubmissionTransferRules.provideSubmissionStatus: Unapprove leaves the submission alone.
+        if (existing.submissionId() != null && !ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(request.status())) {
+            submissionsToClose.add(existing.submissionId());
+        }
+        submissionsToClose.forEach(submissionId -> closeSubmissionIfAllDecided(submissionId, user));
 
         InvoiceDetails saved = withReviewCommentsAndStatus(existing.details(), request.reviewComments(), request.status());
         ResponseSnapshot snapshot = readResponseSnapshot(id);
@@ -535,28 +563,15 @@ public class InvoiceService {
         }
     }
 
-    /**
-     * Submission-status side effects of an invoice status change:
-     * <ul>
-     *   <li>UNAPPROVE — never changes the submission.</li>
-     *   <li>APPROVE / REJECT / CANCEL — only once no PROCESSING invoices remain in
-     *       the submission (i.e. this was the last processing invoice) does the
-     *       submission move: COMPLETE if any APPROVED invoice exists in it,
-     *       otherwise REJECTED. While other invoices are still processing, the
-     *       submission is left unchanged.</li>
-     * </ul>
-     * Must be called AFTER the invoice's own status has been persisted.
-     */
-    private void applySubmissionStatusOnStatusChange(Long submissionId, String newInvoiceStatus, String user) {
-        if (submissionId == null) return;
-        if (ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(newInvoiceStatus)) return;
+    // Legacy SubmissionTransferRules.provideSubmissionStatus: a submission closes only when every invoice is
+    // Approved, Cancelled or Rejected. Call after the invoice statuses are saved and every invoice lock is taken.
+    private void closeSubmissionIfAllDecided(Long submissionId, String user) {
+        // Without the lock, two last decisions on sibling invoices could each still see the other undecided.
+        submissionRepo.lockForUpdate(submissionId);
+        InvoiceRepository.SubmissionDecisions decisions = invoiceRepo.countDecisionsByCspSubmissionId(submissionId);
+        if (decisions.undecided() > 0) return;
 
-        int processing = invoiceRepo.countByCspSubmissionIdAndStatus(
-                submissionId, ConstantsCode.INVENTRYSTATUS_PROCESSING);
-        if (processing > 0) return; // not the last processing invoice — leave the submission alone
-
-        boolean anyApproved = invoiceRepo.countByCspSubmissionIdAndStatus(
-                submissionId, ConstantsCode.INVENTRYSTATUS_APPROVED) > 0;
+        boolean anyApproved = decisions.approved() > 0;
         String newSubmissionStatus = anyApproved
                 ? ConstantsCode.SUBMSTATUS_COMPLETE
                 : ConstantsCode.SUBMSTATUS_REJECTED;
@@ -568,36 +583,49 @@ public class InvoiceService {
      * A replacement invoice supersedes every invoice named in its "Replaces invoice
      * number(s)" field, so saving it cancels those originals. Called from create and
      * update with the ids {@link InvoiceRepository#replaceRelatedInvoices} resolved for
-     * the REP relationship (never ADJ — an adjusting invoice leaves its target alone).
+     * the REP relationship (never ADJ — an adjusting invoice leaves its target alone),
+     * and from approve with the stored REP links.
      *
      * <p>Skipped: an already-CANCELLED original (nothing to change) and a self-reference
      * (the validator rejects "replaces itself", so this is only a defensive guard).</p>
      *
      * <p>The submission-status cascade only runs when the original was in a
      * {@link #REVIEW_QUEUE_STATUSES review-queue status}, which is what the cascade was
-     * written for; it clears a replaced invoice out of the inbox. Cancelling a DRAFT
-     * original deliberately leaves its submission in the lobby:
-     * the cascade would otherwise push a lobby submission (possibly holding other drafts)
-     * to REJECTED.</p>
+     * written for; it clears a replaced invoice out of the inbox, as it does for a Draft
+     * in an upload. Cancelling a manual DRAFT original deliberately leaves its submission
+     * in the lobby: the cascade would otherwise close a lobby submission whose only invoice was that draft.</p>
      */
     private void cancelReplacedInvoices(Long replacementId, List<Long> replacedIds, String user) {
-        if (replacedIds == null) return;
+        cancelReplacedOriginals(replacementId, replacedIds, user)
+                .forEach(submissionId -> closeSubmissionIfAllDecided(submissionId, user));
+    }
+
+    // Locks and cancels every original before any submission is locked, so a concurrent decision on an
+    // original can't deadlock with this. Returns the submissions to recheck, in id order.
+    private SortedSet<Long> cancelReplacedOriginals(Long replacementId, List<Long> replacedIds, String user) {
+        SortedSet<Long> submissionsToClose = new TreeSet<>();
+        if (replacedIds == null) return submissionsToClose;
         for (Long replacedId : replacedIds) {
-            cancelReplacedInvoice(replacementId, replacedId, user);
+            Long submissionId = cancelReplacedInvoice(replacementId, replacedId, user);
+            if (submissionId != null) {
+                submissionsToClose.add(submissionId);
+            }
         }
+        return submissionsToClose;
     }
 
     /**
      * Cancels a single replaced invoice. Skips a null id, a self-reference, an invoice
-     * that no longer exists, and one that is already CANCELLED.
+     * that no longer exists, and one that is already CANCELLED. Returns its submission
+     * when the cascade applies, otherwise null.
      */
-    private void cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
-        if (replacedId == null || replacedId.equals(replacementId)) return;
+    private Long cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
+        if (replacedId == null || replacedId.equals(replacementId)) return null;
         // Lock it before reading its status, so a concurrent change to it can't land in between.
-        if (invoiceRepo.lockVersion(replacedId).isEmpty()) return;
+        if (invoiceRepo.lockVersion(replacedId).isEmpty()) return null;
         LoadedInvoice replaced = loadInvoiceOrThrow(replacedId);
         String previousStatus = replaced.details().invStatus();
-        if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
+        if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return null;
         // Cancelling an Unapproved or Processing invoice is a review decision, so Data Entry replaces drafts only.
         if (isDataEntryOnly() && (replaced.submissionNumber() != null
                 || !ConstantsCode.INVENTRYSTATUS_DRAFT.equals(previousStatus))) {
@@ -609,10 +637,10 @@ public class InvoiceService {
         invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
         log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
                 replacedId, previousStatus, replacementId);
-        if (REVIEW_QUEUE_STATUSES.contains(previousStatus)) {
-            applySubmissionStatusOnStatusChange(
-                    replaced.submissionId(), ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
-        }
+        boolean uploadedDraft = ConstantsCode.INVENTRYSTATUS_DRAFT.equals(previousStatus)
+                && replaced.submissionNumber() != null;
+        boolean cascades = REVIEW_QUEUE_STATUSES.contains(previousStatus) || uploadedDraft;
+        return cascades ? replaced.submissionId() : null;
     }
 
     // ---------------------------------------------------------------
@@ -647,6 +675,7 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
+        requireLineRowChangeAllowed(existing);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         List<LineItem> existingLines = lineItemRepo.findByInvoiceId(invoiceId);
@@ -674,6 +703,7 @@ public class InvoiceService {
         String user = SecurityContextUtils.requireUsername();
         requireCurrentVersion(invoiceId, expectedVersion);
         LoadedInvoice existing = loadInvoiceForEntryAction(invoiceId);
+        requireLineRowChangeAllowed(existing);
         ensureLineBelongsToInvoice(invoiceId, lineId);
 
         lineItemRepo.auditAndDeleteLineItem(lineId, user);
@@ -696,7 +726,8 @@ public class InvoiceService {
         invoiceRepo.incrementRevisionCount(invoiceId, user);
         if (!ConstantsCode.INVENTRYSTATUS_DRAFT.equals(existing.details().invStatus())) {
             invoiceRepo.updateStatus(invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT, user);
-            if (existing.submissionId() != null) {
+            // An upload stays in the staff Inbox, as legacy InvoiceService.submitOrSaveInv moves only manual submissions.
+            if (existing.submissionId() != null && existing.submissionNumber() == null) {
                 submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_LOBBY, user);
             }
             log.info("Line-item change reverted invoice id={} to DRAFT submissionId={}", invoiceId, existing.submissionId());
@@ -813,10 +844,13 @@ public class InvoiceService {
         }
     }
 
-    // Edit / delete line items: allowed in every status (a line-item change
-    // reverts the invoice to DRAFT — see revertToDraftAndRespond), so no
-    // status gate is needed here. Add is the only status-gated line operation
-    // (blocked on APPROVED — see requireAddLineItemAllowed).
+    // Legacy shows the row editor and line delete only while Save is enabled (groups.xhtml). Group edits have their own rule.
+    private static void requireLineRowChangeAllowed(LoadedInvoice existing) {
+        if (!UNDECIDED_STATUSES.contains(existing.details().invStatus())) {
+            throw new ConflictException(
+                    "Line items can only be edited or deleted on draft, processing or unapproved invoices.");
+        }
+    }
 
     private void ensureLineBelongsToInvoice(Long invoiceId, Long lineId) {
         if (!lineItemRepo.findIdsByInvoiceId(invoiceId).contains(lineId)) {

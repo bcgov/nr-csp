@@ -320,4 +320,17 @@ class CspSubmissionRepositoryTest {
         assertThat(params.getValue("status")).isEqualTo("COM");
         assertThat(params.getValue("userId")).isEqualTo("USER1");
     }
+
+    @Test
+    void lockForUpdate_locksTheSubmissionRow() {
+        repo.lockForUpdate(42L);
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> params = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).queryForList(sql.capture(), params.capture(), eq(Long.class));
+        assertThat(sql.getValue())
+                .contains("FROM THE.csp_submission WHERE csp_submission_id = :id")
+                .endsWith("FOR UPDATE");
+        assertThat(params.getValue().getValue("id")).isEqualTo(42L);
+    }
 }

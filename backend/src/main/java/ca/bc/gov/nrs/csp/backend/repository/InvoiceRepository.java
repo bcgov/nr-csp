@@ -387,6 +387,19 @@ public class InvoiceRepository {
         return numbers.isEmpty() ? null : String.join(",", numbers);
     }
 
+    // The stored links, not a fresh lookup by invoice number, so an upload's originals are the ones intake resolved.
+    public List<Long> findRelatedInvoiceIds(Long parentId, String refTypeCode) {
+        return jdbc.queryForList("""
+                        SELECT related_coastal_log_sale_id
+                        FROM THE.coastal_log_sale_rltd_invc
+                        WHERE coastal_log_sale_id = :parentId
+                          AND csp_invoice_ref_type_code = :refTypeCode
+                        ORDER BY coastal_log_sale_rltd_invc_id
+                        """,
+                new MapSqlParameterSource().addValue("parentId", parentId).addValue("refTypeCode", refTypeCode),
+                Long.class);
+    }
+
     public List<String> findLogSources(Long coastalLogSaleId, String logSourceCode) {
         String sql = """
                 SELECT source_document_reference
@@ -604,14 +617,22 @@ public class InvoiceRepository {
     }
 
     public void updateStatus(Long id, String status, String userId) {
+        // Like legacy InvSubmissionDAO.updateStatus: Approve and Unapprove record who decided and when.
+        // Each stamps only its own pair, so a re-approve keeps the earlier unapproval.
+        String decisionColumns = switch (status) {
+            case ConstantsCode.INVENTRYSTATUS_APPROVED -> "approved_userid = :userId, approved_date = SYSDATE,";
+            case ConstantsCode.INVENTRYSTATUS_UNAPPROVED -> "unapproved_userid = :userId, unapproved_date = SYSDATE,";
+            default -> "";
+        };
         String sql = """
                 UPDATE THE.coastal_log_sale SET
                     log_sale_entry_status_code = :status,
+                    %s
                     revision_count = revision_count + 1,
                     update_userid = :userId,
                     update_timestamp = SYSDATE
                 WHERE coastal_log_sale_id = :id
-                """;
+                """.formatted(decisionColumns);
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("status", status)
@@ -723,14 +744,19 @@ public class InvoiceRepository {
         return count == null ? 0 : count;
     }
 
-    public int countByCspSubmissionIdAndStatus(Long submissionId, String statusCode) {
-        if (submissionId == null) return 0;
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM THE.coastal_log_sale" +
-                " WHERE csp_submission_id = :id AND log_sale_entry_status_code = :status",
-                new MapSqlParameterSource().addValue("id", submissionId).addValue("status", statusCode),
-                Integer.class);
-        return count == null ? 0 : count;
+    public record SubmissionDecisions(int undecided, int approved) {}
+
+    // Legacy isTheInvoiceLastProcessingInSubmission: anything not Approved, Cancelled or Rejected keeps the submission open.
+    // One statement, so both counts come from the same moment even if a sibling is unapproved meanwhile.
+    public SubmissionDecisions countDecisionsByCspSubmissionId(Long submissionId) {
+        return jdbc.queryForObject("""
+                        SELECT COUNT(CASE WHEN log_sale_entry_status_code NOT IN ('APP', 'CAN', 'REJ') THEN 1 END) AS undecided,
+                               COUNT(CASE WHEN log_sale_entry_status_code = 'APP' THEN 1 END) AS approved
+                        FROM THE.coastal_log_sale
+                        WHERE csp_submission_id = :id
+                        """,
+                new MapSqlParameterSource("id", submissionId),
+                (rs, rowNum) -> new SubmissionDecisions(rs.getInt("undecided"), rs.getInt("approved")));
     }
 
     /**
