@@ -1402,6 +1402,35 @@ class InvoiceServiceTest {
         verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
+    // The same transitions the UI's Approve, Reject, Cancel and Unapprove buttons offer.
+    @ParameterizedTest
+    @CsvSource({"PRO,APP", "UNA,APP", "PRO,REJ", "UNA,REJ", "PRO,CAN", "UNA,CAN", "APP,UNA"})
+    void changeStatus_allowedTransition_persistsTheNewStatus(String currentStatus, String targetStatus) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, currentStatus, "5678", null, "Seller"), 10L, null, null)));
+
+        service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest(targetStatus, "reason"));
+
+        verify(invoiceRepo).updateStatus(1L, targetStatus, USER);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "DFT,APP", "APP,APP", "REJ,APP", "CAN,APP",
+            "DFT,REJ", "APP,REJ", "REJ,REJ", "CAN,REJ",
+            "DFT,CAN", "APP,CAN", "REJ,CAN", "CAN,CAN",
+            "DFT,UNA", "PRO,UNA", "UNA,UNA", "REJ,UNA", "CAN,UNA"})
+    void changeStatus_disallowedTransition_throwsConflictBeforeAnyWrite(String currentStatus, String targetStatus) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, currentStatus, "5678", null, "Seller"), 10L, null, null)));
+        ChangeStatusRequest req = new ChangeStatusRequest(targetStatus, "reason");
+
+        assertThatThrownBy(() -> service.changeStatus(1L, CURRENT_VERSION, req))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageStartingWith("An invoice in status " + currentStatus + " cannot be changed to " + targetStatus + ".");
+        verify(validator, never()).validateForChangeStatus(any(), any(), any());
+        verify(invoiceRepo, never()).updateReviewerNotes(any(), any(), any());
+        verify(invoiceRepo, never()).updateStatus(any(), any(), any());
+    }
+
     @Test
     void changeStatus_approve_persistsConvertedPricesAfterTheLockAndBeforeTheStatusWrite() {
         InvoiceDetails d = details(1L, "PRO", "5678", null, "Seller");
@@ -1456,9 +1485,9 @@ class InvoiceServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"REJ", "CAN", "UNA"})
-    void changeStatus_nonApproval_doesNotConvert(String status) {
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+    @CsvSource({"PRO,REJ", "PRO,CAN", "APP,UNA"})
+    void changeStatus_nonApproval_doesNotConvert(String currentStatus, String status) {
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, currentStatus, "5678", null, "Seller"), 10L, null, null)));
         lenient().when(invoiceRepo.countByCspSubmissionIdAndStatus(10L, "PRO")).thenReturn(1);
 
         service.changeStatus(1L, CURRENT_VERSION, new ChangeStatusRequest(status, "reviewed"));

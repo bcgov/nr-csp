@@ -77,7 +77,7 @@ public class InvoiceController implements InvoiceApi {
     }
 
     @Override
-    @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Approve') or @permissionService.hasPermission(authentication, 'invoiceDetails/Reject') or @permissionService.hasPermission(authentication, 'invoiceDetails/Cancel') or @permissionService.hasPermission(authentication, 'invoiceDetails/Unapprove')")
+    @PreAuthorize("@permissionService.canChangeInvoiceStatusTo(authentication, #request.status())")
     public ResponseEntity<InvoiceResponse> changeStatus(Long id, String expectedVersion, ChangeStatusRequest request) {
         log.info("PATCH /api/invoices/{}/status status={}", id, request.status());
         return ResponseEntity.ok(invoiceService.changeStatus(id, expectedVersion, request));

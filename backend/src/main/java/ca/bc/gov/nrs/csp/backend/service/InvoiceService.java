@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -75,6 +76,13 @@ public class InvoiceService {
      */
     private static final Set<String> REVIEW_QUEUE_STATUSES = Set.of(
             ConstantsCode.INVENTRYSTATUS_PROCESSING, ConstantsCode.INVENTRYSTATUS_UNAPPROVED);
+
+    // The statuses each reviewer decision may start from, matching the UI's decision buttons.
+    private static final Map<String, Set<String>> STATUS_CHANGE_ALLOWED_FROM = Map.of(
+            ConstantsCode.INVENTRYSTATUS_APPROVED, REVIEW_QUEUE_STATUSES,
+            ConstantsCode.INVENTRYSTATUS_REJECTED, REVIEW_QUEUE_STATUSES,
+            ConstantsCode.INVENTRYSTATUS_CANCELLED, REVIEW_QUEUE_STATUSES,
+            ConstantsCode.INVENTRYSTATUS_UNAPPROVED, Set.of(ConstantsCode.INVENTRYSTATUS_APPROVED));
 
     /** Statuses an invoice can be submitted for review from. */
     private static final Set<String> SUBMITTABLE_STATUSES = Set.of(
@@ -514,6 +522,12 @@ public class InvoiceService {
         requireCurrentVersion(id, expectedVersion);
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
+        String currentStatus = existing.details().invStatus();
+        if (!STATUS_CHANGE_ALLOWED_FROM.getOrDefault(request.status(), Set.of()).contains(currentStatus)) {
+            throw new ConflictException("An invoice in status " + currentStatus + " cannot be changed to "
+                    + request.status() + ". Approve, reject and cancel need a processing or unapproved invoice;"
+                    + " unapprove needs an approved one.");
+        }
 
         // Apply the supplied reviewer comments to the details we hand to the validator
         // so its "reviewer comments must change" check sees the new value.
