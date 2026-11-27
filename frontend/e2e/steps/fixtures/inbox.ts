@@ -9,7 +9,11 @@ import {
 } from '../../fixtures/inbox/review-test-data';
 import { InboxPage } from '../../pages/inbox/InboxPage';
 import { ViewSubmissionPage } from '../../pages/inbox/ViewSubmissionPage';
-import { restoreBorrowedInvoice, type BorrowedInvoiceState } from '../inbox/borrowedInvoiceDbRestore';
+import {
+  checkBorrowedInvoiceRestorable,
+  restoreBorrowedInvoice,
+  type BorrowedInvoiceState,
+} from '../inbox/borrowedInvoiceDbRestore';
 
 /**
  * INBOX domain fixtures. One file per domain (see ./index.ts) so two authors adding two domains
@@ -71,7 +75,7 @@ export const inboxTest = base.extend<InboxFixtures>({
           `Re-ground fixtures/inbox/review-test-data.ts against the seeded DB.`,
       );
     }
-    const asFound = (await before.json()) as { invStatus: string; reviewComments: string | null };
+    const asFound = (await before.json()) as BorrowedInvoiceState;
 
     // Precondition check, not an assertion about the app: if this row is not UNA the scenario
     // cannot mean what it says, and the most likely cause is a previous run whose restore failed.
@@ -84,6 +88,7 @@ export const inboxTest = base.extend<InboxFixtures>({
           `./scripts/reset-db.sh.`,
       );
     }
+    checkBorrowedInvoiceRestorable(invoice.invoiceId, asFound);
 
     await use(invoice);
 

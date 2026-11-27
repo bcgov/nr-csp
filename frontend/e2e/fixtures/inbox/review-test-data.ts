@@ -52,7 +52,9 @@
  * `./scripts/reset-db.sh`.
  *
  * REJECTING and UNAPPROVING overwrite the seeded reviewer note, so the teardown captures each row's
- * own note at borrow time and writes exactly that back. The note text is not recorded here.
+ * own note at borrow time and writes exactly that back. The note text is not recorded here. Every
+ * pool row must carry a note, because the reject scenario asserts its reason replaces an existing
+ * one; the preflight checks this.
  */
 
 /** One borrowable UNA invoice. */

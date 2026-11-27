@@ -213,12 +213,16 @@ test('preflight: the borrowable UNAPPROVED invoice pool is intact', async ({ req
       wrong.push(`invoice ${invoice.invoiceId}: GET returned HTTP ${res.status()}`);
       continue;
     }
-    const body = (await res.json()) as { invStatus: string };
+    const body = (await res.json()) as { invStatus: string; reviewComments: string | null };
     if (body.invStatus !== invoiceStatus.unapproved) {
       wrong.push(
         `invoice ${invoice.invoiceId} (submission ${invoice.submissionId}) is ` +
           `"${body.invStatus}", expected "${invoiceStatus.unapproved}"`,
       );
+    }
+    // The reject scenario asserts its reason replaces an existing note, so every pool row needs one.
+    if (!body.reviewComments) {
+      wrong.push(`invoice ${invoice.invoiceId} has no reviewer note, which the reject scenario needs`);
     }
   }
 
