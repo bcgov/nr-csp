@@ -209,6 +209,24 @@ class InvoiceMapperTest {
         assertThat(details.weightSlips()).isEmpty();
     }
 
+    // Legacy trims and upper-cases invoice numbers before saving (SubmissionTransferRules.makeReadyForSave).
+    @Test
+    void toDetails_trimsAndUpperCasesInvoiceNumbersLikeLegacy() {
+        CreateInvoiceRequest create = new CreateInvoiceRequest(" inv/42 ", INVOICE_DATE, "SAL", "M", "TEST LANDING",
+                null, null, null, null, null, "00001234", "00", "Seller", null, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), " inv-1,inv-2 ", "adj-1 ", null, null, true, List.of());
+        UpdateInvoiceRequest update = new UpdateInvoiceRequest(" inv/42 ", INVOICE_DATE, "SAL", "M", "TEST LANDING",
+                null, null, null, null, null, "00001234", "00", "Seller", null, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), " inv-1,inv-2 ", "adj-1 ", null, null, true, List.of());
+
+        for (InvoiceDetails details : List.of(mapper.toDetails(create, "user123"), mapper.toDetails(update, 1L, "DFT", "u"))) {
+            assertThat(details.invNumber()).isEqualTo("INV/42");
+            assertThat(details.replaceInvNum()).isEqualTo("INV-1,INV-2");
+            assertThat(details.adjustInvNum()).isEqualTo("ADJ-1");
+            assertThat(details.fobCode()).isEqualTo("TEST LANDING");
+        }
+    }
+
     // ---------------------------------------------------------------
     // toDetails(UpdateInvoiceRequest, invID, existingStatus, existingEntryUserID)
     // ---------------------------------------------------------------
