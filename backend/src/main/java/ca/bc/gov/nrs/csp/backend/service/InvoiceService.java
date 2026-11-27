@@ -275,16 +275,12 @@ public class InvoiceService {
 
     private record InvoiceForm(InvoiceDetails details, List<LineItem> lines) {}
 
-    // Search and History read the submitter from the parent submission. Legacy moved any parent (submitOrSaveInv),
-    // taking siblings with it, so only a manual invoice alone in its submission moves here; others are refused.
+    // Search and History read the submitter from the parent submission. Like legacy (submitOrSaveInv), a correction
+    // moves the whole parent, electronic or shared, and its sibling invoices move with it.
     private void moveSubmissionToCorrectedSubmitter(LoadedInvoice existing, InvoiceDetails details, String user) {
         boolean corrected = !Objects.equals(existing.details().submitterClientNum(), details.submitterClientNum())
                 || !Objects.equals(existing.details().submitterLocation(), details.submitterLocation());
         if (!corrected) return;
-        if (existing.submissionNumber() != null || invoiceRepo.countByCspSubmissionId(existing.submissionId()) != 1) {
-            throw new ConflictException("The submitting client can only be changed on a manually entered invoice "
-                    + "that is the only invoice in its submission.");
-        }
         submissionRepo.updateClient(existing.submissionId(), details.submitterClientNum(), details.submitterLocation(),
                 user);
         log.info("Moved submission submissionId={} to the corrected submitter of invoice id={}",
