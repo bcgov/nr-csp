@@ -37,8 +37,9 @@
  *
  * WHY MUTATING THESE IS SAFE, verified end-to-end before the scenario was written:
  *   * `InvoiceRepository.updateStatus` writes ONLY log_sale_entry_status_code, revision_count,
- *     update_userid and update_timestamp. It does not touch approved_userid or reviewer_notes, so
- *     a PATCH back to UNA is a genuine restore of the only functional field.
+ *     update_userid and update_timestamp, and `updateReviewerNotes` only adds reviewer_notes. The
+ *     teardown (`steps/inbox/borrowedInvoiceDbRestore.ts`) writes the status and note back with SQL,
+ *     because the status API cannot move a rejected invoice back to UNA.
  *   * The submission status does NOT cascade. `applySubmissionStatusOnStatusChange` returns early
  *     while any PROCESSING invoice remains in the submission, and both submissions below keep
  *     plenty (57547 has 32 PRO, 119351 has 11). Measured round trip on invoice 2005425:
@@ -48,26 +49,12 @@
  * IF A RESTORE EVER FAILS, the scenario fails loud, and `preflight/anchors.setup.ts` additionally
  * asserts every pool member is UNA at the start of the next run — so a left-behind APP surfaces
  * immediately instead of silently changing what later runs see. Recover with
- * `./scripts/reset-db.sh`, or PATCH the row back to UNA.
- */
-
-/**
- * ---------------------------------------------------------------------------
- * A SECOND INVARIANT THE POOL MUST HOLD — every row needs a reviewer comment
- * ---------------------------------------------------------------------------
- * REJECTING writes the reviewer comment (`InvoiceService.changeStatus` calls `updateReviewerNotes`
- * whenever `reviewComments` is non-null), so a reject scenario OVERWRITES the seeded note and the
- * teardown has to put the original back.
+ * `./scripts/reset-db.sh`.
  *
- * That only works if the original is non-null: the service SKIPS the write when `reviewComments` is
- * null, so a null-noted row could never have a test's comment removed again. All twelve rows below
- * currently carry a note, the fixture refuses to borrow one that does not, and the preflight
- * asserts the invariant for the whole pool — together those stop a future pool addition from
- * quietly becoming unrestorable.
- *
- * Provenance: GET /api/invoices/{id} for each pinned id — every one carries a non-empty note left
- * by a legacy user. The note text is not recorded here; the teardown reads each row's own value at
- * run time and writes exactly that back.
+ * REJECTING and UNAPPROVING overwrite the seeded reviewer note, so the teardown captures each row's
+ * own note at borrow time and writes exactly that back. The note text is not recorded here. Every
+ * pool row must carry a note, because the reject scenario asserts its reason replaces an existing
+ * one; the preflight checks this.
  */
 
 /** One borrowable UNA invoice. */

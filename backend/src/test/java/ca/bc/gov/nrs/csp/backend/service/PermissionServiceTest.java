@@ -3,6 +3,10 @@ package ca.bc.gov.nrs.csp.backend.service;
 import ca.bc.gov.nrs.csp.backend.util.constants.Roles;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -11,6 +15,10 @@ import java.util.List;
 
 import static ca.bc.gov.nrs.csp.backend.util.constants.PermissionConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 class PermissionServiceTest {
 
@@ -172,5 +180,36 @@ class PermissionServiceTest {
     @Test
     void unknown_role_returns_false() {
         assertFalse(service.hasPermission(auth("CSP_UNKNOWN"), INVOICE_DETAILS_APPROVE));
+    }
+
+    // ── Invoice status change ─────────────────────────────────────────────────
+
+    @ParameterizedTest
+    @CsvSource({
+            "APP, invoiceDetails/Approve",
+            "REJ, invoiceDetails/Reject",
+            "CAN, invoiceDetails/Cancel",
+            "UNA, invoiceDetails/Unapprove"})
+    void canChangeInvoiceStatusTo_checksOnlyThatDecisionsPermission(String targetStatus, String expectedAction) {
+        PermissionService spied = spy(service);
+        Authentication approver = auth(Roles.APPROVE);
+
+        assertTrue(spied.canChangeInvoiceStatusTo(approver, targetStatus));
+
+        verify(spied).hasPermission(approver, expectedAction);
+        verify(spied, times(1)).hasPermission(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"APP", "REJ", "CAN", "UNA"})
+    void canChangeInvoiceStatusTo_deniesAViewer(String targetStatus) {
+        assertFalse(service.canChangeInvoiceStatusTo(auth(Roles.VIEW), targetStatus));
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"DFT", "PRO"})
+    void canChangeInvoiceStatusTo_deniesATargetWithNoDecision(String targetStatus) {
+        assertFalse(service.canChangeInvoiceStatusTo(auth(Roles.ADMIN), targetStatus));
     }
 }
