@@ -893,8 +893,31 @@ describe('UploadSubmissionPage', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Upload failed.')).not.toBeInTheDocument();
 
+    // The save may have committed, so Submit stays off until Clear or a new upload.
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+
     fireEvent.click(screen.getByRole('button', { name: 'Open Submission History' }));
     expect(mockNavigate).toHaveBeenCalledWith('/submission-history');
+  });
+
+  it('keeps the unconfirmed-submit warning and Submit disabled when a field is edited', async () => {
+    mockParse.mockResolvedValue(makeParse());
+    mockValidate.mockResolvedValue(makeValidation());
+    mockSubmit.mockRejectedValue(new Error('network'));
+
+    await uploadAndSettle();
+    await screen.findByText('sub.xml was uploaded with no issues found.');
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    await screen.findByText('We could not confirm your submission.');
+    const validateCalls = mockValidate.mock.calls.length;
+
+    fireEvent.change(screen.getByLabelText('Submission Client Location Code'), { target: { value: '01' } });
+    // Longer than the re-validation debounce: no request may go out.
+    await new Promise((resolve) => setTimeout(resolve, 900));
+
+    expect(mockValidate.mock.calls.length).toBe(validateCalls);
+    expect(screen.getByText('We could not confirm your submission.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
   });
 
   it('a mixed-file preview says no invoices are saved and the whole file must be uploaded again', async () => {

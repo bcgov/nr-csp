@@ -344,6 +344,8 @@ export function UploadSubmissionPage() {
 
   const isBusy = status === 'parsing' || status === 'validating' || status === 'submitting';
   const hasSubmission = submission != null;
+  // The last Submit may have saved; only Clear or a new upload allows another attempt.
+  const submitUnconfirmed = status === 'submit-unconfirmed';
   // Any ERROR-severity ("hard") validation issue disables Submit — the user must
   // resolve it before the submission can be sent. Errors on the editable metadata
   // fields lift as the user corrects them (setField clears the stale ones, and the
@@ -370,7 +372,12 @@ export function UploadSubmissionPage() {
   const revalidationPending = hasStaleValidation && !hasClientFieldErrors;
 
   const canSubmit =
-    hasSubmission && !isBusy && !hasStaleValidation && !hasClientFieldErrors && !hasHardValidationErrors;
+    hasSubmission &&
+    !isBusy &&
+    !submitUnconfirmed &&
+    !hasStaleValidation &&
+    !hasClientFieldErrors &&
+    !hasHardValidationErrors;
 
   /**
    * Re-runs business validation when a rule-bearing metadata field settles on a
@@ -391,6 +398,8 @@ export function UploadSubmissionPage() {
     // Parse or submit is in flight and owns the result; that request re-validates
     // with the current values anyway.
     if (isBusy) return;
+    // Re-validating would replace the unconfirmed-submit warning with a fresh verdict.
+    if (submitUnconfirmed) return;
     if (hasClientFieldErrors) return;
     const key = revalidationKeyOf(editsSettled);
     // The debounce still trails the form (it also trails a freshly parsed file):
@@ -437,6 +446,7 @@ export function UploadSubmissionPage() {
     selectedFile,
     submission,
     isBusy,
+    submitUnconfirmed,
     hasClientFieldErrors,
     applyBusinessResult,
   ]);
