@@ -89,11 +89,37 @@ describe('LayoutSideNav', () => {
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
       'Upload Submission',
       'Submission History',
+      'User manual',
     ]);
     // Groups left with nothing the user may open are dropped.
     expect(screen.queryByText('Reports')).not.toBeInTheDocument();
     expect(screen.queryByText('Table maintenance')).not.toBeInTheDocument();
     expect(screen.getByText('Submissions')).toBeInTheDocument();
+  });
+
+  it('offers the manual for each role under Support, as a download', () => {
+    arrange(ROUTES.SEARCH, ['APPROVE', 'VIEW']);
+    expect(screen.getByRole('button', { name: 'Support' })).toBeInTheDocument();
+
+    const manuals = screen.getAllByRole('link', { name: /^User manual/ });
+    expect(manuals.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['User manual (Approver)', '/manuals/CSP-Approver-User-Manual.pdf'],
+      ['User manual (Viewer)', '/manuals/CSP-Viewer-User-Manual.pdf'],
+    ]);
+    manuals.forEach((link) => expect(link).toHaveAttribute('download'));
+  });
+
+  it('returns focus to Support on Escape from a manual link, without closing the menu', () => {
+    arrange(ROUTES.SEARCH, ['APPROVE']);
+    const support = screen.getByRole('button', { name: 'Support' });
+    fireEvent.click(support);
+    const link = screen.getByRole('link', { name: 'User manual' });
+    link.focus();
+
+    fireEvent.keyDown(link, { key: 'Escape' });
+
+    expect(document.activeElement).toBe(support);
+    expect(vi.mocked(useLayout).mock.results[0].value.toggleSideNav).not.toHaveBeenCalled();
   });
 
   it('shows nothing to a user without a CSP role', () => {

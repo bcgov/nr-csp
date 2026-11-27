@@ -25,7 +25,8 @@ export default defineConfig(({ mode }) => {
           // Prevent the service worker from intercepting /api/* navigation
           // requests (e.g. Swagger UI). Without this, Workbox applies the
           // navigation fallback and serves the React shell on first load.
-          navigateFallbackDenylist: [/^\/api\//],
+          // The user manual PDFs are opened and downloaded as files, never the shell.
+          navigateFallbackDenylist: [/^\/api\//, /^\/manuals\//],
         },
         manifest: {
           name: 'NR CSP',

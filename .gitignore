@@ -37,7 +37,11 @@ playbooks/collections/
 
 **/application.properties
 
-.claude
+# Local Claude Code state stays out; the shared project hook, skill and settings are tracked.
+**/.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
+!/.claude/skills/
 .worktrees
 
 # Stray local notes/scratch markdown is ignored by default; the repo's own
@@ -48,6 +52,10 @@ playbooks/collections/
 !README.md
 !ARCHITECTURE.md
 !SECURITY.md
+!/AGENTS.md
+!/CLAUDE.md
+!/.claude/skills/**/*.md
+!/docs/manual/**/*.md
 **.log
 **.iml
 
