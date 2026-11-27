@@ -105,17 +105,22 @@ public class InvoiceRepository {
     public record RelatedInvoice(Long coastalLogSaleId, String invoiceStatusCode) {}
 
     // Invoices with this number where the client and location is the buyer or the seller,
-    // whoever submitted them (legacy InvSubmissionDAO.getRecordByInvoiceNumAndClientNum). Oldest first.
+    // whoever submitted them (legacy InvSubmissionDAO.getRecordByInvoiceNumAndClientNum).
+    // Legacy left the order open; the client's own invoices come first, then live ones, then oldest.
     public List<RelatedInvoice> findByInvoiceNoAndClient(String clientInvoiceNo, String clientNumber, String clientLocnCode) {
         String sql = """
                 SELECT
                        cls.coastal_log_sale_id,
                        cls.log_sale_entry_status_code AS invoice_status_code
                 FROM THE.coastal_log_sale cls
+                LEFT JOIN THE.csp_submission sub ON cls.csp_submission_id = sub.csp_submission_id
                 WHERE cls.client_invoice_no = :clientInvoiceNo
                   AND ((cls.buyer_client_number = :clientNumber AND cls.buyer_client_locn_code = :clientLocnCode)
                     OR (cls.seller_client_number = :clientNumber AND cls.seller_client_locn_code = :clientLocnCode))
-                ORDER BY cls.coastal_log_sale_id
+                ORDER BY CASE WHEN sub.client_number = :clientNumber AND sub.client_locn_code = :clientLocnCode
+                              THEN 0 ELSE 1 END,
+                         CASE WHEN cls.log_sale_entry_status_code = 'CAN' THEN 1 ELSE 0 END,
+                         cls.coastal_log_sale_id
                 """;
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("clientInvoiceNo", clientInvoiceNo)
@@ -735,7 +740,8 @@ public class InvoiceRepository {
     /**
      * Replaces this invoice's related-invoice references of the given type (REP or ADJ).
      * Deletes existing rows for the parent+type, then inserts one row per invoice number
-     * in {@code csvInvoiceNumbers}, resolving each number to the first match of
+     * in {@code csvInvoiceNumbers}. A number keeps its current link while that invoice still
+     * matches, so re-saving never moves it; otherwise it takes the first match of
      * findByInvoiceNoAndClient, as legacy SubmissionTransferRules did. The validator runs
      * the same lookup, so any number reaching this method should already resolve.
      *
@@ -745,11 +751,16 @@ public class InvoiceRepository {
      */
     public List<Long> replaceRelatedInvoices(Long parentId, String refTypeCode, String csvInvoiceNumbers,
                                         String submitterClientNum, String submitterLocnCode, String userId) {
+        boolean hasNumbers = csvInvoiceNumbers != null && !csvInvoiceNumbers.isBlank();
+        List<Long> linkedBefore = !hasNumbers ? List.of() : jdbc.queryForList("SELECT related_coastal_log_sale_id"
+                        + " FROM THE.coastal_log_sale_rltd_invc"
+                        + " WHERE coastal_log_sale_id = :id AND csp_invoice_ref_type_code = :type",
+                new MapSqlParameterSource().addValue("id", parentId).addValue("type", refTypeCode), Long.class);
         jdbc.update("DELETE FROM THE.coastal_log_sale_rltd_invc"
                         + " WHERE coastal_log_sale_id = :id AND csp_invoice_ref_type_code = :type",
                 new MapSqlParameterSource().addValue("id", parentId).addValue("type", refTypeCode));
 
-        if (csvInvoiceNumbers == null || csvInvoiceNumbers.isBlank()) return List.of();
+        if (!hasNumbers) return List.of();
 
         String insertSql = """
                 INSERT INTO THE.coastal_log_sale_rltd_invc (
@@ -770,7 +781,11 @@ public class InvoiceRepository {
             if (trimmed.isEmpty()) continue;
             List<RelatedInvoice> originals = findByInvoiceNoAndClient(trimmed, submitterClientNum, submitterLocnCode);
             if (originals.isEmpty()) continue; // validator should have rejected; defensive skip
-            Long relatedId = originals.get(0).coastalLogSaleId();
+            Long relatedId = originals.stream()
+                    .map(RelatedInvoice::coastalLogSaleId)
+                    .filter(linkedBefore::contains)
+                    .findFirst()
+                    .orElse(originals.get(0).coastalLogSaleId());
             jdbc.update(insertSql,
                     new MapSqlParameterSource()
                             .addValue("parentId", parentId)

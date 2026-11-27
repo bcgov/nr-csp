@@ -220,8 +220,11 @@ class InvoiceRepositoryTest {
                 .contains("cls.client_invoice_no = :clientInvoiceNo")
                 .contains("(cls.buyer_client_number = :clientNumber AND cls.buyer_client_locn_code = :clientLocnCode)")
                 .contains("OR (cls.seller_client_number = :clientNumber AND cls.seller_client_locn_code = :clientLocnCode)")
-                .contains("ORDER BY cls.coastal_log_sale_id")
-                .doesNotContain("csp_submission");
+                .contains("LEFT JOIN THE.csp_submission sub")
+                // Own invoices first, then live ones, then oldest (legacy left the order open).
+                .contains("ORDER BY CASE WHEN sub.client_number = :clientNumber AND sub.client_locn_code = :clientLocnCode")
+                .contains("CASE WHEN cls.log_sale_entry_status_code = 'CAN' THEN 1 ELSE 0 END")
+                .contains("cls.coastal_log_sale_id\n");
 
         MapSqlParameterSource params = captureQueryParams();
         assertThat(params.getValue("clientInvoiceNo")).isEqualTo("INV-9");
@@ -1105,6 +1108,32 @@ class InvoiceRepositoryTest {
         assertThat(insertParams.getValue("relatedId")).isEqualTo(101L);
         assertThat(insertParams.getValue("refTypeCode")).isEqualTo("REP");
         assertThat(insertParams.getValue("userId")).isEqualTo("user123");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void replaceRelatedInvoices_keepsTheCurrentLinkWhileItStillMatches() {
+        // Already linked to 205; the lookup now ranks 101 first, but re-saving must not move the link.
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
+                .willReturn(List.of(205L));
+        given(jdbc.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .willReturn(List.of(new InvoiceRepository.RelatedInvoice(101L, "APP"),
+                        new InvoiceRepository.RelatedInvoice(205L, "CAN")));
+
+        assertThat(repo.replaceRelatedInvoices(10L, "REP", "INV-A", "00001111", "01", "user123"))
+                .containsExactly(205L);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void replaceRelatedInvoices_dropsACurrentLinkThatNoLongerMatches() {
+        given(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
+                .willReturn(List.of(999L));
+        given(jdbc.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .willReturn(List.of(new InvoiceRepository.RelatedInvoice(101L, "APP")));
+
+        assertThat(repo.replaceRelatedInvoices(10L, "REP", "INV-A", "00001111", "01", "user123"))
+                .containsExactly(101L);
     }
 
     // ---------------------------------------------------------------

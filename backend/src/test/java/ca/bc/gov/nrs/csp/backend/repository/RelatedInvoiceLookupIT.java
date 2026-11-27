@@ -23,8 +23,11 @@ class RelatedInvoiceLookupIT {
     private static final String BUYER = "00009002";
     private static final String UNRELATED = "00009003";
     private static final String LOCATION = "00";
+    private static final long BUYER_SUBMISSION = 9201L;
+    private static final long SELLER_SUBMISSION = 9202L;
+    private static final long CANCELLED_ID = 919L;
     private static final long ORIGINAL_ID = 920L;
-    private static final long LATER_ID = 921L;
+    private static final long SELLER_COPY_ID = 921L;
     private static final long REPLACEMENT_ID = 930L;
     private static final long ADJUSTMENT_ID = 931L;
 
@@ -45,11 +48,16 @@ class RelatedInvoiceLookupIT {
     @BeforeEach
     void seedOriginalSubmittedByTheBuyer() {
         execute("DELETE FROM THE.coastal_log_sale_rltd_invc WHERE coastal_log_sale_id IN (930, 931)");
-        execute("DELETE FROM THE.coastal_log_sale WHERE coastal_log_sale_id BETWEEN 920 AND 931");
+        execute("DELETE FROM THE.coastal_log_sale WHERE coastal_log_sale_id BETWEEN 919 AND 931");
+        execute("DELETE FROM THE.csp_submission WHERE csp_submission_id IN (9201, 9202)");
+        execute("INSERT INTO THE.csp_submission (csp_submission_id, client_number, client_locn_code)"
+                + " VALUES (9201, '" + BUYER + "', '00')");
+        execute("INSERT INTO THE.csp_submission (csp_submission_id, client_number, client_locn_code)"
+                + " VALUES (9202, '" + SELLER + "', '00')");
         // The buyer submitted it, so its submission client is the buyer; the seller only appears as seller.
-        insertInvoice(ORIGINAL_ID, INVOICE_NUMBER, SELLER, BUYER, ConstantsCode.INVENTRYSTATUS_APPROVED);
-        insertInvoice(REPLACEMENT_ID, "TEST-REPL", SELLER, BUYER, ConstantsCode.INVENTRYSTATUS_DRAFT);
-        insertInvoice(ADJUSTMENT_ID, "TEST-ADJ", SELLER, BUYER, ConstantsCode.INVENTRYSTATUS_DRAFT);
+        insertInvoice(ORIGINAL_ID, BUYER_SUBMISSION, INVOICE_NUMBER, ConstantsCode.INVENTRYSTATUS_APPROVED);
+        insertInvoice(REPLACEMENT_ID, SELLER_SUBMISSION, "TEST-REPL", ConstantsCode.INVENTRYSTATUS_DRAFT);
+        insertInvoice(ADJUSTMENT_ID, BUYER_SUBMISSION, "TEST-ADJ", ConstantsCode.INVENTRYSTATUS_DRAFT);
     }
 
     @Test
@@ -67,15 +75,34 @@ class RelatedInvoiceLookupIT {
     }
 
     @Test
-    void lookup_returnsEveryMatchOldestFirstWithItsStatus() {
-        insertInvoice(LATER_ID, INVOICE_NUMBER, SELLER, UNRELATED, ConstantsCode.INVENTRYSTATUS_CANCELLED);
+    void lookup_whenBothPartiesFiledTheNumber_ranksTheClientsOwnCopyFirst() {
+        insertInvoice(SELLER_COPY_ID, SELLER_SUBMISSION, INVOICE_NUMBER, ConstantsCode.INVENTRYSTATUS_APPROVED);
+
+        assertThat(ids(invoiceRepo.findByInvoiceNoAndClient(INVOICE_NUMBER, SELLER, LOCATION)))
+                .containsExactly(SELLER_COPY_ID, ORIGINAL_ID);
+        assertThat(ids(invoiceRepo.findByInvoiceNoAndClient(INVOICE_NUMBER, BUYER, LOCATION)))
+                .containsExactly(ORIGINAL_ID, SELLER_COPY_ID);
+    }
+
+    @Test
+    void lookup_ranksALiveCopyBeforeAnOlderCancelledOne() {
+        insertInvoice(CANCELLED_ID, BUYER_SUBMISSION, INVOICE_NUMBER, ConstantsCode.INVENTRYSTATUS_CANCELLED);
 
         List<RelatedInvoice> matches = invoiceRepo.findByInvoiceNoAndClient(INVOICE_NUMBER, SELLER, LOCATION);
 
-        assertThat(ids(matches)).containsExactly(ORIGINAL_ID, LATER_ID);
+        assertThat(ids(matches)).containsExactly(ORIGINAL_ID, CANCELLED_ID);
         assertThat(matches.get(1).invoiceStatusCode()).isEqualTo(ConstantsCode.INVENTRYSTATUS_CANCELLED);
-        assertThat(ids(invoiceRepo.findByInvoiceNoAndClient(INVOICE_NUMBER, BUYER, LOCATION)))
-                .containsExactly(ORIGINAL_ID);
+    }
+
+    @Test
+    void resave_keepsTheExistingLinkWhenABetterRankedCopyAppears() {
+        invoiceRepo.replaceRelatedInvoices(REPLACEMENT_ID, ConstantsCode.INVRELATETYPE_REPLACE,
+                INVOICE_NUMBER, SELLER, LOCATION, "TEST-USER");
+        insertInvoice(SELLER_COPY_ID, SELLER_SUBMISSION, INVOICE_NUMBER, ConstantsCode.INVENTRYSTATUS_APPROVED);
+
+        assertThat(invoiceRepo.replaceRelatedInvoices(REPLACEMENT_ID, ConstantsCode.INVRELATETYPE_REPLACE,
+                INVOICE_NUMBER, SELLER, LOCATION, "TEST-USER")).containsExactly(ORIGINAL_ID);
+        assertThat(linkedOriginal(REPLACEMENT_ID, ConstantsCode.INVRELATETYPE_REPLACE)).containsExactly(ORIGINAL_ID);
     }
 
     @Test
@@ -107,7 +134,8 @@ class RelatedInvoiceLookupIT {
                 new MapSqlParameterSource().addValue("id", invoiceId).addValue("type", refTypeCode), Long.class);
     }
 
-    private static void insertInvoice(long id, String invoiceNumber, String seller, String buyer, String status) {
+    // Every seeded invoice is between the same seller and buyer; only its submission differs.
+    private static void insertInvoice(long id, long submissionId, String invoiceNumber, String status) {
         jdbc.update("""
                 INSERT INTO THE.coastal_log_sale (
                     coastal_log_sale_id, csp_submission_id, client_invoice_no, client_invoice_date,
@@ -115,16 +143,17 @@ class RelatedInvoiceLookupIT {
                     seller_client_number, seller_client_locn_code, buyer_client_number, buyer_client_locn_code,
                     entry_userid, entry_timestamp, update_userid, update_timestamp
                 ) VALUES (
-                    :id, 77, :invoiceNumber, DATE '2026-11-01', :status, 'PUR', 0,
+                    :id, :submissionId, :invoiceNumber, DATE '2026-11-01', :status, 'PUR', 0,
                     :seller, '00', :buyer, '00',
                     'TEST-USER', SYSDATE, 'TEST-USER', SYSDATE
                 )
                 """, new MapSqlParameterSource()
                 .addValue("id", id)
+                .addValue("submissionId", submissionId)
                 .addValue("invoiceNumber", invoiceNumber)
                 .addValue("status", status)
-                .addValue("seller", seller)
-                .addValue("buyer", buyer));
+                .addValue("seller", SELLER)
+                .addValue("buyer", BUYER));
     }
 
     private static void execute(String sql) {

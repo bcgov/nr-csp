@@ -494,6 +494,14 @@ CREATE TABLE the.coastal_log_sale_detail (
 )
 /
 
+-- Submission client: the columns RelatedInvoiceLookupIT reads to rank a client's own invoices first.
+CREATE TABLE the.csp_submission (
+    csp_submission_id NUMBER(10) PRIMARY KEY,
+    client_number     VARCHAR2(8),
+    client_locn_code  VARCHAR2(2)
+)
+/
+
 -- Replace/adjust links: the columns RelatedInvoiceLookupIT reads and writes.
 CREATE TABLE the.coastal_log_sale_rltd_invc (
     coastal_log_sale_rltd_invc_id NUMBER(18) PRIMARY KEY,
@@ -533,6 +541,8 @@ GRANT SELECT ON the.log_sale_type_code TO ${APP_USER}
 GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale TO ${APP_USER}
 /
 GRANT SELECT, INSERT, UPDATE, DELETE ON the.coastal_log_sale_detail TO ${APP_USER}
+/
+GRANT SELECT, INSERT, DELETE ON the.csp_submission TO ${APP_USER}
 /
 GRANT SELECT, INSERT, DELETE ON the.coastal_log_sale_rltd_invc TO ${APP_USER}
 /
