@@ -1516,9 +1516,9 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void addLineItem_onUnapproved_revertsToDraftAndLobby() {
+    void addLineItem_onManualUnapproved_revertsToDraftAndLobby() {
         LineItemRequest req = lineItemRequest();
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "UNA", "5678", null, "Seller"), 10L, null, null)));
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(details(1L, "UNA", "5678", null, "Seller"), 10L)));
         given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
 
         service.addLineItem(1L, CURRENT_VERSION, req);
@@ -1526,6 +1526,18 @@ class InvoiceServiceTest {
         verify(lineItemRepo).insertLineItem(eq(1L), any(), eq(USER));
         verify(invoiceRepo).updateStatus(1L, "DFT", USER);
         verify(submissionRepo).updateSubmissionStatus(10L, "LOB", USER);
+    }
+
+    @Test
+    void addLineItem_onUploadedProcessing_revertsToDraftButKeepsTheUploadInTheInbox() {
+        LineItemRequest req = lineItemRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(details(1L, "PRO", "5678", null, "Seller"), 10L, null, null)));
+        given(mapper.toLineItem(eq(req), eq(1L), any())).willReturn(line(null, null));
+
+        service.addLineItem(1L, CURRENT_VERSION, req);
+
+        verify(invoiceRepo).updateStatus(1L, "DFT", USER);
+        verify(submissionRepo, never()).updateSubmissionStatus(any(), any(), any());
     }
 
     @Test

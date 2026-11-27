@@ -788,7 +788,8 @@ public class InvoiceService {
         invoiceRepo.incrementRevisionCount(invoiceId, user);
         if (!ConstantsCode.INVENTRYSTATUS_DRAFT.equals(existing.details().invStatus())) {
             invoiceRepo.updateStatus(invoiceId, ConstantsCode.INVENTRYSTATUS_DRAFT, user);
-            if (existing.submissionId() != null) {
+            // An upload stays in the staff Inbox, as legacy InvoiceService.submitOrSaveInv moves only manual submissions.
+            if (existing.submissionId() != null && existing.submissionNumber() == null) {
                 submissionRepo.updateSubmissionStatus(existing.submissionId(), ConstantsCode.SUBMSTATUS_LOBBY, user);
             }
             log.info("Line-item change reverted invoice id={} to DRAFT submissionId={}", invoiceId, existing.submissionId());
