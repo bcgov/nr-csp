@@ -62,7 +62,8 @@ public class InvoiceController implements InvoiceApi {
     }
 
     @Override
-    @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Submit')")
+    // Submit saves the form first, like legacy, so it needs Save as well.
+    @PreAuthorize("@permissionService.hasPermission(authentication, 'invoiceDetails/Submit') and @permissionService.hasPermission(authentication, 'invoiceDetails/Save')")
     public ResponseEntity<InvoiceResponse> submit(Long id, String expectedVersion, UpdateInvoiceRequest request) {
         log.info("POST /api/invoices/{}/submit invNumber={}", id, request.invNumber());
         return ResponseEntity.ok(invoiceService.submit(id, expectedVersion, request));

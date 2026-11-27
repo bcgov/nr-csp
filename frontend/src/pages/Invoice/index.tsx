@@ -2326,9 +2326,11 @@ export function InvoicePage() {
                   size="md"
                   className="invoice-page__action-btn invoice-page__action-btn--submit"
                   onClick={handleSubmit}
+                  // Submit saves the form first, so it also needs Save.
                   disabled={
                     !canSubmit ||
                     !canSubmitPerm ||
+                    !canSavePerm ||
                     hasAnyFieldError ||
                     !requiredFieldsFilled ||
                     !hasLineItems ||
