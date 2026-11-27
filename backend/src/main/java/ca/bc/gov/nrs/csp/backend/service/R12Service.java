@@ -1,7 +1,6 @@
 package ca.bc.gov.nrs.csp.backend.service;
 
 import ca.bc.gov.nrs.csp.backend.controller.dto.report.R12ReportRequest;
-import ca.bc.gov.nrs.csp.backend.exception.BadRequestException;
 import ca.bc.gov.nrs.csp.backend.exception.ResourceNotFoundException;
 import ca.bc.gov.nrs.csp.backend.exception.ValidationException;
 import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
@@ -91,7 +90,7 @@ public class R12Service {
             if (r.getMonth() != null) p.put("MONTH", String.format("%02d", r.getMonth()));
         }
 
-        String effectiveDateTo = autoDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
+        String effectiveDateTo = ReportMonthPeriod.resolveInvoiceDateTo(r.getDateFrom(), r.getDateTo(), r.getTimeFrame());
         if (r.getDateFrom() != null) p.put("INVOICE_DATE_FROM", firstDayOfMonth(r.getDateFrom()));
         if (effectiveDateTo != null) p.put("INVOICE_DATE_TO", lastDayOfMonth(effectiveDateTo));
         // Like legacy R12Bean.changeTimeFrame, print the months actually queried, not the selected time frame
@@ -103,23 +102,6 @@ public class R12Service {
         String idir = SecurityContextUtils.currentUsername().orElse(r.getUserId());
         if (idir != null)                   p.put("USER_ID", idir);
         return p;
-    }
-
-    private static String autoDateTo(String dateFrom, String dateTo, String timeFrame) {
-        if (dateTo != null || dateFrom == null) return dateTo;
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd");
-        LocalDate from = LocalDate.parse(dateFrom, fmt);
-        LocalDate end;
-        if (timeFrame != null && !timeFrame.isBlank()) {
-            try {
-                end = from.plusMonths(Math.max(Integer.parseInt(timeFrame) - 1, 0));
-            } catch (NumberFormatException e) {
-                throw new BadRequestException("timeFrame must be a numeric value");
-            }
-        } else {
-            end = from;
-        }
-        return YearMonth.from(end).atEndOfMonth().format(fmt);
     }
 
     private static String firstDayOfMonth(String date) {

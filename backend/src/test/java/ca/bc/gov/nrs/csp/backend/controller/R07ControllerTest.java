@@ -97,5 +97,14 @@ class R07ControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
         }
+
+        @Test
+        void shouldReturn400_whenTimeFrameNotNumeric() throws Exception {
+            mockMvc.perform(post("/api/R07")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"reportFormat\":\"PDF\",\"dateFrom\":\"20240401\",\"timeFrame\":\"abc\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        }
     }
 }

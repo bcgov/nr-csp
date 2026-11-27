@@ -9,6 +9,7 @@ import ca.bc.gov.nrs.csp.backend.security.SecurityContextUtils;
 import ca.bc.gov.nrs.csp.backend.service.model.LookupItem;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
 import ca.bc.gov.nrs.csp.backend.service.reporting.ReportFilenames;
+import ca.bc.gov.nrs.csp.backend.service.reporting.ReportMonthPeriod;
 import ca.bc.gov.nrs.csp.backend.util.validation.ValidationResult;
 import ca.bc.gov.nrs.csp.backend.util.validation.reports.R13Validator;
 import net.sf.jasperreports.engine.*;
@@ -33,9 +34,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -77,7 +75,6 @@ public class R13Service {
 
     public ReportResult generateReport(R13ReportRequest request) {
         validate(request);
-        String resolvedDateTo = resolveInvoiceDateTo(request);
         String format = request.getReportFormat().getValue();
         log.info("Generating R13 report format={}", format);
         String ext = "CSV".equalsIgnoreCase(format) ? "csv" : "pdf";
@@ -99,7 +96,7 @@ public class R13Service {
             }
         });
 
-        Map<String, Object> params = buildReportParameters(request, resolvedDateTo);
+        Map<String, Object> params = buildReportParameters(request);
         JasperPrint jasperPrint = fillReport(jasperReport, params);
 
         if (jasperPrint.getPages().isEmpty()) {
@@ -117,23 +114,6 @@ public class R13Service {
         if (result.hasErrors()) {
             throw new ValidationException(result.errors().get(0).messageKey(), result);
         }
-    }
-
-    private String resolveInvoiceDateTo(R13ReportRequest r) {
-        if (r.getInvoiceDateTo() != null) {
-            return r.getInvoiceDateTo();
-        }
-        if (r.getInvoiceDateFrom() == null) {
-            return null;
-        }
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd");
-        LocalDate from = LocalDate.parse(r.getInvoiceDateFrom(), fmt);
-        if (r.getTimeFrame() != null && !r.getTimeFrame().isBlank()) {
-            return from.plusMonths(Integer.parseInt(r.getTimeFrame()))
-                       .with(TemporalAdjusters.lastDayOfMonth())
-                       .format(fmt);
-        }
-        return from.with(TemporalAdjusters.lastDayOfMonth()).format(fmt);
     }
 
     // ── JRXML loading and compilation ─────────────────────────────────────────
@@ -323,7 +303,7 @@ public class R13Service {
 
     // ── Parameter building ─────────────────────────────────────────────────────
 
-    private Map<String, Object> buildReportParameters(R13ReportRequest r, String resolvedDateTo) {
+    private Map<String, Object> buildReportParameters(R13ReportRequest r) {
         // Normalise free-text search identifiers to uppercase to match DB storage
         List<String> invoiceNums = upperNullIfEmpty(r.getInvoiceNumbers());
         String invNumFrom        = upperNullIfBlank(r.getInvoiceNumberFrom());
@@ -350,7 +330,8 @@ public class R13Service {
         p.put("REPORT_NAME",  r.getReportName());
 
         p.put("INVOICE_DATE_FROM", r.getInvoiceDateFrom());
-        p.put("INVOICE_DATE_TO",   resolvedDateTo);
+        p.put("INVOICE_DATE_TO",   ReportMonthPeriod.resolveInvoiceDateTo(
+                r.getInvoiceDateFrom(), r.getInvoiceDateTo(), r.getTimeFrame()));
 
         p.put("INVOICE_NUMBER",      invoiceNums);
         p.put("INVOICE_NUMBER_FROM", invNumFrom);

@@ -13,6 +13,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -289,6 +291,33 @@ class R11ServiceTest {
             Map<String, Object> params = buildParams(r);
 
             assertThat(params).containsEntry("BLENDED", "true");
+        }
+
+        @ParameterizedTest(name = "{0} + {1} month(s) -> {2}")
+        @CsvSource({
+                "20240401, 01, 20240430",
+                "20241201, 02, 20250131"
+        })
+        void shouldCountStartMonthAsMonthOne_whenNoEndDate(String dateFrom, String timeFrame, String expectedDateTo) {
+            R11ReportRequest r = baseRequest();
+            r.setDateFrom(dateFrom);
+            r.setTimeFrame(timeFrame);
+
+            Map<String, Object> params = buildParams(r);
+
+            assertThat(params).containsEntry("INVOICE_DATE_TO", expectedDateTo);
+        }
+
+        @Test
+        void shouldPreferProvidedDateTo_overTimeFrame() {
+            R11ReportRequest r = baseRequest();
+            r.setDateFrom("20240401");
+            r.setDateTo("20240515");
+            r.setTimeFrame("06");
+
+            Map<String, Object> params = buildParams(r);
+
+            assertThat(params).containsEntry("INVOICE_DATE_TO", "20240515");
         }
     }
 }
