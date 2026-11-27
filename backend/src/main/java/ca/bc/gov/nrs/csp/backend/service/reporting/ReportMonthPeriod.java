@@ -25,7 +25,7 @@ public final class ReportMonthPeriod {
         int monthsAfterStartMonth = 0;
         if (timeFrameInMonths != null && !timeFrameInMonths.isBlank()) {
             try {
-                monthsAfterStartMonth = Math.max(Integer.parseInt(timeFrameInMonths) - 1, 0);
+                monthsAfterStartMonth = Math.max(Integer.parseInt(timeFrameInMonths), 1) - 1;
             } catch (NumberFormatException e) {
                 throw new BadRequestException("timeFrame must be a numeric value");
             }
