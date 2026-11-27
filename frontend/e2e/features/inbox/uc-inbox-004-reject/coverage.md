@@ -71,8 +71,6 @@ untouched. Both are cheap and guard the same write path.
   scenarios running concurrently take different rows automatically. Verified with
   `--repeat-each=5 --workers=3`: 5/5 green, and afterwards all twelve pool rows re-read as UNA with
   their original notes verbatim.
-* **A pool row with a NULL reviewer note would be unrestorable**, because the service skips the
-  note write when `reviewComments` is null — the test's reason could never be removed again. The
-  borrow fixture refuses such a row and the preflight asserts the invariant across the pool. Keep
-  that in mind before adding entries.
+* **The restore is a SQL update on the local seeded DB** (`steps/inbox/borrowedInvoiceDbRestore.ts`),
+  because the status API only allows the moves the UI offers and a rejected invoice never leaves REJ.
 * **Cap the workers when flake-checking** (`--workers=3`) — see the note in `e2e/README.md`.
