@@ -60,6 +60,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 @Service
 public class InvoiceService {
@@ -412,6 +414,9 @@ public class InvoiceService {
     @Transactional
     public InvoiceResponse duplicate(Long id) {
         String user = SecurityContextUtils.requireUsername();
+        // Locked so a decision on the source waits for the copy, which then keeps its submission open.
+        invoiceRepo.lockVersion(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         LoadedInvoice existing = invoiceRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice " + id + " was not found."));
         String copyStatus = existing.details().invStatus();
@@ -511,13 +516,16 @@ public class InvoiceService {
 
         // Legacy approve saves the invoice, and every save cancels what it replaces (InvSubmissionDAO.saveInvoice).
         // Covers an uploaded replacement that staff approve without saving. Adjustments leave their originals active.
+        SortedSet<Long> submissionsToClose = new TreeSet<>();
         if (ConstantsCode.INVENTRYSTATUS_APPROVED.equals(request.status())) {
-            cancelReplacedInvoices(id, invoiceRepo.findRelatedInvoiceIds(id, ConstantsCode.INVRELATETYPE_REPLACE), user);
+            submissionsToClose.addAll(cancelReplacedOriginals(
+                    id, invoiceRepo.findRelatedInvoiceIds(id, ConstantsCode.INVRELATETYPE_REPLACE), user));
         }
-
-        // Cascade the change to the submission status (after the invoice's own
-        // status is persisted, so the counts below reflect the new state).
-        applySubmissionStatusOnStatusChange(existing.submissionId(), request.status(), user);
+        // Legacy SubmissionTransferRules.provideSubmissionStatus: Unapprove leaves the submission alone.
+        if (existing.submissionId() != null && !ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(request.status())) {
+            submissionsToClose.add(existing.submissionId());
+        }
+        submissionsToClose.forEach(submissionId -> closeSubmissionIfAllDecided(submissionId, user));
 
         InvoiceDetails saved = withReviewCommentsAndStatus(existing.details(), request.reviewComments(), request.status());
         ResponseSnapshot snapshot = readResponseSnapshot(id);
@@ -541,18 +549,15 @@ public class InvoiceService {
         }
     }
 
-    // Legacy SubmissionTransferRules.provideSubmissionStatus: Unapprove leaves the submission alone, and it
-    // closes only when every invoice is Approved, Cancelled or Rejected. Call after the invoice status is saved.
-    private void applySubmissionStatusOnStatusChange(Long submissionId, String newInvoiceStatus, String user) {
-        if (submissionId == null) return;
-        if (ConstantsCode.INVENTRYSTATUS_UNAPPROVED.equals(newInvoiceStatus)) return;
-
+    // Legacy SubmissionTransferRules.provideSubmissionStatus: a submission closes only when every invoice is
+    // Approved, Cancelled or Rejected. Call after the invoice statuses are saved and every invoice lock is taken.
+    private void closeSubmissionIfAllDecided(Long submissionId, String user) {
         // Without the lock, two last decisions on sibling invoices could each still see the other undecided.
         submissionRepo.lockForUpdate(submissionId);
-        if (invoiceRepo.countUndecidedByCspSubmissionId(submissionId) > 0) return;
+        InvoiceRepository.SubmissionDecisions decisions = invoiceRepo.countDecisionsByCspSubmissionId(submissionId);
+        if (decisions.undecided() > 0) return;
 
-        boolean anyApproved = invoiceRepo.countByCspSubmissionIdAndStatus(
-                submissionId, ConstantsCode.INVENTRYSTATUS_APPROVED) > 0;
+        boolean anyApproved = decisions.approved() > 0;
         String newSubmissionStatus = anyApproved
                 ? ConstantsCode.SUBMSTATUS_COMPLETE
                 : ConstantsCode.SUBMSTATUS_REJECTED;
@@ -572,28 +577,41 @@ public class InvoiceService {
      *
      * <p>The submission-status cascade only runs when the original was in a
      * {@link #REVIEW_QUEUE_STATUSES review-queue status}, which is what the cascade was
-     * written for; it clears a replaced invoice out of the inbox. Cancelling a DRAFT
-     * original deliberately leaves its submission in the lobby:
-     * the cascade would otherwise close a lobby submission whose only invoice was that draft.</p>
+     * written for; it clears a replaced invoice out of the inbox, as it does for a Draft
+     * in an upload. Cancelling a manual DRAFT original deliberately leaves its submission
+     * in the lobby: the cascade would otherwise close a lobby submission whose only invoice was that draft.</p>
      */
     private void cancelReplacedInvoices(Long replacementId, List<Long> replacedIds, String user) {
-        if (replacedIds == null) return;
+        cancelReplacedOriginals(replacementId, replacedIds, user)
+                .forEach(submissionId -> closeSubmissionIfAllDecided(submissionId, user));
+    }
+
+    // Locks and cancels every original before any submission is locked, so a concurrent decision on an
+    // original can't deadlock with this. Returns the submissions to recheck, in id order.
+    private SortedSet<Long> cancelReplacedOriginals(Long replacementId, List<Long> replacedIds, String user) {
+        SortedSet<Long> submissionsToClose = new TreeSet<>();
+        if (replacedIds == null) return submissionsToClose;
         for (Long replacedId : replacedIds) {
-            cancelReplacedInvoice(replacementId, replacedId, user);
+            Long submissionId = cancelReplacedInvoice(replacementId, replacedId, user);
+            if (submissionId != null) {
+                submissionsToClose.add(submissionId);
+            }
         }
+        return submissionsToClose;
     }
 
     /**
      * Cancels a single replaced invoice. Skips a null id, a self-reference, an invoice
-     * that no longer exists, and one that is already CANCELLED.
+     * that no longer exists, and one that is already CANCELLED. Returns its submission
+     * when the cascade applies, otherwise null.
      */
-    private void cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
-        if (replacedId == null || replacedId.equals(replacementId)) return;
+    private Long cancelReplacedInvoice(Long replacementId, Long replacedId, String user) {
+        if (replacedId == null || replacedId.equals(replacementId)) return null;
         // Lock it before reading its status, so a concurrent change to it can't land in between.
-        if (invoiceRepo.lockVersion(replacedId).isEmpty()) return;
+        if (invoiceRepo.lockVersion(replacedId).isEmpty()) return null;
         LoadedInvoice replaced = loadInvoiceOrThrow(replacedId);
         String previousStatus = replaced.details().invStatus();
-        if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return;
+        if (ConstantsCode.INVENTRYSTATUS_CANCELLED.equals(previousStatus)) return null;
         // Cancelling an Unapproved or Processing invoice is a review decision, so Data Entry replaces drafts only.
         if (isDataEntryOnly() && (replaced.submissionNumber() != null
                 || !ConstantsCode.INVENTRYSTATUS_DRAFT.equals(previousStatus))) {
@@ -605,10 +623,10 @@ public class InvoiceService {
         invoiceRepo.updateStatus(replacedId, ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
         log.info("Cancelled invoice id={} (was {}) as it is replaced by invoice id={}",
                 replacedId, previousStatus, replacementId);
-        if (REVIEW_QUEUE_STATUSES.contains(previousStatus)) {
-            applySubmissionStatusOnStatusChange(
-                    replaced.submissionId(), ConstantsCode.INVENTRYSTATUS_CANCELLED, user);
-        }
+        boolean uploadedDraft = ConstantsCode.INVENTRYSTATUS_DRAFT.equals(previousStatus)
+                && replaced.submissionNumber() != null;
+        boolean cascades = REVIEW_QUEUE_STATUSES.contains(previousStatus) || uploadedDraft;
+        return cascades ? replaced.submissionId() : null;
     }
 
     // ---------------------------------------------------------------

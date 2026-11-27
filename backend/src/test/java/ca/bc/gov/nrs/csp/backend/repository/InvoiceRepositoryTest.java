@@ -1020,7 +1020,7 @@ class InvoiceRepositoryTest {
     }
 
     // ---------------------------------------------------------------
-    // countByCspSubmissionId / countByCspSubmissionIdAndStatus
+    // countByCspSubmissionId / countDecisionsByCspSubmissionId
     // ---------------------------------------------------------------
 
     @Test
@@ -1050,50 +1050,26 @@ class InvoiceRepositoryTest {
     }
 
     @Test
-    void countUndecidedByCspSubmissionId_countsEveryStatusButApprovedCancelledAndRejected() {
-        given(jdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
-                .willReturn(2);
+    @SuppressWarnings("unchecked")
+    void countDecisionsByCspSubmissionId_countsUndecidedAndApprovedInOneStatement() throws Exception {
+        given(jdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .willAnswer(invocation -> {
+                    ResultSet rs = mock(ResultSet.class);
+                    given(rs.getInt("undecided")).willReturn(2);
+                    given(rs.getInt("approved")).willReturn(1);
+                    return ((RowMapper<InvoiceRepository.SubmissionDecisions>) invocation.getArgument(2)).mapRow(rs, 0);
+                });
 
-        assertThat(repo.countUndecidedByCspSubmissionId(500L)).isEqualTo(2);
+        assertThat(repo.countDecisionsByCspSubmissionId(500L)).isEqualTo(new InvoiceRepository.SubmissionDecisions(2, 1));
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> params = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc).queryForObject(sql.capture(), params.capture(), eq(Integer.class));
+        verify(jdbc).queryForObject(sql.capture(), params.capture(), any(RowMapper.class));
         assertThat(sql.getValue())
-                .contains("csp_submission_id = :id")
-                .contains("log_sale_entry_status_code NOT IN ('APP', 'CAN', 'REJ')");
+                .contains("log_sale_entry_status_code NOT IN ('APP', 'CAN', 'REJ') THEN 1 END) AS undecided")
+                .contains("log_sale_entry_status_code = 'APP' THEN 1 END) AS approved")
+                .contains("WHERE csp_submission_id = :id");
         assertThat(params.getValue().getValue("id")).isEqualTo(500L);
-    }
-
-    @Test
-    void countByCspSubmissionIdAndStatus_nullId_returnsZeroWithoutQuerying() {
-        assertThat(repo.countByCspSubmissionIdAndStatus(null, "DFT")).isZero();
-        verifyNoInteractions(jdbc);
-    }
-
-    @Test
-    void countByCspSubmissionIdAndStatus_returnsCountAndBindsParams() {
-        given(jdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
-                .willReturn(3);
-
-        assertThat(repo.countByCspSubmissionIdAndStatus(500L, "DFT")).isEqualTo(3);
-
-        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbc).queryForObject(sqlCaptor.capture(), paramsCaptor.capture(), eq(Integer.class));
-        assertThat(sqlCaptor.getValue())
-                .contains("csp_submission_id = :id")
-                .contains("log_sale_entry_status_code = :status");
-        assertThat(paramsCaptor.getValue().getValue("id")).isEqualTo(500L);
-        assertThat(paramsCaptor.getValue().getValue("status")).isEqualTo("DFT");
-    }
-
-    @Test
-    void countByCspSubmissionIdAndStatus_nullCount_returnsZero() {
-        given(jdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Integer.class)))
-                .willReturn(null);
-
-        assertThat(repo.countByCspSubmissionIdAndStatus(500L, "DFT")).isZero();
     }
 
     // ---------------------------------------------------------------

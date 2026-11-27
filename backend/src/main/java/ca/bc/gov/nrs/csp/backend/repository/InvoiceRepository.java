@@ -744,24 +744,19 @@ public class InvoiceRepository {
         return count == null ? 0 : count;
     }
 
-    // Legacy isTheInvoiceLastProcessingInSubmission: anything not Approved, Cancelled or Rejected keeps the submission open.
-    public int countUndecidedByCspSubmissionId(Long submissionId) {
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM THE.coastal_log_sale WHERE csp_submission_id = :id"
-                        + " AND log_sale_entry_status_code NOT IN ('APP', 'CAN', 'REJ')",
-                new MapSqlParameterSource("id", submissionId),
-                Integer.class);
-        return count == null ? 0 : count;
-    }
+    public record SubmissionDecisions(int undecided, int approved) {}
 
-    public int countByCspSubmissionIdAndStatus(Long submissionId, String statusCode) {
-        if (submissionId == null) return 0;
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM THE.coastal_log_sale" +
-                " WHERE csp_submission_id = :id AND log_sale_entry_status_code = :status",
-                new MapSqlParameterSource().addValue("id", submissionId).addValue("status", statusCode),
-                Integer.class);
-        return count == null ? 0 : count;
+    // Legacy isTheInvoiceLastProcessingInSubmission: anything not Approved, Cancelled or Rejected keeps the submission open.
+    // One statement, so both counts come from the same moment even if a sibling is unapproved meanwhile.
+    public SubmissionDecisions countDecisionsByCspSubmissionId(Long submissionId) {
+        return jdbc.queryForObject("""
+                        SELECT COUNT(CASE WHEN log_sale_entry_status_code NOT IN ('APP', 'CAN', 'REJ') THEN 1 END) AS undecided,
+                               COUNT(CASE WHEN log_sale_entry_status_code = 'APP' THEN 1 END) AS approved
+                        FROM THE.coastal_log_sale
+                        WHERE csp_submission_id = :id
+                        """,
+                new MapSqlParameterSource("id", submissionId),
+                (rs, rowNum) -> new SubmissionDecisions(rs.getInt("undecided"), rs.getInt("approved")));
     }
 
     /**

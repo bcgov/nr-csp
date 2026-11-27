@@ -81,14 +81,15 @@ class InvoiceDecisionHistoryIT {
     }
 
     @Test
-    void undecidedCount_includesDraftProcessingAndUnapprovedSiblings() {
+    void decisionCounts_treatDraftProcessingAndUnapprovedAsUndecided() {
         seedInvoice(923L, "DFT");
         seedInvoice(924L, "UNA");
         seedInvoice(925L, "APP");
         seedInvoice(926L, "CAN");
         seedInvoice(927L, "REJ");
 
-        assertThat(invoiceRepo.countUndecidedByCspSubmissionId(SUBMISSION_ID)).isEqualTo(4);
+        assertThat(invoiceRepo.countDecisionsByCspSubmissionId(SUBMISSION_ID))
+                .isEqualTo(new InvoiceRepository.SubmissionDecisions(4, 1));
     }
 
     @Test
@@ -103,7 +104,7 @@ class InvoiceDecisionHistoryIT {
             submissionRepo.lockForUpdate(SUBMISSION_ID);
             firstHoldsLock.countDown();
             await(secondDecided);
-            return invoiceRepo.countUndecidedByCspSubmissionId(SUBMISSION_ID);
+            return invoiceRepo.countDecisionsByCspSubmissionId(SUBMISSION_ID).undecided();
         }), pool);
         CompletableFuture<Integer> second = CompletableFuture.supplyAsync(() -> transaction.execute(status -> {
             await(firstHoldsLock);
@@ -111,7 +112,7 @@ class InvoiceDecisionHistoryIT {
             secondDecided.countDown();
             // Waits here until the first commits.
             submissionRepo.lockForUpdate(SUBMISSION_ID);
-            return invoiceRepo.countUndecidedByCspSubmissionId(SUBMISSION_ID);
+            return invoiceRepo.countDecisionsByCspSubmissionId(SUBMISSION_ID).undecided();
         }), pool);
 
         // The first can't see the second's uncommitted decision, so it leaves the submission open.
