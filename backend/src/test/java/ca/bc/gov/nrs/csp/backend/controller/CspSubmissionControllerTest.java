@@ -900,6 +900,31 @@ class CspSubmissionControllerTest {
         verify(persistenceService, never()).persist(any(), any(), any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/submissions/validate/business", "/api/submissions/submit"})
+    void everyInvoiceRejected_previewAndSubmitGiveTheSameVerdict(String endpoint) throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        SubmissionValidationResult allRejected = new SubmissionValidationResult(
+                false,
+                List.of(SubmissionValidationError.error("invoice #1 (INV-BAD)",
+                        "invoice.fob.required.error", new Object[0])),
+                new SubmissionAcceptance(List.of(), List.of("INV-BAD")));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(allRejected);
+
+        mockMvc.perform(multipart(endpoint)
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(
+                        "Submission failed validation. No invoices from this file are saved."))
+                .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"));
+
+        verify(persistenceService, never()).persist(any(), any(), any());
+    }
+
     @Test
     void submit_structuralInvalid_returns422AndDoesNotValidateOrPersist() throws Exception {
         messageSource.addMessage("FORMAT_UNRECOGNIZED", Locale.getDefault(), "could not detect format");

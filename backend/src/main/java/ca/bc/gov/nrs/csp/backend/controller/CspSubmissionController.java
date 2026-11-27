@@ -243,8 +243,10 @@ public class CspSubmissionController implements CspSubmissionApi {
             List<ValidationMessageResponse> messages = result.errors().stream()
                     .map(this::toMessageResponse)
                     .toList();
-            String code = rejected.isEmpty() ? CODE_VALIDATION_ERROR : CODE_INVOICES_REJECTED;
-            String message = rejected.isEmpty() ? MSG_VALIDATION_ERROR : invoicesRejectedMessage(result);
+            // Same precedence as the preview (toResponse): a failed result is VALIDATION_ERROR.
+            boolean onlyInvoicesRejected = result.valid();
+            String code = onlyInvoicesRejected ? CODE_INVOICES_REJECTED : CODE_VALIDATION_ERROR;
+            String message = onlyInvoicesRejected ? invoicesRejectedMessage(result) : MSG_VALIDATION_ERROR;
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(
                     new SubmissionSubmitResponse(false, code, message,
                             null, null, result.acceptance().accepted(), rejected, messages));
