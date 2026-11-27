@@ -135,8 +135,6 @@ its original note replaced by the test's reason and then restored verbatim; subm
 throughout; Inbox total 50.
 After a `--repeat-each=5` run all twelve pool rows re-read as UNA with their original notes
 verbatim.
-**Guard:** the teardown captures both fields at borrow time, restores both in one PATCH, and reads
-both back, failing loud on any difference. The fixture additionally refuses to borrow a row whose
-note is NULL, because the API cannot write NULL back (the service skips the update when
-`reviewComments` is null) — so such a row could never be restored after a reject. The preflight
-asserts that invariant across the whole pool.
+**Guard:** the teardown captures both fields at borrow time, restores both with one SQL update on
+the local seeded DB, and reads both back through the API, failing loud on any difference. It uses
+SQL because the status API refuses REJ → UNA.
