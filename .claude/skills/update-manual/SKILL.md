@@ -127,6 +127,8 @@ don't hand-edit images.
   (writes the industry manual and the four role manuals to
   `frontend/public/manuals/`). Figures are at most 100 mm tall, so keep
   a capture to about one screen; frame a lower part of a page with `focus`.
+  Every build rewrites all five PDFs, so if they conflict in a merge, take
+  either side and rebuild them.
 - `npm run manual:check` runs the build's role, link and table checks without
   a browser. Run it after every ministry edit.
 - The capture and the PDF build launch Chromium. If it can't start where you

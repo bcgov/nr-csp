@@ -7,7 +7,6 @@
 // Chromium the e2e tests already install. Screenshots come from manual.screenshots.spec.ts
 // (`npm run manual:screenshots`). `--check` stops before the PDFs: it runs the role, link and
 // table checks only and needs no browser.
-import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -86,17 +85,6 @@ const slug = (text) =>
 
 const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-let revision = '';
-try {
-  revision = execSync('git rev-parse --short HEAD', {
-    cwd: MANUAL,
-    stdio: ['ignore', 'pipe', 'ignore'],
-  })
-    .toString()
-    .trim();
-} catch {
-  /* not a git checkout */
-}
 const date = new Date().toLocaleDateString('en-CA', {
   year: 'numeric',
   month: 'long',
@@ -260,7 +248,7 @@ const buildHtml = (manual) => {
   <h1>${SYSTEM}</h1>
   <div class="sub">${manual.name}</div>
   <div class="bar"></div>
-  <div class="meta">${date}${revision ? `<br>Revision ${revision}` : ''}</div>
+  <div class="meta">${date}</div>
 </div><div class="foot">${manual.audience}</div></section>
 <section class="toc"><h1>Contents</h1><ol>${toc}</ol></section>
 <section class="intro">${intro}</section>

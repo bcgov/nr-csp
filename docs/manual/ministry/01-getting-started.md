@@ -37,7 +37,7 @@ button. Ask the CSP application administrator for a role.
 ### Find your way around
 
 The menu on the left lists the screens your role can use. Select a group,
-such as **Reports**, to open it. The button at the top left hides and shows
+such as **Support**, to open it. The button at the top left hides and shows
 the menu. Select **CSP Coast Selling Price System** in the header to return
 to **Invoice search**.
 
