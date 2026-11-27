@@ -54,8 +54,8 @@ playbooks/collections/
 !SECURITY.md
 !/AGENTS.md
 !/CLAUDE.md
-!/.claude/skills/**
-!/docs/manual/**
+!/.claude/skills/**/*.md
+!/docs/manual/**/*.md
 **.log
 **.iml
 

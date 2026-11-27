@@ -337,6 +337,11 @@ const installSession = async (page: Page, scenario: ManualScenario) => {
 /** Serves the built app, a runtime config that signs in through the sample issuer, and the fixtures. */
 const serveApp = async (page: Page, shot: Shot, issues: CaptureIssues) => {
   const scenario = shot.scenario === 'loggedOut' ? 'ministry' : shot.scenario;
+  // Nothing reaches a real service: any request the routes below don't serve is refused and reported.
+  await page.route('**/*', (route) => {
+    issues.push(`${shot.edition}/${shot.file}: unexpected request to ${route.request().url()}`);
+    return route.abort();
+  });
   await page.route(`${ISSUER}/**`, (route) => route.abort());
   await page.route(`${ORIGIN}/**`, async (route) => {
     const request = route.request();

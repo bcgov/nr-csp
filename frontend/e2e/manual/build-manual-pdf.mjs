@@ -8,7 +8,7 @@
 // (`npm run manual:screenshots`). `--check` stops before the PDFs: it runs the role, link and
 // table checks only and needs no browser.
 import { execSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -160,7 +160,8 @@ const css = `
 const buildHtml = (manual) => {
   const dir = path.join(MANUAL, manual.dir);
   const read = (file) => {
-    const markdown = readFileSync(path.join(dir, file), 'utf-8');
+    // A CRLF checkout would otherwise break the section and table checks below.
+    const markdown = readFileSync(path.join(dir, file), 'utf-8').replace(/\r\n/g, '\n');
     return manual.role ? linesForRole(markdown, manual.role, `${manual.dir}/${file}`) : markdown;
   };
   const chapterFiles = readdirSync(dir)
@@ -204,6 +205,9 @@ const buildHtml = (manual) => {
             if (chapterFiles.includes(file)) {
               throw new Error(`${manual.name}: ${chapterId} links to ${file}, which it leaves out`);
             }
+            if (/^\d\d-[^/]+\.md$/.test(file)) {
+              throw new Error(`${manual.name}: ${chapterId} links to ${file}, which doesn't exist`);
+            }
             // Developer docs aren't in the book.
             return inner;
           }
@@ -213,6 +217,9 @@ const buildHtml = (manual) => {
           return `<a href="#${id}">${inner}</a>`;
         },
         image({ href, text }) {
+          if (!existsSync(path.join(dir, href))) {
+            throw new Error(`${manual.name}: ${chapterId} shows ${href}, which doesn't exist`);
+          }
           const caption = escapeHtml(text);
           return `<figure><img src="${pathToFileURL(path.join(dir, href)).href}" alt="${caption}"><figcaption>${caption}</figcaption></figure>`;
         },

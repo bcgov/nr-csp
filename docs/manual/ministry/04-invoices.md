@@ -87,6 +87,7 @@ and yellow warnings you can close.
    date**. To replace or adjust other invoices, type each number in
    **Replaces invoice number(s)** or **Adjusts invoice numbers(s)** and press
    Enter. Use one or the other, up to 5 numbers.
+   You can replace only a manual invoice that is still Draft, because saving the replacement cancels the original. To replace an electronic invoice, or one that is under review, ask an Approver to save the replacement. <!-- roles: data-entry -->
 3. Under **Invoice address information**, choose **Submitted by**, then the
    submitting client by name or number (choosing one fills the other) and
    its **Location**. Then choose the other party the same way.
