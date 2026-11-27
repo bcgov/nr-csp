@@ -61,6 +61,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class CspSubmissionControllerTest {
 
+    private static final String MIXED_FILE_MESSAGE = "1 of 2 invoice(s) have errors. No invoices from this file"
+            + " are saved. Correct the errors and upload the whole corrected file.";
+
     @Mock SubmissionValidationService validationService;
 
     // Real (in-memory) bundle so args-carrying messages resolve like production.
@@ -307,9 +310,9 @@ class CspSubmissionControllerTest {
     }
 
     @Test
-    void business_partialAcceptance_is200ButNotValidAndSurfacesRejected() throws Exception {
-        // One invoice accepted, one rejected for an ERROR. Must NOT read as a clean
-        // accept: valid=false, code=PARTIALLY_ACCEPTED, with both invoice lists exposed.
+    void business_mixedFile_is200ButNotValidAndSaysNothingIsSaved() throws Exception {
+        // One invoice passes, one is rejected for an ERROR. Submit refuses the whole file, so
+        // the preview must say nothing from it is saved, never "partially accepted".
         SubmissionValidationResult partial = new SubmissionValidationResult(
                 true,
                 List.of(SubmissionValidationError.error("invoice INV-BAD",
@@ -323,7 +326,8 @@ class CspSubmissionControllerTest {
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
-                .andExpect(jsonPath("$.code").value("PARTIALLY_ACCEPTED"))
+                .andExpect(jsonPath("$.code").value("INVOICES_REJECTED"))
+                .andExpect(jsonPath("$.message").value(MIXED_FILE_MESSAGE))
                 .andExpect(jsonPath("$.acceptedInvoices[0]").value("INV-GOOD"))
                 .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"))
                 .andExpect(jsonPath("$.errors[0].messageKey").value("invoice.date.in.future.error"));
@@ -873,7 +877,7 @@ class CspSubmissionControllerTest {
     }
 
     @Test
-    void submit_partialAcceptance_returns422NotSaved() throws Exception {
+    void submit_mixedFile_returns422NotSavedWithThePreviewMessage() throws Exception {
         given(validationService.parse(any())).willReturn(
                 new StructuralValidationService.ValidationOutcome(
                         SubmissionValidationResult.ok(), sampleSubmission()));
@@ -888,7 +892,34 @@ class CspSubmissionControllerTest {
                         .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.valid").value(false))
-                .andExpect(jsonPath("$.code").value("PARTIALLY_ACCEPTED"))
+                .andExpect(jsonPath("$.code").value("INVOICES_REJECTED"))
+                .andExpect(jsonPath("$.message").value(MIXED_FILE_MESSAGE))
+                .andExpect(jsonPath("$.submissionNumber").value(nullValue()))
+                .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"));
+
+        verify(persistenceService, never()).persist(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/submissions/validate/business", "/api/submissions/submit"})
+    void everyInvoiceRejected_previewAndSubmitGiveTheSameVerdict(String endpoint) throws Exception {
+        given(validationService.parse(any())).willReturn(
+                new StructuralValidationService.ValidationOutcome(
+                        SubmissionValidationResult.ok(), sampleSubmission()));
+        SubmissionValidationResult allRejected = new SubmissionValidationResult(
+                false,
+                List.of(SubmissionValidationError.error("invoice #1 (INV-BAD)",
+                        "invoice.fob.required.error", new Object[0])),
+                new SubmissionAcceptance(List.of(), List.of("INV-BAD")));
+        given(validationService.validateBusiness(any(CSPSubmissionType.class))).willReturn(allRejected);
+
+        mockMvc.perform(multipart(endpoint)
+                        .file(file("submission.xml", "<csp:CSPSubmission/>".getBytes())))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.valid").value(false))
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(
+                        "Submission failed validation. No invoices from this file are saved."))
                 .andExpect(jsonPath("$.rejectedInvoices[0]").value("INV-BAD"));
 
         verify(persistenceService, never()).persist(any(), any(), any());

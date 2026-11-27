@@ -1,5 +1,14 @@
 import { Download } from '@carbon/icons-react';
-import { Button, Column, Grid, InlineLoading, InlineNotification, Link, TextInput } from '@carbon/react';
+import {
+  ActionableNotification,
+  Button,
+  Column,
+  Grid,
+  InlineLoading,
+  InlineNotification,
+  Link,
+  TextInput,
+} from '@carbon/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -51,7 +60,16 @@ type InvoiceRow = ParsedInvoice & { id: string };
 type LineItemRow = ParsedLineItem & { id: string };
 
 /** Where we are in the upload → parse → validate → submit pipeline. */
-type Status = 'idle' | 'parsing' | 'structural-error' | 'validating' | 'done' | 'submitting' | 'network-error';
+type Status =
+  | 'idle'
+  | 'parsing'
+  | 'structural-error'
+  | 'validating'
+  | 'done'
+  | 'submitting'
+  | 'network-error'
+  // Submit got no response, so the save may have committed.
+  | 'submit-unconfirmed';
 
 /**
  * The submission metadata fields the user can edit after a file is parsed.
@@ -140,9 +158,13 @@ const STATUS_BANNER: Record<InvoiceSeverity, { kind: 'success' | 'warning' | 'er
   },
   error: {
     kind: 'error',
-    subtitle: 'Submission is blocked. Correct the errors in your source file, then replace the file to continue.',
+    subtitle:
+      'Submission is blocked and no invoices from this file are saved. Correct the errors in your source file, then upload the whole corrected file.',
   },
 };
+
+// Submit refuses the whole file when any invoice has an error; the server's verdict says how many.
+const INVOICES_REJECTED = 'INVOICES_REJECTED';
 
 export function UploadSubmissionPage() {
   const navigate = useNavigate();
@@ -262,7 +284,7 @@ export function UploadSubmissionPage() {
         applyBusinessResult(body);
         setStatus('done');
       } else {
-        setStatus('network-error');
+        setStatus('submit-unconfirmed');
       }
     }
   };
@@ -322,6 +344,8 @@ export function UploadSubmissionPage() {
 
   const isBusy = status === 'parsing' || status === 'validating' || status === 'submitting';
   const hasSubmission = submission != null;
+  // The last Submit may have saved; only Clear or a new upload allows another attempt.
+  const submitUnconfirmed = status === 'submit-unconfirmed';
   // Any ERROR-severity ("hard") validation issue disables Submit — the user must
   // resolve it before the submission can be sent. Errors on the editable metadata
   // fields lift as the user corrects them (setField clears the stale ones, and the
@@ -348,7 +372,12 @@ export function UploadSubmissionPage() {
   const revalidationPending = hasStaleValidation && !hasClientFieldErrors;
 
   const canSubmit =
-    hasSubmission && !isBusy && !hasStaleValidation && !hasClientFieldErrors && !hasHardValidationErrors;
+    hasSubmission &&
+    !isBusy &&
+    !submitUnconfirmed &&
+    !hasStaleValidation &&
+    !hasClientFieldErrors &&
+    !hasHardValidationErrors;
 
   /**
    * Re-runs business validation when a rule-bearing metadata field settles on a
@@ -369,6 +398,8 @@ export function UploadSubmissionPage() {
     // Parse or submit is in flight and owns the result; that request re-validates
     // with the current values anyway.
     if (isBusy) return;
+    // Re-validating would replace the unconfirmed-submit warning with a fresh verdict.
+    if (submitUnconfirmed) return;
     if (hasClientFieldErrors) return;
     const key = revalidationKeyOf(editsSettled);
     // The debounce still trails the form (it also trails a freshly parsed file):
@@ -415,6 +446,7 @@ export function UploadSubmissionPage() {
     selectedFile,
     submission,
     isBusy,
+    submitUnconfirmed,
     hasClientFieldErrors,
     applyBusinessResult,
   ]);
@@ -564,6 +596,21 @@ export function UploadSubmissionPage() {
     />
   );
 
+  // The save may have committed before the response was lost, so point to History rather than a retry.
+  const renderSubmitUnconfirmed = () => (
+    <ActionableNotification
+      inline
+      kind="warning"
+      lowContrast
+      hideCloseButton
+      title="We could not confirm your submission."
+      subtitle="The connection dropped before the server replied, so it may have been saved. Check Submission History before you upload this file again."
+      actionButtonLabel="Open Submission History"
+      onActionButtonClick={() => void navigate(ROUTES.SUBMISSION_HISTORY)}
+      className="upload-submission-page__notification"
+    />
+  );
+
   const renderStructuralError = () => {
     const issueRows = toStructuralIssueRows(structuralErrors);
     const issueColumns: DataPreviewColumn<StructuralIssueRow>[] = [
@@ -635,15 +682,11 @@ export function UploadSubmissionPage() {
     if (severity === 'warning') title = `${warnings} warning${warnings === 1 ? '' : 's'} found.`;
     else if (severity === 'error') title = `${errors} error${errors === 1 ? '' : 's'} found.`;
     else title = `${fileName ?? 'The file'} was uploaded with no issues found.`;
+    let subtitle: string | undefined = severity === 'none' ? undefined : banner.subtitle;
+    if (severity === 'error' && businessResult?.code === INVOICES_REJECTED) subtitle = businessResult.message;
     return (
       <div className="upload-submission-page__notification">
-        <InlineNotification
-          kind={banner.kind}
-          lowContrast
-          title={title}
-          subtitle={severity === 'none' ? undefined : banner.subtitle}
-          hideCloseButton
-        />
+        <InlineNotification kind={banner.kind} lowContrast title={title} subtitle={subtitle} hideCloseButton />
         {issues?.formIssues.map((issue) => (
           <InlineNotification
             key={`form-${issue.type}-${issue.message}`}
@@ -671,6 +714,7 @@ export function UploadSubmissionPage() {
 
   const renderStatus = () => {
     if (status === 'network-error') return renderNetworkError();
+    if (status === 'submit-unconfirmed') return renderSubmitUnconfirmed();
     if (status === 'structural-error') return renderStructuralError();
     if (status === 'done' && businessResult) return renderBusinessResult();
     if (status === 'idle' && notificationVisible) return renderIdle();
