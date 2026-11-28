@@ -888,6 +888,20 @@ class InvoiceRepositoryTest {
     }
 
     @Test
+    void incrementRevisionCountOfOtherInvoicesInSubmission_bumpsSiblingsButNotTheSavedInvoice() {
+        repo.incrementRevisionCountOfOtherInvoicesInSubmission(500L, 10L, "user123");
+
+        assertThat(captureUpdateSql())
+                .contains("revision_count = revision_count + 1")
+                .contains("WHERE csp_submission_id = :submissionId")
+                .contains("AND coastal_log_sale_id <> :exceptInvoiceId");
+        MapSqlParameterSource params = captureUpdateParams();
+        assertThat(params.getValue("submissionId")).isEqualTo(500L);
+        assertThat(params.getValue("exceptInvoiceId")).isEqualTo(10L);
+        assertThat(params.getValue("userId")).isEqualTo("user123");
+    }
+
+    @Test
     void updateStatus_bindsStatusUserIdAndId() {
         repo.updateStatus(10L, "APP", "user123");
 

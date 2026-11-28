@@ -639,12 +639,14 @@ class InvoiceServiceTest {
                 d.adjustInvNum(), d.reviewComments(), d.submitComments(), d.entryUserID());
     }
 
-    // Search and History read the submitter from the parent submission, so a correction must move it.
-    @Test
-    void update_correctedSubmitterOnASingleManualInvoice_movesItsSubmission() {
+    // Search and History read the submitter from the parent submission. Like legacy submitOrSaveInv, a correction
+    // moves the whole parent, whether it is manual or electronic, and whatever other invoices it holds.
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void update_correctedSubmitter_movesTheWholeSubmission(boolean electronic) {
         UpdateInvoiceRequest req = updateRequest();
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loadedManual(draftDetails(1L), 10L)));
-        given(invoiceRepo.countByCspSubmissionId(10L)).willReturn(1);
+        LoadedInvoice existing = electronic ? loaded(draftDetails(1L), 10L, null, null) : loadedManual(draftDetails(1L), 10L);
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(existing));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(withSubmitter(draftDetails(1L), "4321", "01"));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
@@ -652,7 +654,9 @@ class InvoiceServiceTest {
 
         InOrder order = inOrder(submissionRepo, invoiceRepo);
         order.verify(submissionRepo).updateClient(10L, "4321", "01", USER);
+        order.verify(invoiceRepo).incrementRevisionCountOfOtherInvoicesInSubmission(10L, 1L, USER);
         order.verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
+        verify(invoiceRepo, never()).countByCspSubmissionId(any());
     }
 
     @Test
@@ -665,24 +669,22 @@ class InvoiceServiceTest {
         service.update(1L, CURRENT_VERSION, req);
 
         verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCountOfOtherInvoicesInSubmission(any(), any(), any());
     }
 
-    // Legacy moved the whole parent, taking sibling invoices to the new client; that waits on a decision.
-    @ParameterizedTest
-    @CsvSource({"true, 1", "false, 2"})
-    void update_correctedSubmitterOnAnElectronicOrSharedSubmission_isRefusedBeforeAnyWrite(
-            boolean electronic, int invoicesInSubmission) {
+    // Create always makes a submission; an invoice without one still saves, as nothing holds its submitter.
+    @Test
+    void update_correctedSubmitterWithNoSubmission_savesWithoutMovingAnything() {
         UpdateInvoiceRequest req = updateRequest();
-        LoadedInvoice existing = electronic ? loaded(draftDetails(1L), 10L, null, null) : loadedManual(draftDetails(1L), 10L);
-        given(invoiceRepo.findById(1L)).willReturn(Optional.of(existing));
-        lenient().when(invoiceRepo.countByCspSubmissionId(10L)).thenReturn(invoicesInSubmission);
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), null, null, null)));
         given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(withSubmitter(draftDetails(1L), "4321", "01"));
         given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
 
-        assertThatThrownBy(() -> service.update(1L, CURRENT_VERSION, req)).isInstanceOf(ConflictException.class);
+        service.update(1L, CURRENT_VERSION, req);
+
         verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
-        verify(invoiceRepo, never()).updateInvoice(any(), any(), any(), any(), any(), any());
-        verify(participantRepo, never()).findOrInsert(any(), any(), any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCountOfOtherInvoicesInSubmission(any(), any(), any());
+        verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
     }
 
     // Legacy only moves a manual submission to the Lobby on save, so a saved upload stays in the Inbox.

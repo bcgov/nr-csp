@@ -214,6 +214,23 @@ public class InvoiceRepository {
         jdbc.update(sql, params);
     }
 
+    // Changes the version of every other invoice in the submission, so their open copies must refresh before saving.
+    public void incrementRevisionCountOfOtherInvoicesInSubmission(Long submissionId, Long exceptInvoiceId, String userId) {
+        String sql = """
+                UPDATE THE.coastal_log_sale SET
+                    revision_count = revision_count + 1,
+                    update_userid = :userId,
+                    update_timestamp = SYSDATE
+                WHERE csp_submission_id = :submissionId
+                  AND coastal_log_sale_id <> :exceptInvoiceId
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("submissionId", submissionId)
+                .addValue("exceptInvoiceId", exceptInvoiceId)
+                .addValue("userId", userId);
+        jdbc.update(sql, params);
+    }
+
     public String findReviewCommentsById(Long coastalLogSaleId) {
         if (coastalLogSaleId == null) return null;
         String sql = "SELECT reviewer_notes FROM THE.coastal_log_sale WHERE coastal_log_sale_id = :id";

@@ -9,8 +9,6 @@ import ca.bc.gov.nrs.csp.backend.service.SortCodeExportService;
 import ca.bc.gov.nrs.csp.backend.service.SortCodeService;
 import ca.bc.gov.nrs.csp.backend.service.mapper.SortCodeMapper;
 import ca.bc.gov.nrs.csp.backend.service.model.ReportResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +45,6 @@ class SortCodeControllerTest {
     @Mock SortCodeExportService sortCodeExportService;
 
     MockMvc mockMvc;
-    ObjectMapper objectMapper;
 
     private static final LocalDate FIXED_DATE = LocalDate.of(2024, Month.JULY, 22);
 
@@ -58,8 +55,6 @@ class SortCodeControllerTest {
                 .setControllerAdvice(new GlobalApiExceptionHandler(new StaticMessageSource()))
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
-        objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     private SortCodeResponse sampleResponse(String code) {
