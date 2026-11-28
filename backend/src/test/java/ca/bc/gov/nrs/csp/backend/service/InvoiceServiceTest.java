@@ -654,6 +654,7 @@ class InvoiceServiceTest {
 
         InOrder order = inOrder(submissionRepo, invoiceRepo);
         order.verify(submissionRepo).updateClient(10L, "4321", "01", USER);
+        order.verify(invoiceRepo).incrementRevisionCountOfOtherInvoicesInSubmission(10L, 1L, USER);
         order.verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
         verify(invoiceRepo, never()).countByCspSubmissionId(any());
     }
@@ -668,6 +669,22 @@ class InvoiceServiceTest {
         service.update(1L, CURRENT_VERSION, req);
 
         verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCountOfOtherInvoicesInSubmission(any(), any(), any());
+    }
+
+    // Create always makes a submission; an invoice without one still saves, as nothing holds its submitter.
+    @Test
+    void update_correctedSubmitterWithNoSubmission_savesWithoutMovingAnything() {
+        UpdateInvoiceRequest req = updateRequest();
+        given(invoiceRepo.findById(1L)).willReturn(Optional.of(loaded(draftDetails(1L), null, null, null)));
+        given(mapper.toDetails(eq(req), eq(1L), any(), any())).willReturn(withSubmitter(draftDetails(1L), "4321", "01"));
+        given(mapper.toLineItems(any(), eq(1L), any())).willReturn(List.of());
+
+        service.update(1L, CURRENT_VERSION, req);
+
+        verify(submissionRepo, never()).updateClient(any(), any(), any(), any());
+        verify(invoiceRepo, never()).incrementRevisionCountOfOtherInvoicesInSubmission(any(), any(), any());
+        verify(invoiceRepo).updateInvoice(eq(1L), any(), eq("DFT"), any(), any(), eq(USER));
     }
 
     // Legacy only moves a manual submission to the Lobby on save, so a saved upload stays in the Inbox.

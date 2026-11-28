@@ -39,9 +39,9 @@ class InvoiceVersionIT {
     @BeforeEach
     void seedInvoiceWithOneLine() {
         execute("DELETE FROM THE.coastal_log_sale_detail WHERE coastal_log_sale_id = 900");
-        execute("DELETE FROM THE.coastal_log_sale WHERE coastal_log_sale_id = 900");
-        execute("INSERT INTO THE.coastal_log_sale (coastal_log_sale_id, revision_count, update_timestamp) "
-                + "VALUES (900, 3, TO_DATE('2026-11-17 14:00:00', 'YYYY-MM-DD HH24:MI:SS'))");
+        execute("DELETE FROM THE.coastal_log_sale WHERE coastal_log_sale_id IN (900, 901)");
+        execute("INSERT INTO THE.coastal_log_sale (coastal_log_sale_id, revision_count, update_timestamp, csp_submission_id) "
+                + "VALUES (900, 3, TO_DATE('2026-11-17 14:00:00', 'YYYY-MM-DD HH24:MI:SS'), 77)");
         execute("INSERT INTO THE.coastal_log_sale_detail (coastal_log_sale_detail_id, coastal_log_sale_id, revision_count) "
                 + "VALUES (9001, 900, 1)");
     }
@@ -88,6 +88,20 @@ class InvoiceVersionIT {
         repo.incrementRevisionCount(INVOICE_ID, "it-user");
 
         assertThat(repo.findVersion(INVOICE_ID)).isNotEqualTo(before);
+    }
+
+    // A submitter move must make open copies of the other invoices stale, but not the invoice being saved.
+    @Test
+    void incrementRevisionCountOfOtherInvoicesInSubmission_changesOnlyTheSiblingsVersion() {
+        execute("INSERT INTO THE.coastal_log_sale (coastal_log_sale_id, revision_count, update_timestamp, csp_submission_id) "
+                + "VALUES (901, 1, TO_DATE('2026-11-17 14:00:00', 'YYYY-MM-DD HH24:MI:SS'), 77)");
+        String savedBefore = repo.findVersion(INVOICE_ID);
+        String siblingBefore = repo.findVersion(901L);
+
+        repo.incrementRevisionCountOfOtherInvoicesInSubmission(77L, INVOICE_ID, "it-user");
+
+        assertThat(repo.findVersion(INVOICE_ID)).isEqualTo(savedBefore);
+        assertThat(repo.findVersion(901L)).isNotEqualTo(siblingBefore);
     }
 
     private static void execute(String sql) {

@@ -281,10 +281,19 @@ public class InvoiceService {
         boolean corrected = !Objects.equals(existing.details().submitterClientNum(), details.submitterClientNum())
                 || !Objects.equals(existing.details().submitterLocation(), details.submitterLocation());
         if (!corrected) return;
+        // Create always makes a submission, so only bad data lands here; skip the move so the invoice still saves.
+        if (existing.submissionId() == null) {
+            log.warn("Invoice id={} has no submission, so its corrected submitter can't be stored",
+                    existing.details().invID());
+            return;
+        }
         submissionRepo.updateClient(existing.submissionId(), details.submitterClientNum(), details.submitterLocation(),
                 user);
+        // Open copies of the other invoices still hold the old submitter, so a stale save gets a 409, not a move back.
+        invoiceRepo.incrementRevisionCountOfOtherInvoicesInSubmission(existing.submissionId(), existing.details().invID(),
+                user);
         log.info("Moved submission submissionId={} to the corrected submitter of invoice id={}",
-                existing.submissionId(), details.invID());
+                existing.submissionId(), existing.details().invID());
     }
 
     // The header and lines as the staff form sent them, ready to validate and write.
